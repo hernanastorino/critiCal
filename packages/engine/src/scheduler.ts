@@ -41,7 +41,6 @@ export interface ScheduleResult {
 // Scoring weights, in "minutes of badness".
 const W = {
   newActivityOnDay: 60,
-  overActivityCap: 600,
   sameActivityOnDay: -30,
   contextSwitch: 45,
   continuesTask: -20,
@@ -192,8 +191,9 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     const acts = board.dayActivities.get(first.date);
     if (acts?.has(p.activity.id)) s += W.sameActivityOnDay;
     else {
+      // The daily subject cap is firm; `recommendations` proposes relaxing it.
+      if ((acts?.size ?? 0) >= maxActivities) return null;
       s += W.newActivityOnDay;
-      if ((acts?.size ?? 0) >= maxActivities) s += W.overActivityCap;
     }
     const before = start > 0 && board.contiguous(start - 1) ? board.owner[start - 1] : null;
     const after = board.contiguous(start + length - 1) ? board.owner[start + length] : null;

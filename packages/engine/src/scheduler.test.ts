@@ -354,7 +354,7 @@ describe("options", () => {
     expect(targetOptions(base(), schedule(base()))).toEqual([]);
   });
 
-  it("recommends mixing subjects when the context rule costs free time", () => {
+  it("recommends mixing subjects when the daily cap blocks a minimum", () => {
     const input = base({
       settings: { ...settings, maxActivitiesPerDay: 1 },
       allowFreeTime: true,
@@ -364,13 +364,16 @@ describe("options", () => {
           minRemainingMinutes: 300,
         }),
         task("f", "fisica", at("2026-11-02", "23:30"), {
-          remainingMinutes: 300,
-          minRemainingMinutes: 300,
+          remainingMinutes: 60,
+          minRemainingMinutes: 60,
         }),
       ],
     });
     const recs = recommendations(input, schedule(input));
-    expect(recs.length === 0 || recs[0]?.id === "relax-context").toBe(true);
+    expect(recs).toHaveLength(1);
+    expect(recs[0]?.id).toBe("relax-context");
+    expect(recs[0]?.message).toMatch(/llegás a todos los mínimos/);
+    expect(recs[0]?.result.blocks.filter((b) => b.soft)).toHaveLength(0);
     const easy = base({ tasks: [task("m", "mate", horizonEnd)] });
     expect(recommendations(easy, schedule(easy))).toEqual([]);
   });

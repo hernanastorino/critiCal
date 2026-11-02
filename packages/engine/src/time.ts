@@ -63,7 +63,11 @@ export function zonedInstant(timeZone: string, date: string, minuteOfDay: number
   const naive = Date.UTC(y, m - 1, d) + minuteOfDay * MINUTE;
   const first = naive - offsetAt(timeZone, naive);
   const second = naive - offsetAt(timeZone, first);
-  return second;
+  // Exact match when the local time exists; inside a DST gap, move forward.
+  for (const candidate of [second, first]) {
+    if (candidate + offsetAt(timeZone, candidate) === naive) return candidate;
+  }
+  return Math.max(first, second);
 }
 
 /** Local dates (YYYY-MM-DD) touched by [from, to). */
@@ -73,7 +77,8 @@ export function localDates(timeZone: string, from: number, to: number): string[]
   while (cursor < to) {
     const { date } = localParts(timeZone, cursor);
     if (dates[dates.length - 1] !== date) dates.push(date);
-    cursor = zonedInstant(timeZone, date, 1440);
+    const next = zonedInstant(timeZone, date, 1440);
+    cursor = next > cursor ? next : cursor + 3_600_000;
   }
   return dates;
 }

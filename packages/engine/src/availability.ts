@@ -62,7 +62,9 @@ export function buildSlots(
   for (const date of dates) {
     const window = dayWindow(settings, date, byDate.get(date));
     for (const free of subtract(window.awake, busy)) {
-      let start = Math.ceil(Math.max(free.start, from) / step) * step;
+      // Grid anchored to the logical day's local midnight, not the UTC epoch.
+      const offset = Math.max(free.start, from) - window.midnight;
+      let start = window.midnight + Math.ceil(offset / step) * step;
       while (start + step <= Math.min(free.end, to)) {
         slots.push({
           start,

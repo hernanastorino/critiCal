@@ -21,6 +21,31 @@ describe("time", () => {
     expect(zonedInstant("America/New_York", "2026-03-09", 600)).toBe(Date.UTC(2026, 2, 9, 14));
   });
 
+  it("moves forward inside DST gaps and never loops", () => {
+    // Santiago skips 00:00 → 01:00 on 2026-09-06.
+    const gap = zonedInstant("America/Santiago", "2026-09-06", 0);
+    expect(localParts("America/Santiago", gap)).toMatchObject({
+      date: "2026-09-06",
+      minuteOfDay: 60,
+    });
+    expect(localDates("America/Santiago", Date.UTC(2026, 8, 4), Date.UTC(2026, 8, 9))).toEqual([
+      "2026-09-03",
+      "2026-09-04",
+      "2026-09-05",
+      "2026-09-06",
+      "2026-09-07",
+      "2026-09-08",
+    ]);
+  });
+
+  it("anchors slots to local midnight in zones with odd offsets", () => {
+    const kathmandu = { ...settings, timezone: "Asia/Kathmandu" };
+    const from = zonedInstant("Asia/Kathmandu", "2026-11-02", 0);
+    const slots = buildSlots(kathmandu, [], from, from + 86_400_000, []);
+    expect(slots[0]?.minuteOfDay).toBe(480);
+    expect(slots.every((s) => s.minuteOfDay % 30 === 0)).toBe(true);
+  });
+
   it("reads local parts", () => {
     expect(localParts(TZ, at("2026-11-02", "10:30"))).toMatchObject({
       date: "2026-11-02",
