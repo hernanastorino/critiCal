@@ -71,6 +71,8 @@ jobs:
       - run: supabase db start
       - name: Every public table has RLS enabled
         run: |
-          missing=$(psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -tAc \
+          missing=$(psql "postgresql://postgres:postgres@127.0.0.1:55322/postgres" -tAc \
             "select string_agg(tablename, ', ') from pg_tables where schemaname = 'public' and not rowsecurity")
           if [ -n "$missing" ]; then echo "::error::Tables without RLS: $missing"; exit 1; fi
+      - name: Database tests (RLS isolation, append-only check-ins)
+        run: supabase test db
