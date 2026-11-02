@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(9);
+select plan(11);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'a@test.local'),
@@ -39,14 +39,20 @@ select throws_ok(
 
 -- Check-ins are append-only.
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a"}';
-update public.check_ins set status = 'missed';
-select is((select status from public.check_ins), 'done', 'check-ins cannot be edited');
-delete from public.check_ins;
-select is((select count(*)::int from public.check_ins), 1, 'check-ins cannot be deleted');
+select throws_ok($$ update public.check_ins set status = 'missed' $$, '42501', null, 'check-ins cannot be edited');
+select throws_ok($$ delete from public.check_ins $$, '42501', null, 'check-ins cannot be deleted');
 select throws_ok(
   $$ delete from public.tasks $$,
   '23503', null, 'tasks with check-ins cannot be deleted'
 );
 
+select ok(
+  has_table_privilege('authenticated', 'public.tasks', 'INSERT'),
+  'authenticated can write tasks (rows still filtered by RLS)'
+);
+select ok(
+  not has_table_privilege('authenticated', 'public.check_ins', 'UPDATE'),
+  'authenticated has no UPDATE on check-ins'
+);
 select * from finish();
 rollback;
