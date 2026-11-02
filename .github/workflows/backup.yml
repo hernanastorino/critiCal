@@ -17,6 +17,8 @@ jobs:
     environment: production
     steps:
       - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
       - name: Dump and encrypt
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"

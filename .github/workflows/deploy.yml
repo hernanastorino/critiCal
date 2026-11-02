@@ -30,6 +30,8 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
       - name: Migrate staging database
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"
@@ -58,7 +60,7 @@ jobs:
     needs: staging
     environment:
       name: production
-      url: https://critical.vercel.app
+      url: https://critical-cal.vercel.app
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -67,6 +69,8 @@ jobs:
           cache: npm
       - run: npm ci
       - uses: supabase/setup-cli@v1
+        with:
+          version: 2.122.0
       - name: Migrate production database
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"

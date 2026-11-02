@@ -13,3 +13,8 @@ test("exposes a web app manifest", async ({ page, request }) => {
   const res = await request.get(href as string);
   expect((await res.json()).display).toBe("standalone");
 });
+
+test("serves the privacy policy", async ({ page }) => {
+  await page.goto("/privacy.html");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Política de privacidad");
+});
