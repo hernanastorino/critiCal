@@ -1,0 +1,40 @@
+const cache = new Map<string, Intl.DateTimeFormat>();
+
+function fmt(tz: string, opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = tz + JSON.stringify(opts);
+  let f = cache.get(key);
+  if (!f) {
+    f = new Intl.DateTimeFormat("es-UY", { timeZone: tz, ...opts });
+    cache.set(key, f);
+  }
+  return f;
+}
+
+export const time = (tz: string, t: number) =>
+  fmt(tz, { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(t);
+
+export const weekdayShort = (tz: string, t: number) =>
+  fmt(tz, { weekday: "short" }).format(t).replace(".", "").slice(0, 3);
+
+export const dayAndTime = (tz: string, t: number) => `${weekdayShort(tz, t)} ${time(tz, t)}`;
+
+export const dayMonth = (tz: string, t: number) =>
+  fmt(tz, { day: "numeric", month: "short" }).format(t).replace(".", "");
+
+export function hours(minutes: number): string {
+  if (minutes <= 0) return "0h";
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
+}
+
+export function hhmmToMinutes(v: string): number {
+  const [h, m] = v.split(":").map(Number);
+  return (h ?? 0) * 60 + (m ?? 0);
+}
+
+export function minutesToHhmm(v: number): string {
+  const n = ((v % 1440) + 1440) % 1440;
+  return `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
+}

@@ -1,0 +1,188 @@
+import { zonedInstant } from "@critical/engine";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { App } from "./App";
+import { demoData, TIMEZONE } from "./demo";
+import { loadDemo, resetDemo, seedHistory } from "./store";
+
+const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
+const seeded = (now: number) => seedHistory(demoData(now), now);
+
+beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem("critical.mode", "demo");
+});
+afterEach(cleanup);
+
+const renderApp = () => render(<App fixedNow={NOW} initial={seeded} />);
+
+describe("app", () => {
+  it("starts on the login screen and enters the demo", () => {
+    localStorage.clear();
+    render(<App fixedNow={NOW} initial={seeded} />);
+    fireEvent.click(screen.getByText("Probar con datos de ejemplo"));
+    expect(screen.getByTestId("week")).toBeTruthy();
+    expect(localStorage.getItem("critical.mode")).toBe("demo");
+  });
+
+  it("shows the week, a bubble and the critical path", () => {
+    renderApp();
+    const week = screen.getByTestId("week");
+    expect(week.querySelectorAll(".pill.planned").length).toBeGreaterThan(5);
+    expect(week.querySelectorAll(".pill.fixed").length).toBeGreaterThan(5);
+    expect(week.querySelector(".now-line")).toBeTruthy();
+
+    const toggle = screen.getByRole("button", { name: /Camino crítico/ });
+    fireEvent.click(toggle);
+    expect(week.className).toContain("critical-mode");
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(week.querySelectorAll('.pill.planned[data-level="critical"]').length).toBeGreaterThan(0);
+    fireEvent.click(toggle);
+
+    const pill = week.querySelector(".pill.planned:not(.past)") as HTMLElement;
+    fireEvent.click(pill, { clientX: 100, clientY: 600 });
+    const bubble = document.querySelector(".bubble") as HTMLElement;
+    expect(within(bubble).getByText(/Faltan/)).toBeTruthy();
+    fireEvent.click(bubble);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(screen.getByText(/Bloque planificado/)).toBeTruthy();
+    fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
+
+    const event = week.querySelector(".pill.fixed") as HTMLElement;
+    fireEvent.click(event, { clientX: 10, clientY: 10 });
+    fireEvent.click(document.querySelector(".bubble") as HTMLElement);
+    expect(screen.getByText(/Evento fijo/)).toBeTruthy();
+  });
+
+  it("navigates weeks", () => {
+    renderApp();
+    expect(screen.getByText("Esta semana")).toBeTruthy();
+    fireEvent.click(screen.getByLabelText("Semana siguiente"));
+    expect(screen.queryByText("Esta semana")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Semana anterior"));
+    expect(screen.getByText("Esta semana")).toBeTruthy();
+  });
+
+  it("confirms past blocks from the inbox", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    const done = screen.getAllByLabelText(/^Hecho:/);
+    expect(done).toHaveLength(2);
+    fireEvent.click(done[0] as HTMLElement);
+    fireEvent.click(screen.getByLabelText(/^No hecho:/));
+    expect(screen.getByText("Todo al día ✓")).toBeTruthy();
+  });
+
+  it("records a partial check-in with units", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    fireEvent.click(screen.getAllByText("◐")[0] as HTMLElement);
+    fireEvent.click(screen.getByLabelText(/Práctico 4/));
+    fireEvent.click(screen.getByText("◐ Parcial"));
+    fireEvent.change(screen.getByRole("slider"), { target: { value: "70" } });
+    fireEvent.click(screen.getByText("Guardar parcial"));
+    expect(screen.getAllByLabelText(/^Hecho:/)).toHaveLength(1);
+  });
+
+  it("shows silos and adds a deliverable and a habit", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    expect(screen.getByLabelText(/Parcial Cálculo II: faltan/)).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Nueva actividad"));
+    fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
+      target: { value: "Parcial Química" },
+    });
+    fireEvent.change(screen.getByDisplayValue("Cálculo II"), { target: { value: "new" } });
+    fireEvent.change(screen.getByPlaceholderText("Física I"), { target: { value: "Química" } });
+    fireEvent.change(screen.getByPlaceholderText("Práctico 5 (60)"), {
+      target: { value: "Repartido 1 (90)" },
+    });
+    fireEvent.click(screen.getByText("Agregar"));
+    expect(screen.getByText("Repartido 1")).toBeTruthy();
+    fireEvent.click(screen.getByText("Guardar"));
+    expect(screen.getByLabelText(/Parcial Química: faltan/)).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Nueva actividad"));
+    fireEvent.click(screen.getByText("Hábito semanal"));
+    fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
+      target: { value: "Correr" },
+    });
+    fireEvent.click(screen.getByText("Guardar"));
+    expect(screen.getByLabelText(/Correr: faltan/)).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText(/Correr: faltan/));
+    fireEvent.click(screen.getByText("Archivar"));
+    expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
+  });
+
+  it("re-plans the day from settings and can reset or leave the demo", () => {
+    renderApp();
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    const [wake] = screen.getAllByDisplayValue(/:/) as HTMLInputElement[];
+    fireEvent.change(wake as HTMLInputElement, { target: { value: "10:00" } });
+    fireEvent.click(screen.getByText("Reacomodar hoy"));
+    expect(JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}").overrides).toHaveLength(1);
+
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    act(() => fireEvent.click(screen.getByText("Reiniciar demo")));
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    fireEvent.click(screen.getByText("Salir"));
+    expect(screen.getByText("Probar con datos de ejemplo")).toBeTruthy();
+  });
+
+  it("offers choices when the minimums do not fit, and applies one", () => {
+    const tight = (now: number) => {
+      const d = demoData(now);
+      return {
+        ...d,
+        tasks: d.tasks.map((t) =>
+          t.id === "parcial-calc"
+            ? { ...t, minMinutes: 1500, estimateMinutes: 1500, units: [] }
+            : t,
+        ),
+      };
+    };
+    render(<App fixedNow={NOW} initial={tight} />);
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    expect(screen.getByText("No llegás a todo · elegí")).toBeTruthy();
+    const choices = screen.getAllByText("Elegir");
+    fireEvent.click(choices[choices.length - 1] as HTMLElement);
+    const suggestion = screen.queryByText("Hacelo por hoy");
+    if (suggestion) fireEvent.click(suggestion);
+    expect(screen.getByRole("heading", { name: "Bandeja" })).toBeTruthy();
+  });
+
+  it("asks before moving today's blocks when a new event clashes", () => {
+    const first = seeded(NOW);
+    const clash = first.plan.find((b) => b.start > NOW) as (typeof first.plan)[number];
+    const withEvent = {
+      ...first,
+      events: [
+        ...first.events,
+        {
+          id: "new",
+          title: "Dentista",
+          start: clash.start,
+          end: clash.end,
+          busy: true,
+          source: "demo" as const,
+        },
+      ],
+    };
+    render(<App fixedNow={NOW} initial={() => withEvent} />);
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    expect(screen.getByText(/Un evento nuevo pisa/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Reacomodar"));
+    expect(screen.queryByText(/Un evento nuevo pisa/)).toBeNull();
+  });
+
+  it("loads and resets persisted demo data", () => {
+    localStorage.setItem("critical.demo.v1", JSON.stringify({ ...demoData(NOW), tasks: [] }));
+    expect(loadDemo(NOW).tasks).toEqual([]);
+    resetDemo();
+    expect(loadDemo(NOW).tasks.length).toBeGreaterThan(0);
+    localStorage.setItem("critical.demo.v1", "{bad json");
+    expect(loadDemo(NOW).tasks.length).toBeGreaterThan(0);
+  });
+});

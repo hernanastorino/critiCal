@@ -1,9 +1,37 @@
 import { expect, test } from "@playwright/test";
 
-test("app loads and the engine responds", async ({ page }) => {
+test("demo: week, critical path, bubble, silos and inbox", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "critiCal" })).toBeVisible();
-  await expect(page.getByTestId("engine-status")).toHaveText(/listo/);
+  await page.getByRole("button", { name: "Probar con datos de ejemplo" }).click();
+
+  const week = page.getByTestId("week");
+  await expect(week).toBeVisible();
+  await expect(week.locator(".pill.planned").first()).toBeVisible();
+
+  // The whole week fits on screen without scrolling.
+  const box = await week.boundingBox();
+  const viewport = page.viewportSize();
+  expect(box && viewport && box.y + box.height <= viewport.height).toBeTruthy();
+
+  const toggle = page.getByRole("button", { name: "Camino crítico" });
+  await toggle.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(week).toHaveClass(/critical-mode/);
+  await toggle.click();
+
+  await week.locator(".pill.planned:not(.past)").first().click();
+  const bubble = page.locator(".bubble");
+  await expect(bubble).toContainText("Faltan");
+  await bubble.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("button", { name: "Cerrar" }).last().click();
+
+  await page.getByRole("button", { name: /Silos/ }).click();
+  await expect(page.getByRole("heading", { name: "Lo que falta" })).toBeVisible();
+
+  await page.getByRole("button", { name: /Bandeja/ }).click();
+  await expect(page.getByRole("heading", { name: "Bandeja" })).toBeVisible();
 });
 
 test("exposes a web app manifest", async ({ page, request }) => {
