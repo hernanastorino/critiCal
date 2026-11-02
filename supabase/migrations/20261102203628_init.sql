@@ -23,13 +23,14 @@ create table public.activities (
   preferred_end int check (preferred_end between 0 and 2880),
   weekly_min_minutes int check (weekly_min_minutes >= 0),
   archived boolean not null default false,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  unique (id, user_id)
 );
 
 create table public.tasks (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
-  activity_id uuid not null references public.activities on delete cascade,
+  activity_id uuid not null,
   title text not null,
   kind text not null default 'deliverable' check (kind in ('deliverable', 'habit')),
   deadline timestamptz,
@@ -42,43 +43,50 @@ create table public.tasks (
   source_event_id text,
   status text not null default 'active' check (status in ('active', 'done', 'dropped')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (id, user_id),
+  -- Same owner on both sides: foreign-key checks bypass RLS.
+  foreign key (activity_id, user_id) references public.activities (id, user_id) on delete cascade
 );
 
 create table public.task_units (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
-  task_id uuid not null references public.tasks on delete cascade,
+  task_id uuid not null,
   title text not null,
   estimate_minutes int not null check (estimate_minutes >= 0),
   position int not null default 0,
-  done_at timestamptz
+  done_at timestamptz,
+  foreign key (task_id, user_id) references public.tasks (id, user_id) on delete cascade
 );
 
--- Append-only log of what really happened in each planned block.
+-- Append-only log of what really happened in each planned block. Tasks with
+-- check-ins cannot be deleted (archive them instead), so the log never changes.
 create table public.check_ins (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   block_id text not null,
-  task_id uuid references public.tasks on delete set null,
+  task_id uuid not null,
   status text not null check (status in ('done', 'missed', 'partial')),
   minutes_done int not null default 0 check (minutes_done >= 0),
   unit_ids uuid[] not null default '{}',
   note text,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  foreign key (task_id, user_id) references public.tasks (id, user_id)
 );
 
 create table public.plan_blocks (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
   id text not null,
-  task_id uuid not null references public.tasks on delete cascade,
+  task_id uuid not null,
   start_at timestamptz not null,
   end_at timestamptz not null check (end_at > start_at),
   level text not null default 'ok' check (level in ('ok', 'warn', 'critical')),
   soft boolean not null default false,
   google_event_id text,
   seen_at timestamptz,
-  primary key (user_id, id)
+  primary key (user_id, id),
+  foreign key (task_id, user_id) references public.tasks (id, user_id) on delete cascade
 );
 
 create table public.calendar_events (
@@ -111,16 +119,19 @@ create table public.places (
   aliases text[] not null default '{}',
   lat double precision,
   lon double precision,
-  is_home boolean not null default false
+  is_home boolean not null default false,
+  unique (id, user_id)
 );
 
 create table public.travel_times (
   user_id uuid not null default auth.uid() references auth.users on delete cascade,
-  from_place uuid not null references public.places on delete cascade,
-  to_place uuid not null references public.places on delete cascade,
+  from_place uuid not null,
+  to_place uuid not null,
   minutes int not null check (minutes >= 0),
   manual boolean not null default false,
-  primary key (user_id, from_place, to_place)
+  primary key (user_id, from_place, to_place),
+  foreign key (from_place, user_id) references public.places (id, user_id) on delete cascade,
+  foreign key (to_place, user_id) references public.places (id, user_id) on delete cascade
 );
 
 -- Changes to today's plan wait here for the user's OK.
@@ -150,6 +161,9 @@ create table private.oauth_tokens (
   updated_at timestamptz not null default now(),
   primary key (user_id, provider)
 );
+
+grant usage on schema private to service_role;
+grant select, insert, update, delete on private.oauth_tokens to service_role;
 
 create index on public.tasks (user_id, status);
 create index on public.task_units (task_id);
