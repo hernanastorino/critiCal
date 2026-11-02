@@ -200,6 +200,43 @@ describe("schedule", () => {
     expect(others.every((b) => !overlaps(b, frozen))).toBe(true);
   });
 
+  it("counts frozen blocks towards the daily caps", () => {
+    const frozen: PlanBlock = {
+      id: "f",
+      taskId: "m",
+      activityId: "mate",
+      start: at("2026-11-02", "08:00"),
+      end: at("2026-11-02", "09:00"),
+    };
+    const late: PlanBlock = {
+      ...frozen,
+      id: "late",
+      start: at("2026-11-03", "00:30"),
+      end: at("2026-11-03", "01:00"),
+    };
+    const r = schedule(
+      base({
+        settings: { ...settings, maxActivitiesPerDay: 1 },
+        frozen: [frozen, late],
+        tasks: [
+          task("m", "mate", at("2026-11-04", "08:00"), {
+            remainingMinutes: 180,
+            minRemainingMinutes: 180,
+            maxPerDayMinutes: 90,
+          }),
+          task("f", "fisica", at("2026-11-04", "08:00"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 60,
+          }),
+        ],
+      }),
+    );
+    const monday = r.blocks.filter((b) => !b.frozen && b.start < at("2026-11-03", "08:00"));
+    expect(monday.every((b) => b.activityId === "mate")).toBe(true);
+    const mateMonday = monday.reduce((s, b) => s + (b.end - b.start) / MINUTE, 0);
+    expect(mateMonday).toBe(0);
+  });
+
   it("only uses free time for academic work when allowed", () => {
     const deadline = at("2026-11-02", "23:59");
     const input = base({
