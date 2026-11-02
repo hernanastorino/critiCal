@@ -84,6 +84,9 @@ export function TaskEditor({ task, onClose }: { task?: AppTask; onClose: () => v
         aria-modal="true"
         aria-label={task ? "Editar" : "Nueva actividad"}
       >
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+          ✕
+        </button>
         <h2>{task ? "Editar" : "Nueva"}</h2>
         <div className="row" style={{ marginBottom: 12 }}>
           <button

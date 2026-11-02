@@ -4,7 +4,7 @@
 //   { action: "disconnect" } → forgets the credentials and the imported events.
 //   {} → imports events from every iCloud calendar into calendar_events.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-import { createDAVClient } from "npm:tsdav@2.1.3";
+import { basicAuth, DavError, discover, fetchEvents } from "../_shared/caldav.ts";
 import { parseIcs } from "../_shared/ics.ts";
 
 const DAY = 86_400_000;
@@ -21,15 +21,6 @@ const json = (body: unknown, status = 200) =>
 interface Credentials {
   appleId: string;
   appPassword: string;
-}
-
-async function dav(c: Credentials) {
-  return await createDAVClient({
-    serverUrl: "https://caldav.icloud.com",
-    credentials: { username: c.appleId, password: c.appPassword },
-    authMethod: "Basic",
-    defaultAccountType: "caldav",
-  });
 }
 
 Deno.serve(async (req) => {
@@ -64,11 +55,18 @@ Deno.serve(async (req) => {
       creds = JSON.parse(data as string) as Credentials;
     }
 
-    let client: Awaited<ReturnType<typeof dav>>;
+    const auth = basicAuth(creds.appleId, creds.appPassword);
+    let calendars: Awaited<ReturnType<typeof discover>>;
     try {
-      client = await dav(creds);
-    } catch {
-      return json({ connected: false, error: "icloud_login_failed" });
+      calendars = await discover(fetch, auth);
+    } catch (e) {
+      console.error("icloud discover", e);
+      const code = e instanceof DavError ? e.code : "icloud_unreachable";
+      return json({
+        connected: false,
+        error: code,
+        status: e instanceof DavError ? e.status : undefined,
+      });
     }
     if (body.action === "connect") {
       await admin.rpc("store_oauth_token", {
@@ -85,32 +83,33 @@ Deno.serve(async (req) => {
     const from = new Date(now - 7 * DAY).toISOString();
     const to = new Date(now + 60 * DAY).toISOString();
 
-    const calendars = (await client.fetchCalendars()).filter((c) =>
-      (c.components ?? ["VEVENT"]).includes("VEVENT"),
-    );
     await user.from("calendars").upsert(
       calendars.map((c) => ({
         source: "icloud",
         external_id: c.url,
-        name: typeof c.displayName === "string" ? c.displayName : "iCloud",
-        color: (c as { calendarColor?: string }).calendarColor?.slice(0, 7) ?? null,
+        name: c.name,
+        color: c.color ?? null,
       })),
     );
 
     const rows = [];
+    const fetched = new Set<string>();
     for (const cal of calendars) {
-      const objects = await client.fetchCalendarObjects({
-        calendar: cal,
-        timeRange: { start: from, end: to },
-        expand: true,
-      });
-      for (const o of objects) {
+      let documents: string[] = [];
+      try {
+        documents = await fetchEvents(fetch, auth, cal.url, Date.parse(from), Date.parse(to));
+        fetched.add(cal.url);
+      } catch (err) {
+        // Keep this calendar's stored events: an error is not "no events".
+        console.warn("skipping calendar", cal.name, err);
+      }
+      for (const doc of documents) {
         // One malformed event must not stop the whole sync.
         let parsed: ReturnType<typeof parseIcs> = [];
         try {
-          parsed = parseIcs(String(o.data ?? ""), timeZone);
+          parsed = parseIcs(doc, timeZone);
         } catch (err) {
-          console.warn("skipping unparseable event", o.url, err);
+          console.warn("skipping unparseable event", cal.name, err);
         }
         for (const e of parsed) {
           if (e.cancelled || e.end < Date.parse(from) || e.start > Date.parse(to)) continue;
@@ -138,15 +137,22 @@ Deno.serve(async (req) => {
     const keep = new Set(rows.map((r) => r.external_id));
     const { data: stored } = await user
       .from("calendar_events")
-      .select("external_id")
+      .select("external_id, calendar_id")
       .eq("source", "icloud")
       .gte("start_at", from)
       .lte("start_at", to);
-    const stale = (stored ?? []).map((r) => r.external_id).filter((id) => !keep.has(id));
+    const stale = (stored ?? [])
+      .filter((r) => fetched.has(r.calendar_id) && !keep.has(r.external_id))
+      .map((r) => r.external_id);
     if (stale.length)
       await user.from("calendar_events").delete().eq("source", "icloud").in("external_id", stale);
 
-    return json({ connected: true, imported: rows.length, calendars: calendars.length });
+    return json({
+      connected: true,
+      imported: unique.length,
+      calendars: calendars.length,
+      failedCalendars: calendars.length - fetched.size,
+    });
   } catch (e) {
     console.error(e);
     return json({ connected: false, error: "sync_failed" }, 500);
