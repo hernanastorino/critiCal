@@ -237,6 +237,64 @@ describe("schedule", () => {
     expect(mateMonday).toBe(0);
   });
 
+  it("splits frozen blocks at wake-up and honours wake overrides", () => {
+    const capOne = { ...settings, maxActivitiesPerDay: 1 };
+    const fisica = task("f", "fisica", at("2026-11-04", "08:00"), {
+      remainingMinutes: 60,
+      minRemainingMinutes: 60,
+    });
+    const isTuesday = (b: PlanBlock) =>
+      b.start >= at("2026-11-03", "06:00") && b.start < at("2026-11-04", "00:00");
+
+    // 07:30–08:30 with an 08:00 wake: the last half hour belongs to Tuesday.
+    const crossing: PlanBlock = {
+      id: "x",
+      taskId: "m",
+      activityId: "mate",
+      start: at("2026-11-03", "07:30"),
+      end: at("2026-11-03", "08:30"),
+    };
+    const r1 = schedule(
+      base({
+        now: at("2026-11-03", "08:30"),
+        settings: capOne,
+        frozen: [crossing],
+        tasks: [
+          task("m", "mate", at("2026-11-04", "08:00"), {
+            remainingMinutes: 0,
+            minRemainingMinutes: 0,
+          }),
+          fisica,
+        ],
+      }),
+    );
+    expect(r1.blocks.filter((b) => !b.frozen && b.taskId === "f").some(isTuesday)).toBe(false);
+
+    // Woke at 06:00 on Tuesday: a 06:30 block counts for Tuesday.
+    const early: PlanBlock = {
+      ...crossing,
+      id: "e",
+      start: at("2026-11-03", "06:30"),
+      end: at("2026-11-03", "07:30"),
+    };
+    const r2 = schedule(
+      base({
+        now: at("2026-11-03", "07:30"),
+        settings: capOne,
+        overrides: [{ date: "2026-11-03", wake: 360 }],
+        frozen: [early],
+        tasks: [
+          task("m", "mate", at("2026-11-04", "08:00"), {
+            remainingMinutes: 0,
+            minRemainingMinutes: 0,
+          }),
+          fisica,
+        ],
+      }),
+    );
+    expect(r2.blocks.filter((b) => !b.frozen && b.taskId === "f").some(isTuesday)).toBe(false);
+  });
+
   it("only uses free time for academic work when allowed", () => {
     const deadline = at("2026-11-02", "23:59");
     const input = base({
