@@ -93,11 +93,14 @@ Deno.serve(async (req) => {
     );
 
     const rows = [];
+    const fetched = new Set<string>();
     for (const cal of calendars) {
       let documents: string[] = [];
       try {
         documents = await fetchEvents(fetch, auth, cal.url, Date.parse(from), Date.parse(to));
+        fetched.add(cal.url);
       } catch (err) {
+        // Keep this calendar's stored events: an error is not "no events".
         console.warn("skipping calendar", cal.name, err);
       }
       for (const doc of documents) {
@@ -134,15 +137,22 @@ Deno.serve(async (req) => {
     const keep = new Set(rows.map((r) => r.external_id));
     const { data: stored } = await user
       .from("calendar_events")
-      .select("external_id")
+      .select("external_id, calendar_id")
       .eq("source", "icloud")
       .gte("start_at", from)
       .lte("start_at", to);
-    const stale = (stored ?? []).map((r) => r.external_id).filter((id) => !keep.has(id));
+    const stale = (stored ?? [])
+      .filter((r) => fetched.has(r.calendar_id) && !keep.has(r.external_id))
+      .map((r) => r.external_id);
     if (stale.length)
       await user.from("calendar_events").delete().eq("source", "icloud").in("external_id", stale);
 
-    return json({ connected: true, imported: rows.length, calendars: calendars.length });
+    return json({
+      connected: true,
+      imported: unique.length,
+      calendars: calendars.length,
+      failedCalendars: calendars.length - fetched.size,
+    });
   } catch (e) {
     console.error(e);
     return json({ connected: false, error: "sync_failed" }, 500);

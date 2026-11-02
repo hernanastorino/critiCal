@@ -36,7 +36,8 @@ export function decode(text: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => String.fromCodePoint(Number.parseInt(h, 16)))
+    .replace(/&#(\d+);/g, (_, n) => String.fromCodePoint(Number(n)))
     .replace(/&amp;/g, "&");
 }
 
@@ -108,6 +109,11 @@ export async function dav(
 ): Promise<{ xml: string; url: string }> {
   let target = url;
   for (let hop = 0; hop < 4; hop++) {
+    // Credentials only travel over HTTPS, and only to iCloud.
+    const parsed = new URL(target);
+    if (parsed.protocol !== "https:" || !/(^|\.)icloud\.com$/.test(parsed.hostname)) {
+      throw new DavError("icloud_unreachable");
+    }
     const res = await fetcher(target, {
       method,
       redirect: "manual",

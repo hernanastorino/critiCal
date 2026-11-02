@@ -24,7 +24,7 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
   if (!r) return "Sincronizando…";
   if (r.connected) return `✓ ${r.imported ?? 0} eventos${at ? ` · ${time(tz, at)}` : ""}`;
   if (r.reason === "invalid_client") {
-    return "El Client Secret de Google guardado en Supabase no coincide con el del login. Hay que volver a cargarlo.";
+    return "Google no acepta las credenciales del cliente: revisá que GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en Supabase sean los mismos que usa el login con Google.";
   }
   if (r.reason === "invalid_grant") return "Google revocó el permiso. Tocá «Reconectar Google».";
   const msg = r.error ? (MESSAGES[r.error] ?? "La sincronización falló.") : "Sin conectar.";

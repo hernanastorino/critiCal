@@ -120,6 +120,12 @@ describe("caldav", () => {
     const loop: Fetch = async (url) =>
       new Response(null, { status: 302, headers: { location: url } });
     await expect(discover(loop, auth)).rejects.toBeInstanceOf(DavError);
+    const insecure: Fetch = async () =>
+      new Response(null, { status: 301, headers: { location: "http://caldav.icloud.com/" } });
+    await expect(discover(insecure, auth)).rejects.toMatchObject({ code: "icloud_unreachable" });
+    const elsewhere: Fetch = async () =>
+      new Response(null, { status: 301, headers: { location: "https://evil.example/" } });
+    await expect(discover(elsewhere, auth)).rejects.toMatchObject({ code: "icloud_unreachable" });
     const empty: Fetch = async () =>
       new Response(multistatus("<response><href>/</href></response>"), { status: 207 });
     await expect(discover(empty, auth)).rejects.toMatchObject({
@@ -135,6 +141,7 @@ describe("caldav", () => {
     expect(hrefIn("<p><href>/x/</href></p>", "p", "https://h/")).toBe("https://h/x/");
     expect(hrefIn("<q/>", "p", "https://h/")).toBeUndefined();
     expect(decode("&lt;a&gt; &quot;b&quot; &apos;c&apos; &#65;&amp;")).toBe("<a> \"b\" 'c' A&");
+    expect(decode("A&#xD;&#xA;B")).toBe("A\r\nB");
     expect(
       parseCalendars(
         multistatus("<response><resourcetype><calendar/></resourcetype></response>"),

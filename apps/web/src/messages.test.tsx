@@ -18,7 +18,7 @@ group("sync messages", () => {
         { connected: false, error: "token_refresh_failed", status: 401, reason: "invalid_client" },
         tz,
       ),
-    ).toMatch(/Client Secret/);
+    ).toMatch(/GOOGLE_CLIENT_SECRET/);
     expect(
       describe({ connected: false, error: "token_refresh_failed", reason: "invalid_grant" }, tz),
     ).toMatch(/Reconectar/);
