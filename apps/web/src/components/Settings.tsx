@@ -25,6 +25,9 @@ export function Settings({
     <>
       <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true" aria-label="Ajustes">
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+          ✕
+        </button>
         <h2>Hoy</h2>
         <p className="meta">
           Si te levantaste o te vas a acostar a otra hora, el día se reacomoda.

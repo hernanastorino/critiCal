@@ -13,6 +13,9 @@ const MESSAGES: Record<string, string> = {
   unreachable: "No se pudo contactar al servidor de sincronización.",
   not_connected: "Sin conectar.",
   icloud_login_failed: "Apple ID o contraseña de app incorrectos.",
+  icloud_auth_failed:
+    "iCloud rechazó el Apple ID o la contraseña de app. Usá el mail principal del Apple ID y una contraseña específica de app recién creada.",
+  icloud_unreachable: "No se pudo hablar con iCloud.",
   missing_credentials: "Completá el Apple ID y la contraseña de app.",
   sync_failed: "La sincronización falló.",
 };
@@ -20,6 +23,10 @@ const MESSAGES: Record<string, string> = {
 export function describe(r: SyncResult | undefined, tz: string, at?: number): string {
   if (!r) return "Sincronizando…";
   if (r.connected) return `✓ ${r.imported ?? 0} eventos${at ? ` · ${time(tz, at)}` : ""}`;
+  if (r.reason === "invalid_client") {
+    return "El Client Secret de Google guardado en Supabase no coincide con el del login. Hay que volver a cargarlo.";
+  }
+  if (r.reason === "invalid_grant") return "Google revocó el permiso. Tocá «Reconectar Google».";
   const msg = r.error ? (MESSAGES[r.error] ?? "La sincronización falló.") : "Sin conectar.";
   return r.status ? `${msg} (${r.status})` : msg;
 }

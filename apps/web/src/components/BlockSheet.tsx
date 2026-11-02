@@ -10,6 +10,9 @@ export function BlockSheet({ item, onClose }: { item: Item; onClose: () => void 
     <>
       <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
       <div className="sheet" role="dialog" aria-modal="true">
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+          ✕
+        </button>
         {item.kind === "event" ? (
           <EventDetail item={item} />
         ) : (

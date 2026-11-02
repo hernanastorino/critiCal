@@ -40,6 +40,13 @@ body,
   margin: 0;
 }
 
+/* Behave like an app: no double-tap zoom, no text inflation. */
+html {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 body {
   background: var(--bg);
   color: var(--ink);
@@ -58,8 +65,11 @@ button {
 }
 
 input,
-select {
+select,
+textarea {
   font: inherit;
+  /* iOS zooms into any field under 16px. */
+  font-size: 16px;
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -350,6 +360,21 @@ select {
   border-radius: 22px 22px 0 0;
   padding: 10px 18px calc(18px + var(--safe-b));
   animation: up 0.22s ease-out;
+}
+
+.sheet-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--glass);
+  color: var(--ink-soft);
+  font-size: 18px;
+  line-height: 1;
 }
 
 .sheet::before {

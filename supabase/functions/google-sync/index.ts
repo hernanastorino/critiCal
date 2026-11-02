@@ -17,6 +17,7 @@ class SyncError extends Error {
   constructor(
     readonly code: string,
     readonly status?: number,
+    readonly reason?: string,
   ) {
     super(code);
   }
@@ -39,7 +40,14 @@ async function accessToken(refreshToken: string): Promise<string> {
       grant_type: "refresh_token",
     }),
   });
-  if (!res.ok) throw new SyncError("token_refresh_failed", res.status);
+  if (!res.ok) {
+    // Google's OAuth error code ("invalid_client", "invalid_grant") is safe to show.
+    const reason = await res
+      .json()
+      .then((b) => (typeof b?.error === "string" ? b.error : undefined))
+      .catch(() => undefined);
+    throw new SyncError("token_refresh_failed", res.status, reason);
+  }
   return (await res.json()).access_token as string;
 }
 
@@ -216,7 +224,9 @@ Deno.serve(async (req) => {
   } catch (e) {
     // Details stay in the function logs; the client gets a stable code only.
     console.error(e);
-    if (e instanceof SyncError) return json({ connected: false, error: e.code, status: e.status });
+    if (e instanceof SyncError) {
+      return json({ connected: false, error: e.code, status: e.status, reason: e.reason });
+    }
     return json({ connected: false, error: "sync_failed" }, 500);
   }
 });

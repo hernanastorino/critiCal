@@ -34,6 +34,8 @@ export interface SyncResult {
   imported?: number;
   error?: string;
   status?: number;
+  /** Upstream error code, e.g. Google's "invalid_client". */
+  reason?: string;
 }
 
 /** Runs the iCloud sync, or connects/disconnects iCloud. */
