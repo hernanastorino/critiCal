@@ -1,7 +1,15 @@
 import type { Activity, DayOverride, PlanBlock, Settings } from "@critical/engine";
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { defaultSettings } from "./demo";
-import type { AppData, AppEvent, AppTask, CheckIn, Proposal } from "./model";
+import type {
+  AppCalendar,
+  AppData,
+  AppEvent,
+  AppTask,
+  CalendarRole,
+  CheckIn,
+  Proposal,
+} from "./model";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;
@@ -21,13 +29,30 @@ export async function signInWithGoogle(client: SupabaseClient): Promise<void> {
   });
 }
 
+export interface SyncResult {
+  connected: boolean;
+  imported?: number;
+  error?: string;
+  status?: number;
+}
+
+/** Runs the iCloud sync, or connects/disconnects iCloud. */
+export async function syncICloud(
+  client: SupabaseClient,
+  body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},
+): Promise<SyncResult> {
+  const { data, error } = await client.functions.invoke("icloud-sync", { body });
+  if (error) return { connected: false, error: "unreachable" };
+  return data as SyncResult;
+}
+
 /** Runs the server sync; passes the Google refresh token right after sign-in. */
 export async function syncGoogle(client: SupabaseClient, session: Session) {
   const { data, error } = await client.functions.invoke("google-sync", {
     body: { refreshToken: session.provider_refresh_token ?? null },
   });
-  if (error) throw error;
-  return data as { connected: boolean; imported?: number; error?: string };
+  if (error) return { connected: false, error: "unreachable" } as SyncResult;
+  return data as SyncResult;
 }
 
 interface State {
@@ -50,6 +75,7 @@ export function rowsToData(r: {
   events: Row[];
   overrides: Row[];
   blocks: Row[];
+  calendars?: Row[];
 }): AppData {
   const state = (r.settings?.state ?? {}) as State;
   return {
@@ -82,6 +108,8 @@ export function rowsToData(r: {
         maxPerDayMinutes: (t.max_per_day_minutes as number) ?? undefined,
         priority: t.priority as number,
         status: t.status as AppTask["status"],
+        sourceEventId: (t.source_event_id as string) ?? undefined,
+        needsReview: (t.needs_review as boolean) || undefined,
         units: r.units
           .filter((u) => u.task_id === t.id)
           .sort((a, b) => (a.position as number) - (b.position as number))
@@ -115,6 +143,7 @@ export function rowsToData(r: {
         allDay: e.all_day as boolean,
         source: e.source as AppEvent["source"],
         link: (e.link as string) ?? undefined,
+        calendarId: e.calendar_id ? `${e.source}:${e.calendar_id}` : undefined,
       }),
     ),
     overrides: r.overrides.map(
@@ -135,6 +164,16 @@ export function rowsToData(r: {
         soft: b.soft as boolean,
       }),
     ),
+    calendars: (r.calendars ?? []).map(
+      (c): AppCalendar => ({
+        id: `${c.source}:${c.external_id}`,
+        source: c.source as AppCalendar["source"],
+        externalId: c.external_id as string,
+        name: c.name as string,
+        color: (c.color as string) ?? undefined,
+        role: (c.role as CalendarRole) ?? undefined,
+      }),
+    ),
     proposals: state.proposals ?? [],
     freeTimeUntil: state.freeTimeUntil,
     relaxContextUntil: state.relaxContextUntil,
@@ -147,7 +186,7 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     if (error) throw error;
     return (data ?? []) as Row[];
   };
-  const [settings, activities, tasks, units, checkIns, events, overrides, blocks] =
+  const [settings, activities, tasks, units, checkIns, events, overrides, blocks, calendars] =
     await Promise.all([
       client
         .from("settings")
@@ -161,8 +200,19 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
       all("calendar_events"),
       all("day_overrides"),
       all("plan_blocks"),
+      all("calendars"),
     ]);
-  return rowsToData({ settings, activities, tasks, units, checkIns, events, overrides, blocks });
+  return rowsToData({
+    settings,
+    activities,
+    tasks,
+    units,
+    checkIns,
+    events,
+    overrides,
+    blocks,
+    calendars,
+  });
 }
 
 const changed = <T extends { id: string }>(before: T[], after: T[]) => {
@@ -235,6 +285,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         max_per_day_minutes: t.maxPerDayMinutes ?? null,
         priority: t.priority,
         status: t.status,
+        source_event_id: t.sourceEventId ?? null,
+        needs_review: !!t.needsReview,
       })),
     });
     const units = tasks.flatMap((t) =>
@@ -253,6 +305,20 @@ export function diffData(prev: AppData, next: AppData): Writes {
       .flatMap((t) => t.units.map((u) => u.id))
       .filter((id) => !keptUnits.has(id));
     if (goneUnits.length) deletes.push({ table: "task_units", ids: goneUnits });
+  }
+
+  const roles = changed(prev.calendars ?? [], next.calendars ?? []);
+  if (roles.length) {
+    upserts.push({
+      table: "calendars",
+      rows: roles.map((c) => ({
+        source: c.source,
+        external_id: c.externalId,
+        name: c.name,
+        color: c.color ?? null,
+        role: c.role ?? null,
+      })),
+    });
   }
 
   const seen = new Set(prev.checkIns.map((c) => c.id));
@@ -305,7 +371,15 @@ export function diffData(prev: AppData, next: AppData): Writes {
 
 export async function applyWrites(client: SupabaseClient, w: Writes): Promise<void> {
   // Parents first: activities → tasks → units/blocks.
-  const order = ["settings", "activities", "tasks", "task_units", "day_overrides", "plan_blocks"];
+  const order = [
+    "settings",
+    "calendars",
+    "activities",
+    "tasks",
+    "task_units",
+    "day_overrides",
+    "plan_blocks",
+  ];
   for (const table of order) {
     for (const u of w.upserts.filter((x) => x.table === table)) {
       const { error } = await client.from(table).upsert(u.rows);

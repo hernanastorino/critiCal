@@ -1,5 +1,6 @@
 import { localParts, type PlanBlock, zonedInstant } from "@critical/engine";
 import { type CSSProperties, useMemo, useState } from "react";
+import { visibleEvents } from "../calendars";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format";
 import type { AppEvent } from "../model";
 import { progress, weekDates } from "../planning";
@@ -40,7 +41,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
 
   const items = useMemo(() => {
     const all: Item[] = [
-      ...data.events
+      ...visibleEvents(data)
         .filter((e) => !e.allDay)
         .map((e) => ({ kind: "event" as const, id: e.id, start: e.start, end: e.end, event: e })),
       ...data.plan.map((b) => ({
@@ -52,7 +53,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       })),
     ];
     return all;
-  }, [data.events, data.plan]);
+  }, [data]);
 
   const colorOf = (b: PlanBlock) =>
     data.activities.find((a) => a.id === b.activityId)?.color ?? "#888";

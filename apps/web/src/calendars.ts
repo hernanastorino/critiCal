@@ -1,0 +1,158 @@
+import type { Activity } from "@critical/engine";
+import {
+  type AppCalendar,
+  type AppData,
+  type AppEvent,
+  type AppTask,
+  type CalendarRole,
+  PALETTE,
+} from "./model";
+
+const normalize = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+/** Role from the calendar's name: "Parciales" → parcial, "Entregas" → entrega, … */
+export function guessRole(name: string): CalendarRole {
+  const n = normalize(name);
+  if (/\b(parcial|parciales|examen|examenes|prueba|pruebas|final|finales)\b/.test(n))
+    return "parcial";
+  if (/\b(entrega|entregas|deadline|deadlines)\b/.test(n)) return "entrega";
+  if (/\b(presentacion|presentaciones|exposicion|exposiciones|defensa)\b/.test(n))
+    return "presentacion";
+  if (/\b(feriado|feriados|holiday|holidays|cumpleanos|birthdays)\b/.test(n)) return "ignore";
+  return "busy";
+}
+
+export const roleOf = (c: AppCalendar): CalendarRole => c.role ?? guessRole(c.name);
+
+export const ROLE_LABEL: Record<CalendarRole, string> = {
+  busy: "Ocupado (fijo)",
+  parcial: "Parciales",
+  entrega: "Entregas",
+  presentacion: "Presentaciones",
+  ignore: "Ignorar",
+};
+
+/** Default effort per kind of deadline, in minutes. */
+export const DEFAULTS: Record<
+  "parcial" | "entrega" | "presentacion",
+  { estimate: number; min: number; priority: number }
+> = {
+  parcial: { estimate: 600, min: 360, priority: 3 },
+  entrega: { estimate: 360, min: 240, priority: 2 },
+  presentacion: { estimate: 240, min: 120, priority: 2 },
+};
+
+const KEYWORDS =
+  /\b(parcial|parciales|1er|2do|3er|primer|segundo|tercer|examen|final|prueba|entrega|entregable|presentacion|exposicion|defensa|de|del|la|el|tp|obligatorio)\b/g;
+
+/** "Parcial 2 de Física I" → "Fisica I"-like subject used to find or name the activity. */
+export function subjectOf(title: string): string {
+  const cleaned = normalize(title)
+    .replace(KEYWORDS, " ")
+    .replace(/\b\d+\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return cleaned;
+}
+
+function calendarFor(data: AppData, e: AppEvent): AppCalendar | undefined {
+  return data.calendars?.find((c) => c.id === e.calendarId);
+}
+
+export function eventRole(data: AppData, e: AppEvent): CalendarRole {
+  const c = calendarFor(data, e);
+  return c ? roleOf(c) : "busy";
+}
+
+/** Events the planner and the week view use: ignored calendars out, deadlines of "entrega" do not block time. */
+export function visibleEvents(data: AppData): AppEvent[] {
+  return data.events.flatMap((e) => {
+    const role = eventRole(data, e);
+    if (role === "ignore") return [];
+    if (role === "entrega") return [{ ...e, busy: false }];
+    return [e];
+  });
+}
+
+/** Original-spelling subject for naming a new activity: "Entrega TP Programación" → "Programación". */
+export function subjectName(title: string): string {
+  const kept = title.split(/\s+/).filter((w) => {
+    const n = normalize(w);
+    return n.length > 0 && !/^\d+$/.test(n) && n.replace(KEYWORDS, "").trim().length > 0;
+  });
+  const name = kept.join(" ") || title;
+  return name.charAt(0).toUpperCase() + name.slice(1);
+}
+
+/**
+ * Keeps tasks in step with deadline events: a new parcial/entrega/presentación
+ * creates a task (marked for review) under the matching activity, and a moved
+ * event moves the task's deadline. Pure; returns `data` itself if nothing changed.
+ */
+export function importFromCalendars(data: AppData, now: number, newId: () => string): AppData {
+  if (!data.calendars?.length) return data;
+  let tasks = data.tasks;
+  let activities = data.activities;
+  let changed = false;
+
+  for (const e of data.events) {
+    const role = eventRole(data, e);
+    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") continue;
+    const deadline = role === "entrega" ? e.end : e.start;
+    const existing = tasks.find((t) => t.sourceEventId === e.id);
+    if (existing) {
+      if (existing.deadline !== deadline || existing.title !== e.title) {
+        tasks = tasks.map((t) => (t === existing ? { ...t, deadline, title: e.title } : t));
+        changed = true;
+      }
+      continue;
+    }
+    if (deadline <= now) continue;
+
+    const subject = subjectOf(e.title);
+    let activity = activities.find((a) => {
+      const name = normalize(a.name);
+      return (
+        name.length > 0 &&
+        (normalize(e.title).includes(name) || (subject.length > 0 && name.includes(subject)))
+      );
+    });
+    if (!activity) {
+      const created: Activity = {
+        id: newId(),
+        name: subjectName(e.title),
+        color: PALETTE[activities.length % PALETTE.length] as string,
+        academic: true,
+        maxSessionMinutes: 120,
+        minBlockMinutes: 60,
+      };
+      activities = [...activities, created];
+      activity = created;
+    }
+    const d = DEFAULTS[role];
+    const task: AppTask = {
+      id: newId(),
+      activityId: activity.id,
+      title: e.title,
+      kind: "deliverable",
+      deadline,
+      estimateMinutes: d.estimate,
+      minMinutes: d.min,
+      priority: d.priority,
+      status: "active",
+      units: [],
+      sourceEventId: e.id,
+      needsReview: true,
+    };
+    tasks = [...tasks, task];
+    changed = true;
+  }
+  return changed ? { ...data, tasks, activities } : data;
+}
