@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(3);
+select plan(5);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000c', 'c@test.local');
 
@@ -22,6 +22,18 @@ select is(
   public.get_oauth_token('00000000-0000-0000-0000-00000000000c', 'google'),
   'secret',
   'service role round-trips the token'
+);
+select public.store_oauth_token('00000000-0000-0000-0000-00000000000c', 'google', 'rotated');
+select is(
+  public.get_oauth_token('00000000-0000-0000-0000-00000000000c', 'google'),
+  'rotated',
+  'storing again replaces the token'
+);
+reset role;
+select is(
+  (select count(*)::int from vault.secrets where secret = 'rotated' or secret = 'secret'),
+  0,
+  'tokens are encrypted at rest'
 );
 
 select * from finish();
