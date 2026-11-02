@@ -105,11 +105,18 @@ Deno.serve(async (req) => {
         expand: true,
       });
       for (const o of objects) {
-        for (const e of parseIcs(String(o.data ?? ""), timeZone)) {
+        // One malformed event must not stop the whole sync.
+        let parsed: ReturnType<typeof parseIcs> = [];
+        try {
+          parsed = parseIcs(String(o.data ?? ""), timeZone);
+        } catch (err) {
+          console.warn("skipping unparseable event", o.url, err);
+        }
+        for (const e of parsed) {
           if (e.cancelled || e.end < Date.parse(from) || e.start > Date.parse(to)) continue;
           rows.push({
             source: "icloud",
-            external_id: `${cal.url}|${e.uid}|${e.recurrenceId ?? e.start}`,
+            external_id: `${cal.url}|${e.uid}|${e.recurrenceId ?? ""}`,
             calendar_id: cal.url,
             title: e.summary || "(sin título)",
             start_at: new Date(e.start).toISOString(),
@@ -122,8 +129,10 @@ Deno.serve(async (req) => {
         }
       }
     }
-    if (rows.length) {
-      const { error } = await user.from("calendar_events").upsert(rows);
+    // Stable ids: uid (+ recurrence instance), so moving an event updates it in place.
+    const unique = [...new Map(rows.map((r) => [r.external_id, r])).values()];
+    if (unique.length) {
+      const { error } = await user.from("calendar_events").upsert(unique);
       if (error) throw error;
     }
     const keep = new Set(rows.map((r) => r.external_id));

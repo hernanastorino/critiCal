@@ -61,7 +61,10 @@ function calendarClient() {
     if (name === "google-sync")
       return { data: { connected: false, error: "no_refresh_token" }, error: null };
     if (opts?.body?.action === "connect") icloudConnected = true;
-    if (opts?.body?.action === "disconnect") icloudConnected = false;
+    if (opts?.body?.action === "disconnect") {
+      icloudConnected = false;
+      return { data: { connected: false }, error: null };
+    }
     return {
       data: icloudConnected
         ? { connected: true, imported: 7 }
@@ -82,11 +85,19 @@ describe("Connected", () => {
     );
     await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
 
+    // What the first refresh imported is persisted right away (activity before task).
+    await waitFor(() => expect(writes.some((w) => w.table === "activities")).toBe(true));
+    expect(writes.some((w) => w.table === "tasks")).toBe(true);
+
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     expect(screen.getByText("Detectado en tu calendario")).toBeTruthy();
     expect(screen.getByText(/le planifico 10h/)).toBeTruthy();
-    fireEvent.click(screen.getByText("OK"));
-    await waitFor(() => expect(writes.some((w) => w.table === "tasks")).toBe(true));
+
+    // Adjusting keeps the link to the event: no second card for the same parcial.
+    fireEvent.click(screen.getByText("Ajustar"));
+    fireEvent.click(screen.getByText("Guardar"));
+    expect(screen.queryByText("Detectado en tu calendario")).toBeNull();
+    expect(screen.getByText("Todo al día ✓")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /Semana/ }));
     fireEvent.click(screen.getByLabelText("Ajustes"));

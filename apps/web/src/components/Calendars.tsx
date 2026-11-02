@@ -20,7 +20,7 @@ const MESSAGES: Record<string, string> = {
 export function describe(r: SyncResult | undefined, tz: string, at?: number): string {
   if (!r) return "Sincronizando…";
   if (r.connected) return `✓ ${r.imported ?? 0} eventos${at ? ` · ${time(tz, at)}` : ""}`;
-  const msg = (r.error && MESSAGES[r.error]) || "La sincronización falló.";
+  const msg = r.error ? (MESSAGES[r.error] ?? "La sincronización falló.") : "Sin conectar.";
   return r.status ? `${msg} (${r.status})` : msg;
 }
 

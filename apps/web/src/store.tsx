@@ -208,13 +208,14 @@ export function StoreProvider({
   children: ReactNode;
 }) {
   const now = useNow(60_000, fixedNow);
-  const [data, raw] = useReducer(reducer, undefined, () =>
-    reducer(initial(now), { type: "refresh", now }),
-  );
+  // The unrefreshed seed is the baseline for persistence, so whatever the first
+  // refresh adds (imported tasks and activities, the plan) gets written too.
+  const [seed] = useState(() => initial(now));
+  const [data, raw] = useReducer(reducer, seed, (s) => reducer(s, { type: "refresh", now }));
   useEffect(() => {
     raw({ type: "refresh", now });
   }, [now]);
-  const previous = useRef(data);
+  const previous = useRef(seed);
   useEffect(() => {
     if (persist) saveDemo(data);
     if (onChange && previous.current !== data) onChange(previous.current, data);
