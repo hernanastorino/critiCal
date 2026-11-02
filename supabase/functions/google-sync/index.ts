@@ -195,7 +195,8 @@ Deno.serve(async (req) => {
       planRemoved: diff.remove.length,
     });
   } catch (e) {
+    // Details stay in the function logs; the client only learns that it failed.
     console.error(e);
-    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+    return json({ error: "sync failed" }, 500);
   }
 });
