@@ -2,10 +2,10 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   test: {
-    projects: ["packages/*", "apps/web"],
+    projects: ["packages/*", "apps/web", "supabase/functions"],
     coverage: {
       provider: "v8",
-      include: ["**/src/**/*.{ts,tsx}"],
+      include: ["**/src/**/*.{ts,tsx}", "supabase/functions/_shared/**/*.ts"],
       exclude: ["**/*.test.*", "**/main.tsx", "**/*.d.ts", "**/testing.ts"],
       reporter: ["text", "lcov", "json-summary"],
       thresholds: {

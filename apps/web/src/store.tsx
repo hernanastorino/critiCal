@@ -6,6 +6,7 @@ import {
   useEffect,
   useMemo,
   useReducer,
+  useRef,
   useState,
 } from "react";
 import { demoData } from "./demo";
@@ -177,11 +178,15 @@ export function StoreProvider({
   initial,
   fixedNow,
   persist = true,
+  onChange,
   children,
 }: {
   initial: (now: number) => AppData;
   fixedNow?: number;
+  /** Save to this browser (demo mode). */
   persist?: boolean;
+  /** Called after every change with the previous and new data (remote mode). */
+  onChange?: (prev: AppData, next: AppData) => void;
   children: ReactNode;
 }) {
   const now = useNow(60_000, fixedNow);
@@ -191,9 +196,12 @@ export function StoreProvider({
   useEffect(() => {
     raw({ type: "refresh", now });
   }, [now]);
+  const previous = useRef(data);
   useEffect(() => {
     if (persist) saveDemo(data);
-  }, [data, persist]);
+    if (onChange && previous.current !== data) onChange(previous.current, data);
+    previous.current = data;
+  }, [data, persist, onChange]);
 
   const store = useMemo<Store>(() => {
     const r = refreshPlan(data, now);
