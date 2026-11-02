@@ -16,11 +16,11 @@ Calendario personal que planifica automáticamente el tiempo de estudio y hábit
 
 ## 2. Calendarios
 
-| Fuente | Acceso | Sincronización |
-|---|---|---|
-| Google Calendar | API oficial, lectura y escritura | Push notifications (webhooks) → reorganización inmediata |
-| iCloud | CalDAV con contraseña de app (cifrada en Vault) | Consulta cada 5–10 min con sync tokens + al abrir la app + botón "sincronizar ahora" |
-| "📚 Plan" (Google) | Solo lo escribe la app | Salida del planificador |
+| Fuente             | Acceso                                          | Sincronización                                                                       |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------ |
+| Google Calendar    | API oficial, lectura y escritura                | Push notifications (webhooks) → reorganización inmediata                             |
+| iCloud             | CalDAV con contraseña de app (cifrada en Vault) | Consulta cada 5–10 min con sync tokens + al abrir la app + botón "sincronizar ahora" |
+| "📚 Plan" (Google) | Solo lo escribe la app                          | Salida del planificador                                                              |
 
 - Recomendación: Google como calendario por defecto en el iPhone, para que los eventos nuevos impacten al instante.
 - **"Mostrar como: Disponible"** → el evento es compatible con bloques planificados (paralelo). "Ocupado" → bloquea.
@@ -43,7 +43,7 @@ El plan es **dato derivado**: se puede recalcular entero en cualquier momento de
 
 ## 4. Parámetros fijos (configurables)
 
-Sueño (hora de acostarse/levantarse), almuerzo y cena, traslados, **franja libre** (ej. después de 19:30, límite *blando*: solo se usa como opción explícita cuando algo crítico no entra; los eventos fijos como clases pasadas las 19:30 se respetan siempre).
+Sueño (hora de acostarse/levantarse), almuerzo y cena, traslados, **franja libre** (ej. después de 19:30, límite _blando_: solo se usa como opción explícita cuando algo crítico no entra; los eventos fijos como clases pasadas las 19:30 se respetan siempre).
 
 ## 5. Motor de planificación (sin IA, TypeScript puro)
 
@@ -89,14 +89,14 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 
 ## 9. Infraestructura (todo gratis)
 
-| Pieza | Elección |
-|---|---|
-| Repo | GitHub público `critiCal` |
-| Hosting | Vercel Hobby (`*.vercel.app`), preview por PR |
+| Pieza   | Elección                                                                                                     |
+| ------- | ------------------------------------------------------------------------------------------------------------ |
+| Repo    | GitHub público `critiCal`                                                                                    |
+| Hosting | Vercel Hobby (`*.vercel.app`), preview por PR                                                                |
 | Backend | Supabase (cuenta personal nueva): proyecto **prod** + proyecto **staging**; dev con Supabase local en Docker |
-| Cron | pg_cron: sync iCloud, recálculo nocturno, push de críticos, keep-alive |
-| Errores | Sentry free |
-| Backups | GitHub Action nocturna: `pg_dump` cifrado como artefacto/repo privado + exportar JSON desde la app |
+| Cron    | pg_cron: sync iCloud, recálculo nocturno, push de críticos, keep-alive                                       |
+| Errores | Sentry free                                                                                                  |
+| Backups | GitHub Action nocturna: `pg_dump` cifrado como artefacto/repo privado + exportar JSON desde la app           |
 
 ## 10. CI/CD y calidad
 

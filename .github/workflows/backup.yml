@@ -1,0 +1,36 @@
+name: Backup
+
+# Nightly encrypted dump of production. Artifacts on a public repo are visible to any
+# GitHub user, so the dump is always encrypted before upload. Also keeps the free
+# Supabase project from pausing.
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: supabase/setup-cli@v1
+      - name: Dump and encrypt
+        run: |
+          supabase link --project-ref "${{ vars.SUPABASE_REF }}"
+          supabase db dump --linked -f schema.sql
+          supabase db dump --linked --data-only -f data.sql
+          tar czf - schema.sql data.sql | gpg --batch --symmetric --cipher-algo AES256 \
+            --passphrase "$BACKUP_PASSPHRASE" -o "backup-$(date -u +%F).tgz.gpg"
+          rm schema.sql data.sql
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup
+          path: backup-*.tgz.gpg
+          retention-days: 90
