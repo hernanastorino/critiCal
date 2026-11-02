@@ -1,2 +1,15 @@
+export type { Slot } from "./availability";
+export { buildSlots } from "./availability";
 export type { Demand, FeasibilityResult } from "./feasibility";
 export { checkFeasibility } from "./feasibility";
+export { merge, minutes, overlaps, subtract } from "./intervals";
+export type { EffortSample, Unit } from "./learning";
+export { effortRatio, remainingFromUnits } from "./learning";
+export type { OptionKind, PlanOption, Recommendation } from "./options";
+export { infeasibilityOptions, recommendations, targetOptions } from "./options";
+export type { ScheduleInput, ScheduleResult } from "./scheduler";
+export { schedule } from "./scheduler";
+export { addDays, localDates, localParts, weekdayOf, zonedInstant } from "./time";
+export type { TravelOptions, TravelResult } from "./travel";
+export { travelBuffers } from "./travel";
+export * from "./types";
