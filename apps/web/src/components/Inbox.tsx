@@ -1,21 +1,26 @@
 import { MINUTE, type PlanBlock } from "@critical/engine";
 import { useState } from "react";
 import { dayAndTime, hours, time } from "../format";
+import type { AppTask } from "../model";
 import { endOfDay } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
+import { TaskEditor } from "./TaskEditor";
 
 export function Inbox() {
   const { data, now, pending, decisions, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
+  const [editing, setEditing] = useState<AppTask | null>(null);
   const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
+  const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
   const empty =
     pending.length +
       data.proposals.length +
       decisions.options.length +
-      decisions.recommendations.length ===
+      decisions.recommendations.length +
+      review.length ===
     0;
 
   const quick = (b: PlanBlock, status: "done" | "missed") =>
@@ -37,6 +42,41 @@ export function Inbox() {
       </div>
       <div className="scroll">
         {empty && <p className="empty">Todo al día ✓</p>}
+
+        {review.length > 0 && <div className="section-title">Detectado en tu calendario</div>}
+        {review.map((t) => (
+          <div
+            key={t.id}
+            className="card"
+            style={{ ["--c" as string]: data.activities.find((a) => a.id === t.activityId)?.color }}
+          >
+            <div className="title">{t.title}</div>
+            <p className="meta">
+              {data.activities.find((a) => a.id === t.activityId)?.name} ·{" "}
+              {t.deadline ? dayAndTime(tz, t.deadline) : ""} · le planifico{" "}
+              {hours(t.estimateMinutes)} (mínimo {hours(t.minMinutes)})
+            </p>
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => dispatch({ type: "review", taskId: t.id, keep: false })}
+              >
+                Ignorar
+              </button>
+              <button type="button" className="btn" onClick={() => setEditing(t)}>
+                Ajustar
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => dispatch({ type: "review", taskId: t.id, keep: true })}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        ))}
 
         {data.proposals.length > 0 && <div className="section-title">Cambios para hoy</div>}
         {data.proposals.map((p) => (
@@ -146,6 +186,15 @@ export function Inbox() {
           </div>
         ))}
       </div>
+      {editing && (
+        <TaskEditor
+          task={editing}
+          onClose={() => {
+            dispatch({ type: "review", taskId: editing.id, keep: true });
+            setEditing(null);
+          }}
+        />
+      )}
       {open && (
         <BlockSheet
           item={{ kind: "block", id: open.id, start: open.start, end: open.end, block: open }}

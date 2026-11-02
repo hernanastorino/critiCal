@@ -50,6 +50,8 @@ export function TaskEditor({ task, onClose }: { task?: AppTask; onClose: () => v
     }
     const h = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
     const next: AppTask = {
+      // Keeps fields the form does not edit (e.g. the calendar event it came from).
+      ...task,
       id: task?.id ?? newId(),
       activityId: actId,
       title: title.trim() || "Sin título",

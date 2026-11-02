@@ -36,7 +36,7 @@ jobs:
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"
           supabase db push
-          supabase functions deploy google-sync --project-ref "${{ vars.SUPABASE_REF }}" --use-api
+          supabase functions deploy --project-ref "${{ vars.SUPABASE_REF }}" --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -76,7 +76,7 @@ jobs:
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"
           supabase db push
-          supabase functions deploy google-sync --project-ref "${{ vars.SUPABASE_REF }}" --use-api
+          supabase functions deploy --project-ref "${{ vars.SUPABASE_REF }}" --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

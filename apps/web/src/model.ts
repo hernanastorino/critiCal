@@ -39,11 +39,30 @@ export interface AppTask {
   priority: number;
   status: "active" | "done" | "dropped";
   units: Unit[];
+  /** Calendar event this task was created from (`source:externalId`). */
+  sourceEventId?: string;
+  /** Created automatically; waits for a quick OK in the inbox. */
+  needsReview?: boolean;
+}
+
+export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion";
+
+export interface AppCalendar {
+  /** `source:externalId` */
+  id: string;
+  source: "google" | "icloud";
+  externalId: string;
+  name: string;
+  color?: string;
+  /** Undefined means "guess from the name". */
+  role?: CalendarRole;
 }
 
 export interface AppEvent extends CalendarEvent {
   source: "google" | "icloud" | "demo";
   link?: string;
+  /** `source:calendarExternalId` */
+  calendarId?: string;
 }
 
 export interface CheckIn {
@@ -71,6 +90,7 @@ export interface AppData {
   activities: Activity[];
   tasks: AppTask[];
   events: AppEvent[];
+  calendars?: AppCalendar[];
   checkIns: CheckIn[];
   overrides: DayOverride[];
   /** Past blocks are history; future blocks are the current plan. */

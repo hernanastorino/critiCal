@@ -17,9 +17,12 @@ import {
   targetOptions,
   zonedInstant,
 } from "@critical/engine";
+import { visibleEvents } from "./calendars";
 import type { AppData, AppTask, Proposal } from "./model";
 
 const HORIZON_DAYS = 14;
+/** Never plan further than this, even for far deadlines. */
+const MAX_HORIZON_DAYS = 90;
 
 export function weekStart(tz: string, instant: number): string {
   const { date, weekday } = localParts(tz, instant);
@@ -126,13 +129,18 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
+  const tasks = toEngineTasks(data, now);
   return {
     now,
-    horizonEnd: now + HORIZON_DAYS * 1440 * MINUTE,
+    // Reach the furthest deadline so its capacity (and slack) is complete.
+    horizonEnd: Math.min(
+      now + MAX_HORIZON_DAYS * 1440 * MINUTE,
+      Math.max(now + HORIZON_DAYS * 1440 * MINUTE, ...tasks.map((t) => t.deadline)),
+    ),
     settings: data.settings,
     activities: data.activities,
-    tasks: toEngineTasks(data, now),
-    events: data.events,
+    tasks,
+    events: visibleEvents(data),
     frozen,
     overrides: data.overrides,
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,
@@ -155,7 +163,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);
   const active = new Set(data.tasks.filter((t) => t.status === "active").map((t) => t.id));
-  const busy = data.events.filter((e) => e.busy && !e.allDay);
+  const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
   const past = data.plan.filter((b) => b.end <= now);
   const today = data.plan.filter((b) => b.end > now && b.start < todayEnd && active.has(b.taskId));
   const conflicts = today.filter((b) => busy.some((e) => overlaps(e, b)));

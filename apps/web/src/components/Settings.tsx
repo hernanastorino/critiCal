@@ -2,6 +2,7 @@ import { localParts } from "@critical/engine";
 import { useState } from "react";
 import { hhmmToMinutes, minutesToHhmm } from "../format";
 import { useStore } from "../store";
+import { Calendars } from "./Calendars";
 
 export function Settings({
   onClose,
@@ -52,6 +53,8 @@ export function Settings({
         >
           Reacomodar hoy
         </button>
+
+        <Calendars />
 
         <div className="section-title">Cuenta</div>
         <div className="row">

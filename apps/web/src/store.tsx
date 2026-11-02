@@ -9,8 +9,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { importFromCalendars } from "./calendars";
 import { demoData } from "./demo";
-import type { AppData, AppTask, CheckIn } from "./model";
+import type { AppData, AppTask, CalendarRole, CheckIn } from "./model";
 import { newId } from "./model";
 import {
   applyOption,
@@ -30,9 +31,12 @@ export type Action =
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
   | { type: "applyOption"; optionId: string; now: number }
-  | { type: "relaxContext"; until: number; now: number };
+  | { type: "relaxContext"; until: number; now: number }
+  | { type: "calendarRole"; calendarId: string; role: CalendarRole; now: number }
+  | { type: "review"; taskId: string; keep: boolean; now: number };
 
-function refresh(data: AppData, now: number): AppData {
+function refresh(input: AppData, now: number): AppData {
+  const data = importFromCalendars(input, now, newId);
   const r = refreshPlan(data, now);
   const proposals = r.proposal
     ? [...data.proposals.filter((p) => !p.id.startsWith("conflict@")), r.proposal]
@@ -98,6 +102,20 @@ export function reducer(data: AppData, action: Action): AppData {
     }
     case "relaxContext":
       return refresh({ ...data, relaxContextUntil: action.until }, now);
+    case "calendarRole": {
+      const calendars = (data.calendars ?? []).map((c) =>
+        c.id === action.calendarId ? { ...c, role: action.role } : c,
+      );
+      return refresh({ ...data, calendars }, now);
+    }
+    case "review": {
+      const tasks = data.tasks.map((t) =>
+        t.id === action.taskId
+          ? { ...t, needsReview: false, status: action.keep ? t.status : ("dropped" as const) }
+          : t,
+      );
+      return refresh({ ...data, tasks }, now);
+    }
   }
 }
 
@@ -190,13 +208,14 @@ export function StoreProvider({
   children: ReactNode;
 }) {
   const now = useNow(60_000, fixedNow);
-  const [data, raw] = useReducer(reducer, undefined, () =>
-    reducer(initial(now), { type: "refresh", now }),
-  );
+  // The unrefreshed seed is the baseline for persistence, so whatever the first
+  // refresh adds (imported tasks and activities, the plan) gets written too.
+  const [seed] = useState(() => initial(now));
+  const [data, raw] = useReducer(reducer, seed, (s) => reducer(s, { type: "refresh", now }));
   useEffect(() => {
     raw({ type: "refresh", now });
   }, [now]);
-  const previous = useRef(data);
+  const previous = useRef(seed);
   useEffect(() => {
     if (persist) saveDemo(data);
     if (onChange && previous.current !== data) onChange(previous.current, data);
@@ -214,7 +233,11 @@ export function StoreProvider({
       pending,
       decisions: d,
       inboxCount:
-        pending.length + data.proposals.length + d.options.length + d.recommendations.length,
+        pending.length +
+        data.proposals.length +
+        d.options.length +
+        d.recommendations.length +
+        data.tasks.filter((t) => t.needsReview && t.status === "active").length,
     };
   }, [data, now, fixedNow]);
 

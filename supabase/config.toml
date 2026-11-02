@@ -414,3 +414,11 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Both functions authenticate the caller themselves (auth.getUser) and return 401
+# without a valid session; the gateway's legacy JWT check rejects the newer keys.
+[functions.google-sync]
+verify_jwt = false
+
+[functions.icloud-sync]
+verify_jwt = false

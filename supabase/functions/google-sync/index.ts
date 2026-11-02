@@ -12,6 +12,16 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+/** A failure the client may see: a stable code and the upstream HTTP status, no internals. */
+class SyncError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status?: number,
+  ) {
+    super(code);
+  }
+}
+
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -29,7 +39,7 @@ async function accessToken(refreshToken: string): Promise<string> {
       grant_type: "refresh_token",
     }),
   });
-  if (!res.ok) throw new Error(`token refresh failed: ${res.status}`);
+  if (!res.ok) throw new SyncError("token_refresh_failed", res.status);
   return (await res.json()).access_token as string;
 }
 
@@ -42,8 +52,7 @@ async function google<T>(token: string, path: string, init: RequestInit = {}): P
       ...init.headers,
     },
   });
-  if (!res.ok && res.status !== 410)
-    throw new Error(`google ${init.method ?? "GET"} ${path}: ${res.status}`);
+  if (!res.ok && res.status !== 410) throw new SyncError("google_api_error", res.status);
   return (res.status === 204 ? {} : await res.json()) as T;
 }
 
@@ -99,7 +108,7 @@ Deno.serve(async (req) => {
       p_user: uid,
       p_provider: "google",
     });
-    if (!refresh) return json({ connected: false });
+    if (!refresh) return json({ connected: false, error: "no_refresh_token" });
     const token = await accessToken(refresh as string);
 
     const { data: settings } = await user.from("settings").select("data").maybeSingle();
@@ -114,6 +123,16 @@ Deno.serve(async (req) => {
       items: { id: string; summary: string; selected?: boolean; hidden?: boolean }[];
     }>(token, "/users/me/calendarList");
     let plan = calendars.items.find((c) => c.summary === PLAN_CALENDAR);
+    await user.from("calendars").upsert(
+      calendars.items
+        .filter((c) => c !== plan)
+        .map((c) => ({
+          source: "google",
+          external_id: c.id,
+          name: c.summary,
+          color: (c as { backgroundColor?: string }).backgroundColor ?? null,
+        })),
+    );
     const rows = [];
     for (const cal of calendars.items) {
       if (cal === plan || cal.hidden || cal.selected === false) continue;
@@ -195,8 +214,9 @@ Deno.serve(async (req) => {
       planRemoved: diff.remove.length,
     });
   } catch (e) {
-    // Details stay in the function logs; the client only learns that it failed.
+    // Details stay in the function logs; the client gets a stable code only.
     console.error(e);
-    return json({ error: "sync failed" }, 500);
+    if (e instanceof SyncError) return json({ connected: false, error: e.code, status: e.status });
+    return json({ connected: false, error: "sync_failed" }, 500);
   }
 });
