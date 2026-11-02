@@ -1,4 +1,5 @@
 import { buildSlots, type Slot } from "./availability";
+import { addDays, localParts } from "./time";
 import { type TravelOptions, travelBuffers } from "./travel";
 import {
   type Activity,
@@ -83,12 +84,17 @@ class Board {
   assign(i: number, p: Prepared): void {
     const slot = this.slots[i] as Slot;
     this.owner[i] = p.task.id;
-    this.dayLoad.set(slot.date, (this.dayLoad.get(slot.date) ?? 0) + this.slotMinutes);
-    const acts = this.dayActivities.get(slot.date) ?? new Map<string, number>();
-    acts.set(p.activity.id, (acts.get(p.activity.id) ?? 0) + 1);
-    this.dayActivities.set(slot.date, acts);
-    const key = `${p.task.id}|${slot.date}`;
-    this.dayTask.set(key, (this.dayTask.get(key) ?? 0) + this.slotMinutes);
+    this.count(slot.date, p.task.id, p.activity.id, this.slotMinutes);
+  }
+
+  /** Adds work to a day's tallies (also used for frozen blocks, which own no slot). */
+  count(date: string, taskId: string, activityId: string, minutes: number): void {
+    this.dayLoad.set(date, (this.dayLoad.get(date) ?? 0) + minutes);
+    const acts = this.dayActivities.get(date) ?? new Map<string, number>();
+    acts.set(activityId, (acts.get(activityId) ?? 0) + minutes / this.slotMinutes);
+    this.dayActivities.set(date, acts);
+    const key = `${taskId}|${date}`;
+    this.dayTask.set(key, (this.dayTask.get(key) ?? 0) + minutes);
   }
 
   unassign(i: number, p: Prepared): void {
@@ -123,6 +129,10 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     buildSlots(settings, input.overrides ?? [], now, input.horizonEnd, busy),
     slotMinutes,
   );
+  // Frozen work still counts towards each day's subject cap and per-task cap.
+  for (const b of frozen) {
+    board.count(logicalDate(settings, b.start), b.taskId, b.activityId, (b.end - b.start) / MINUTE);
+  }
 
   const prepared: Prepared[] = [];
   for (const task of input.tasks) {
@@ -292,6 +302,13 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     feasible: status.every((s) => s.minDeficit === 0),
     unresolvedLocations: travel.unresolved,
   };
+}
+
+/** The wake-up date an instant belongs to (after-midnight time counts for the day before). */
+function logicalDate(settings: Settings, instant: number): string {
+  const p = localParts(settings.timezone, instant);
+  const wake = settings.week[p.weekday]?.wake ?? 0;
+  return p.minuteOfDay < wake ? addDays(p.date, -1) : p.date;
 }
 
 function range(from: number, to: number): number[] {
