@@ -1,0 +1,157 @@
+import { MINUTE, type PlanBlock } from "@critical/engine";
+import { useState } from "react";
+import { dayAndTime, hours, time } from "../format";
+import { endOfDay } from "../planning";
+import { useStore } from "../store";
+import { BlockSheet } from "./BlockSheet";
+
+export function Inbox() {
+  const { data, now, pending, decisions, dispatch } = useStore();
+  const tz = data.settings.timezone;
+  const [open, setOpen] = useState<PlanBlock | null>(null);
+  const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
+  const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
+  const empty =
+    pending.length +
+      data.proposals.length +
+      decisions.options.length +
+      decisions.recommendations.length ===
+    0;
+
+  const quick = (b: PlanBlock, status: "done" | "missed") =>
+    dispatch({
+      type: "checkIn",
+      checkIn: {
+        blockId: b.id,
+        taskId: b.taskId,
+        status,
+        minutesDone: status === "done" ? (b.end - b.start) / MINUTE : 0,
+        unitIds: [],
+      },
+    });
+
+  return (
+    <div className="screen">
+      <div className="header">
+        <h1>Bandeja</h1>
+      </div>
+      <div className="scroll">
+        {empty && <p className="empty">Todo al día ✓</p>}
+
+        {data.proposals.length > 0 && <div className="section-title">Cambios para hoy</div>}
+        {data.proposals.map((p) => (
+          <div key={p.id} className="card">
+            <div className="title">{p.message}</div>
+            <p className="meta">
+              {p.plan
+                .filter((b) => b.start >= now && b.start < endOfDay(tz, now))
+                .map((b) => `${titleOf(b)} ${time(tz, b.start)}`)
+                .join(" · ") || "Hoy queda libre"}
+            </p>
+            <div className="row">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => dispatch({ type: "rejectProposal", id: p.id })}
+              >
+                Dejar como está
+              </button>
+              <button
+                type="button"
+                className="btn primary"
+                onClick={() => dispatch({ type: "acceptProposal", id: p.id })}
+              >
+                Reacomodar
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {decisions.options.length > 0 && (
+          <>
+            <div className="section-title">No llegás a todo · elegí</div>
+            {decisions.options.map((o) => (
+              <div
+                key={o.id}
+                className="card"
+                style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
+              >
+                <div className="title">{o.label}</div>
+                <p className="meta">
+                  {o.result.feasible
+                    ? "Con esto llegás a todos los mínimos."
+                    : "Todavía faltaría tiempo."}
+                </p>
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => dispatch({ type: "applyOption", optionId: o.id })}
+                >
+                  Elegir
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+
+        {decisions.recommendations.map((r) => (
+          <div key={r.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
+            <div className="title">Sugerencia</div>
+            <p className="meta">{r.message}</p>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => dispatch({ type: "relaxContext", until: endOfDay(tz, now) })}
+            >
+              Hacelo por hoy
+            </button>
+          </div>
+        ))}
+
+        {pending.length > 0 && <div className="section-title">¿Cómo te fue?</div>}
+        {pending.map((b) => (
+          <div key={b.id} className="card" style={{ ["--c" as string]: colorOf(b) }}>
+            <button
+              type="button"
+              className="title"
+              onClick={() => setOpen(b)}
+              style={{ textAlign: "left" }}
+            >
+              {titleOf(b)} ›
+            </button>
+            <p className="meta">
+              {dayAndTime(tz, b.start)} – {time(tz, b.end)} · {hours((b.end - b.start) / MINUTE)}
+            </p>
+            <div className="row">
+              <button
+                type="button"
+                className="btn done"
+                aria-label={`Hecho: ${titleOf(b)}`}
+                onClick={() => quick(b, "done")}
+              >
+                ✓
+              </button>
+              <button type="button" className="btn" onClick={() => setOpen(b)}>
+                ◐
+              </button>
+              <button
+                type="button"
+                className="btn missed"
+                aria-label={`No hecho: ${titleOf(b)}`}
+                onClick={() => quick(b, "missed")}
+              >
+                ✗
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {open && (
+        <BlockSheet
+          item={{ kind: "block", id: open.id, start: open.start, end: open.end, block: open }}
+          onClose={() => setOpen(null)}
+        />
+      )}
+    </div>
+  );
+}

@@ -1,0 +1,231 @@
+import {
+  addDays,
+  effortRatio,
+  infeasibilityOptions,
+  localParts,
+  MINUTE,
+  overlaps,
+  type PlanBlock,
+  type PlanOption,
+  type Recommendation,
+  recommendations,
+  remainingFromUnits,
+  type ScheduleInput,
+  type ScheduleResult,
+  schedule,
+  type Task,
+  targetOptions,
+  zonedInstant,
+} from "@critical/engine";
+import type { AppData, AppTask, Proposal } from "./model";
+
+const HORIZON_DAYS = 14;
+
+export function weekStart(tz: string, instant: number): string {
+  const { date, weekday } = localParts(tz, instant);
+  return addDays(date, -((weekday + 6) % 7));
+}
+
+export function weekDates(tz: string, instant: number): string[] {
+  const monday = weekStart(tz, instant);
+  return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
+}
+
+export function endOfDay(tz: string, instant: number): number {
+  return zonedInstant(tz, localParts(tz, instant).date, 1440);
+}
+
+function endOfWeek(tz: string, instant: number): number {
+  return zonedInstant(tz, addDays(weekStart(tz, instant), 7), 0);
+}
+
+/** Minutes really worked on a task, from check-ins. */
+export function doneMinutes(data: AppData, taskId: string, since = 0): number {
+  return data.checkIns
+    .filter((c) => c.taskId === taskId && c.createdAt >= since)
+    .reduce((sum, c) => sum + c.minutesDone, 0);
+}
+
+function samples(data: AppData) {
+  return data.checkIns
+    .filter((c) => c.status !== "missed")
+    .flatMap((c) => {
+      const task = data.tasks.find((t) => t.id === c.taskId);
+      if (!task || c.unitIds.length === 0) return [];
+      const estimated = task.units
+        .filter((u) => c.unitIds.includes(u.id))
+        .reduce((sum, u) => sum + u.estimateMinutes, 0);
+      return [
+        { activityId: task.activityId, estimatedMinutes: estimated, actualMinutes: c.minutesDone },
+      ];
+    });
+}
+
+export interface TaskProgress {
+  task: AppTask;
+  totalMinutes: number;
+  remainingMinutes: number;
+  minRemainingMinutes: number;
+  deadline: number;
+}
+
+/** What is left of each active task, with the learned effort ratio applied. */
+export function progress(data: AppData, now: number): TaskProgress[] {
+  const tz = data.settings.timezone;
+  const effort = samples(data);
+  return data.tasks
+    .filter((t) => t.status === "active")
+    .map((task) => {
+      if (task.kind === "habit") {
+        const total = (task.sessionsPerWeek ?? 0) * (task.sessionMinutes ?? 0);
+        const since = zonedInstant(tz, weekStart(tz, now), 0);
+        const left = Math.max(0, total - doneMinutes(data, task.id, since));
+        return {
+          task,
+          totalMinutes: total,
+          remainingMinutes: left,
+          minRemainingMinutes: Math.min(left, task.minMinutes || total),
+          deadline: endOfWeek(tz, now),
+        };
+      }
+      const done = doneMinutes(data, task.id);
+      const capLeft = Math.max(0, task.estimateMinutes - done);
+      const fromUnits =
+        task.units.length > 0
+          ? remainingFromUnits(
+              task.units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
+              effortRatio(effort, task.activityId),
+            )
+          : capLeft;
+      const remaining = Math.min(capLeft, fromUnits);
+      return {
+        task,
+        totalMinutes: task.estimateMinutes,
+        remainingMinutes: remaining,
+        minRemainingMinutes: Math.min(remaining, Math.max(0, task.minMinutes - done)),
+        deadline: task.deadline ?? endOfWeek(tz, now),
+      };
+    });
+}
+
+export function toEngineTasks(data: AppData, now: number): Task[] {
+  return progress(data, now)
+    .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
+    .map((p) => ({
+      id: p.task.id,
+      activityId: p.task.activityId,
+      title: p.task.title,
+      deadline: p.deadline,
+      remainingMinutes: p.remainingMinutes,
+      minRemainingMinutes: p.minRemainingMinutes,
+      sessionMinutes: p.task.sessionMinutes,
+      maxPerDayMinutes:
+        p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
+      priority: p.task.priority,
+    }));
+}
+
+export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
+  return {
+    now,
+    horizonEnd: now + HORIZON_DAYS * 1440 * MINUTE,
+    settings: data.settings,
+    activities: data.activities,
+    tasks: toEngineTasks(data, now),
+    events: data.events,
+    frozen,
+    overrides: data.overrides,
+    allowFreeTime: (data.freeTimeUntil ?? 0) > now,
+    maxActivitiesPerDay: (data.relaxContextUntil ?? 0) > now ? Number.POSITIVE_INFINITY : undefined,
+  };
+}
+
+export interface Refresh {
+  plan: PlanBlock[];
+  proposal?: Proposal;
+  input: ScheduleInput;
+  result: ScheduleResult;
+}
+
+/**
+ * Re-plans from `now`. Past blocks stay as history. Today's upcoming blocks stay
+ * put; if a new event clashes with one, the re-plan becomes a proposal instead.
+ */
+export function refreshPlan(data: AppData, now: number): Refresh {
+  const tz = data.settings.timezone;
+  const todayEnd = endOfDay(tz, now);
+  const active = new Set(data.tasks.filter((t) => t.status === "active").map((t) => t.id));
+  const busy = data.events.filter((e) => e.busy && !e.allDay);
+  const past = data.plan.filter((b) => b.end <= now);
+  const today = data.plan.filter((b) => b.end > now && b.start < todayEnd && active.has(b.taskId));
+  const conflicts = today.filter((b) => busy.some((e) => overlaps(e, b)));
+  const keep = today.filter((b) => !conflicts.includes(b));
+
+  const input = scheduleInput(data, now, keep);
+  const result = schedule(input);
+  const plan = [...past, ...result.blocks.map((b) => ({ ...b, frozen: undefined }))];
+  if (conflicts.length === 0) return { plan, input, result };
+
+  const names = conflicts.map(
+    (b) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "un bloque",
+  );
+  return {
+    plan: [...past, ...keep, ...conflicts, ...plan.filter((b) => b.start >= todayEnd)],
+    input,
+    result,
+    proposal: {
+      id: `conflict@${now}`,
+      message: `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`,
+      plan,
+      conflicts: conflicts.map((b) => b.id),
+      createdAt: now,
+    },
+  };
+}
+
+/** Past blocks with no check-in yet. */
+export function pendingConfirmations(data: AppData, now: number): PlanBlock[] {
+  const answered = new Set(data.checkIns.map((c) => c.blockId));
+  return data.plan
+    .filter((b) => b.end <= now && !answered.has(b.id))
+    .sort((a, b) => a.start - b.start);
+}
+
+export interface Decisions {
+  options: PlanOption[];
+  recommendations: Recommendation[];
+}
+
+export function decisions(input: ScheduleInput, result: ScheduleResult): Decisions {
+  return {
+    options: result.feasible ? targetOptions(input, result) : infeasibilityOptions(input, result),
+    recommendations: recommendations(input, result),
+  };
+}
+
+/** Turns an engine option back into changes to the user's tasks. */
+export function applyOption(
+  data: AppData,
+  input: ScheduleInput,
+  option: PlanOption,
+  now: number,
+): AppData {
+  if (option.kind === "use-free-time")
+    return { ...data, freeTimeUntil: endOfWeek(data.settings.timezone, now) };
+  const before = new Map(input.tasks.map((t) => [t.id, t]));
+  const after = new Map(option.input.tasks.map((t) => [t.id, t]));
+  const tasks = data.tasks.map((task) => {
+    const old = before.get(task.id);
+    if (!old) return task;
+    const next = after.get(task.id);
+    if (!next) return { ...task, status: "dropped" as const };
+    const minCut = old.minRemainingMinutes - next.minRemainingMinutes;
+    const cut = old.remainingMinutes - next.remainingMinutes;
+    return {
+      ...task,
+      minMinutes: Math.max(0, task.minMinutes - minCut),
+      estimateMinutes: Math.max(0, task.estimateMinutes - cut),
+    };
+  });
+  return { ...data, tasks };
+}
