@@ -130,8 +130,13 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     slotMinutes,
   );
   // Frozen work still counts towards each day's subject cap and per-task cap.
+  // Counted slot by slot so a block that crosses wake-up time is split between days.
+  const overrideByDate = new Map((input.overrides ?? []).map((o) => [o.date, o]));
   for (const b of frozen) {
-    board.count(logicalDate(settings, b.start), b.taskId, b.activityId, (b.end - b.start) / MINUTE);
+    for (let t = b.start; t < b.end; t += slotMinutes * MINUTE) {
+      const piece = Math.min(slotMinutes, (b.end - t) / MINUTE);
+      board.count(logicalDate(settings, overrideByDate, t), b.taskId, b.activityId, piece);
+    }
   }
 
   const prepared: Prepared[] = [];
@@ -305,9 +310,13 @@ export function schedule(input: ScheduleInput): ScheduleResult {
 }
 
 /** The wake-up date an instant belongs to (after-midnight time counts for the day before). */
-function logicalDate(settings: Settings, instant: number): string {
+function logicalDate(
+  settings: Settings,
+  overrides: Map<string, DayOverride>,
+  instant: number,
+): string {
   const p = localParts(settings.timezone, instant);
-  const wake = settings.week[p.weekday]?.wake ?? 0;
+  const wake = overrides.get(p.date)?.wake ?? settings.week[p.weekday]?.wake ?? 0;
   return p.minuteOfDay < wake ? addDays(p.date, -1) : p.date;
 }
 
