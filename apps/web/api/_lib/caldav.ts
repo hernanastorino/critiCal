@@ -97,9 +97,11 @@ export function parseCalendars(xml: string, base: string): DavCalendar[] {
  * may carry failed propstats; such a listing can silently miss calendars.
  */
 export function listingComplete(xml: string): boolean {
-  // A Depth-1 listing always includes the home itself; none at all means a cut body.
+  // A Depth-1 listing always includes the home itself; none at all means a cut body,
+  // and so does a document that never closes its multistatus.
   const all = responses(xml);
   return (
+    /<\/(?:[\w-]+:)?multistatus>\s*$/i.test(xml) &&
     all.length > 0 &&
     all.every((r) =>
       [...r.matchAll(PROPSTAT)].some(

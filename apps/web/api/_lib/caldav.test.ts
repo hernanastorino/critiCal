@@ -107,6 +107,7 @@ describe("caldav", () => {
     expect(listingComplete(missing)).toBe(false);
     // An empty or cut body is never a complete listing.
     expect(listingComplete("<multistatus></multistatus>")).toBe(false);
+    expect(listingComplete(ok.replace("</multistatus>", ""))).toBe(false);
     // A 404 for the optional component set must not hide a calendar.
     const partial = `<multistatus><response><href>/c/</href><propstat><prop><resourcetype><calendar/></resourcetype><displayname>Facu</displayname></prop><status>HTTP/1.1 200 OK</status></propstat><propstat><prop><supported-calendar-component-set/></prop><status>HTTP/1.1 404 Not Found</status></propstat></response></multistatus>`;
     expect(parseCalendars(partial, "https://p01-caldav.icloud.com/")).toMatchObject([
