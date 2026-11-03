@@ -19,6 +19,7 @@ interface DayWindow {
   awake: Interval[];
   /** Preferred meal times; placed around fixed events by `placeMeal`. */
   meals: Interval[];
+  wakeAt: number;
   bedAt: number;
   freeFrom: number;
 }
@@ -30,7 +31,8 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
   const wake = override?.wake ?? base.wake;
   const rawBed = override?.bed ?? base.bed;
   const bed = rawBed <= wake ? rawBed + 1440 : rawBed;
-  const plannable = wake + (base.morningMinutes ?? 0);
+  // The morning routine never starts before waking up.
+  const plannable = wake + Math.max(0, base.morningMinutes ?? 0);
   const bedAt = zonedInstant(tz, date, bed);
   return {
     date,
@@ -40,6 +42,7 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
       start: zonedInstant(tz, date, m.start),
       end: zonedInstant(tz, date, m.end),
     })),
+    wakeAt: zonedInstant(tz, date, wake),
     bedAt,
     freeFrom: zonedInstant(tz, date, base.freeFrom),
   };
@@ -55,18 +58,21 @@ const LATE = 60 * MINUTE;
  * is a preference: right after a class that ends close to it (up to 45 min
  * before or 60 min after) you eat then; if the preferred time is free you eat
  * then; if the only "after" is too late (or runs into bedtime) you eat before
- * the class. Returns null when nothing fits.
+ * the class. Never before waking up or into bedtime. Returns null when nothing fits.
  */
 export function placeMeal(
   pref: Interval,
   busy: readonly Interval[],
   bedAt: number,
+  wakeAt = Number.NEGATIVE_INFINITY,
 ): Interval | null {
   const length = pref.end - pref.start;
   const p = pref.start;
   const blocks = merge(busy);
   const fits = (start: number) =>
-    start + length <= bedAt && !blocks.some((b) => b.start < start + length && start < b.end);
+    start >= wakeAt &&
+    start + length <= bedAt &&
+    !blocks.some((b) => b.start < start + length && start < b.end);
   const at = (start: number) => ({ start, end: start + length });
 
   // Right after a class ending near the preferred time.
@@ -107,7 +113,7 @@ export function buildSlots(
   for (const date of dates) {
     const window = dayWindow(settings, date, byDate.get(date));
     const meals = window.meals.flatMap((m) => {
-      const placed = placeMeal(m, busy, window.bedAt);
+      const placed = placeMeal(m, busy, window.bedAt, window.wakeAt);
       return placed ? [placed] : [];
     });
     for (const free of subtract(window.awake, [...busy, ...meals])) {

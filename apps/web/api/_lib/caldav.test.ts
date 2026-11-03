@@ -7,6 +7,7 @@ import {
   type Fetch,
   fetchEvents,
   hrefIn,
+  listingComplete,
   parseCalendars,
   tag,
 } from "./caldav";
@@ -81,7 +82,8 @@ const auth = basicAuth("yo@icloud.com", "abcd-efgh-ijkl-mnop");
 
 describe("caldav", () => {
   it("discovers event calendars through redirects", async () => {
-    const calendars = await discover(fakeFetch(), auth);
+    const { calendars, complete } = await discover(fakeFetch(), auth);
+    expect(complete).toBe(true);
     expect(calendars).toEqual([
       {
         url: "https://p01-caldav.icloud.com/123/calendars/parciales/",
@@ -94,6 +96,15 @@ describe("caldav", () => {
         color: undefined,
       },
     ]);
+  });
+
+  it("flags listings where a collection's type did not come back", () => {
+    const ok = `<multistatus><response><href>/c/</href><propstat><prop><resourcetype><collection/></resourcetype></prop><status>HTTP/1.1 200 OK</status></propstat></response></multistatus>`;
+    const failed = `<multistatus><response><href>/c/</href><propstat><prop><resourcetype/></prop><status>HTTP/1.1 404 Not Found</status></propstat><propstat><prop><displayname>X</displayname></prop><status>HTTP/1.1 200 OK</status></propstat></response></multistatus>`;
+    const missing = `<multistatus><response><href>/c/</href><propstat><prop><displayname>X</displayname></prop></propstat></response></multistatus>`;
+    expect(listingComplete(ok)).toBe(true);
+    expect(listingComplete(failed)).toBe(false);
+    expect(listingComplete(missing)).toBe(false);
   });
 
   it("fetches expanded events", async () => {

@@ -59,9 +59,9 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     }
 
     const auth = basicAuth(creds.appleId, creds.appPassword);
-    let calendars: Awaited<ReturnType<typeof discover>>;
+    let listing: Awaited<ReturnType<typeof discover>>;
     try {
-      calendars = await discover(fetch, auth);
+      listing = await discover(fetch, auth);
     } catch (e) {
       console.error("icloud discover", e);
       const code = e instanceof DavError ? e.code : "icloud_unreachable";
@@ -85,11 +85,15 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     const from = new Date(now - 7 * DAY).toISOString();
     const to = new Date(now + 60 * DAY).toISOString();
 
-    await pruneCalendars(
-      user,
-      "icloud",
-      calendars.map((c) => c.url),
-    );
+    const { calendars } = listing;
+    // A partial listing would drop calendars that still exist; keep them until a full one.
+    if (listing.complete) {
+      await pruneCalendars(
+        user,
+        "icloud",
+        calendars.map((c) => c.url),
+      );
+    }
     await user.from("calendars").upsert(
       calendars.map((c) => ({
         source: "icloud",

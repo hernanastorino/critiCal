@@ -8,7 +8,8 @@ import { useStore } from "../store";
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-const toHours = (m: number) => String(Math.round((m / 60) * 10) / 10);
+// Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
+const toHours = (m: number) => String(Math.round((m / 60) * 100) / 100);
 const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
@@ -42,7 +43,7 @@ export function WeekSettings() {
     ].filter((m) => m.end > m.start);
     const day: DaySettings = {
       wake: hhmmToMinutes(form.wake),
-      morningMinutes: Number(form.morning) || 0,
+      morningMinutes: Math.max(0, Number(form.morning) || 0),
       bed: hhmmToMinutes(form.bed),
       meals,
       freeFrom: hhmmToMinutes(form.freeFrom),
@@ -345,6 +346,8 @@ function ActivityRow({ activity }: { activity: Activity }) {
                 key={c}
                 type="button"
                 aria-pressed={form.color === c}
+                // Another subject's colour would be silently reassigned on save.
+                disabled={taken.has(c.toLowerCase())}
                 aria-label={`Color ${c}${taken.has(c.toLowerCase()) ? " (ya usado)" : ""}`}
                 className={`swatch big${form.color === c ? " on" : ""}${taken.has(c.toLowerCase()) ? " taken" : ""}`}
                 style={{ background: c }}

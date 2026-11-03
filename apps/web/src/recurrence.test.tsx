@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App";
 import { demoData } from "./demo";
 import type { AppData } from "./model";
-import { endOfWeek, isRunning, progress } from "./planning";
+import { endOfWeek, isRunning, pinClashes, progress } from "./planning";
 import { diffData, rowsToData } from "./remote";
 import { reducer } from "./store";
 
@@ -106,6 +106,38 @@ describe("weekly silo recurrence", () => {
     expect(gone.applied?.[0]?.before).toHaveLength(d.tasks[0]?.id === gym.id ? 0 : 1);
     expect(gone.plan.some((b) => b.taskId === gym.id)).toBe(false);
     expect(gone.checkIns).toEqual([]);
+  });
+
+  it("drops future pins of an ended silo and never reports clashes for silos that are off", () => {
+    const d = start();
+    const gym = gymOf(d) as AppData["tasks"][number];
+    const block = future(d, gym.id)[0] as AppData["plan"][number];
+    const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
+    const clash = {
+      id: "x",
+      title: "Dentista",
+      start: block.start,
+      end: block.end,
+      busy: true,
+      source: "demo" as const,
+    };
+    const withEvent = { ...pinned, events: [...pinned.events, clash] };
+    expect(pinClashes(withEvent, NOW)).toHaveLength(1);
+    const paused = reducer(withEvent, {
+      type: "recurrence",
+      taskId: gym.id,
+      change: "pause",
+      now: NOW,
+    });
+    expect(pinClashes(paused, NOW)).toEqual([]);
+    expect(paused.pins).toHaveLength(1);
+    const ended = reducer(withEvent, {
+      type: "recurrence",
+      taskId: gym.id,
+      change: "endFromToday",
+      now: NOW,
+    });
+    expect(ended.pins).toEqual([]);
   });
 
   it("persists the state and deletes erased silos", () => {
@@ -217,6 +249,18 @@ describe("weekly silo controls", () => {
     fireEvent.click(screen.getByLabelText("Gym: desactivado"));
     fireEvent.click(screen.getByText("Reactivar"));
     expect(screen.queryByText("Reactivar")).toBeNull();
+  });
+
+  it("caps the number of topics a progress log can create", () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByText("Silos"));
+    fireEvent.click(screen.getByLabelText(/^Entrega TP Programación/));
+    fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "1e9" } });
+    fireEvent.change(screen.getByLabelText("Llevo hechos"), { target: { value: "1" } });
+    fireEvent.click(screen.getByText("Guardar avance"));
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const tp = saved.tasks.find((t) => t.title === "Entrega TP Programación");
+    expect(tp?.units.length).toBe(200);
   });
 
   it("deletes everything", () => {

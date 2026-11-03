@@ -74,6 +74,16 @@ describe("decisions and defaults", () => {
     });
     expect(undone.tasks.find((t) => t.id === "parcial-calc")?.minMinutes).toBe(1500);
     expect(undone.applied).toEqual([]);
+    // Only tasks the decision really changed are recorded, so later edits elsewhere survive.
+    const record = after.applied?.[0];
+    for (const t of record?.before ?? []) {
+      const n = after.tasks.find((x) => x.id === t.id);
+      expect(
+        n?.minMinutes !== t.minMinutes ||
+          n?.estimateMinutes !== t.estimateMinutes ||
+          n?.status !== t.status,
+      ).toBe(true);
+    }
     expect(reducer(undone, { type: "undoDecision", id: "nope", now: NOW })).toBe(undone);
   });
 
@@ -117,6 +127,12 @@ describe("decisions and defaults", () => {
     expect(reset.tasks[0]).toMatchObject({ estimateMinutes: 600, minMinutes: 360 });
     const all = reducer(edited, { type: "resetDetected", now: NOW });
     expect(all.tasks[0]?.minMinutes).toBe(360);
+    // Resetting everything keeps ignored tasks ignored; a single reset brings one back.
+    const ignored = reducer(edited, { type: "review", taskId: id, keep: false, now: NOW });
+    expect(reducer(ignored, { type: "resetDetected", now: NOW }).tasks[0]?.status).toBe("dropped");
+    expect(reducer(ignored, { type: "resetDetected", taskId: id, now: NOW }).tasks[0]?.status).toBe(
+      "active",
+    );
   });
 });
 
@@ -163,7 +179,10 @@ describe("week", () => {
       };
     };
     render(<App fixedNow={NOW} initial={tight} />);
-    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    const replan = screen.getByLabelText("Reacomodar semana") as HTMLButtonElement;
+    fireEvent.click(replan);
+    // No second replan (and no overlapping timers) while one is running.
+    expect(replan.disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Camino crítico/ }));
     expect(screen.getByText(/No llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
   });

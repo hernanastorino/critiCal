@@ -98,6 +98,22 @@ async function listEvents(
   return out;
 }
 
+/** Every calendar in the user's list; pruning must never see a partial list. */
+async function listCalendars(token: string): Promise<CalendarListItem[]> {
+  const out: CalendarListItem[] = [];
+  let pageToken: string | undefined;
+  do {
+    const q = new URLSearchParams({ maxResults: "250", ...(pageToken ? { pageToken } : {}) });
+    const page = await google<{ items?: CalendarListItem[]; nextPageToken?: string }>(
+      token,
+      `/users/me/calendarList?${q}`,
+    );
+    out.push(...(page.items ?? []));
+    pageToken = page.nextPageToken;
+  } while (pageToken);
+  return out;
+}
+
 /** Vercel entry point. It passes its own second argument, so env is read here. */
 export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
@@ -130,7 +146,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     const to = new Date(now + 28 * DAY);
 
     // 1. Import events from every visible calendar except the Plan one.
-    const calendars = await google<{ items: CalendarListItem[] }>(token, "/users/me/calendarList");
+    const calendars = { items: await listCalendars(token) };
     const { data: planRow } = await user
       .from("settings")
       .select("google_plan_calendar")

@@ -164,6 +164,11 @@ describe("buildSlots", () => {
     expect(placeMeal(lunch, [{ start: t("08:00"), end: t("10:00") }], bed)).toEqual(lunch);
     // Nothing fits.
     expect(placeMeal(lunch, [{ start: t("09:00"), end: t("18:00") }], bed)).toBeNull();
+    // Never before waking: an early breakfast class leaves no room before it.
+    const breakfast = { start: t("08:30"), end: t("09:00") };
+    const early = [{ start: t("08:00"), end: t("11:00") }];
+    expect(placeMeal(breakfast, early, bed, t("07:45"))).toBeNull();
+    expect(placeMeal(breakfast, early, bed)?.start).toBe(t("07:30"));
   });
 
   it("frees the preferred meal slot when the meal moves", () => {
@@ -172,6 +177,13 @@ describe("buildSlots", () => {
     // Lunch moved to 13:20–14:20, so 14:30 is free and 13:00–13:30 is not (class).
     expect(slots.some((s) => s.start === at("2026-11-02", "14:30"))).toBe(true);
     expect(slots.some((s) => s.start === at("2026-11-02", "14:00"))).toBe(false);
+  });
+
+  it("never plans before waking up, even with a negative morning", () => {
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, morningMinutes: -60 })) };
+    const slots = buildSlots(odd, [], from, to, []);
+    // Wake is 08:00 in the test settings.
+    expect(slots.some((s) => s.start < at("2026-11-02", "08:00"))).toBe(false);
   });
 
   it("throws without settings for a weekday", () => {

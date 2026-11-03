@@ -74,6 +74,23 @@ export function parseCalendars(xml: string, base: string): DavCalendar[] {
   });
 }
 
+/**
+ * True when every collection in the listing reported its resource type. A 207
+ * may carry failed propstats; such a listing can silently miss calendars.
+ */
+export function listingComplete(xml: string): boolean {
+  const propstats = /<(?:[\w-]+:)?propstat\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?propstat>/gi;
+  return responses(xml).every((r) =>
+    [...r.matchAll(propstats)].some((m) => {
+      const status = tag(m[1] ?? "", "status");
+      return (
+        tag(m[1] ?? "", "resourcetype") !== undefined &&
+        (status === undefined || /\s2\d\d\s/.test(` ${status} `))
+      );
+    }),
+  );
+}
+
 /** calendar-data payloads of a calendar-query REPORT response. */
 export function parseCalendarData(xml: string): string[] {
   return responses(xml)
@@ -140,7 +157,10 @@ export const basicAuth = (user: string, password: string) =>
   `Basic ${btoa(String.fromCharCode(...new TextEncoder().encode(`${user}:${password}`)))}`;
 
 /** Logs in and lists the user's event calendars. */
-export async function discover(fetcher: Fetch, auth: string): Promise<DavCalendar[]> {
+export async function discover(
+  fetcher: Fetch,
+  auth: string,
+): Promise<{ calendars: DavCalendar[]; complete: boolean }> {
   const root = await dav(fetcher, auth, "PROPFIND", ICLOUD, bodies.principal, "0");
   const principal = hrefIn(root.xml, "current-user-principal", root.url);
   if (!principal) throw new DavError("icloud_unreachable", 207);
@@ -148,7 +168,7 @@ export async function discover(fetcher: Fetch, auth: string): Promise<DavCalenda
   const home = hrefIn(p.xml, "calendar-home-set", p.url);
   if (!home) throw new DavError("icloud_unreachable", 207);
   const list = await dav(fetcher, auth, "PROPFIND", home, bodies.calendars, "1");
-  return parseCalendars(list.xml, list.url);
+  return { calendars: parseCalendars(list.xml, list.url), complete: listingComplete(list.xml) };
 }
 
 /** iCalendar documents of a calendar's events in [from, to), recurrences expanded. */
