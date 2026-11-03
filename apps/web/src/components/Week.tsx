@@ -73,6 +73,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       el?.removeEventListener("touchmove", hold);
       clearTimeout(pressTimer.current);
       clearTimeout(toastTimer.current);
+      clearTimeout(replanTimer.current);
     };
   }, []);
   const [toast, setToast] = useState<string | null>(null);
@@ -81,6 +82,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const [open, setOpen] = useState<Item | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = (message: string) => {
     clearTimeout(toastTimer.current);
     setToast(message);
@@ -222,12 +224,14 @@ export function Week({ onSettings }: { onSettings: () => void }) {
           type="button"
           className={`icon-btn replan${replanning ? " spinning" : ""}`}
           aria-label="Reacomodar semana"
+          disabled={replanning}
           onClick={() => {
             setReplanning(true);
             dispatch({ type: "replanWeek" });
-            setTimeout(() => {
+            const at = now;
+            replanTimer.current = setTimeout(() => {
               setReplanning(false);
-              flash(`Semana reacomodada · ${time(tz, Date.now())}`);
+              flash(`Semana reacomodada · ${time(tz, at)}`);
             }, 600);
           }}
         >

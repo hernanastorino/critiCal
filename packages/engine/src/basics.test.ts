@@ -164,6 +164,13 @@ describe("buildSlots", () => {
     expect(placeMeal(lunch, [{ start: t("08:00"), end: t("10:00") }], bed)).toEqual(lunch);
     // Nothing fits.
     expect(placeMeal(lunch, [{ start: t("09:00"), end: t("18:00") }], bed)).toBeNull();
+    // Never before waking: an early breakfast class leaves no room before it.
+    const breakfast = { start: t("08:30"), end: t("09:00") };
+    const early = [{ start: t("08:00"), end: t("11:00") }];
+    expect(placeMeal(breakfast, early, bed, t("07:45"))).toBeNull();
+    expect(placeMeal(breakfast, early, bed)?.start).toBe(t("07:30"));
+    // Woke up mid-lunch: eat on waking rather than skip the meal.
+    expect(placeMeal(lunch, [], bed, t("13:30"))?.start).toBe(t("13:30"));
   });
 
   it("frees the preferred meal slot when the meal moves", () => {
@@ -172,6 +179,29 @@ describe("buildSlots", () => {
     // Lunch moved to 13:20–14:20, so 14:30 is free and 13:00–13:30 is not (class).
     expect(slots.some((s) => s.start === at("2026-11-02", "14:30"))).toBe(true);
     expect(slots.some((s) => s.start === at("2026-11-02", "14:00"))).toBe(false);
+  });
+
+  it("never plans before waking up, even with a negative morning", () => {
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, morningMinutes: -60 })) };
+    const slots = buildSlots(odd, [], from, to, []);
+    // Wake is 08:00 in the test settings.
+    expect(slots.some((s) => s.start < at("2026-11-02", "08:00"))).toBe(false);
+  });
+
+  it("starts the morning from the real wake instant across a DST gap", () => {
+    const ny = "America/New_York";
+    const day = {
+      ...(settings.week[0] as (typeof settings.week)[number]),
+      wake: 150,
+      morningMinutes: 30,
+    };
+    const dst = { ...settings, timezone: ny, week: settings.week.map(() => day) };
+    const from = zonedInstant(ny, "2026-03-08", 0);
+    const slots = buildSlots(dst, [], from, from + 86_400_000, []);
+    // 02:30 does not exist that night; wake resolves to 03:30, so nothing before 04:00.
+    expect(Math.min(...slots.map((s) => s.start))).toBeGreaterThanOrEqual(
+      zonedInstant(ny, "2026-03-08", 240),
+    );
   });
 
   it("throws without settings for a weekday", () => {

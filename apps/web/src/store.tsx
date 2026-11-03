@@ -147,7 +147,16 @@ export function reducer(data: AppData, action: Action): AppData {
       const option = decisions(r.input, r.result).options.find((o) => o.id === action.optionId);
       if (!option) return data;
       const next = applyOption(data, r.input, option, now);
-      const changed = data.tasks.filter((t) => next.tasks.find((n) => n.id === t.id) !== t);
+      // Only tasks whose undoable fields really moved, so undo cannot clobber later edits.
+      const changed = data.tasks.filter((t) => {
+        const n = next.tasks.find((x) => x.id === t.id);
+        return (
+          !!n &&
+          (n.minMinutes !== t.minMinutes ||
+            n.estimateMinutes !== t.estimateMinutes ||
+            n.status !== t.status)
+        );
+      });
       const record: AppliedDecision = {
         id: `${option.id}@${now}`,
         label: option.label,
@@ -189,7 +198,14 @@ export function reducer(data: AppData, action: Action): AppData {
         const role = event ? eventRole(data, event) : undefined;
         if (role !== "parcial" && role !== "entrega" && role !== "presentacion") return t;
         const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
-        return { ...t, estimateMinutes: d.estimate, minMinutes: d.min, status: "active" as const };
+        // Resetting hours keeps dropped or done tasks as they are; only an explicit
+        // single-task reset brings one back.
+        return {
+          ...t,
+          estimateMinutes: d.estimate,
+          minMinutes: d.min,
+          status: action.taskId ? ("active" as const) : t.status,
+        };
       });
       return refresh({ ...data, tasks }, now);
     }
@@ -278,7 +294,12 @@ export function reducer(data: AppData, action: Action): AppData {
         }
       };
       const tasks = data.tasks.map((t) => (t.id === id ? change(t) : t));
-      return refresh({ ...data, tasks }, now);
+      // A silo that stops repeating keeps no hand-placed future blocks.
+      const pins =
+        action.change === "endFromToday"
+          ? (data.pins ?? []).filter((b) => b.taskId !== id || b.end <= now)
+          : data.pins;
+      return refresh({ ...data, tasks, pins }, now);
     }
     case "unpin": {
       const pins = (data.pins ?? []).filter((p) => p.id !== action.blockId);

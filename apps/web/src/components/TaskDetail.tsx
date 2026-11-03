@@ -5,6 +5,9 @@ import { endOfWeek, progress } from "../planning";
 import { type RecurrenceChange, useStore } from "../store";
 import { ActionSheet } from "./ActionSheet";
 
+/** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
+const MAX_TOPICS = 200;
+
 /** Silo detail: what is left and a quick "this is how far I got" log. */
 export function TaskDetail({
   task,
@@ -110,7 +113,7 @@ export function TaskDetail({
             type="button"
             className="btn primary"
             onClick={() => {
-              const total = Math.max(0, Math.round(Number(topics) || 0));
+              const total = Math.min(MAX_TOPICS, Math.max(0, Math.round(Number(topics) || 0)));
               dispatch({
                 type: "logProgress",
                 taskId: task.id,

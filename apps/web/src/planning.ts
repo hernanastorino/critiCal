@@ -181,7 +181,10 @@ export function pinBlock(block: PlanBlock, start: number): PlanBlock {
 /** Upcoming pins that a calendar event now overlaps; they stay until the user acts. */
 export function pinClashes(data: AppData, now: number) {
   const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
+  // Pins of paused, skipped or ended silos are not on the plan, so they cannot clash.
+  const running = new Set(data.tasks.filter((t) => isRunning(t, now)).map((t) => t.id));
   return (data.pins ?? []).flatMap((pin) => {
+    if (!running.has(pin.taskId)) return [];
     const event = pin.end > now ? busy.find((e) => overlaps(e, pin)) : undefined;
     return event ? [{ pin, event }] : [];
   });

@@ -37,6 +37,14 @@ describe("fixed settings", () => {
     expect(screen.getByText("Guardado ✓")).toBeTruthy();
   });
 
+  it("clamps a negative morning and shows the saved value", () => {
+    const field = screen.getByLabelText("Desayuno, traslado (min)") as HTMLInputElement;
+    fireEvent.change(field, { target: { value: "-60" } });
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(stored().settings.week[1].morningMinutes).toBe(0);
+    expect(field.value).toBe("0");
+  });
+
   it("drops a meal whose duration is zero and keeps at least one day selected", () => {
     for (const d of ["L", "M", "J", "V"])
       fireEvent.click(screen.getAllByLabelText(`Día ${d}`)[0] as HTMLElement);
@@ -98,6 +106,31 @@ describe("fixed settings", () => {
       academic: false,
     });
     expect(stored().activities[0].preferred).toBeUndefined();
+  });
+
+  it("does not offer another subject's colour", () => {
+    fireEvent.click(screen.getByText("Cálculo II"));
+    const used = screen.getAllByLabelText(/\(ya usado\)$/) as HTMLButtonElement[];
+    expect(used.length).toBeGreaterThan(0);
+    expect(used.every((b) => b.disabled)).toBe(true);
+  });
+
+  it("keeps odd minute values exact across saves", () => {
+    fireEvent.change(screen.getByLabelText("Avisar cuando el margen baja de (h)"), {
+      target: { value: "1,75" },
+    });
+    fireEvent.click(screen.getByText("Guardar reglas"));
+    expect(stored().settings.warnSlackMinutes).toBe(105);
+    // Reopened, it reads 1.75 (not 1.8) and saves back unchanged.
+    const saved = stored();
+    cleanup();
+    render(<App fixedNow={NOW} initial={() => saved} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    expect(
+      (screen.getByLabelText("Avisar cuando el margen baja de (h)") as HTMLInputElement).value,
+    ).toBe("1.75");
+    fireEvent.click(screen.getByText("Guardar reglas"));
+    expect(stored().settings.warnSlackMinutes).toBe(105);
   });
 });
 

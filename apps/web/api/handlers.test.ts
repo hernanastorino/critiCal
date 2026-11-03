@@ -160,13 +160,22 @@ describe("google-sync (Node)", () => {
     vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
       calls.push({ method: init.method ?? "GET", url, body: init.body as string });
       if (url.includes("oauth2")) return Response.json({ access_token: "at" });
-      if (url.endsWith("/users/me/calendarList")) {
+      // Two pages: calendars on the second must not be pruned as gone.
+      if (url.includes("/users/me/calendarList?") && url.includes("pageToken=p2")) {
+        return Response.json({
+          items: [
+            { id: "plan2", summary: "📚 Plan", backgroundColor: "#7986cb" },
+            { id: "late", summary: "Facultad", hidden: true },
+          ],
+        });
+      }
+      if (url.includes("/users/me/calendarList?")) {
         return Response.json({
           items: [
             { id: "work", summary: "Trabajo" },
             { id: "plan1", summary: "📚 Plan" },
-            { id: "plan2", summary: "📚 Plan", backgroundColor: "#7986cb" },
           ],
+          nextPageToken: "p2",
         });
       }
       if (url.includes("/calendars/work/events")) {
@@ -212,7 +221,10 @@ describe("google-sync (Node)", () => {
       colorId: "10",
     });
     expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(true);
-    expect(writes.some((w) => w.table === "calendars" && w.op === "upsert")).toBe(true);
+    const listed = writes.find((w) => w.table === "calendars" && w.op === "upsert")?.payload as {
+      external_id: string;
+    }[];
+    expect(listed.map((c) => c.external_id)).toEqual(["work", "late"]);
     // Plan calendars and vanished calendars are pruned with their events.
     expect(writes.filter((w) => w.op === "delete").map((w) => w.table)).toEqual(
       expect.arrayContaining(["calendar_events", "calendars"]),
@@ -275,7 +287,7 @@ describe("icloud-sync partial reads (Node)", () => {
         return ms("<response><calendar-home-set><href>/1/</href></calendar-home-set></response>");
       if (init.method === "PROPFIND") {
         return ms(
-          "<response><href>/1/cal/</href><displayname>Parciales</displayname><resourcetype><calendar/></resourcetype></response>",
+          "<response><href>/1/cal/</href><propstat><prop><displayname>Parciales</displayname><resourcetype><calendar/></resourcetype></prop><status>HTTP/1.1 200 OK</status></propstat></response>",
         );
       }
       return ms(
@@ -289,6 +301,37 @@ describe("icloud-sync partial reads (Node)", () => {
     expect(writes.filter((w) => w.table === "calendar_events" && w.op === "delete")).toHaveLength(
       1,
     );
+  });
+});
+
+describe("icloud-sync incomplete listing (Node)", () => {
+  it("keeps every stored calendar when the listing has a failed propstat", async () => {
+    rpc.mockResolvedValue({
+      data: JSON.stringify({ appleId: "a", appPassword: "b" }),
+      error: null,
+    });
+    tables.settings = { data: { timezone: "UTC" } };
+    tables.calendar_events = [];
+    const ms = (body: string) =>
+      new Response(`<multistatus xmlns="DAV:">${body}</multistatus>`, { status: 207 });
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      if (url === "https://caldav.icloud.com/")
+        return ms(
+          "<response><current-user-principal><href>/1/p/</href></current-user-principal></response>",
+        );
+      if (url.endsWith("/1/p/"))
+        return ms("<response><calendar-home-set><href>/1/</href></calendar-home-set></response>");
+      if (init.method === "PROPFIND") {
+        return ms(
+          "<response><href>/1/cal/</href><propstat><prop><resourcetype><calendar/></resourcetype></prop><status>HTTP/1.1 200 OK</status></propstat></response>" +
+            "<response><href>/1/other/</href><propstat><prop><resourcetype/></prop><status>HTTP/1.1 500 Internal Server Error</status></propstat></response>",
+        );
+      }
+      return ms("");
+    });
+    const res = await icloud(req("good"), env);
+    expect(await res.json()).toMatchObject({ connected: true });
+    expect(writes.some((w) => w.table === "calendars" && w.op === "delete")).toBe(false);
   });
 });
 

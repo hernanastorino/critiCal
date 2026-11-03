@@ -2,13 +2,14 @@ import type { Activity, DaySettings } from "@critical/engine";
 import { useState } from "react";
 import { DEFAULTS } from "../calendars";
 import { hhmmToMinutes, minutesToHhmm } from "../format";
-import { type DetectedKind, type Effort, PALETTE } from "../model";
+import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model";
 import { useStore } from "../store";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
-const toHours = (m: number) => String(Math.round((m / 60) * 10) / 10);
+// Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
+const toHours = (m: number) => String(Math.round((m / 60) * 100) / 100);
 const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
@@ -42,13 +43,15 @@ export function WeekSettings() {
     ].filter((m) => m.end > m.start);
     const day: DaySettings = {
       wake: hhmmToMinutes(form.wake),
-      morningMinutes: Number(form.morning) || 0,
+      morningMinutes: Math.max(0, Number(form.morning) || 0),
       bed: hhmmToMinutes(form.bed),
       meals,
       freeFrom: hhmmToMinutes(form.freeFrom),
     };
     const week = data.settings.week.map((d, i) => (days.includes(i) ? day : d));
     dispatch({ type: "settings", settings: { ...data.settings, week } });
+    // Show what was saved (a negative morning becomes 0).
+    setForm({ ...form, morning: String(day.morningMinutes) });
     setSaved(true);
   };
 
@@ -345,6 +348,8 @@ function ActivityRow({ activity }: { activity: Activity }) {
                 key={c}
                 type="button"
                 aria-pressed={form.color === c}
+                // Another subject's colour would be silently reassigned on save.
+                disabled={taken.has(c.toLowerCase())}
                 aria-label={`Color ${c}${taken.has(c.toLowerCase()) ? " (ya usado)" : ""}`}
                 className={`swatch big${form.color === c ? " on" : ""}${taken.has(c.toLowerCase()) ? " taken" : ""}`}
                 style={{ background: c }}
@@ -394,7 +399,10 @@ function ActivityRow({ activity }: { activity: Activity }) {
                 activity: {
                   ...activity,
                   name: form.name.trim() || activity.name,
-                  color: form.color,
+                  // Another form may have taken this colour meanwhile.
+                  color: taken.has(form.color.toLowerCase())
+                    ? nextColor(data.activities.filter((a) => a.id !== activity.id))
+                    : form.color,
                   academic: form.academic,
                   maxSessionMinutes: Math.max(30, Number(form.max) || activity.maxSessionMinutes),
                   minBlockMinutes: Math.max(30, Number(form.min) || activity.minBlockMinutes),

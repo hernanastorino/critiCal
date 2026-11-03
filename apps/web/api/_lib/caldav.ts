@@ -54,24 +54,62 @@ export interface DavCalendar {
   color?: string;
 }
 
+const PROPSTAT = /<(?:[\w-]+:)?propstat\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?propstat>/gi;
+const succeeded = (status: string | undefined) =>
+  status === undefined || /\s2\d\d\s/.test(` ${status} `);
+
+/**
+ * Properties of a response that came back fine. A 404 for an optional property
+ * (like the component set) must not hide the ones that did arrive.
+ */
+function okProps(response: string): string {
+  const stats = [...response.matchAll(PROPSTAT)];
+  if (stats.length === 0) return response;
+  return stats
+    .map((m) => m[1] ?? "")
+    .filter((p) => succeeded(tag(p, "status")))
+    .join("");
+}
+
 /** Event calendars listed in a calendar-home PROPFIND (Depth: 1) response. */
 export function parseCalendars(xml: string, base: string): DavCalendar[] {
   return responses(xml).flatMap((r) => {
-    const type = tag(r, "resourcetype") ?? "";
+    const props = okProps(r);
+    const type = tag(props, "resourcetype") ?? "";
     if (!/<(?:[\w-]+:)?calendar\b/i.test(type)) return [];
-    const comps = tag(r, "supported-calendar-component-set");
+    const comps = tag(props, "supported-calendar-component-set");
     if (comps !== undefined && !/name=["']VEVENT["']/i.test(comps)) return [];
     const href = tag(r, "href");
     if (!href) return [];
-    const color = tag(r, "calendar-color")?.trim();
+    const color = tag(props, "calendar-color")?.trim();
     return [
       {
         url: new URL(decode(href.trim()), base).toString(),
-        name: decode(tag(r, "displayname")?.trim() ?? "") || "iCloud",
+        name: decode(tag(props, "displayname")?.trim() ?? "") || "iCloud",
         color: color ? color.slice(0, 7) : undefined,
       },
     ];
   });
+}
+
+/**
+ * True when every collection in the listing reported its resource type. A 207
+ * may carry failed propstats; such a listing can silently miss calendars.
+ */
+export function listingComplete(xml: string): boolean {
+  // A Depth-1 listing always includes the home itself; none at all means a cut body,
+  // and so does a document that never closes its multistatus.
+  const all = responses(xml);
+  return (
+    /<\/(?:[\w-]+:)?multistatus>\s*$/i.test(xml) &&
+    all.length > 0 &&
+    all.every((r) =>
+      [...r.matchAll(PROPSTAT)].some(
+        (m) =>
+          tag(m[1] ?? "", "resourcetype") !== undefined && succeeded(tag(m[1] ?? "", "status")),
+      ),
+    )
+  );
 }
 
 /** calendar-data payloads of a calendar-query REPORT response. */
@@ -140,7 +178,10 @@ export const basicAuth = (user: string, password: string) =>
   `Basic ${btoa(String.fromCharCode(...new TextEncoder().encode(`${user}:${password}`)))}`;
 
 /** Logs in and lists the user's event calendars. */
-export async function discover(fetcher: Fetch, auth: string): Promise<DavCalendar[]> {
+export async function discover(
+  fetcher: Fetch,
+  auth: string,
+): Promise<{ calendars: DavCalendar[]; complete: boolean }> {
   const root = await dav(fetcher, auth, "PROPFIND", ICLOUD, bodies.principal, "0");
   const principal = hrefIn(root.xml, "current-user-principal", root.url);
   if (!principal) throw new DavError("icloud_unreachable", 207);
@@ -148,7 +189,7 @@ export async function discover(fetcher: Fetch, auth: string): Promise<DavCalenda
   const home = hrefIn(p.xml, "calendar-home-set", p.url);
   if (!home) throw new DavError("icloud_unreachable", 207);
   const list = await dav(fetcher, auth, "PROPFIND", home, bodies.calendars, "1");
-  return parseCalendars(list.xml, list.url);
+  return { calendars: parseCalendars(list.xml, list.url), complete: listingComplete(list.xml) };
 }
 
 /** iCalendar documents of a calendar's events in [from, to), recurrences expanded. */
