@@ -242,6 +242,37 @@ describe("edit mode", () => {
     expect(screen.queryByText(/Choca con Dentista/)).toBeNull();
   });
 
+  it("marks the landing start and end on the hour axis only while dragging", () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const week = demoData(NOW).settings.week;
+    const startMin = Math.min(...week.map((d) => d.wake));
+    const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
+    const hot = () => [...document.querySelectorAll(".hours .hot")].map((e) => e.textContent);
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    // Grab 10px below the pill's top; aim its top at 12:00 exactly.
+    const y = ((720 - startMin) / (endMin - startMin)) * 1000 + 10;
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
+    expect(hot()).toEqual([]);
+    fireEvent.pointerMove(pill, { clientX: 160, clientY: y, pointerId: 3 });
+    const marks = hot();
+    // 12 already sits on the axis, so that label turns red instead of a new one.
+    expect(marks).toHaveLength(2);
+    expect(marks).toContain("12");
+    expect(document.querySelectorAll(".hours span").length).toBe(
+      [9, 12, 15, 18, 21].filter((h) => h * 60 > startMin && h * 60 < endMin).length + 1,
+    );
+    // Off the hour it writes the minutes.
+    fireEvent.pointerMove(pill, {
+      clientX: 160,
+      clientY: y + (30 / (endMin - startMin)) * 1000,
+      pointerId: 3,
+    });
+    expect(hot()[0]).toBe("12:30");
+    fireEvent.pointerUp(pill, { clientX: 160, clientY: y, pointerId: 3 });
+    expect(hot()).toEqual([]);
+  });
+
   it("lets a pinned block go from its sheet", () => {
     const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];

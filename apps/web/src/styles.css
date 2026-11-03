@@ -202,6 +202,17 @@ textarea {
   font-size: 9px;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hours span.hot {
+  color: var(--critical);
+  font-weight: 700;
+}
+
+/* Room for "14:30" next to the hours while editing. */
+.week.editing {
+  grid-template-columns: 34px repeat(7, 1fr);
 }
 
 .day {

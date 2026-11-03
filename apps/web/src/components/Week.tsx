@@ -22,6 +22,12 @@ interface Bubble {
 
 const DAY_MS = 86_400_000;
 
+/** Minute of day as the axis writes it: "14" on the hour, "14:30" otherwise. */
+const clock = (m: number) => {
+  const h = Math.floor(m / 60) % 24;
+  return m % 60 === 0 ? `${h}` : `${h}:${String(m % 60).padStart(2, "0")}`;
+};
+
 export function Week({ onSettings }: { onSettings: () => void }) {
   const { data, now, result, dispatch } = useStore();
   const tz = data.settings.timezone;
@@ -36,6 +42,9 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     grab: number;
     dx: number;
     dy: number;
+    minutes: number;
+    /** Where the block would land if dropped now. */
+    target?: { date: string; minute: number } | null;
   } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [critical, setCritical] = useState(false);
@@ -88,6 +97,28 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   };
 
   const hourMarks = [9, 12, 15, 18, 21].filter((h) => h * 60 > startMin && h * 60 < endMin);
+  // While dragging: the landing start and end, in red on the hour axis.
+  const dragMarks = drag?.target ? [drag.target.minute, drag.target.minute + drag.minutes] : [];
+
+  const landing = (x: number, y: number, minutes: number) =>
+    dropTarget(
+      [...document.querySelectorAll<HTMLElement>("[data-date]")].map((el) => {
+        const r = el.getBoundingClientRect();
+        return {
+          date: el.dataset.date as string,
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          bottom: r.bottom,
+        };
+      }),
+      x,
+      y,
+      startMin,
+      endMin,
+      minutes,
+      data.settings.slotMinutes,
+    );
 
   return (
     <div className="week-wrap">
@@ -170,10 +201,25 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         })}
         <div className="hours" aria-hidden>
           {hourMarks.map((h) => (
-            <span key={h} style={{ top: `${((h * 60 - startMin) / span) * 100}%` }}>
+            <span
+              key={h}
+              className={dragMarks.includes(h * 60) ? "hot" : undefined}
+              style={{ top: `${((h * 60 - startMin) / span) * 100}%` }}
+            >
               {h}
             </span>
           ))}
+          {dragMarks
+            .filter((m) => !hourMarks.includes(m / 60))
+            .map((m) => (
+              <span
+                key={`drag-${m}`}
+                className="hot"
+                style={{ top: `${((m - startMin) / span) * 100}%` }}
+              >
+                {clock(m)}
+              </span>
+            ))}
         </div>
         {dates.map((d) => (
           <div key={d} className="day" data-date={d}>
@@ -222,14 +268,22 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                             grab: e.clientY - rect.top,
                             dx: 0,
                             dy: 0,
+                            minutes: (b.end - b.start) / MINUTE,
                           });
                         }
                       : undefined
                   }
                   onPointerMove={
                     dragged
-                      ? (e) =>
-                          setDrag({ ...drag, dx: e.clientX - drag.x0, dy: e.clientY - drag.y0 })
+                      ? (e) => {
+                          const dx = e.clientX - drag.x0;
+                          const dy = e.clientY - drag.y0;
+                          const target =
+                            Math.hypot(dx, dy) < 6
+                              ? null
+                              : landing(e.clientX, e.clientY - drag.grab, drag.minutes);
+                          setDrag({ ...drag, dx, dy, target });
+                        }
                       : undefined
                   }
                   ref={b.id === focusId ? (el) => el?.focus() : undefined}
@@ -262,27 +316,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                             setBubble({ item, x: e.clientX, y: e.clientY });
                             return;
                           }
-                          const columns = [
-                            ...document.querySelectorAll<HTMLElement>("[data-date]"),
-                          ].map((el) => {
-                            const r = el.getBoundingClientRect();
-                            return {
-                              date: el.dataset.date as string,
-                              left: r.left,
-                              right: r.right,
-                              top: r.top,
-                              bottom: r.bottom,
-                            };
-                          });
-                          const target = dropTarget(
-                            columns,
-                            e.clientX,
-                            e.clientY - drag.grab,
-                            startMin,
-                            endMin,
-                            (b.end - b.start) / 60_000,
-                            data.settings.slotMinutes,
-                          );
+                          const target = landing(e.clientX, e.clientY - drag.grab, drag.minutes);
                           if (target) {
                             dispatch({
                               type: "pin",
