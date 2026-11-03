@@ -31,18 +31,19 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
   const wake = override?.wake ?? base.wake;
   const rawBed = override?.bed ?? base.bed;
   const bed = rawBed <= wake ? rawBed + 1440 : rawBed;
-  // The morning routine never starts before waking up.
-  const plannable = wake + Math.max(0, base.morningMinutes ?? 0);
+  const wakeAt = zonedInstant(tz, date, wake);
+  // Counted from the real wake instant (DST-safe), never before it.
+  const plannableAt = wakeAt + Math.max(0, base.morningMinutes ?? 0) * MINUTE;
   const bedAt = zonedInstant(tz, date, bed);
   return {
     date,
     midnight: zonedInstant(tz, date, 0),
-    awake: [{ start: zonedInstant(tz, date, plannable), end: bedAt }],
+    awake: [{ start: plannableAt, end: bedAt }],
     meals: base.meals.map((m) => ({
       start: zonedInstant(tz, date, m.start),
       end: zonedInstant(tz, date, m.end),
     })),
-    wakeAt: zonedInstant(tz, date, wake),
+    wakeAt,
     bedAt,
     freeFrom: zonedInstant(tz, date, base.freeFrom),
   };
@@ -82,6 +83,8 @@ export function placeMeal(
     .sort((a, b) => Math.abs(a - p) - Math.abs(b - p));
   for (const start of afterClass) if (fits(start)) return at(start);
   if (fits(p)) return at(p);
+  // Woke up in the middle of the meal time: eat on waking.
+  if (p < wakeAt && wakeAt < p + LATE && fits(wakeAt)) return at(wakeAt);
 
   // Too late after: eat before the class that covers the preferred time.
   const before = blocks

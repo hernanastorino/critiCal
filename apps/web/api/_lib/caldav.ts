@@ -54,20 +54,38 @@ export interface DavCalendar {
   color?: string;
 }
 
+const PROPSTAT = /<(?:[\w-]+:)?propstat\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?propstat>/gi;
+const succeeded = (status: string | undefined) =>
+  status === undefined || /\s2\d\d\s/.test(` ${status} `);
+
+/**
+ * Properties of a response that came back fine. A 404 for an optional property
+ * (like the component set) must not hide the ones that did arrive.
+ */
+function okProps(response: string): string {
+  const stats = [...response.matchAll(PROPSTAT)];
+  if (stats.length === 0) return response;
+  return stats
+    .map((m) => m[1] ?? "")
+    .filter((p) => succeeded(tag(p, "status")))
+    .join("");
+}
+
 /** Event calendars listed in a calendar-home PROPFIND (Depth: 1) response. */
 export function parseCalendars(xml: string, base: string): DavCalendar[] {
   return responses(xml).flatMap((r) => {
-    const type = tag(r, "resourcetype") ?? "";
+    const props = okProps(r);
+    const type = tag(props, "resourcetype") ?? "";
     if (!/<(?:[\w-]+:)?calendar\b/i.test(type)) return [];
-    const comps = tag(r, "supported-calendar-component-set");
+    const comps = tag(props, "supported-calendar-component-set");
     if (comps !== undefined && !/name=["']VEVENT["']/i.test(comps)) return [];
     const href = tag(r, "href");
     if (!href) return [];
-    const color = tag(r, "calendar-color")?.trim();
+    const color = tag(props, "calendar-color")?.trim();
     return [
       {
         url: new URL(decode(href.trim()), base).toString(),
-        name: decode(tag(r, "displayname")?.trim() ?? "") || "iCloud",
+        name: decode(tag(props, "displayname")?.trim() ?? "") || "iCloud",
         color: color ? color.slice(0, 7) : undefined,
       },
     ];
@@ -79,15 +97,16 @@ export function parseCalendars(xml: string, base: string): DavCalendar[] {
  * may carry failed propstats; such a listing can silently miss calendars.
  */
 export function listingComplete(xml: string): boolean {
-  const propstats = /<(?:[\w-]+:)?propstat\b[^>]*>([\s\S]*?)<\/(?:[\w-]+:)?propstat>/gi;
-  return responses(xml).every((r) =>
-    [...r.matchAll(propstats)].some((m) => {
-      const status = tag(m[1] ?? "", "status");
-      return (
-        tag(m[1] ?? "", "resourcetype") !== undefined &&
-        (status === undefined || /\s2\d\d\s/.test(` ${status} `))
-      );
-    }),
+  // A Depth-1 listing always includes the home itself; none at all means a cut body.
+  const all = responses(xml);
+  return (
+    all.length > 0 &&
+    all.every((r) =>
+      [...r.matchAll(PROPSTAT)].some(
+        (m) =>
+          tag(m[1] ?? "", "resourcetype") !== undefined && succeeded(tag(m[1] ?? "", "status")),
+      ),
+    )
   );
 }
 

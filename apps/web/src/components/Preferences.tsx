@@ -2,7 +2,7 @@ import type { Activity, DaySettings } from "@critical/engine";
 import { useState } from "react";
 import { DEFAULTS } from "../calendars";
 import { hhmmToMinutes, minutesToHhmm } from "../format";
-import { type DetectedKind, type Effort, PALETTE } from "../model";
+import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model";
 import { useStore } from "../store";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
@@ -50,6 +50,8 @@ export function WeekSettings() {
     };
     const week = data.settings.week.map((d, i) => (days.includes(i) ? day : d));
     dispatch({ type: "settings", settings: { ...data.settings, week } });
+    // Show what was saved (a negative morning becomes 0).
+    setForm({ ...form, morning: String(day.morningMinutes) });
     setSaved(true);
   };
 
@@ -397,7 +399,10 @@ function ActivityRow({ activity }: { activity: Activity }) {
                 activity: {
                   ...activity,
                   name: form.name.trim() || activity.name,
-                  color: form.color,
+                  // Another form may have taken this colour meanwhile.
+                  color: taken.has(form.color.toLowerCase())
+                    ? nextColor(data.activities.filter((a) => a.id !== activity.id))
+                    : form.color,
                   academic: form.academic,
                   maxSessionMinutes: Math.max(30, Number(form.max) || activity.maxSessionMinutes),
                   minBlockMinutes: Math.max(30, Number(form.min) || activity.minBlockMinutes),
