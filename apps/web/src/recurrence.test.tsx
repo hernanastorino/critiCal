@@ -91,8 +91,19 @@ describe("weekly silo recurrence", () => {
     expect(ended.plan.some((b) => b.id === "past")).toBe(true);
     expect(ended.checkIns).toHaveLength(1);
 
-    const gone = reducer(d, { type: "recurrence", taskId: gym.id, change: "deleteAll", now: NOW });
+    const decided = {
+      ...d,
+      applied: [{ id: "x", label: "Bajar Gym", at: NOW, before: [gym, ...d.tasks.slice(0, 1)] }],
+    };
+    const gone = reducer(decided, {
+      type: "recurrence",
+      taskId: gym.id,
+      change: "deleteAll",
+      now: NOW,
+    });
     expect(gymOf(gone)).toBeUndefined();
+    expect(gone.applied?.[0]?.before.some((t) => t.id === gym.id)).toBe(false);
+    expect(gone.applied?.[0]?.before).toHaveLength(d.tasks[0]?.id === gym.id ? 0 : 1);
     expect(gone.plan.some((b) => b.taskId === gym.id)).toBe(false);
     expect(gone.checkIns).toEqual([]);
   });
@@ -189,6 +200,23 @@ describe("weekly silo controls", () => {
     expect(screen.queryByLabelText(/^Gym/)).toBeNull();
     const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
     expect(gymOf(saved)).toMatchObject({ status: "dropped" });
+  });
+
+  it("keeps Reactivar for a paused silo that is no longer weekly", () => {
+    const d = start();
+    const gym = gymOf(d) as AppData["tasks"][number];
+    const paused = reducer(d, { type: "recurrence", taskId: gym.id, change: "pause", now: NOW });
+    const changed = {
+      ...paused,
+      tasks: paused.tasks.map((t) =>
+        t.id === gym.id ? { ...t, kind: "deliverable" as const } : t,
+      ),
+    };
+    render(<App fixedNow={NOW} initial={() => changed} />);
+    fireEvent.click(screen.getByText("Silos"));
+    fireEvent.click(screen.getByLabelText("Gym: desactivado"));
+    fireEvent.click(screen.getByText("Reactivar"));
+    expect(screen.queryByText("Reactivar")).toBeNull();
   });
 
   it("deletes everything", () => {

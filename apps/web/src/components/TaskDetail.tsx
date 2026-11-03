@@ -126,7 +126,7 @@ export function TaskDetail({
           </button>
         </div>
 
-        {task.kind === "habit" && (
+        {(task.kind === "habit" || offState) && (
           <div className="repeat">
             <div className="section-title">Se repite cada semana</div>
             {offState && <p className="state">{offState}</p>}

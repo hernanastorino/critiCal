@@ -254,6 +254,11 @@ export function reducer(data: AppData, action: Action): AppData {
             checkIns: data.checkIns.filter((c) => c.taskId !== id),
             plan: data.plan.filter((b) => b.taskId !== id),
             pins: (data.pins ?? []).filter((b) => b.taskId !== id),
+            // Nothing of it survives, not even in the undo history.
+            applied: data.applied?.map((d) => ({
+              ...d,
+              before: d.before.filter((t) => t.id !== id),
+            })),
           },
           now,
         );
