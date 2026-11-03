@@ -56,11 +56,14 @@ describe("app", () => {
 
   it("navigates weeks", () => {
     renderApp();
-    expect(screen.getByText("Esta semana")).toBeTruthy();
+    const title = () => screen.getByRole("heading", { level: 1 });
+    expect(title().textContent).toBe("2 nov – 8 nov");
+    expect(title().className).toContain("current");
     fireEvent.click(screen.getByLabelText("Semana siguiente"));
-    expect(screen.queryByText("Esta semana")).toBeNull();
+    expect(title().textContent).toBe("9 nov – 15 nov");
+    expect(title().className).not.toContain("current");
     fireEvent.click(screen.getByLabelText("Semana anterior"));
-    expect(screen.getByText("Esta semana")).toBeTruthy();
+    expect(title().className).toContain("current");
   });
 
   it("confirms past blocks from the inbox", () => {
@@ -112,6 +115,7 @@ describe("app", () => {
     expect(screen.getByLabelText(/Correr: faltan/)).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText(/Correr: faltan/));
+    fireEvent.click(screen.getByText("Editar"));
     fireEvent.click(screen.getByText("Archivar"));
     expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
   });

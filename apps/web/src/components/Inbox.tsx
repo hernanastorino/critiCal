@@ -148,6 +148,23 @@ export function Inbox() {
           </div>
         ))}
 
+        {(data.applied ?? []).length > 0 && (
+          <div className="section-title">Decisiones que tomaste</div>
+        )}
+        {(data.applied ?? []).map((d) => (
+          <div key={d.id} className="card">
+            <div className="title">{d.label}</div>
+            <p className="meta">{dayAndTime(tz, d.at)}</p>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => dispatch({ type: "undoDecision", id: d.id })}
+            >
+              Deshacer
+            </button>
+          </div>
+        ))}
+
         {pending.length > 0 && <div className="section-title">¿Cómo te fue?</div>}
         {pending.map((b) => (
           <div key={b.id} className="card" style={{ ["--c" as string]: colorOf(b) }}>

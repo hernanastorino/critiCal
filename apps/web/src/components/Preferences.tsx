@@ -274,6 +274,14 @@ export function DetectedDefaults() {
       >
         {saved ? "Guardado ✓" : "Guardar"}
       </button>
+      <button
+        type="button"
+        className="btn"
+        style={{ width: "100%", marginTop: 8 }}
+        onClick={() => dispatch({ type: "resetDetected" })}
+      >
+        Volver todo lo detectado a estas horas
+      </button>
     </details>
   );
 }

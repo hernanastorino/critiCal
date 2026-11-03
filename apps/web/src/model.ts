@@ -114,6 +114,17 @@ export interface AppData {
   /** Context-switch cap relaxed until this instant. */
   relaxContextUntil?: number;
   preferences?: Preferences;
+  /** Choices taken from the inbox, so they can be undone. */
+  applied?: AppliedDecision[];
+}
+
+export interface AppliedDecision {
+  id: string;
+  label: string;
+  at: number;
+  /** Tasks as they were before the decision. */
+  before: AppTask[];
+  freeTimeUntil?: number;
 }
 
 /** First palette colour no activity uses yet, so every subject looks different. */

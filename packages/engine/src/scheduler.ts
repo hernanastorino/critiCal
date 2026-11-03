@@ -402,7 +402,12 @@ function blockLevel(
     minSlack = Math.min(minSlack, (status.get(p.task.id) as TaskStatus).slack);
   }
   const ownStatus = status.get(block.taskId) as TaskStatus;
-  if (ownStatus.minDeficit > 0 || (own.min > 0 && minSlack < length)) return "critical";
+  // If some minimum already does not fit, every block before its deadline is needed.
+  const shortAfter = prepared.some(
+    (p) => p.task.deadline > block.start && (status.get(p.task.id) as TaskStatus).minDeficit > 0,
+  );
+  if (shortAfter || ownStatus.minDeficit > 0 || (own.min > 0 && minSlack < length))
+    return "critical";
   if (minSlack < settings.warnSlackMinutes) return "warn";
   return "ok";
 }

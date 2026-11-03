@@ -3,12 +3,14 @@ import { dayAndTime, hours } from "../format";
 import type { AppTask } from "../model";
 import { progress, refreshPlan } from "../planning";
 import { useStore } from "../store";
+import { TaskDetail } from "./TaskDetail";
 import { TaskEditor } from "./TaskEditor";
 
 export function Silos() {
   const { data, now } = useStore();
   const tz = data.settings.timezone;
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
+  const [detail, setDetail] = useState<AppTask | null>(null);
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const items = progress(data, now).sort((a, b) => a.deadline - b.deadline);
 
@@ -29,7 +31,7 @@ export function Silos() {
                 key={p.task.id}
                 className="silo"
                 aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}`}
-                onClick={() => setEditing(p.task)}
+                onClick={() => setDetail(p.task)}
               >
                 <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
                   <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>
@@ -58,6 +60,16 @@ export function Silos() {
           </button>
         </div>
       </div>
+      {detail && (
+        <TaskDetail
+          task={detail}
+          onClose={() => setDetail(null)}
+          onEdit={() => {
+            setEditing(detail);
+            setDetail(null);
+          }}
+        />
+      )}
       {editing && (
         <TaskEditor
           task={editing === "new" ? undefined : editing}

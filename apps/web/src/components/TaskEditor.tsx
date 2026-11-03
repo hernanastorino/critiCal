@@ -244,6 +244,19 @@ export function TaskEditor({
             <option value={3}>Alta</option>
           </select>
         </label>
+        {task?.sourceEventId && (
+          <button
+            type="button"
+            className="btn"
+            style={{ width: "100%", marginBottom: 8 }}
+            onClick={() => {
+              dispatch({ type: "resetDetected", taskId: task.id });
+              onClose();
+            }}
+          >
+            Volver a las horas por defecto
+          </button>
+        )}
         <div className="row">
           {task && (
             <button

@@ -9,7 +9,7 @@ function query(table: string) {
   // A thenable query builder: awaiting any step yields `result`.
   const chain = Promise.resolve(result) as unknown as Promise<typeof result> &
     Record<string, unknown>;
-  for (const m of ["select", "eq", "gte", "lte", "in"]) chain[m] = () => chain;
+  for (const m of ["select", "eq", "gte", "lte", "in", "not"]) chain[m] = () => chain;
   chain.maybeSingle = () => Promise.resolve(result);
   chain.upsert = (payload: unknown) => {
     writes.push({ table, op: "upsert", payload });
@@ -213,6 +213,10 @@ describe("google-sync (Node)", () => {
     });
     expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(true);
     expect(writes.some((w) => w.table === "calendars" && w.op === "upsert")).toBe(true);
+    // Plan calendars and vanished calendars are pruned with their events.
+    expect(writes.filter((w) => w.op === "delete").map((w) => w.table)).toEqual(
+      expect.arrayContaining(["calendar_events", "calendars"]),
+    );
   });
 });
 
@@ -281,6 +285,9 @@ describe("icloud-sync partial reads (Node)", () => {
     });
     const res = await icloud(req("good"), env);
     expect(await res.json()).toMatchObject({ connected: true, imported: 1, failedCalendars: 1 });
-    expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(false);
+    // Only the prune of unlisted calendars deletes; the partially read one keeps its events.
+    expect(writes.filter((w) => w.table === "calendar_events" && w.op === "delete")).toHaveLength(
+      1,
+    );
   });
 });
