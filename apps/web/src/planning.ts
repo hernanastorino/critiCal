@@ -161,15 +161,26 @@ export interface Refresh {
  */
 export const isPinned = (b: PlanBlock) => b.id.startsWith("pin:");
 
+export const pinId = (taskId: string, start: number) => `pin:${taskId}@${start}`;
+
 /** A block moved by hand to `start` (same length), pinned there. */
 export function pinBlock(block: PlanBlock, start: number): PlanBlock {
   return {
     ...block,
-    id: `pin:${block.taskId}@${start}`,
+    id: pinId(block.taskId, start),
     start,
     end: start + (block.end - block.start),
     frozen: undefined,
   };
+}
+
+/** Upcoming pins that a calendar event now overlaps; they stay until the user acts. */
+export function pinClashes(data: AppData, now: number) {
+  const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
+  return (data.pins ?? []).flatMap((pin) => {
+    const event = pin.end > now ? busy.find((e) => overlaps(e, pin)) : undefined;
+    return event ? [{ pin, event }] : [];
+  });
 }
 
 export function refreshPlan(data: AppData, now: number): Refresh {

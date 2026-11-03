@@ -4,7 +4,7 @@ import { App } from "./App";
 import { demoData } from "./demo";
 import { dropTarget } from "./drag";
 import type { AppData } from "./model";
-import { isPinned, refreshPlan } from "./planning";
+import { isPinned, pinClashes, refreshPlan } from "./planning";
 import { reducer } from "./store";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
@@ -80,6 +80,39 @@ describe("pins", () => {
     expect(proposal).toBeTruthy();
     const ids = plan.map((b) => b.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("refuses a second pin with the same id", () => {
+    const d = start();
+    const [a, b] = d.plan.filter(
+      (x) => x.start > NOW && x.taskId === d.plan.find((y) => y.start > NOW)?.taskId,
+    );
+    expect(a && b).toBeTruthy();
+    const target = (b?.start ?? 0) + 24 * 3_600_000;
+    const once = reducer(d, { type: "pin", blockId: a?.id as string, start: target, now: NOW });
+    expect(reducer(once, { type: "pin", blockId: b?.id as string, start: target, now: NOW })).toBe(
+      once,
+    );
+  });
+
+  it("reports pins that a new event overlaps and keeps them", () => {
+    const d = start();
+    const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
+    const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
+    const event = {
+      id: "x",
+      title: "Dentista",
+      start: block.start,
+      end: block.end,
+      busy: true,
+      source: "demo" as const,
+    };
+    const later = reducer(
+      { ...pinned, events: [...pinned.events, event] },
+      { type: "refresh", now: NOW },
+    );
+    expect(pinClashes(later, NOW).map((c) => c.event.title)).toEqual(["Dentista"]);
+    expect(later.pins).toHaveLength(1);
   });
 
   it("turns past pins into history", () => {
@@ -171,6 +204,42 @@ describe("edit mode", () => {
 
     fireEvent.click(screen.getByText("Listo"));
     expect(document.querySelector(".week.editing")).toBeNull();
+  });
+
+  it("moves a block with the arrow keys and keeps focus on it", () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    pill.focus();
+    fireEvent.keyDown(pill, { key: "ArrowDown" });
+    const moved = document.querySelector(".pill.pinned") as HTMLElement;
+    expect(moved).toBeTruthy();
+    expect(document.activeElement).toBe(moved);
+    fireEvent.keyDown(moved, { key: "ArrowRight" });
+    fireEvent.keyDown(moved, { key: "a" });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    expect(saved.pins).toHaveLength(1);
+  });
+
+  it("shows clashing pins in the inbox and lets them go", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
+    const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
+    const event = {
+      id: "x",
+      title: "Dentista",
+      start: block.start,
+      end: block.end,
+      busy: true,
+      source: "demo" as const,
+    };
+    render(
+      <App fixedNow={NOW} initial={() => ({ ...pinned, events: [...pinned.events, event] })} />,
+    );
+    fireEvent.click(screen.getByText("Bandeja"));
+    expect(screen.getByText(/Choca con Dentista/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Soltar (que el plan decida)"));
+    expect(screen.queryByText(/Choca con Dentista/)).toBeNull();
   });
 
   it("lets a pinned block go from its sheet", () => {

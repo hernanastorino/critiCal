@@ -230,6 +230,8 @@ export function reducer(data: AppData, action: Action): AppData {
       const block = data.plan.find((b) => b.id === action.blockId);
       if (!block || block.start <= now || action.start <= now) return data;
       const moved = pinBlock(block, action.start);
+      // Two blocks of one task dropped on the same slot would share an id.
+      if ((data.pins ?? []).some((p) => p.id === moved.id && p.id !== block.id)) return data;
       const pins = [...(data.pins ?? []).filter((p) => p.id !== block.id), moved];
       return refresh({ ...data, pins, plan: data.plan.filter((b) => b.id !== block.id) }, now);
     }

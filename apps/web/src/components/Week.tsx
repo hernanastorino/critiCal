@@ -1,10 +1,10 @@
-import { localParts, type PlanBlock, zonedInstant } from "@critical/engine";
+import { localParts, MINUTE, type PlanBlock, zonedInstant } from "@critical/engine";
 import { type CSSProperties, useMemo, useState } from "react";
 import { visibleEvents } from "../calendars";
 import { dropTarget } from "../drag";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format";
 import type { AppEvent } from "../model";
-import { isPinned, progress, weekDates } from "../planning";
+import { isPinned, pinId, progress, weekDates } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
 import { SyncDot } from "./Calendars";
@@ -28,6 +28,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const [offset, setOffset] = useState(0);
   const [replanning, setReplanning] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
   const [drag, setDrag] = useState<{
     id: string;
     x0: number;
@@ -229,6 +230,27 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                     dragged
                       ? (e) =>
                           setDrag({ ...drag, dx: e.clientX - drag.x0, dy: e.clientY - drag.y0 })
+                      : undefined
+                  }
+                  ref={b.id === focusId ? (el) => el?.focus() : undefined}
+                  onKeyDown={
+                    movable
+                      ? (e) => {
+                          // Arrows move by one slot (up/down) or one day (left/right).
+                          const slot = data.settings.slotMinutes * MINUTE;
+                          const step = {
+                            ArrowUp: -slot,
+                            ArrowDown: slot,
+                            ArrowLeft: -24 * 60 * MINUTE,
+                            ArrowRight: 24 * 60 * MINUTE,
+                          }[e.key];
+                          if (step === undefined) return;
+                          e.preventDefault();
+                          const start = b.start + step;
+                          if (start <= now) return;
+                          dispatch({ type: "pin", blockId: b.id, start });
+                          setFocusId(pinId(b.taskId, start));
+                        }
                       : undefined
                   }
                   onPointerCancel={dragged ? () => setDrag(null) : undefined}
