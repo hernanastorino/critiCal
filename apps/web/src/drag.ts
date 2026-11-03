@@ -50,7 +50,9 @@ export function nearestFree(
 ): number | null {
   const fits = (s: number) =>
     s >= min && s + duration <= max && busy.every((b) => s + duration <= b.start || s >= b.end);
-  for (let d = 0; d <= max - min; d += slot) {
+  // Far enough to reach either end, even when `minute` lies outside [min, max].
+  const reach = Math.max(max - minute, minute - min);
+  for (let d = 0; d <= reach; d += slot) {
     if (fits(minute + d)) return minute + d;
     if (fits(minute - d)) return minute - d;
   }

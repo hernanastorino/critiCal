@@ -39,6 +39,8 @@ describe("nearestFree", () => {
     expect(nearestFree(750, 60, busy, 30, 480, 1440)).toBe(840);
     expect(nearestFree(690, 60, busy, 30, 480, 1440)).toBe(660);
     expect(nearestFree(500, 60, [{ start: 0, end: 1440 }], 30, 480, 1440)).toBeNull();
+    // A drop far above the next free slot of today lands on that slot.
+    expect(nearestFree(480, 60, [], 30, 1050, 1440)).toBe(1050);
   });
 });
 

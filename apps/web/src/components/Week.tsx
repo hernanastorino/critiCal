@@ -1,5 +1,5 @@
 import { localParts, MINUTE, type PlanBlock, zonedInstant } from "@critical/engine";
-import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
+import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { visibleEvents } from "../calendars";
 import { dropTarget, nearestFree } from "../drag";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format";
@@ -54,7 +54,9 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const [focusId, setFocusId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
-  dragRef.current = drag;
+  useLayoutEffect(() => {
+    dragRef.current = drag;
+  }, [drag]);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** When the last long-press drag ended; the click right after it is not a tap. */
   const droppedAt = useRef(0);
@@ -70,6 +72,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     return () => {
       el?.removeEventListener("touchmove", hold);
       clearTimeout(pressTimer.current);
+      clearTimeout(toastTimer.current);
     };
   }, []);
   const [toast, setToast] = useState<string | null>(null);
@@ -77,9 +80,11 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const [bubble, setBubble] = useState<Bubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
 
+  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = (message: string) => {
+    clearTimeout(toastTimer.current);
     setToast(message);
-    setTimeout(() => setToast(null), 2500);
+    toastTimer.current = setTimeout(() => setToast(null), 2500);
   };
 
   const ref = now + offset * 7 * DAY_MS;
