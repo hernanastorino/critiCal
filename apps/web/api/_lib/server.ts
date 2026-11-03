@@ -39,16 +39,21 @@ export async function authenticate(
   env: Env,
   needs: (keyof Env)[],
 ): Promise<Caller | Response> {
-  if (!env.url || !env.publishable || !env.secret || needs.some((k) => !env[k])) {
-    return json({ error: "server_not_configured" }, 503);
+  const missing = (["url", "publishable", "secret", ...needs] as (keyof Env)[]).filter(
+    (k) => !env[k],
+  );
+  if (missing.length) {
+    // Names only, never values: tells the operator which variable to set.
+    return json({ error: "server_not_configured", missing }, 503);
   }
+  const url = env.url as string;
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "unauthorized" }, 401);
   const options = { auth: { persistSession: false, autoRefreshToken: false } };
-  const admin = createClient(env.url, env.secret, options);
+  const admin = createClient(url, env.secret as string, options);
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return json({ error: "unauthorized" }, 401);
-  const user = createClient(env.url, env.publishable, {
+  const user = createClient(url, env.publishable as string, {
     ...options,
     global: { headers: { Authorization: `Bearer ${token}` } },
   });

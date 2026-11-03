@@ -85,7 +85,12 @@ describe("server", () => {
 
 describe("google-sync (Node)", () => {
   it("asks the client to fall back when not configured, and rejects strangers", async () => {
-    expect((await google(req("good"), { ...env, googleClientSecret: undefined })).status).toBe(503);
+    const unset = await google(req("good"), { ...env, googleClientSecret: undefined });
+    expect(unset.status).toBe(503);
+    expect(await unset.json()).toEqual({
+      error: "server_not_configured",
+      missing: ["googleClientSecret"],
+    });
     expect((await google(req(), env)).status).toBe(401);
     expect((await google(req("bad"), env)).status).toBe(401);
   });
