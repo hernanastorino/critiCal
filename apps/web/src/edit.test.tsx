@@ -1,8 +1,9 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { zonedInstant } from "@critical/engine";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { demoData } from "./demo";
-import { dropTarget } from "./drag";
+import { dropTarget, nearestFree } from "./drag";
 import type { AppData } from "./model";
 import { isPinned, pinClashes, refreshPlan } from "./planning";
 import { reducer } from "./store";
@@ -23,6 +24,17 @@ describe("dropTarget", () => {
       minute: 1350,
     });
     expect(dropTarget([], 0, 0, 480, 1440, 60)).toBeNull();
+  });
+});
+
+describe("nearestFree", () => {
+  const busy = [{ start: 720, end: 840 }];
+  it("keeps a free slot and shifts off busy ones to the closest gap", () => {
+    expect(nearestFree(600, 60, busy, 30, 480, 1440)).toBe(600);
+    // 12:30 overlaps the 12–14 class: after it (14:00) is 90 min away, before (11:00) too; later wins.
+    expect(nearestFree(750, 60, busy, 30, 480, 1440)).toBe(840);
+    expect(nearestFree(690, 60, busy, 30, 480, 1440)).toBe(660);
+    expect(nearestFree(500, 60, [{ start: 0, end: 1440 }], 30, 480, 1440)).toBeNull();
   });
 });
 
@@ -269,8 +281,87 @@ describe("edit mode", () => {
       pointerId: 3,
     });
     expect(hot()[0]).toBe("12:30");
+    // The block snaps into its landing slot, with guides and a loupe.
+    expect(document.querySelector('[data-date="2026-11-05"] .pill.ghost')).toBeTruthy();
+    expect(document.querySelectorAll(".guides .guide")).toHaveLength(2);
+    expect(document.querySelector(".loupe")?.textContent).toMatch(/jue 5 · 12:30–/);
     fireEvent.pointerUp(pill, { clientX: 160, clientY: y, pointerId: 3 });
     expect(hot()).toEqual([]);
+    expect(document.querySelector(".pill.ghost, .guides, .loupe")).toBeNull();
+  });
+
+  it("drops next to a fixed event instead of on top of it", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const clash = {
+      id: "class",
+      title: "Clase",
+      start: zonedInstant(tz, "2026-11-05", 720),
+      end: zonedInstant(tz, "2026-11-05", 840),
+      busy: true,
+      source: "demo" as const,
+    };
+    render(
+      <App
+        fixedNow={NOW}
+        initial={(n) => ({ ...demoData(n), events: [...demoData(n).events, clash] })}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const week = demoData(NOW).settings.week;
+    const startMin = Math.min(...week.map((d) => d.wake));
+    const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const y = ((750 - startMin) / (endMin - startMin)) * 1000 + 10;
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: 160, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: 160, clientY: y, pointerId: 4 });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const pin = saved.pins?.[0];
+    expect(pin).toBeTruthy();
+    expect((pin?.end ?? 0) <= clash.start || (pin?.start ?? 0) >= clash.end).toBe(true);
+  });
+
+  describe("long-press outside edit mode", () => {
+    beforeEach(() => vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] }));
+    afterEach(() => vi.useRealTimers());
+    const future = () =>
+      [...document.querySelectorAll<HTMLElement>(".pill.planned:not(.past)")].at(-1) as HTMLElement;
+
+    it("starts a drag after holding and pins where it is dropped", () => {
+      render(<App fixedNow={NOW} initial={demoData} />);
+      const pill = future();
+      fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 5 });
+      fireEvent.pointerMove(pill, { clientX: 12, clientY: 112, pointerId: 5 });
+      expect(document.querySelector(".pill.dragging")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+      expect(document.querySelector(".pill.dragging")).toBeTruthy();
+      fireEvent.pointerMove(pill, { clientX: 160, clientY: 600, pointerId: 5 });
+      fireEvent.pointerUp(pill, { clientX: 160, clientY: 600, pointerId: 5 });
+      fireEvent.click(pill, { detail: 1 });
+      expect(document.querySelector(".bubble")).toBeNull();
+      const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+      expect(saved.pins).toHaveLength(1);
+    });
+
+    it("keeps short taps as taps and early movement as a scroll", () => {
+      render(<App fixedNow={NOW} initial={demoData} />);
+      const pill = future();
+      fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 6 });
+      fireEvent.pointerUp(pill, { clientX: 10, clientY: 110, pointerId: 6 });
+      fireEvent.click(pill, { detail: 1 });
+      expect(document.querySelector(".bubble")).toBeTruthy();
+      fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
+
+      fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
+      fireEvent.pointerMove(pill, { clientX: 10, clientY: 140, pointerId: 7 });
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+      expect(document.querySelector(".pill.dragging")).toBeNull();
+      fireEvent.pointerCancel(pill, { pointerId: 7 });
+    });
   });
 
   it("lets a pinned block go from its sheet", () => {
@@ -284,5 +375,17 @@ describe("edit mode", () => {
     fireEvent.click(document.querySelector(".bubble") as HTMLElement);
     fireEvent.click(screen.getByText(/Soltar/));
     expect(screen.queryByLabelText(/, fijado$/)).toBeNull();
+  });
+
+  it("lets a pinned block go straight from its bubble", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
+    const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
+    render(<App fixedNow={NOW} initial={() => pinned} />);
+    fireEvent.click(screen.getByLabelText(/, fijado$/), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByRole("button", { name: "Soltar" }));
+    expect(screen.queryByLabelText(/, fijado$/)).toBeNull();
+    expect(document.querySelector(".bubble")).toBeNull();
+    expect(screen.getByText(/Soltado/)).toBeTruthy();
   });
 });
