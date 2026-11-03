@@ -74,3 +74,39 @@ export async function timeZoneOf(user: SupabaseClient): Promise<string> {
   const { data } = await user.from("settings").select("data").maybeSingle();
   return (data?.data as { timezone?: string } | null)?.timezone ?? "America/Montevideo";
 }
+
+/** Deletes rows by external id in batches (one huge `in (...)` overflows the URL and fails). */
+export async function deleteByExternalId(
+  user: SupabaseClient,
+  source: string,
+  ids: string[],
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += 100) {
+    const { error } = await user
+      .from("calendar_events")
+      .delete()
+      .eq("source", source)
+      .in("external_id", ids.slice(i, i + 100));
+    if (error) throw error;
+  }
+}
+
+/** Forgets calendars (and their events) that the source no longer lists. */
+export async function pruneCalendars(
+  user: SupabaseClient,
+  source: string,
+  keep: string[],
+): Promise<void> {
+  // PostgREST list literal: backslashes first, then quotes.
+  const quote = (id: string) => `"${id.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const list = `(${keep.map(quote).join(",")})`;
+  const events = user.from("calendar_events").delete().eq("source", source);
+  const calendars = user.from("calendars").delete().eq("source", source);
+  const [a, b] = await Promise.all(
+    keep.length
+      ? [events.not("calendar_id", "in", list), calendars.not("external_id", "in", list)]
+      : [events, calendars],
+  );
+  if (a.error) throw a.error;
+  if (b.error) throw b.error;
+}

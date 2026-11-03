@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSlots } from "./availability";
+import { buildSlots, placeMeal } from "./availability";
 import { merge, minutes, overlaps, subtract } from "./intervals";
 import { effortRatio, remainingFromUnits } from "./learning";
 import { at, settings, TZ } from "./testing";
@@ -143,6 +143,35 @@ describe("buildSlots", () => {
     expect(buildSlots(morning, [], from, to, [])[0]?.start).toBe(at("2026-11-02", "09:00"));
     const late = buildSlots(morning, [{ date: "2026-11-02", wake: 600 }], from, to, []);
     expect(late[0]?.start).toBe(at("2026-11-02", "11:00"));
+  });
+
+  it("moves meals around classes", () => {
+    const t = (hhmm: string) => at("2026-11-02", hhmm);
+    const lunch = { start: t("13:00"), end: t("14:00") };
+    const dinner = { start: t("21:00"), end: t("21:30") };
+    const bed = at("2026-11-03", "00:00");
+    // No class nearby: preferred time.
+    expect(placeMeal(lunch, [], bed)).toEqual(lunch);
+    // Class ends 12:30 → eat at 12:30; ends 13:20 → eat at 13:20.
+    expect(placeMeal(lunch, [{ start: t("10:00"), end: t("12:30") }], bed)?.start).toBe(t("12:30"));
+    expect(placeMeal(lunch, [{ start: t("11:30"), end: t("13:20") }], bed)?.start).toBe(t("13:20"));
+    // Class until 22:30 → dinner before it, not at 22:30.
+    expect(placeMeal(dinner, [{ start: t("19:00"), end: t("22:30") }], bed)).toEqual({
+      start: t("18:30"),
+      end: t("19:00"),
+    });
+    // A class far from the meal changes nothing.
+    expect(placeMeal(lunch, [{ start: t("08:00"), end: t("10:00") }], bed)).toEqual(lunch);
+    // Nothing fits.
+    expect(placeMeal(lunch, [{ start: t("09:00"), end: t("18:00") }], bed)).toBeNull();
+  });
+
+  it("frees the preferred meal slot when the meal moves", () => {
+    const busy = [{ start: at("2026-11-02", "11:30"), end: at("2026-11-02", "13:20") }];
+    const slots = buildSlots(settings, [], from, to, busy);
+    // Lunch moved to 13:20–14:20, so 14:30 is free and 13:00–13:30 is not (class).
+    expect(slots.some((s) => s.start === at("2026-11-02", "14:30"))).toBe(true);
+    expect(slots.some((s) => s.start === at("2026-11-02", "14:00"))).toBe(false);
   });
 
   it("throws without settings for a weekday", () => {

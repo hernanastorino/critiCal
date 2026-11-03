@@ -7,7 +7,7 @@ import { progress, weekDates } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
 import { SyncDot } from "./Calendars";
-import { ChevronLeft, ChevronRight, CriticalIcon, GearIcon } from "./icons";
+import { ChevronLeft, ChevronRight, CriticalIcon, GearIcon, ReplanIcon } from "./icons";
 
 export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
@@ -22,9 +22,11 @@ interface Bubble {
 const DAY_MS = 86_400_000;
 
 export function Week({ onSettings }: { onSettings: () => void }) {
-  const { data, now } = useStore();
+  const { data, now, result, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [offset, setOffset] = useState(0);
+  const [replanning, setReplanning] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
@@ -59,6 +61,8 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const colorOf = (b: PlanBlock) =>
     data.activities.find((a) => a.id === b.activityId)?.color ?? "#888";
   const anyCritical = data.plan.some((b) => b.level === "critical" && b.end > now);
+  const short = result.status.filter((s) => s.minDeficit > 0);
+  const titleOfTask = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "una tarea";
 
   const position = (date: string, item: Item): CSSProperties | null => {
     const top = zonedInstant(tz, date, startMin);
@@ -85,12 +89,9 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         >
           <ChevronLeft />
         </button>
-        <h1>
-          {offset === 0 ? "Esta semana" : "Semana"}{" "}
-          <span className="sub">
-            {dayMonth(tz, zonedInstant(tz, dates[0] as string, 720))} –{" "}
-            {dayMonth(tz, zonedInstant(tz, dates[6] as string, 720))}
-          </span>
+        <h1 className={`range${offset === 0 ? " current" : ""}`}>
+          {dayMonth(tz, zonedInstant(tz, dates[0] as string, 720))} –{" "}
+          {dayMonth(tz, zonedInstant(tz, dates[6] as string, 720))}
         </h1>
         <button
           type="button"
@@ -99,6 +100,22 @@ export function Week({ onSettings }: { onSettings: () => void }) {
           onClick={() => setOffset(offset + 1)}
         >
           <ChevronRight />
+        </button>
+        <button
+          type="button"
+          className={`icon-btn replan${replanning ? " spinning" : ""}`}
+          aria-label="Reacomodar semana"
+          onClick={() => {
+            setReplanning(true);
+            dispatch({ type: "replanWeek" });
+            setTimeout(() => {
+              setReplanning(false);
+              setToast(`Semana reacomodada · ${time(tz, Date.now())}`);
+              setTimeout(() => setToast(null), 2500);
+            }, 600);
+          }}
+        >
+          <ReplanIcon />
         </button>
         <SyncDot onClick={onSettings} />
         <button type="button" className="icon-btn" aria-label="Ajustes" onClick={onSettings}>
@@ -180,7 +197,20 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       >
         <CriticalIcon /> Camino crítico
       </button>
-      {critical && !anyCritical && <div className="calm">Semana tranquila ✓</div>}
+      {toast && (
+        <div className="calm" role="status">
+          {toast}
+        </div>
+      )}
+      {critical && short.length > 0 && (
+        <div className="calm short" role="status">
+          No llegás: faltan{" "}
+          {short.map((s) => `${hours(s.minDeficit)} de ${titleOfTask(s.taskId)}`).join(", ")}
+        </div>
+      )}
+      {critical && short.length === 0 && !anyCritical && (
+        <div className="calm">Semana tranquila ✓</div>
+      )}
 
       {bubble && (
         <>

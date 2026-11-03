@@ -57,3 +57,10 @@ export const InboxIcon = () => (
     <path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z" />
   </svg>
 );
+
+export const ReplanIcon = () => (
+  <svg {...base} aria-hidden="true">
+    <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+    <path d="M21 3v6h-6" />
+  </svg>
+);

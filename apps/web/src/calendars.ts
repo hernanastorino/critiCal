@@ -31,7 +31,11 @@ export function guessRole(name: string): CalendarRole {
   return "busy";
 }
 
-export const roleOf = (c: AppCalendar): CalendarRole => c.role ?? guessRole(c.name);
+/** The app's own output calendar: never an input. */
+export const isPlanCalendar = (name: string) => normalize(name) === "plan";
+
+export const roleOf = (c: AppCalendar): CalendarRole =>
+  isPlanCalendar(c.name) ? "ignore" : (c.role ?? guessRole(c.name));
 
 export const ROLE_LABEL: Record<CalendarRole, string> = {
   busy: "Ocupado (fijo)",

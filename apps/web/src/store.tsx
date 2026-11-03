@@ -1,4 +1,10 @@
-import { type Activity, type DayOverride, type Settings, zonedInstant } from "@critical/engine";
+import {
+  type Activity,
+  type DayOverride,
+  type ScheduleResult,
+  type Settings,
+  zonedInstant,
+} from "@critical/engine";
 import {
   createContext,
   type ReactNode,
@@ -9,9 +15,16 @@ import {
   useRef,
   useState,
 } from "react";
-import { importFromCalendars } from "./calendars";
+import { DEFAULTS, eventRole, importFromCalendars } from "./calendars";
 import { demoData } from "./demo";
-import type { AppData, AppTask, CalendarRole, CheckIn, Preferences } from "./model";
+import type {
+  AppData,
+  AppliedDecision,
+  AppTask,
+  CalendarRole,
+  CheckIn,
+  Preferences,
+} from "./model";
 import { newId, uniqueColors } from "./model";
 import {
   applyOption,
@@ -34,6 +47,20 @@ export type Action =
   | { type: "relaxContext"; until: number; now: number }
   | { type: "calendarRole"; calendarId: string; role: CalendarRole; now: number }
   | { type: "review"; taskId: string; keep: boolean; now: number }
+  | { type: "replanWeek"; now: number }
+  | {
+      type: "logProgress";
+      taskId: string;
+      minutes: number;
+      /** Mark these existing units done. */
+      unitIds?: string[];
+      /** For tasks without units: split into this many topics, the first `topicsDone` done. */
+      topics?: number;
+      topicsDone?: number;
+      now: number;
+    }
+  | { type: "undoDecision"; id: string; now: number }
+  | { type: "resetDetected"; taskId?: string; now: number }
   | { type: "settings"; settings: Settings; now: number }
   | { type: "preferences"; preferences: Preferences; now: number }
   | { type: "saveActivity"; activity: Activity; now: number };
@@ -103,7 +130,52 @@ export function reducer(data: AppData, action: Action): AppData {
       const r = refreshPlan(data, now);
       const option = decisions(r.input, r.result).options.find((o) => o.id === action.optionId);
       if (!option) return data;
-      return refresh(applyOption(data, r.input, option, now), now);
+      const next = applyOption(data, r.input, option, now);
+      const changed = data.tasks.filter((t) => next.tasks.find((n) => n.id === t.id) !== t);
+      const record: AppliedDecision = {
+        id: `${option.id}@${now}`,
+        label: option.label,
+        at: now,
+        before: changed,
+        freeTimeUntil: data.freeTimeUntil,
+      };
+      return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
+    }
+    case "undoDecision": {
+      const record = data.applied?.find((d) => d.id === action.id);
+      if (!record) return data;
+      const tasks = data.tasks.map((t) => {
+        const old = record.before.find((b) => b.id === t.id);
+        return old
+          ? {
+              ...t,
+              minMinutes: old.minMinutes,
+              estimateMinutes: old.estimateMinutes,
+              status: old.status,
+            }
+          : t;
+      });
+      return refresh(
+        {
+          ...data,
+          tasks,
+          freeTimeUntil: record.freeTimeUntil,
+          applied: data.applied?.filter((d) => d.id !== record.id),
+        },
+        now,
+      );
+    }
+    case "resetDetected": {
+      // Detected tasks go back to their category's default hours.
+      const tasks = data.tasks.map((t) => {
+        if (!t.sourceEventId || (action.taskId && t.id !== action.taskId)) return t;
+        const event = data.events.find((e) => e.id === t.sourceEventId);
+        const role = event ? eventRole(data, event) : undefined;
+        if (role !== "parcial" && role !== "entrega" && role !== "presentacion") return t;
+        const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
+        return { ...t, estimateMinutes: d.estimate, minMinutes: d.min, status: "active" as const };
+      });
+      return refresh({ ...data, tasks }, now);
     }
     case "relaxContext":
       return refresh({ ...data, relaxContextUntil: action.until }, now);
@@ -112,6 +184,45 @@ export function reducer(data: AppData, action: Action): AppData {
         c.id === action.calendarId ? { ...c, role: action.role } : c,
       );
       return refresh({ ...data, calendars }, now);
+    }
+    case "logProgress": {
+      const task = data.tasks.find((t) => t.id === action.taskId);
+      if (!task) return data;
+      let units = task.units;
+      if (units.length === 0 && action.topics && action.topics > 0) {
+        const each = Math.round(task.estimateMinutes / action.topics);
+        units = Array.from({ length: action.topics }, (_, i) => ({
+          id: newId(),
+          title: `Tema ${i + 1}`,
+          estimateMinutes: each,
+          doneAt: i < (action.topicsDone ?? 0) ? now : undefined,
+        }));
+      }
+      const marked = new Set(action.unitIds ?? []);
+      const newlyDone = units.filter((u) => !u.doneAt && marked.has(u.id)).map((u) => u.id);
+      units = units.map((u) => (marked.has(u.id) && !u.doneAt ? { ...u, doneAt: now } : u));
+      const tasks = data.tasks.map((t) => (t.id === task.id ? { ...t, units } : t));
+      const checkIns =
+        action.minutes > 0 || newlyDone.length > 0
+          ? [
+              ...data.checkIns,
+              {
+                id: newId(),
+                blockId: `manual@${now}`,
+                taskId: task.id,
+                status: "done" as const,
+                minutesDone: Math.max(0, Math.round(action.minutes)),
+                unitIds: newlyDone,
+                createdAt: now,
+              },
+            ]
+          : data.checkIns;
+      return refresh({ ...data, tasks, checkIns }, now);
+    }
+    case "replanWeek": {
+      // Start over from now: keep history and the block in progress, drop the rest.
+      const plan = data.plan.filter((b) => b.start <= now);
+      return refresh({ ...data, plan, proposals: [] }, now);
     }
     case "settings":
       return refresh({ ...data, settings: action.settings }, now);
@@ -190,6 +301,8 @@ interface Store {
   dispatch: (a: DistributiveOmit<Action, "now">) => void;
   pending: ReturnType<typeof pendingConfirmations>;
   decisions: Decisions;
+  /** The current plan's verdict (feasibility, per-task deficits). */
+  result: ScheduleResult;
   inboxCount: number;
 }
 
@@ -247,6 +360,7 @@ export function StoreProvider({
       dispatch: (a) => raw({ ...a, now: fixedNow ?? Date.now() } as Action),
       pending,
       decisions: d,
+      result: r.result,
       inboxCount:
         pending.length +
         data.proposals.length +

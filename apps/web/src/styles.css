@@ -122,6 +122,16 @@ textarea {
   letter-spacing: -0.02em;
 }
 
+.header h1.range {
+  font-size: 24px;
+  white-space: nowrap;
+  text-align: center;
+}
+
+.header h1.range.current {
+  color: var(--critical);
+}
+
 .header .sub {
   font-size: 13px;
   color: var(--ink-soft);
@@ -135,6 +145,16 @@ textarea {
   place-items: center;
   border-radius: 50%;
   color: var(--ink-soft);
+}
+
+.icon-btn.replan.spinning svg {
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .icon-btn:active {
@@ -304,6 +324,13 @@ textarea {
 .fab.on {
   background: var(--critical);
   color: #fff;
+}
+
+.calm.short {
+  background: var(--critical);
+  color: #fff;
+  max-width: calc(100vw - 48px);
+  text-align: center;
 }
 
 .calm {
@@ -787,13 +814,30 @@ textarea {
 
 .grid2 {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0 10px;
+  align-items: end;
+}
+
+/* iOS gives date/time inputs an intrinsic width that overflows narrow columns. */
+input[type="time"],
+input[type="date"],
+input[type="datetime-local"] {
+  -webkit-appearance: none;
+  appearance: none;
+  min-width: 0;
+  max-width: 100%;
+  display: block;
+  min-height: 44px;
+}
+
+.field {
+  min-width: 0;
 }
 
 .grid3 {
   display: grid;
-  grid-template-columns: 1.3fr 1fr 1fr;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 0 8px;
   align-items: end;
 }

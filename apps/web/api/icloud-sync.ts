@@ -5,7 +5,16 @@
 //   {} → imports events from every iCloud calendar into calendar_events.
 import { basicAuth, DavError, discover, fetchEvents } from "./_lib/caldav.js";
 import { parseIcs } from "./_lib/ics.js";
-import { authenticate, type Env, json, readBody, readEnv, timeZoneOf } from "./_lib/server.js";
+import {
+  authenticate,
+  deleteByExternalId,
+  type Env,
+  json,
+  pruneCalendars,
+  readBody,
+  readEnv,
+  timeZoneOf,
+} from "./_lib/server.js";
 
 const DAY = 86_400_000;
 
@@ -76,6 +85,11 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     const from = new Date(now - 7 * DAY).toISOString();
     const to = new Date(now + 60 * DAY).toISOString();
 
+    await pruneCalendars(
+      user,
+      "icloud",
+      calendars.map((c) => c.url),
+    );
     await user.from("calendars").upsert(
       calendars.map((c) => ({
         source: "icloud",
@@ -141,8 +155,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     const stale = (stored ?? [])
       .filter((r) => fetched.has(r.calendar_id) && !keep.has(r.external_id))
       .map((r) => r.external_id);
-    if (stale.length)
-      await user.from("calendar_events").delete().eq("source", "icloud").in("external_id", stale);
+    await deleteByExternalId(user, "icloud", stale);
 
     return json({
       connected: true,

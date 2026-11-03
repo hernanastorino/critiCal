@@ -12,7 +12,16 @@ import {
   planEvent,
   toRow,
 } from "./_lib/google.js";
-import { authenticate, type Env, json, readBody, readEnv, timeZoneOf } from "./_lib/server.js";
+import {
+  authenticate,
+  deleteByExternalId,
+  type Env,
+  json,
+  pruneCalendars,
+  readBody,
+  readEnv,
+  timeZoneOf,
+} from "./_lib/server.js";
 
 const GOOGLE = "https://www.googleapis.com/calendar/v3";
 const DAY = 86_400_000;
@@ -142,9 +151,15 @@ export async function handle(req: Request, env: Env): Promise<Response> {
           color: c.backgroundColor ?? null,
         })),
     );
+    // Plan calendars (and anything no longer listed) must never count as busy time.
+    const imported = calendars.items.filter((c) => !isPlan(c) && !c.hidden && c.selected !== false);
+    await pruneCalendars(
+      user,
+      "google",
+      imported.map((c) => c.id),
+    );
     const rows = [];
-    for (const cal of calendars.items) {
-      if (isPlan(cal) || cal.hidden || cal.selected === false) continue;
+    for (const cal of imported) {
       for (const e of await listEvents(token, cal.id, from, to)) {
         const row = toRow(uid, cal.id, e, timeZone);
         if (row) rows.push(row);
@@ -162,8 +177,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
       .gte("start_at", from.toISOString())
       .lte("start_at", to.toISOString());
     const stale = (stored ?? []).map((r) => r.external_id as string).filter((id) => !keep.has(id));
-    if (stale.length)
-      await user.from("calendar_events").delete().eq("source", "google").in("external_id", stale);
+    await deleteByExternalId(user, "google", stale);
 
     // 2. Mirror future planned blocks into the Plan calendar.
     let plan = choice.keep;

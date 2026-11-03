@@ -5,6 +5,7 @@ import type {
   AppCalendar,
   AppData,
   AppEvent,
+  AppliedDecision,
   AppTask,
   CalendarRole,
   CheckIn,
@@ -85,6 +86,7 @@ export function syncGoogle(client: SupabaseClient, session: Session): Promise<Sy
 }
 
 interface State {
+  applied?: AppliedDecision[];
   preferences?: Preferences;
   proposals?: Proposal[];
   freeTimeUntil?: number;
@@ -206,6 +208,7 @@ export function rowsToData(r: {
     ),
     proposals: state.proposals ?? [],
     preferences: state.preferences,
+    applied: state.applied,
     freeTimeUntil: state.freeTimeUntil,
     relaxContextUntil: state.relaxContextUntil,
   };
@@ -270,6 +273,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.freeTimeUntil,
       prev.relaxContextUntil,
       prev.preferences,
+      prev.applied,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -277,6 +281,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.freeTimeUntil,
       next.relaxContextUntil,
       next.preferences,
+      next.applied,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -289,6 +294,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             freeTimeUntil: next.freeTimeUntil,
             relaxContextUntil: next.relaxContextUntil,
             preferences: next.preferences,
+            applied: next.applied,
           },
         },
       ],

@@ -174,6 +174,27 @@ describe("schedule", () => {
     expect(warn.status[0]?.level).toBe("warn");
   });
 
+  it("makes every earlier block critical when some minimum does not fit", () => {
+    const r = schedule(
+      base({
+        tasks: [
+          task("easy", "fisica", at("2026-11-06", "08:00"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 0,
+          }),
+          task("hard", "mate", at("2026-11-02", "12:00"), {
+            remainingMinutes: 600,
+            minRemainingMinutes: 600,
+          }),
+        ],
+      }),
+    );
+    expect(r.feasible).toBe(false);
+    const before = r.blocks.filter((b) => b.start < at("2026-11-02", "12:00"));
+    expect(before.length).toBeGreaterThan(0);
+    expect(before.every((b) => b.level === "critical")).toBe(true);
+  });
+
   it("keeps frozen blocks and counts them as done", () => {
     const frozen: PlanBlock = {
       id: "f",

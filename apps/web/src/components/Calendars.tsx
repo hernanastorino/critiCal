@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSync } from "../Connected";
-import { ROLE_LABEL, roleOf } from "../calendars";
+import { isPlanCalendar, ROLE_LABEL, roleOf } from "../calendars";
 import { time } from "../format";
 import type { CalendarRole } from "../model";
 import type { SyncResult } from "../remote";
@@ -163,7 +163,7 @@ export function Calendars() {
             tiempo.
           </p>
           {(data.calendars ?? [])
-            .slice()
+            .filter((c) => !isPlanCalendar(c.name))
             .sort((a, b) => a.name.localeCompare(b.name))
             .map((c) => (
               <label key={c.id} className="check">
