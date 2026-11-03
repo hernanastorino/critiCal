@@ -16,20 +16,21 @@ En la Mac: Safari → Archivo → **Agregar al Dock**.
 | Staging    | preview de Vercel (protegida)         | `critical-staging`               | cada merge a `main`               |
 | Producción | https://critical-cal.vercel.app       | `critical-prod`                  | automático si staging + E2E pasan |
 
-Pipeline: PR → CI (Biome, tsc, Vitest con cobertura, E2E iPhone/Safari, gitleaks, pgTAP/RLS, CodeQL, CodeRabbit) → merge → staging (migraciones + edge functions + E2E contra el deploy) → producción.
+Pipeline: PR → CI (Biome, tsc, Vitest con cobertura, E2E iPhone/Safari, gitleaks, pgTAP/RLS, CodeQL, CodeRabbit) → merge → staging (migraciones + build en Vercel + E2E contra el deploy) → producción.
 
 ## Secretos
 
 Nunca en el repo. Dónde vive cada uno:
 
-| Secreto                                    | Dónde                                                 | Para qué                         |
-| ------------------------------------------ | ----------------------------------------------------- | -------------------------------- |
-| `SUPABASE_ACCESS_TOKEN`                    | GitHub (repo)                                         | migraciones y funciones desde CI |
-| `VERCEL_TOKEN`                             | GitHub (repo)                                         | deploys                          |
-| `SUPABASE_DB_PASSWORD`                     | GitHub (staging / production) + Llavero               | `supabase link`                  |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`          | GitHub (staging)                                      | E2E contra la preview protegida  |
-| `BACKUP_PASSPHRASE`                        | GitHub (production) + Llavero                         | cifrar backups                   |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Supabase → Edge Functions → Secrets (ambos proyectos) | refrescar tokens de Google       |
+| Secreto                                    | Dónde                                       | Para qué                                     |
+| ------------------------------------------ | ------------------------------------------- | -------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`                    | GitHub (repo)                               | migraciones y funciones desde CI             |
+| `VERCEL_TOKEN`                             | GitHub (repo)                               | deploys                                      |
+| `SUPABASE_DB_PASSWORD`                     | GitHub (staging / production) + Llavero     | `supabase link`                              |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`          | GitHub (staging)                            | E2E contra la preview protegida              |
+| `BACKUP_PASSPHRASE`                        | GitHub (production) + Llavero               | cifrar backups                               |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel (Production y Preview)               | refrescar tokens de Google                   |
+| `SUPABASE_SECRET_KEY`                      | Vercel (Production: prod, Preview: staging) | funciones de sincronización (`apps/web/api`) |
 
 La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; la seguridad la dan las políticas RLS (testeadas en `supabase/tests`).
 
