@@ -46,3 +46,12 @@ test("serves the privacy policy", async ({ page }) => {
   await page.goto("/privacy.html");
   await expect(page.getByRole("heading", { level: 1 })).toContainText("Política de privacidad");
 });
+
+test("deploys the sync functions", async ({ request }) => {
+  test.skip(!process.env.E2E_BASE_URL, "only against a deployed site");
+  for (const name of ["google-sync", "icloud-sync"]) {
+    const res = await request.post(`/api/${name}`, { data: {} });
+    // 401 without a session, 503 until the server secrets are set; never 404.
+    expect([401, 503]).toContain(res.status());
+  }
+});
