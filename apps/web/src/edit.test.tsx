@@ -162,6 +162,13 @@ describe("edit mode", () => {
     expect(document.querySelector(".bubble")).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
 
+    // Pointer clicks stay with the drag handlers; keyboard activation opens the bubble.
+    fireEvent.click(again, { detail: 1 });
+    expect(document.querySelector(".bubble")).toBeNull();
+    fireEvent.click(again, { detail: 0 });
+    expect(document.querySelector(".bubble")).toBeTruthy();
+    fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
+
     fireEvent.click(screen.getByText("Listo"));
     expect(document.querySelector(".week.editing")).toBeNull();
   });

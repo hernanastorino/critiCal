@@ -271,9 +271,10 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                         }
                       : undefined
                   }
-                  onClick={
-                    movable ? undefined : (e) => setBubble({ item, x: e.clientX, y: e.clientY })
-                  }
+                  onClick={(e) => {
+                    // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
+                    if (!movable || e.detail === 0) setBubble({ item, x: e.clientX, y: e.clientY });
+                  }}
                 />
               );
             })}
