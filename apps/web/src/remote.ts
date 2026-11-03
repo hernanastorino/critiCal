@@ -39,13 +39,38 @@ export interface SyncResult {
 }
 
 /** Runs the iCloud sync, or connects/disconnects iCloud. */
-export async function syncICloud(
+/**
+ * Calls a sync function: the Node one on this site first, and the Supabase Edge
+ * Function only if the site's server is not set up (503) or unreachable.
+ */
+async function callSync(client: SupabaseClient, name: string, body: object): Promise<SyncResult> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (token) {
+      const res = await fetch(`/api/${name}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.status !== 503 && res.status !== 404) {
+        const result = (await res.json().catch(() => null)) as SyncResult | null;
+        return result ?? { connected: false, error: "sync_failed", status: res.status };
+      }
+    }
+  } catch {
+    // No site server (local dev, tests) or network error: fall back below.
+  }
+  const { data, error } = await client.functions.invoke(name, { body });
+  if (error) return { connected: false, error: "unreachable" };
+  return data as SyncResult;
+}
+
+export function syncICloud(
   client: SupabaseClient,
   body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},
 ): Promise<SyncResult> {
-  const { data, error } = await client.functions.invoke("icloud-sync", { body });
-  if (error) return { connected: false, error: "unreachable" };
-  return data as SyncResult;
+  return callSync(client, "icloud-sync", body);
 }
 
 /** Runs the server sync; passes the Google refresh token right after sign-in. */
@@ -55,11 +80,9 @@ let googleInFlight: Promise<SyncResult> | null = null;
 export function syncGoogle(client: SupabaseClient, session: Session): Promise<SyncResult> {
   googleInFlight ??= (async () => {
     try {
-      const { data, error } = await client.functions.invoke("google-sync", {
-        body: { refreshToken: session.provider_refresh_token ?? null },
+      return await callSync(client, "google-sync", {
+        refreshToken: session.provider_refresh_token ?? null,
       });
-      if (error) return { connected: false, error: "unreachable" } as SyncResult;
-      return data as SyncResult;
     } finally {
       googleInFlight = null;
     }
