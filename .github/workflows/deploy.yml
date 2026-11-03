@@ -43,9 +43,8 @@ jobs:
       - name: Deploy preview to Vercel
         id: deploy
         run: |
-          npx vercel@latest pull --yes --environment=preview --token="$VERCEL_TOKEN"
-          npx vercel@latest build --token="$VERCEL_TOKEN"
-          url=$(npx vercel@latest deploy --prebuilt --token="$VERCEL_TOKEN")
+          # Built on Vercel, which can read Sensitive variables (a CI pull gets them empty).
+          url=$(npx vercel@latest deploy --yes --token="$VERCEL_TOKEN")
           echo "url=$url" >> "$GITHUB_OUTPUT"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
@@ -82,8 +81,6 @@ jobs:
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       - name: Deploy production to Vercel
         run: |
-          npx vercel@latest pull --yes --environment=production --token="$VERCEL_TOKEN"
-          npx vercel@latest build --prod --token="$VERCEL_TOKEN"
-          npx vercel@latest deploy --prebuilt --prod --token="$VERCEL_TOKEN"
+          npx vercel@latest deploy --yes --prod --token="$VERCEL_TOKEN"
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
