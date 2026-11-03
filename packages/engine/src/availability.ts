@@ -27,8 +27,9 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
   const wake = override?.wake ?? base.wake;
   const rawBed = override?.bed ?? base.bed;
   const bed = rawBed <= wake ? rawBed + 1440 : rawBed;
+  const plannable = wake + (base.morningMinutes ?? 0);
   const awake = subtract(
-    [{ start: zonedInstant(tz, date, wake), end: zonedInstant(tz, date, bed) }],
+    [{ start: zonedInstant(tz, date, plannable), end: zonedInstant(tz, date, bed) }],
     base.meals.map((m) => ({
       start: zonedInstant(tz, date, m.start),
       end: zonedInstant(tz, date, m.end),

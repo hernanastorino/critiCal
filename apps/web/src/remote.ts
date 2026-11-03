@@ -8,6 +8,7 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  Preferences,
   Proposal,
 } from "./model";
 
@@ -84,6 +85,7 @@ export function syncGoogle(client: SupabaseClient, session: Session): Promise<Sy
 }
 
 interface State {
+  preferences?: Preferences;
   proposals?: Proposal[];
   freeTimeUntil?: number;
   relaxContextUntil?: number;
@@ -203,6 +205,7 @@ export function rowsToData(r: {
       }),
     ),
     proposals: state.proposals ?? [],
+    preferences: state.preferences,
     freeTimeUntil: state.freeTimeUntil,
     relaxContextUntil: state.relaxContextUntil,
   };
@@ -261,8 +264,20 @@ export function diffData(prev: AppData, next: AppData): Writes {
   const deletes: Writes["deletes"] = [];
 
   const settingsChanged =
-    JSON.stringify([prev.settings, prev.proposals, prev.freeTimeUntil, prev.relaxContextUntil]) !==
-    JSON.stringify([next.settings, next.proposals, next.freeTimeUntil, next.relaxContextUntil]);
+    JSON.stringify([
+      prev.settings,
+      prev.proposals,
+      prev.freeTimeUntil,
+      prev.relaxContextUntil,
+      prev.preferences,
+    ]) !==
+    JSON.stringify([
+      next.settings,
+      next.proposals,
+      next.freeTimeUntil,
+      next.relaxContextUntil,
+      next.preferences,
+    ]);
   if (settingsChanged) {
     upserts.push({
       table: "settings",
@@ -273,6 +288,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             proposals: next.proposals,
             freeTimeUntil: next.freeTimeUntil,
             relaxContextUntil: next.relaxContextUntil,
+            preferences: next.preferences,
           },
         },
       ],

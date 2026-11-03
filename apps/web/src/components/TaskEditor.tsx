@@ -1,7 +1,7 @@
 import { type Activity, localParts, zonedInstant } from "@critical/engine";
 import { useState } from "react";
 import { minutesToHhmm } from "../format";
-import { type AppTask, newId, PALETTE, type Unit } from "../model";
+import { type AppTask, newId, nextColor, type Unit } from "../model";
 import { useStore } from "../store";
 
 const toLocalInput = (tz: string, t: number) => {
@@ -51,7 +51,7 @@ export function TaskEditor({
       activity = {
         id: actId,
         name: newActivity.trim(),
-        color: PALETTE[data.activities.length % PALETTE.length] as string,
+        color: nextColor(data.activities),
         academic: kind === "deliverable",
         maxSessionMinutes: 120,
         minBlockMinutes: 60,

@@ -138,6 +138,13 @@ describe("buildSlots", () => {
     expect(night.every((s) => s.soft)).toBe(true);
   });
 
+  it("keeps the morning routine after waking free, even on late days", () => {
+    const morning = { ...settings, week: settings.week.map((d) => ({ ...d, morningMinutes: 45 })) };
+    expect(buildSlots(morning, [], from, to, [])[0]?.start).toBe(at("2026-11-02", "09:00"));
+    const late = buildSlots(morning, [{ date: "2026-11-02", wake: 600 }], from, to, []);
+    expect(late[0]?.start).toBe(at("2026-11-02", "11:00"));
+  });
+
   it("throws without settings for a weekday", () => {
     expect(() => buildSlots({ ...settings, week: [] }, [], from, to, [])).toThrow(/No settings/);
   });

@@ -85,6 +85,19 @@ export interface Proposal {
   createdAt: number;
 }
 
+export type DetectedKind = "parcial" | "entrega" | "presentacion";
+
+export interface Effort {
+  estimate: number;
+  min: number;
+  priority: number;
+}
+
+export interface Preferences {
+  /** Effort given to tasks created from calendar events, per kind. */
+  importDefaults?: Partial<Record<DetectedKind, Effort>>;
+}
+
 export interface AppData {
   settings: Settings;
   activities: Activity[];
@@ -100,8 +113,39 @@ export interface AppData {
   freeTimeUntil?: number;
   /** Context-switch cap relaxed until this instant. */
   relaxContextUntil?: number;
+  preferences?: Preferences;
+}
+
+/** First palette colour no activity uses yet, so every subject looks different. */
+export function nextColor(activities: readonly { color: string }[]): string {
+  const used = new Set(activities.map((a) => a.color.toLowerCase()));
+  return (
+    PALETTE.find((c) => !used.has(c.toLowerCase())) ??
+    (PALETTE[activities.length % PALETTE.length] as string)
+  );
 }
 
 export function newId(): string {
   return globalThis.crypto?.randomUUID?.() ?? `id-${Math.random().toString(36).slice(2)}`;
+}
+
+/** Gives every activity sharing a colour with an earlier one a free colour; same array if nothing changes. */
+export function uniqueColors<T extends { color: string }>(activities: T[]): T[] {
+  const seen: T[] = [];
+  let changed = false;
+  for (const a of activities) {
+    if (seen.some((b) => b.color.toLowerCase() === a.color.toLowerCase())) {
+      const used = [...seen, ...activities.slice(seen.length + 1)];
+      const free = PALETTE.find(
+        (c) => !used.some((b) => b.color.toLowerCase() === c.toLowerCase()),
+      );
+      if (free) {
+        seen.push({ ...a, color: free });
+        changed = true;
+        continue;
+      }
+    }
+    seen.push(a);
+  }
+  return changed ? seen : activities;
 }

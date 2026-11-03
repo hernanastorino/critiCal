@@ -17,6 +17,8 @@ export interface MinuteRange {
 export interface DaySettings {
   /** Usual wake-up time. */
   wake: number;
+  /** Minutes after waking that are never planned (breakfast, getting ready, commute). */
+  morningMinutes?: number;
   /** Usual bedtime; ≤ wake means after midnight. */
   bed: number;
   meals: MinuteRange[];
