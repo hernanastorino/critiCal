@@ -362,6 +362,12 @@ describe("edit mode", () => {
       expect(document.querySelector(".bubble")).toBeNull();
       const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
       expect(saved.pins).toHaveLength(1);
+      // Another block still opens right away.
+      const other = document.querySelector<HTMLElement>(
+        ".pill.planned:not(.pinned)",
+      ) as HTMLElement;
+      fireEvent.click(other, { detail: 1 });
+      expect(document.querySelector(".bubble")).toBeTruthy();
     });
 
     it("keeps short taps as taps and early movement as a scroll", () => {

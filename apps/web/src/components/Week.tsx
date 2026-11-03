@@ -58,8 +58,8 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     dragRef.current = drag;
   }, [drag]);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  /** When the last long-press drag ended; the click right after it is not a tap. */
-  const droppedAt = useRef(0);
+  /** The last long-press drop: the click right after it, on that block, is not a tap. */
+  const dropped = useRef<{ at: number; ids: string[] }>({ at: 0, ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
@@ -174,11 +174,13 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     return minute === null ? null : { date: spot.date, minute };
   };
 
-  const drop = (blockId: string, d: Drag, x: number, y: number) => {
-    const target = landing(x, y - d.grab, d.minutes, blockId);
-    if (target) {
-      dispatch({ type: "pin", blockId, start: zonedInstant(tz, target.date, target.minute) });
-    }
+  /** Pins the block where it lands; returns the pinned block's new id. */
+  const drop = (block: PlanBlock, d: Drag, x: number, y: number) => {
+    const target = landing(x, y - d.grab, d.minutes, block.id);
+    if (!target) return null;
+    const start = zonedInstant(tz, target.date, target.minute);
+    dispatch({ type: "pin", blockId: block.id, start });
+    return pinId(block.taskId, start);
   };
 
   return (
@@ -399,19 +401,21 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                           clearTimeout(pressTimer.current);
                           setDrag(null);
                           if (!drag.active) return; // a plain tap: onClick opens it
-                          if (!editing) droppedAt.current = Date.now();
+                          if (!editing) dropped.current = { at: Date.now(), ids: [b.id] };
                           if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
                             if (editing) setBubble({ item, x: e.clientX, y: e.clientY });
                             return;
                           }
-                          drop(b.id, drag, e.clientX, e.clientY);
+                          const moved = drop(b, drag, e.clientX, e.clientY);
+                          if (moved && !editing) dropped.current.ids.push(moved);
                         }
                       : undefined
                   }
                   onContextMenu={future ? (e) => e.preventDefault() : undefined}
                   onClick={(e) => {
                     // The click that ends a long-press drag is not a tap.
-                    if (Date.now() - droppedAt.current < 400) return;
+                    const last = dropped.current;
+                    if (Date.now() - last.at < 400 && last.ids.includes(b.id)) return;
                     // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
                     if (!movable || e.detail === 0) setBubble({ item, x: e.clientX, y: e.clientY });
                   }}
