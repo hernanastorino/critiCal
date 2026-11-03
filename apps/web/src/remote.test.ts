@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { demoData } from "./demo";
 import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote";
+import { session, stubApi } from "./testing";
 
 const NOW = Date.UTC(2026, 10, 2, 20, 50);
 
@@ -28,35 +29,29 @@ function fakeClient(tables: Record<string, unknown[]>, settings: unknown = null)
   });
   const client = {
     from: builder,
-    functions: { invoke: vi.fn(async () => ({ data: { connected: true }, error: null })) },
+    auth: session,
+    invoke: vi.fn(async () => ({ data: { connected: true }, error: null })),
   };
-  return { client: client as never, calls, invoke: client.functions.invoke };
+  stubApi(client.invoke);
+  return { client: client as never, calls, invoke: client.invoke };
 }
 
 describe("sync calls", () => {
-  it("uses the site's Node function first and falls back to Supabase when it is not set up", async () => {
-    const invoke = vi.fn(async () => ({ data: { connected: true, imported: 1 }, error: null }));
-    const client = {
-      auth: { getSession: async () => ({ data: { session: { access_token: "tok" } } }) },
-      functions: { invoke },
-    } as never;
+  it("calls the site's sync functions with the user's token", async () => {
+    const client = { auth: session } as never;
     const fetchMock = vi.fn(async () => Response.json({ connected: true, imported: 5 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await syncICloud(client)).toEqual({ connected: true, imported: 5 });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/icloud-sync",
-      expect.objectContaining({ method: "POST" }),
-    );
-    expect(invoke).not.toHaveBeenCalled();
-
-    vi.stubGlobal("fetch", async () =>
-      Response.json({ error: "server_not_configured" }, { status: 503 }),
-    );
     expect(await syncICloud(client, { action: "disconnect" })).toEqual({
       connected: true,
-      imported: 1,
+      imported: 5,
     });
-    expect(invoke).toHaveBeenCalledWith("icloud-sync", { body: { action: "disconnect" } });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/icloud-sync",
+      expect.objectContaining({
+        method: "POST",
+        headers: expect.objectContaining({ Authorization: "Bearer tok" }),
+      }),
+    );
 
     vi.stubGlobal("fetch", async () => new Response("oops", { status: 500 }));
     expect(await syncICloud(client)).toEqual({
@@ -64,6 +59,12 @@ describe("sync calls", () => {
       error: "sync_failed",
       status: 500,
     });
+    vi.stubGlobal("fetch", async () => {
+      throw new TypeError("offline");
+    });
+    expect(await syncICloud(client)).toEqual({ connected: false, error: "unreachable" });
+    const signedOut = { auth: { getSession: async () => ({ data: { session: null } }) } } as never;
+    expect(await syncICloud(signedOut)).toEqual({ connected: false, error: "unauthorized" });
     vi.unstubAllGlobals();
   });
 });

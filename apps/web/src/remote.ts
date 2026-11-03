@@ -39,31 +39,24 @@ export interface SyncResult {
 }
 
 /** Runs the iCloud sync, or connects/disconnects iCloud. */
-/**
- * Calls a sync function: the Node one on this site first, and the Supabase Edge
- * Function only if the site's server is not set up (503) or unreachable.
- */
+/** Calls one of this site's sync functions (Vercel, Node) as the signed-in user. */
 async function callSync(client: SupabaseClient, name: string, body: object): Promise<SyncResult> {
   try {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
-    if (token) {
-      const res = await fetch(`/api/${name}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-      if (res.status !== 503 && res.status !== 404) {
-        const result = (await res.json().catch(() => null)) as SyncResult | null;
-        return result ?? { connected: false, error: "sync_failed", status: res.status };
-      }
-    }
+    if (!token) return { connected: false, error: "unauthorized" };
+    const res = await fetch(`/api/${name}`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const result = (await res.json().catch(() => null)) as SyncResult | null;
+    return result && "connected" in result
+      ? result
+      : { connected: false, error: "sync_failed", status: res.status };
   } catch {
-    // No site server (local dev, tests) or network error: fall back below.
+    return { connected: false, error: "unreachable" };
   }
-  const { data, error } = await client.functions.invoke(name, { body });
-  if (error) return { connected: false, error: "unreachable" };
-  return data as SyncResult;
 }
 
 export function syncICloud(

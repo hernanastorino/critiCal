@@ -32,11 +32,10 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
-      - name: Migrate staging database and deploy functions
+      - name: Migrate staging database
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"
           supabase db push
-          supabase functions deploy --project-ref "${{ vars.SUPABASE_REF }}" --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
@@ -71,11 +70,10 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: 2.122.0
-      - name: Migrate production database and deploy functions
+      - name: Migrate production database
         run: |
           supabase link --project-ref "${{ vars.SUPABASE_REF }}"
           supabase db push
-          supabase functions deploy --project-ref "${{ vars.SUPABASE_REF }}" --use-api
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}

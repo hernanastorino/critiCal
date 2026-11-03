@@ -2,8 +2,12 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App";
 import { Connected } from "./Connected";
+import { session, stubApi } from "./testing";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 beforeEach(() => localStorage.clear());
 
 function fakeClient(fail = false) {
@@ -22,7 +26,8 @@ function fakeClient(fail = false) {
     delete: () => ({ in: () => Promise.resolve({ error: null }) }),
   });
   const invoke = vi.fn(async () => ({ data: { connected: true }, error: null }));
-  return { client: { from, functions: { invoke } } as never, writes, invoke };
+  stubApi(invoke);
+  return { client: { from, auth: session } as never, writes, invoke };
 }
 
 function calendarClient() {
@@ -73,7 +78,8 @@ function calendarClient() {
       error: null,
     };
   });
-  return { client: { from, functions: { invoke } } as never, writes, invoke };
+  stubApi(invoke);
+  return { client: { from, auth: session } as never, writes, invoke };
 }
 
 describe("Connected", () => {
