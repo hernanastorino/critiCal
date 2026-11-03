@@ -116,6 +116,8 @@ export interface AppData {
   preferences?: Preferences;
   /** Choices taken from the inbox, so they can be undone. */
   applied?: AppliedDecision[];
+  /** Blocks the user moved by hand; the planner works around them. */
+  pins?: PlanBlock[];
 }
 
 export interface AppliedDecision {

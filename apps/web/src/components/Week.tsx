@@ -1,13 +1,14 @@
-import { localParts, type PlanBlock, zonedInstant } from "@critical/engine";
+import { localParts, MINUTE, type PlanBlock, zonedInstant } from "@critical/engine";
 import { type CSSProperties, useMemo, useState } from "react";
 import { visibleEvents } from "../calendars";
+import { dropTarget } from "../drag";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format";
 import type { AppEvent } from "../model";
-import { progress, weekDates } from "../planning";
+import { isPinned, pinId, progress, weekDates } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
 import { SyncDot } from "./Calendars";
-import { ChevronLeft, ChevronRight, CriticalIcon, GearIcon, ReplanIcon } from "./icons";
+import { ChevronLeft, ChevronRight, CriticalIcon, EditIcon, GearIcon, ReplanIcon } from "./icons";
 
 export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
@@ -26,6 +27,16 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const tz = data.settings.timezone;
   const [offset, setOffset] = useState(0);
   const [replanning, setReplanning] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [focusId, setFocusId] = useState<string | null>(null);
+  const [drag, setDrag] = useState<{
+    id: string;
+    x0: number;
+    y0: number;
+    grab: number;
+    dx: number;
+    dy: number;
+  } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
@@ -103,6 +114,18 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         </button>
         <button
           type="button"
+          className={`icon-btn${editing ? " active" : ""}`}
+          aria-label="Modo edición"
+          aria-pressed={editing}
+          onClick={() => {
+            setEditing(!editing);
+            setBubble(null);
+          }}
+        >
+          <EditIcon />
+        </button>
+        <button
+          type="button"
           className={`icon-btn replan${replanning ? " spinning" : ""}`}
           aria-label="Reacomodar semana"
           onClick={() => {
@@ -123,7 +146,18 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         </button>
       </div>
 
-      <div className={`week${critical ? " critical-mode" : ""}`} data-testid="week">
+      {editing && (
+        <div className="edit-banner" role="status">
+          Arrastrá los bloques a donde quieras. Quedan fijados y el resto se reacomoda.
+          <button type="button" className="btn small" onClick={() => setEditing(false)}>
+            Listo
+          </button>
+        </div>
+      )}
+      <div
+        className={`week${critical ? " critical-mode" : ""}${editing ? " editing" : ""}`}
+        data-testid="week"
+      >
         <div />
         {dates.map((d) => {
           const noon = zonedInstant(tz, d, 720);
@@ -160,15 +194,109 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                 );
               }
               const b = item.block;
+              const movable = editing && item.start > now;
+              const dragged = drag?.id === b.id;
               return (
                 <button
                   key={`${d}-${item.id}`}
                   type="button"
                   data-level={b.level}
-                  aria-label={`${titleOf(b)}, ${time(tz, item.start)}`}
-                  className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
-                  style={{ ...style, ["--c" as string]: colorOf(b) }}
-                  onClick={(e) => setBubble({ item, x: e.clientX, y: e.clientY })}
+                  aria-label={`${titleOf(b)}, ${time(tz, item.start)}${isPinned(b) ? ", fijado" : ""}`}
+                  className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${dragged ? " dragging" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                  style={{
+                    ...style,
+                    ["--c" as string]: colorOf(b),
+                    ...(dragged
+                      ? { transform: `translate(calc(-50% + ${drag.dx}px), ${drag.dy}px)` }
+                      : {}),
+                  }}
+                  onPointerDown={
+                    movable
+                      ? (e) => {
+                          e.currentTarget.setPointerCapture?.(e.pointerId);
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setDrag({
+                            id: b.id,
+                            x0: e.clientX,
+                            y0: e.clientY,
+                            grab: e.clientY - rect.top,
+                            dx: 0,
+                            dy: 0,
+                          });
+                        }
+                      : undefined
+                  }
+                  onPointerMove={
+                    dragged
+                      ? (e) =>
+                          setDrag({ ...drag, dx: e.clientX - drag.x0, dy: e.clientY - drag.y0 })
+                      : undefined
+                  }
+                  ref={b.id === focusId ? (el) => el?.focus() : undefined}
+                  onKeyDown={
+                    movable
+                      ? (e) => {
+                          // Arrows move by one slot (up/down) or one day (left/right).
+                          const slot = data.settings.slotMinutes * MINUTE;
+                          const step = {
+                            ArrowUp: -slot,
+                            ArrowDown: slot,
+                            ArrowLeft: -24 * 60 * MINUTE,
+                            ArrowRight: 24 * 60 * MINUTE,
+                          }[e.key];
+                          if (step === undefined) return;
+                          e.preventDefault();
+                          const start = b.start + step;
+                          if (start <= now) return;
+                          dispatch({ type: "pin", blockId: b.id, start });
+                          setFocusId(pinId(b.taskId, start));
+                        }
+                      : undefined
+                  }
+                  onPointerCancel={dragged ? () => setDrag(null) : undefined}
+                  onPointerUp={
+                    dragged
+                      ? (e) => {
+                          setDrag(null);
+                          if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
+                            setBubble({ item, x: e.clientX, y: e.clientY });
+                            return;
+                          }
+                          const columns = [
+                            ...document.querySelectorAll<HTMLElement>("[data-date]"),
+                          ].map((el) => {
+                            const r = el.getBoundingClientRect();
+                            return {
+                              date: el.dataset.date as string,
+                              left: r.left,
+                              right: r.right,
+                              top: r.top,
+                              bottom: r.bottom,
+                            };
+                          });
+                          const target = dropTarget(
+                            columns,
+                            e.clientX,
+                            e.clientY - drag.grab,
+                            startMin,
+                            endMin,
+                            (b.end - b.start) / 60_000,
+                            data.settings.slotMinutes,
+                          );
+                          if (target) {
+                            dispatch({
+                              type: "pin",
+                              blockId: b.id,
+                              start: zonedInstant(tz, target.date, target.minute),
+                            });
+                          }
+                        }
+                      : undefined
+                  }
+                  onClick={(e) => {
+                    // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
+                    if (!movable || e.detail === 0) setBubble({ item, x: e.clientX, y: e.clientY });
+                  }}
                 />
               );
             })}
@@ -284,6 +412,7 @@ function BubbleCard({ bubble, onOpen }: { bubble: Bubble; onOpen: () => void }) 
           {b.level === "warn" && <span className="tag warn"> justo</span>}
         </p>
       )}
+      {isPinned(b) && <p>📌 Fijado por vos</p>}
       <p className="more">{item.end <= now ? "Marcar cómo te fue ›" : "Ver detalle ›"}</p>
     </button>
   );

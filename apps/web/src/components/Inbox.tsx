@@ -2,7 +2,7 @@ import { MINUTE, type PlanBlock } from "@critical/engine";
 import { useState } from "react";
 import { dayAndTime, hours, time } from "../format";
 import type { AppTask } from "../model";
-import { endOfDay } from "../planning";
+import { endOfDay, pinClashes } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
 import { TaskEditor } from "./TaskEditor";
@@ -15,8 +15,10 @@ export function Inbox() {
   const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
+  const clashes = pinClashes(data, now);
   const empty =
     pending.length +
+      clashes.length +
       data.proposals.length +
       decisions.options.length +
       decisions.recommendations.length +
@@ -104,6 +106,25 @@ export function Inbox() {
                 Reacomodar
               </button>
             </div>
+          </div>
+        ))}
+
+        {clashes.length > 0 && <div className="section-title">Fijados que chocan</div>}
+        {clashes.map(({ pin, event }) => (
+          <div key={pin.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
+            <div className="title">
+              📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
+            </div>
+            <p className="meta">
+              Choca con {event.title}. Lo dejé donde lo pusiste; movelo o soltalo.
+            </p>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
+            >
+              Soltar (que el plan decida)
+            </button>
           </div>
         ))}
 

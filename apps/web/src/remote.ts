@@ -86,6 +86,7 @@ export function syncGoogle(client: SupabaseClient, session: Session): Promise<Sy
 }
 
 interface State {
+  pins?: PlanBlock[];
   applied?: AppliedDecision[];
   preferences?: Preferences;
   proposals?: Proposal[];
@@ -209,6 +210,7 @@ export function rowsToData(r: {
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
+    pins: state.pins,
     freeTimeUntil: state.freeTimeUntil,
     relaxContextUntil: state.relaxContextUntil,
   };
@@ -274,6 +276,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.relaxContextUntil,
       prev.preferences,
       prev.applied,
+      prev.pins,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -282,6 +285,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.relaxContextUntil,
       next.preferences,
       next.applied,
+      next.pins,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -295,6 +299,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             relaxContextUntil: next.relaxContextUntil,
             preferences: next.preferences,
             applied: next.applied,
+            pins: next.pins,
           },
         },
       ],

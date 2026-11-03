@@ -1,7 +1,7 @@
 import { MINUTE, type PlanBlock } from "@critical/engine";
 import { useState } from "react";
 import { dayAndTime, dayMonth, hours, time } from "../format";
-import { progress } from "../planning";
+import { isPinned, progress } from "../planning";
 import { useStore } from "../store";
 import type { Item } from "./Week";
 
@@ -108,7 +108,22 @@ export function CheckInForm({ block, onDone }: { block: PlanBlock; onDone: () =>
               : `parcial (${hours(answered.minutesDone)})`}
         </p>
       ) : block.start > now ? (
-        <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
+        <>
+          <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
+          {isPinned(block) && (
+            <button
+              type="button"
+              className="btn"
+              style={{ width: "100%" }}
+              onClick={() => {
+                dispatch({ type: "unpin", blockId: block.id });
+                onDone();
+              }}
+            >
+              Soltar (que el plan decida dónde va)
+            </button>
+          )}
+        </>
       ) : (
         <>
           {pendingUnits.length > 0 && (
