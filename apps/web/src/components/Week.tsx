@@ -231,6 +231,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                           setDrag({ ...drag, dx: e.clientX - drag.x0, dy: e.clientY - drag.y0 })
                       : undefined
                   }
+                  onPointerCancel={dragged ? () => setDrag(null) : undefined}
                   onPointerUp={
                     dragged
                       ? (e) => {

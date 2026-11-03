@@ -194,7 +194,13 @@ export function refreshPlan(data: AppData, now: number): Refresh {
     (b) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "un bloque",
   );
   return {
-    plan: [...past, ...keep, ...conflicts, ...plan.filter((b) => b.start >= todayEnd)],
+    plan: [
+      ...past,
+      ...keep,
+      ...conflicts,
+      // schedule() echoes frozen blocks, so pins on later days are already in keep.
+      ...plan.filter((b) => b.start >= todayEnd && !keep.some((k) => k.id === b.id)),
+    ],
     input,
     result,
     proposal: {

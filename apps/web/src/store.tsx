@@ -228,7 +228,7 @@ export function reducer(data: AppData, action: Action): AppData {
     }
     case "pin": {
       const block = data.plan.find((b) => b.id === action.blockId);
-      if (!block || block.start <= now) return data;
+      if (!block || block.start <= now || action.start <= now) return data;
       const moved = pinBlock(block, action.start);
       const pins = [...(data.pins ?? []).filter((p) => p.id !== block.id), moved];
       return refresh({ ...data, pins, plan: data.plan.filter((b) => b.id !== block.id) }, now);

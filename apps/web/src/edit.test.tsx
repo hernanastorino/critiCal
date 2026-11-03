@@ -49,6 +49,39 @@ describe("pins", () => {
     expect(reducer(d, { type: "pin", blockId: "nope", start: target, now: NOW })).toBe(d);
   });
 
+  it("ignores drops on slots that already passed", () => {
+    const d = start();
+    const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
+    expect(reducer(d, { type: "pin", blockId: block.id, start: NOW - 3_600_000, now: NOW })).toBe(
+      d,
+    );
+  });
+
+  it("keeps a single copy of later pins when today's plan clashes", () => {
+    const morning = Date.UTC(2026, 10, 2, 11); // 08:00 in Montevideo
+    const d = reducer(demoData(morning), { type: "refresh", now: morning });
+    const midnight = morning + 16 * 3_600_000;
+    const today = d.plan.find((b) => b.start > morning && b.end <= midnight);
+    const later = d.plan.find((b) => b.start >= midnight) as AppData["plan"][number];
+    expect(today).toBeTruthy();
+    const pinned = reducer(d, { type: "pin", blockId: later.id, start: later.start, now: morning });
+    const clash: AppData["events"][number] = {
+      id: "clash",
+      title: "Reunión",
+      start: today?.start ?? 0,
+      end: today?.end ?? 0,
+      busy: true,
+      source: "demo",
+    };
+    const { plan, proposal } = refreshPlan(
+      { ...pinned, events: [...pinned.events, clash] },
+      morning,
+    );
+    expect(proposal).toBeTruthy();
+    const ids = plan.map((b) => b.id);
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
   it("turns past pins into history", () => {
     const d = start();
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
@@ -104,7 +137,17 @@ describe("edit mode", () => {
     const toggle = screen.getByLabelText("Modo edición");
     fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    const capture = vi.fn();
+    HTMLElement.prototype.setPointerCapture = capture;
     const pill = document.querySelector(".pill.movable") as HTMLElement;
+    // A cancelled gesture (system swipe, context menu) leaves nothing behind.
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 9 });
+    fireEvent.pointerMove(pill, { clientX: 60, clientY: 300, pointerId: 9 });
+    expect(document.querySelector(".pill.dragging")).toBeTruthy();
+    fireEvent.pointerCancel(pill, { pointerId: 9 });
+    expect(document.querySelector(".pill.dragging")).toBeNull();
+    expect(capture).toHaveBeenCalledWith(9);
+
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 1 });
     fireEvent.pointerMove(pill, { clientX: 160, clientY: 400, pointerId: 1 });
     fireEvent.pointerUp(pill, { clientX: 160, clientY: 400, pointerId: 1 });
