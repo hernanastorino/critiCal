@@ -31,6 +31,7 @@ import {
   type Decisions,
   decisions,
   pendingConfirmations,
+  pinBlock,
   refreshPlan,
   weekStart,
 } from "./planning";
@@ -48,6 +49,8 @@ export type Action =
   | { type: "calendarRole"; calendarId: string; role: CalendarRole; now: number }
   | { type: "review"; taskId: string; keep: boolean; now: number }
   | { type: "replanWeek"; now: number }
+  | { type: "pin"; blockId: string; start: number; now: number }
+  | { type: "unpin"; blockId: string; now: number }
   | {
       type: "logProgress";
       taskId: string;
@@ -65,7 +68,11 @@ export type Action =
   | { type: "preferences"; preferences: Preferences; now: number }
   | { type: "saveActivity"; activity: Activity; now: number };
 
-function refresh(input: AppData, now: number): AppData {
+function refresh(raw: AppData, now: number): AppData {
+  // Pins that already happened live on as plan history.
+  const input = raw.pins?.some((p) => p.end <= now)
+    ? { ...raw, pins: raw.pins.filter((p) => p.end > now) }
+    : raw;
   const imported = importFromCalendars(input, now, newId);
   const activities = uniqueColors(imported.activities);
   const data = activities === imported.activities ? imported : { ...imported, activities };
@@ -218,6 +225,20 @@ export function reducer(data: AppData, action: Action): AppData {
             ]
           : data.checkIns;
       return refresh({ ...data, tasks, checkIns }, now);
+    }
+    case "pin": {
+      const block = data.plan.find((b) => b.id === action.blockId);
+      if (!block || block.start <= now) return data;
+      const moved = pinBlock(block, action.start);
+      const pins = [...(data.pins ?? []).filter((p) => p.id !== block.id), moved];
+      return refresh({ ...data, pins, plan: data.plan.filter((b) => b.id !== block.id) }, now);
+    }
+    case "unpin": {
+      const pins = (data.pins ?? []).filter((p) => p.id !== action.blockId);
+      return refresh(
+        { ...data, pins, plan: data.plan.filter((b) => b.id !== action.blockId) },
+        now,
+      );
     }
     case "replanWeek": {
       // Start over from now: keep history and the block in progress, drop the rest.

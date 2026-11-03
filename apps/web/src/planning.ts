@@ -159,6 +159,19 @@ export interface Refresh {
  * Re-plans from `now`. Past blocks stay as history. Today's upcoming blocks stay
  * put; if a new event clashes with one, the re-plan becomes a proposal instead.
  */
+export const isPinned = (b: PlanBlock) => b.id.startsWith("pin:");
+
+/** A block moved by hand to `start` (same length), pinned there. */
+export function pinBlock(block: PlanBlock, start: number): PlanBlock {
+  return {
+    ...block,
+    id: `pin:${block.taskId}@${start}`,
+    start,
+    end: start + (block.end - block.start),
+    frozen: undefined,
+  };
+}
+
 export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);
@@ -166,8 +179,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
   const past = data.plan.filter((b) => b.end <= now);
   const today = data.plan.filter((b) => b.end > now && b.start < todayEnd && active.has(b.taskId));
-  const conflicts = today.filter((b) => busy.some((e) => overlaps(e, b)));
-  const keep = today.filter((b) => !conflicts.includes(b));
+  // Blocks the user placed by hand stay exactly where they are.
+  const pins = (data.pins ?? []).filter((b) => b.end > now && active.has(b.taskId));
+  const unpinned = today.filter((b) => !isPinned(b) && !pins.some((p) => overlaps(p, b)));
+  const conflicts = unpinned.filter((b) => busy.some((e) => overlaps(e, b)));
+  const keep = [...unpinned.filter((b) => !conflicts.includes(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
   const result = schedule(input);
