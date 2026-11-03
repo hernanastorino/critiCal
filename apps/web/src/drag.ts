@@ -29,7 +29,32 @@ export function dropTarget(
   if (!column) return null;
   const frac = Math.min(1, Math.max(0, (y - column.top) / (column.bottom - column.top || 1)));
   const raw = viewStart + frac * (viewEnd - viewStart);
-  const snapped = Math.round(raw / slot) * slot;
-  const minute = Math.min(Math.max(snapped, viewStart), viewEnd - durationMinutes);
+  // Bounds snapped inward, so edge drops stay on the slot grid.
+  const lowest = Math.ceil(viewStart / slot) * slot;
+  const highest = Math.floor((viewEnd - durationMinutes) / slot) * slot;
+  const minute = Math.min(Math.max(Math.round(raw / slot) * slot, lowest), highest);
   return { date: column.date, minute };
+}
+
+/**
+ * The start closest to `minute` (in `slot` steps, later first on ties) where a block
+ * of `duration` fits inside [min, max] without touching any `busy` interval.
+ */
+export function nearestFree(
+  minute: number,
+  duration: number,
+  busy: readonly { start: number; end: number }[],
+  slot: number,
+  min: number,
+  max: number,
+): number | null {
+  const fits = (s: number) =>
+    s >= min && s + duration <= max && busy.every((b) => s + duration <= b.start || s >= b.end);
+  // Far enough to reach either end, even when `minute` lies outside [min, max].
+  const reach = Math.max(max - minute, minute - min);
+  for (let d = 0; d <= reach; d += slot) {
+    if (fits(minute + d)) return minute + d;
+    if (fits(minute - d)) return minute - d;
+  }
+  return null;
 }

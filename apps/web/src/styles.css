@@ -166,8 +166,10 @@ textarea {
 .week {
   flex: 1;
   min-height: 0;
+  position: relative;
   display: grid;
-  grid-template-columns: 22px repeat(7, 1fr);
+  /* Wide enough for a "14:30" drag mark, so the days never shift mid-drag. */
+  grid-template-columns: 32px repeat(7, 1fr);
   grid-template-rows: auto 1fr;
   padding-bottom: 8px;
 }
@@ -202,6 +204,13 @@ textarea {
   font-size: 9px;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.hours span.hot {
+  color: var(--critical);
+  font-weight: 700;
+  right: 2px;
 }
 
 .day {
@@ -348,16 +357,37 @@ textarea {
 
 /* ---------- Bubble & sheet ---------- */
 
-.bubble {
+.bubble-card {
   position: fixed;
   z-index: 30;
   width: min(260px, calc(100vw - 32px));
   background: var(--surface);
   border-radius: 18px;
-  padding: 12px 14px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.2);
-  text-align: left;
   border-left: 5px solid var(--c);
+  overflow: hidden;
+}
+
+.bubble {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.bubble-pin {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 14px 10px;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  font-size: 13px;
+  color: var(--ink-soft);
 }
 
 .bubble h3 {
@@ -933,11 +963,114 @@ input[type="datetime-local"] {
   box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.55);
 }
 
+/* The original stays put, faded; the ghost shows the snapped landing slot. */
 .pill.dragging {
-  z-index: 5;
-  opacity: 0.85;
+  opacity: 0.3;
   transition: none;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.pill.ghost {
+  z-index: 5;
+  pointer-events: none;
+  outline: 2px solid var(--critical);
+  outline-offset: 1px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
+}
+
+.week .pill.planned {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.week.dragging-on {
+  touch-action: none;
+}
+
+/* Absolute, so it spans the day columns without taking a grid cell from them. */
+.guides {
+  position: absolute;
+  inset: 0;
+  grid-column: 2 / -1;
+  grid-row: 2;
+  pointer-events: none;
+}
+
+.guide {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid var(--critical);
+  opacity: 0.75;
+}
+
+.loupe {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+}
+
+.loupe-head {
+  padding: 6px 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--critical);
+  font-variant-numeric: tabular-nums;
+}
+
+.loupe-body {
+  position: relative;
+  margin: 0 8px 8px 34px;
+}
+
+.loupe-hour {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 15%, transparent);
+}
+
+.loupe-hour span {
+  position: absolute;
+  right: calc(100% + 4px);
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.loupe-item {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  border-radius: 6px;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.2;
+  padding: 1px 4px;
+}
+
+.loupe-item.fixed {
+  background: color-mix(in srgb, var(--ink) 14%, transparent);
+  color: var(--ink);
+}
+
+.loupe-item.fixed.free {
+  background: none;
+  outline: 1px dashed color-mix(in srgb, var(--ink) 30%, transparent);
+}
+
+.loupe-item.planned {
+  background: color-mix(in srgb, var(--c) 35%, transparent);
+}
+
+.loupe-item.target {
+  background: var(--c);
+  outline: 2px solid var(--critical);
 }
 
 .pill.pinned {
