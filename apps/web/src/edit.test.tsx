@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { demoData } from "./demo";
 import { dropTarget, nearestFree } from "./drag";
+import { time } from "./format";
 import type { AppData } from "./model";
 import { isPinned, pinClashes, refreshPlan } from "./planning";
 import { reducer } from "./store";
@@ -283,7 +284,20 @@ describe("edit mode", () => {
       clientY: y + (30 / (endMin - startMin)) * 1000,
       pointerId: 3,
     });
-    expect(hot()[0]).toBe("12:30");
+    // Start and end, the end derived from the dragged block's own length.
+    const shown = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const label = pill.getAttribute("aria-label") ?? "";
+    const dragged = shown.plan.find((b) =>
+      label.startsWith(
+        `${shown.tasks.find((t) => t.id === b.taskId)?.title}, ${time(shown.settings.timezone, b.start)}`,
+      ),
+    ) as AppData["plan"][number];
+    const end = 750 + (dragged.end - dragged.start) / 60_000;
+    const endLabel =
+      end % 60 === 0
+        ? `${end / 60}`
+        : `${Math.floor(end / 60)}:${String(end % 60).padStart(2, "0")}`;
+    expect(hot().sort()).toEqual(["12:30", endLabel].sort());
     // The block snaps into its landing slot, with guides and a loupe.
     expect(document.querySelector('[data-date="2026-11-05"] .pill.ghost')).toBeTruthy();
     expect(document.querySelectorAll(".guides .guide")).toHaveLength(2);
