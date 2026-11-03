@@ -22,7 +22,11 @@ export async function POST(req: Request, env: Env = readEnv()): Promise<Response
     const body = await readBody(req);
 
     if (body.action === "disconnect") {
-      await admin.rpc("delete_oauth_token", { p_user: uid, p_provider: "icloud" });
+      const { error } = await admin.rpc("delete_oauth_token", {
+        p_user: uid,
+        p_provider: "icloud",
+      });
+      if (error) throw error;
       await user.from("calendar_events").delete().eq("source", "icloud");
       await user.from("calendars").delete().eq("source", "icloud");
       return json({ connected: false });
@@ -54,11 +58,12 @@ export async function POST(req: Request, env: Env = readEnv()): Promise<Response
       });
     }
     if (body.action === "connect") {
-      await admin.rpc("store_oauth_token", {
+      const { error } = await admin.rpc("store_oauth_token", {
         p_user: uid,
         p_provider: "icloud",
         p_token: JSON.stringify(creds),
       });
+      if (error) throw error;
     }
 
     const timeZone = await timeZoneOf(user);
@@ -81,11 +86,13 @@ export async function POST(req: Request, env: Env = readEnv()): Promise<Response
       let documents: string[] = [];
       try {
         documents = await fetchEvents(fetch, auth, cal.url, Date.parse(from), Date.parse(to));
-        fetched.add(cal.url);
       } catch (err) {
         // Keep this calendar's stored events: an error is not "no events".
         console.warn("skipping calendar", cal.name, err);
+        continue;
       }
+      // Only a calendar read completely may have its missing events deleted.
+      let complete = true;
       for (const doc of documents) {
         // One malformed event must not stop the whole sync.
         let parsed: ReturnType<typeof parseIcs> = [];
@@ -93,6 +100,7 @@ export async function POST(req: Request, env: Env = readEnv()): Promise<Response
           parsed = parseIcs(doc, timeZone);
         } catch (err) {
           console.warn("skipping unparseable event", cal.name, err);
+          complete = false;
         }
         for (const e of parsed) {
           if (e.cancelled || e.end < Date.parse(from) || e.start > Date.parse(to)) continue;
@@ -110,6 +118,7 @@ export async function POST(req: Request, env: Env = readEnv()): Promise<Response
           });
         }
       }
+      if (complete) fetched.add(cal.url);
     }
     // Stable ids: uid (+ recurrence instance), so moving an event updates it in place.
     const unique = [...new Map(rows.map((r) => [r.external_id, r])).values()];

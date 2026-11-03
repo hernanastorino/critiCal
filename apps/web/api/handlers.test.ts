@@ -208,6 +208,9 @@ describe("icloud-sync (Node)", () => {
       error: "missing_credentials",
     });
 
+    rpc.mockResolvedValueOnce({ data: null, error: new Error("vault down") });
+    expect((await icloud(req("good", { action: "disconnect" }), env)).status).toBe(500);
+
     vi.stubGlobal("fetch", async () => new Response("", { status: 401 }));
     const bad = await icloud(
       req("good", { action: "connect", appleId: "yo@icloud.com", appPassword: "aaaa-bbbb" }),
@@ -219,5 +222,40 @@ describe("icloud-sync (Node)", () => {
       status: 401,
     });
     expect(rpc).not.toHaveBeenCalledWith("store_oauth_token", expect.anything());
+  });
+});
+
+describe("icloud-sync partial reads (Node)", () => {
+  it("keeps stored events of a calendar with an unreadable event", async () => {
+    rpc.mockResolvedValue({
+      data: JSON.stringify({ appleId: "a", appPassword: "b" }),
+      error: null,
+    });
+    tables.settings = { data: { timezone: "UTC" } };
+    tables.calendar_events = [
+      { external_id: "x|old|", calendar_id: "https://p01-caldav.icloud.com/1/cal/" },
+    ];
+    const ms = (body: string) =>
+      new Response(`<multistatus xmlns="DAV:">${body}</multistatus>`, { status: 207 });
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      if (url === "https://caldav.icloud.com/")
+        return ms(
+          "<response><current-user-principal><href>/1/p/</href></current-user-principal></response>",
+        );
+      if (url.endsWith("/1/p/"))
+        return ms("<response><calendar-home-set><href>/1/</href></calendar-home-set></response>");
+      if (init.method === "PROPFIND") {
+        return ms(
+          "<response><href>/1/cal/</href><displayname>Parciales</displayname><resourcetype><calendar/></resourcetype></response>",
+        );
+      }
+      return ms(
+        "<response><calendar-data>BEGIN:VEVENT\nUID:ok\nDTSTART:20261110T120000Z\nDTEND:20261110T130000Z\nEND:VEVENT</calendar-data></response>" +
+          "<response><calendar-data>BEGIN:VEVENT\nUID:bad\nDTSTART:garbage\nEND:VEVENT</calendar-data></response>",
+      );
+    });
+    const res = await icloud(req("good"), env);
+    expect(await res.json()).toMatchObject({ connected: true, imported: 1, failedCalendars: 1 });
+    expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(false);
   });
 });
