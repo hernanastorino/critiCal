@@ -39,8 +39,8 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-const { POST: google } = await import("./google-sync");
-const { POST: icloud } = await import("./icloud-sync");
+const { handle: google, POST: googlePost } = await import("./google-sync");
+const { handle: icloud } = await import("./icloud-sync");
 const { readEnv } = await import("./_lib/server");
 
 const env = {
@@ -68,6 +68,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("server", () => {
+  it("reads the environment itself, ignoring Vercel's extra argument", async () => {
+    vi.stubEnv("SUPABASE_URL", "");
+    vi.stubEnv("VITE_SUPABASE_URL", "");
+    const res = await (googlePost as (r: Request, ctx: unknown) => Promise<Response>)(req("good"), {
+      waitUntil: () => {},
+    });
+    expect((await res.json()).missing).toContain("url");
+    vi.stubEnv("VITE_SUPABASE_URL", "https://x.supabase.co");
+    vi.stubEnv("VITE_SUPABASE_PUBLISHABLE_KEY", "pk");
+    vi.stubEnv("SUPABASE_SECRET_KEY", "sk");
+    vi.stubEnv("GOOGLE_CLIENT_ID", "id");
+    vi.stubEnv("GOOGLE_CLIENT_SECRET", "s");
+    rpc.mockResolvedValue({ data: null, error: null });
+    const ok = await (googlePost as (r: Request, ctx: unknown) => Promise<Response>)(req("good"), {
+      waitUntil: () => {},
+    });
+    expect(await ok.json()).toEqual({ connected: false, error: "no_refresh_token" });
+    vi.unstubAllEnvs();
+  });
+
   it("reads its configuration from the environment", () => {
     expect(
       readEnv({

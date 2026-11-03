@@ -13,8 +13,8 @@ export interface Env {
 
 export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
   return {
-    url: e.SUPABASE_URL ?? e.VITE_SUPABASE_URL,
-    publishable: e.SUPABASE_PUBLISHABLE_KEY ?? e.VITE_SUPABASE_PUBLISHABLE_KEY,
+    url: e.SUPABASE_URL || e.VITE_SUPABASE_URL,
+    publishable: e.SUPABASE_PUBLISHABLE_KEY || e.VITE_SUPABASE_PUBLISHABLE_KEY,
     secret: e.SUPABASE_SECRET_KEY,
     googleClientId: e.GOOGLE_CLIENT_ID,
     googleClientSecret: e.GOOGLE_CLIENT_SECRET,

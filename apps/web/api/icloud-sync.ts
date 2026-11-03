@@ -14,7 +14,12 @@ interface Credentials {
   appPassword: string;
 }
 
-export async function POST(req: Request, env: Env = readEnv()): Promise<Response> {
+/** Vercel entry point. It passes its own second argument, so env is read here. */
+export function POST(req: Request): Promise<Response> {
+  return handle(req, readEnv());
+}
+
+export async function handle(req: Request, env: Env): Promise<Response> {
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
   const { uid, user, admin } = caller;
