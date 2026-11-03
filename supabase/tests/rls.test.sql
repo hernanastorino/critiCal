@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(14);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'a@test.local'),
@@ -41,10 +41,15 @@ select throws_ok(
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a"}';
 select throws_ok($$ update public.check_ins set status = 'missed' $$, '42501', null, 'check-ins cannot be edited');
 select throws_ok($$ delete from public.check_ins $$, '42501', null, 'check-ins cannot be deleted');
-select throws_ok(
-  $$ delete from public.tasks $$,
-  '23503', null, 'tasks with check-ins cannot be deleted'
-);
+select is((select paused from public.tasks), false, 'silos start unpaused');
+
+-- Deleting a silo entirely takes its check-ins along, only for its owner.
+set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000b"}';
+delete from public.tasks;
+set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-00000000000a"}';
+select is((select count(*)::int from public.tasks), 1, 'B cannot delete A tasks');
+select lives_ok($$ delete from public.tasks $$, 'A can delete a silo that has check-ins');
+select is((select count(*)::int from public.check_ins), 0, 'its check-ins go with it');
 
 select ok(
   has_table_privilege('authenticated', 'public.tasks', 'INSERT'),

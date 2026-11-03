@@ -30,11 +30,19 @@ import {
   applyOption,
   type Decisions,
   decisions,
+  endOfWeek,
   pendingConfirmations,
   pinBlock,
   refreshPlan,
   weekStart,
 } from "./planning";
+
+/**
+ * What to do with a weekly silo, like a repeating calendar event: skip only
+ * this week, pause until resumed, stop from today keeping past weeks, or erase
+ * it with all its history.
+ */
+export type RecurrenceChange = "skipWeek" | "pause" | "resume" | "endFromToday" | "deleteAll";
 
 export type Action =
   | { type: "refresh"; now: number }
@@ -51,6 +59,7 @@ export type Action =
   | { type: "replanWeek"; now: number }
   | { type: "pin"; blockId: string; start: number; now: number }
   | { type: "unpin"; blockId: string; now: number }
+  | { type: "recurrence"; taskId: string; change: RecurrenceChange; now: number }
   | {
       type: "logProgress";
       taskId: string;
@@ -234,6 +243,37 @@ export function reducer(data: AppData, action: Action): AppData {
       if ((data.pins ?? []).some((p) => p.id === moved.id && p.id !== block.id)) return data;
       const pins = [...(data.pins ?? []).filter((p) => p.id !== block.id), moved];
       return refresh({ ...data, pins, plan: data.plan.filter((b) => b.id !== block.id) }, now);
+    }
+    case "recurrence": {
+      const id = action.taskId;
+      if (action.change === "deleteAll") {
+        return refresh(
+          {
+            ...data,
+            tasks: data.tasks.filter((t) => t.id !== id),
+            checkIns: data.checkIns.filter((c) => c.taskId !== id),
+            plan: data.plan.filter((b) => b.taskId !== id),
+            pins: (data.pins ?? []).filter((b) => b.taskId !== id),
+          },
+          now,
+        );
+      }
+      const tz = data.settings.timezone;
+      const change = (t: AppTask): AppTask => {
+        switch (action.change) {
+          case "skipWeek":
+            return { ...t, skipUntil: endOfWeek(tz, now) };
+          case "pause":
+            return { ...t, paused: true };
+          case "resume":
+            return { ...t, paused: undefined, skipUntil: undefined };
+          // endFromToday
+          default:
+            return { ...t, status: "dropped", endedAt: now, paused: undefined };
+        }
+      };
+      const tasks = data.tasks.map((t) => (t.id === id ? change(t) : t));
+      return refresh({ ...data, tasks }, now);
     }
     case "unpin": {
       const pins = (data.pins ?? []).filter((p) => p.id !== action.blockId);
