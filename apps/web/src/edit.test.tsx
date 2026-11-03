@@ -24,6 +24,9 @@ describe("dropTarget", () => {
       minute: 1350,
     });
     expect(dropTarget([], 0, 0, 480, 1440, 60)).toBeNull();
+    // Off-grid wake/bed (07:15–23:45) still lands on 30-minute marks.
+    expect(dropTarget(cols, 10, 1000, 435, 1425, 60)).toEqual({ date: "2026-11-02", minute: 1350 });
+    expect(dropTarget(cols, 10, 0, 435, 1425, 60)).toEqual({ date: "2026-11-02", minute: 450 });
   });
 });
 

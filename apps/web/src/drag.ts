@@ -29,8 +29,10 @@ export function dropTarget(
   if (!column) return null;
   const frac = Math.min(1, Math.max(0, (y - column.top) / (column.bottom - column.top || 1)));
   const raw = viewStart + frac * (viewEnd - viewStart);
-  const snapped = Math.round(raw / slot) * slot;
-  const minute = Math.min(Math.max(snapped, viewStart), viewEnd - durationMinutes);
+  // Bounds snapped inward, so edge drops stay on the slot grid.
+  const lowest = Math.ceil(viewStart / slot) * slot;
+  const highest = Math.floor((viewEnd - durationMinutes) / slot) * slot;
+  const minute = Math.min(Math.max(Math.round(raw / slot) * slot, lowest), highest);
   return { date: column.date, minute };
 }
 

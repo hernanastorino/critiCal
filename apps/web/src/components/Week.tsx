@@ -161,7 +161,10 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       ...items.filter((i) => i.kind === "event" && i.event.busy),
       ...(data.pins ?? []).filter((p) => p.id !== blockId),
     ].map((i) => ({ start: toMinute(i.start), end: toMinute(i.end) }));
-    const earliest = Math.max(startMin, Math.floor(toMinute(now) / slot) * slot + slot);
+    const earliest = Math.max(
+      Math.ceil(startMin / slot) * slot,
+      Math.floor(toMinute(now) / slot) * slot + slot,
+    );
     const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, endMin);
     return minute === null ? null : { date: spot.date, minute };
   };
