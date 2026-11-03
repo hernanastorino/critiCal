@@ -33,6 +33,34 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
 
 const ROLES = Object.keys(ROLE_LABEL) as CalendarRole[];
 
+const healthy = (r?: SyncResult) => !r || r.connected || r.error === "not_connected";
+
+/** Tiny status light: grey while syncing, green when everything is up to date, red on errors. */
+export function SyncDot({ onClick }: { onClick: () => void }) {
+  const sync = useSync();
+  if (!sync) return null;
+  const { status } = sync;
+  const state = status.busy
+    ? "syncing"
+    : healthy(status.google) && healthy(status.icloud)
+      ? "ok"
+      : "error";
+  const label = {
+    syncing: "Sincronizando",
+    ok: "Todo sincronizado",
+    error: "Error de sincronización",
+  }[state];
+  return (
+    <button
+      type="button"
+      className={`sync-dot ${state}`}
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+    />
+  );
+}
+
 export function Calendars() {
   const sync = useSync();
   const { data, dispatch } = useStore();

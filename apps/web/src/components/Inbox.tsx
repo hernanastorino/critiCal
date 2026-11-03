@@ -189,10 +189,8 @@ export function Inbox() {
       {editing && (
         <TaskEditor
           task={editing}
-          onClose={() => {
-            dispatch({ type: "review", taskId: editing.id, keep: true });
-            setEditing(null);
-          }}
+          onClose={() => setEditing(null)}
+          onSaved={(t) => dispatch({ type: "review", taskId: t.id, keep: true })}
         />
       )}
       {open && (

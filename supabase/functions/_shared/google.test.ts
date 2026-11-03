@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { colorIdFor, diffPlan, midnight, planEvent, toRow } from "./google";
+import {
+  choosePlanCalendar,
+  diffPlan,
+  midnight,
+  PLAN_CALENDAR,
+  PLAN_COLOR_ID,
+  planEvent,
+  toRow,
+} from "./google";
 
 describe("google helpers", () => {
   it("maps timed, all-day, free and cancelled events", () => {
@@ -45,10 +53,7 @@ describe("google helpers", () => {
     expect(midnight("2026-11-04", "UTC")).toBe("2026-11-04T00:00:00.000Z");
   });
 
-  it("picks Google colours, reserving tomato for critical", () => {
-    expect(colorIdFor("#FF8A00", true)).toBe("11");
-    expect(colorIdFor("#0A72FF", false)).toBe("7");
-    expect(colorIdFor("#E0262E", false)).not.toBe("11");
+  it("paints every plan event green and marks critical ones", () => {
     const ev = planEvent(
       {
         id: "b",
@@ -59,12 +64,32 @@ describe("google helpers", () => {
         google_event_id: null,
       },
       "Parcial",
-      "#12A150",
     );
     expect(ev).toMatchObject({
       summary: "🔴 Parcial",
-      colorId: "11",
+      colorId: PLAN_COLOR_ID,
       extendedProperties: { private: { criticalBlock: "b" } },
+    });
+    expect(
+      planEvent(
+        { id: "c", task_id: "t", start_at: "s", end_at: "e", level: "ok", google_event_id: null },
+        "Mate",
+      ).summary,
+    ).toBe("Mate");
+  });
+
+  it("keeps exactly one Plan calendar", () => {
+    const items = [
+      { id: "a", summary: PLAN_CALENDAR },
+      { id: "x", summary: "Trabajo" },
+      { id: "b", summary: PLAN_CALENDAR },
+      { id: "c", summary: PLAN_CALENDAR },
+    ];
+    expect(choosePlanCalendar(items, "b")).toEqual({ keep: items[2], remove: ["a", "c"] });
+    expect(choosePlanCalendar(items, "gone")).toEqual({ keep: items[0], remove: ["b", "c"] });
+    expect(choosePlanCalendar([items[1] as (typeof items)[number]], null)).toEqual({
+      keep: undefined,
+      remove: [],
     });
   });
 

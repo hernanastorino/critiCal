@@ -15,7 +15,16 @@ const fromLocalInput = (tz: string, v: string) => {
   return zonedInstant(tz, date, h * 60 + m);
 };
 
-export function TaskEditor({ task, onClose }: { task?: AppTask; onClose: () => void }) {
+export function TaskEditor({
+  task,
+  onClose,
+  onSaved,
+}: {
+  task?: AppTask;
+  onClose: () => void;
+  /** Called only when the user saves (not when closing without changes). */
+  onSaved?: (task: AppTask) => void;
+}) {
   const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [title, setTitle] = useState(task?.title ?? "");
@@ -72,6 +81,7 @@ export function TaskEditor({ task, onClose }: { task?: AppTask; onClose: () => v
       units,
     };
     dispatch({ type: "saveTask", task: next, activity });
+    onSaved?.(next);
     onClose();
   };
 

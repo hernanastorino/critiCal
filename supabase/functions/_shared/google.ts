@@ -80,40 +80,27 @@ export function midnight(date: string, timeZone: string): string {
   return new Date(naive - (asUtc - naive)).toISOString();
 }
 
-/** Google's event colours (colorId → hex). */
-export const GOOGLE_COLORS: Record<string, string> = {
-  "1": "#7986cb",
-  "2": "#33b679",
-  "3": "#8e24aa",
-  "4": "#e67c73",
-  "5": "#f6bf26",
-  "6": "#f4511e",
-  "7": "#039be5",
-  "8": "#616161",
-  "9": "#3f51b5",
-  "10": "#0b8043",
-  "11": "#d50000",
-};
+/** Plan blocks are always Basil green, so they never look like parciales (red),
+ * entregas (violet) or labs (yellow). Critical ones carry a 🔴 in the title. */
+export const PLAN_COLOR_ID = "10";
+export const PLAN_CALENDAR_COLOR = "#0b8043";
 
-const rgb = (hex: string) =>
-  [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
+export interface CalendarListItem {
+  id: string;
+  summary: string;
+  backgroundColor?: string;
+  selected?: boolean;
+  hidden?: boolean;
+}
 
-/** Nearest Google colour to an activity colour; tomato is reserved for critical. */
-export function colorIdFor(hex: string, critical: boolean): string {
-  if (critical) return "11";
-  const [r, g, b] = rgb(hex);
-  let best = "8";
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const [id, h] of Object.entries(GOOGLE_COLORS)) {
-    if (id === "11") continue;
-    const [r2, g2, b2] = rgb(h);
-    const d = (r - r2) ** 2 + (g - g2) ** 2 + (b - b2) ** 2;
-    if (d < bestDistance) {
-      bestDistance = d;
-      best = id;
-    }
-  }
-  return best;
+/**
+ * Exactly one Plan calendar: the stored one if it still exists, else the first
+ * found. Every other calendar named like it is a duplicate to delete.
+ */
+export function choosePlanCalendar(items: readonly CalendarListItem[], storedId?: string | null) {
+  const plans = items.filter((c) => c.summary === PLAN_CALENDAR);
+  const keep = plans.find((c) => c.id === storedId) ?? plans[0];
+  return { keep, remove: plans.filter((c) => c !== keep).map((c) => c.id) };
 }
 
 export interface PlanBlockRow {
@@ -126,13 +113,13 @@ export interface PlanBlockRow {
 }
 
 /** Body of the Google event that mirrors a planned block. */
-export function planEvent(block: PlanBlockRow, title: string, activityColor: string) {
+export function planEvent(block: PlanBlockRow, title: string) {
   const critical = block.level === "critical";
   return {
     summary: `${critical ? "🔴 " : ""}${title}`,
     start: { dateTime: block.start_at },
     end: { dateTime: block.end_at },
-    colorId: colorIdFor(activityColor, critical),
+    colorId: PLAN_COLOR_ID,
     transparency: "opaque",
     extendedProperties: { private: { criticalBlock: block.id } },
   };

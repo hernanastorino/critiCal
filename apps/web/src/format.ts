@@ -16,7 +16,16 @@ export const time = (tz: string, t: number) =>
 export const weekdayShort = (tz: string, t: number) =>
   fmt(tz, { weekday: "short" }).format(t).replace(".", "").slice(0, 3);
 
-export const dayAndTime = (tz: string, t: number) => `${weekdayShort(tz, t)} ${time(tz, t)}`;
+/** "vie 22/10" */
+export const dayDate = (tz: string, t: number) => {
+  const p = fmt(tz, { day: "numeric", month: "numeric" }).formatToParts(t);
+  const day = p.find((x) => x.type === "day")?.value;
+  const month = p.find((x) => x.type === "month")?.value;
+  return `${weekdayShort(tz, t)} ${day}/${month}`;
+};
+
+/** "vie 22/10 08:00" */
+export const dayAndTime = (tz: string, t: number) => `${dayDate(tz, t)} ${time(tz, t)}`;
 
 export const dayMonth = (tz: string, t: number) =>
   fmt(tz, { day: "numeric", month: "short" }).format(t).replace(".", "");

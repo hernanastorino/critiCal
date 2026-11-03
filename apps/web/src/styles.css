@@ -40,6 +40,14 @@ body,
   margin: 0;
 }
 
+/* Fill the whole screen when launched from the home screen, not just the area
+   Safari would leave above its toolbar. */
+#root,
+.app {
+  height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
 /* Behave like an app: no double-tap zoom, no text inflation. */
 html {
   touch-action: manipulation;
@@ -81,7 +89,6 @@ textarea {
 .app {
   display: flex;
   flex-direction: column;
-  height: 100%;
   padding-top: var(--safe-t);
 }
 
@@ -711,4 +718,36 @@ textarea {
 .login .btn {
   width: 260px;
   flex: none;
+}
+
+/* ---------- Sync status ---------- */
+
+.sync-dot {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+}
+
+.sync-dot::after {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.sync-dot.syncing::after {
+  background: var(--ink-soft);
+  animation: pulse 1s ease-in-out infinite alternate;
+}
+
+.sync-dot.error::after {
+  background: var(--critical);
+}
+
+@keyframes pulse {
+  from {
+    opacity: 0.25;
+  }
 }

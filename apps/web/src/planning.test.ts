@@ -66,7 +66,7 @@ describe("format", () => {
   it("formats times and durations", () => {
     expect(time(TIMEZONE, at("2026-11-02", "09:05"))).toBe("09:05");
     expect(weekdayShort(TIMEZONE, MON)).toBe("lun");
-    expect(dayAndTime(TIMEZONE, MON)).toBe("lun 17:50");
+    expect(dayAndTime(TIMEZONE, MON)).toBe("lun 2/11 17:50");
     expect(dayMonth(TIMEZONE, MON)).toBe("2 nov");
     expect(hours(0)).toBe("0h");
     expect(hours(45)).toBe("45m");

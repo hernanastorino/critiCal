@@ -429,6 +429,42 @@ describe("options", () => {
     expect(infeasibilityOptions(base(), schedule(base()))).toEqual([]);
   });
 
+  it("never offers lowering a minimum to zero or a 0 % split", () => {
+    const hopeless = base({
+      tasks: [
+        task("m", "mate", at("2026-11-02", "09:00"), {
+          remainingMinutes: 600,
+          minRemainingMinutes: 600,
+        }),
+      ],
+    });
+    const opts = infeasibilityOptions(hopeless, schedule(hopeless));
+    expect(opts.some((o) => o.kind === "lower-minimum" && /mínimo 0/.test(o.label))).toBe(false);
+    expect(opts.every((o) => !/\b0 %/.test(o.label))).toBe(true);
+    expect(opts.some((o) => o.id === "drop:m")).toBe(true);
+    const lower = infeasibilityOptions(
+      base({
+        tasks: [
+          task("m", "mate", at("2026-11-02", "13:00"), {
+            remainingMinutes: 330,
+            minRemainingMinutes: 330,
+          }),
+        ],
+      }),
+      schedule(
+        base({
+          tasks: [
+            task("m", "mate", at("2026-11-02", "13:00"), {
+              remainingMinutes: 330,
+              minRemainingMinutes: 330,
+            }),
+          ],
+        }),
+      ),
+    ).find((o) => o.kind === "lower-minimum");
+    expect(lower?.label).toMatch(/mínimo \d+ h/);
+  });
+
   it("offers settling for the minimum when only the target is short", () => {
     const input = base({
       tasks: [
