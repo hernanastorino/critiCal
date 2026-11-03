@@ -1,9 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App";
 import { Connected } from "./Connected";
 
 afterEach(cleanup);
+beforeEach(() => localStorage.clear());
 
 function fakeClient(fail = false) {
   const writes: string[] = [];
@@ -154,6 +155,28 @@ describe("Connected", () => {
       document.dispatchEvent(new Event("visibilitychange"));
     });
     await waitFor(() => expect(invoke.mock.calls.length).toBeGreaterThan(1));
+  });
+
+  it("opens instantly from the device cache and refreshes in the background", async () => {
+    const first = fakeClient();
+    const { unmount } = render(
+      <Connected client={first.client} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
+    unmount();
+    expect(localStorage.getItem("critical.cache.v1.me")).toBeTruthy();
+
+    const second = fakeClient();
+    render(
+      <Connected client={second.client} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    expect(screen.getByTestId("week")).toBeTruthy();
+    expect(screen.getByLabelText("Sincronizando")).toBeTruthy();
+    await waitFor(() => expect(screen.getByLabelText("Todo sincronizado")).toBeTruthy());
   });
 
   it("shows an error when loading fails", async () => {

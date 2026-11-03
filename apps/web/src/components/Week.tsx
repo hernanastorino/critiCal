@@ -6,6 +6,7 @@ import type { AppEvent } from "../model";
 import { progress, weekDates } from "../planning";
 import { useStore } from "../store";
 import { BlockSheet } from "./BlockSheet";
+import { SyncDot } from "./Calendars";
 import { ChevronLeft, ChevronRight, CriticalIcon, GearIcon } from "./icons";
 
 export type Item =
@@ -99,6 +100,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         >
           <ChevronRight />
         </button>
+        <SyncDot onClick={onSettings} />
         <button type="button" className="icon-btn" aria-label="Ajustes" onClick={onSettings}>
           <GearIcon />
         </button>

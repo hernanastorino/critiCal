@@ -49,12 +49,22 @@ export async function syncICloud(
 }
 
 /** Runs the server sync; passes the Google refresh token right after sign-in. */
-export async function syncGoogle(client: SupabaseClient, session: Session) {
-  const { data, error } = await client.functions.invoke("google-sync", {
-    body: { refreshToken: session.provider_refresh_token ?? null },
-  });
-  if (error) return { connected: false, error: "unreachable" } as SyncResult;
-  return data as SyncResult;
+let googleInFlight: Promise<SyncResult> | null = null;
+
+/** One Google sync at a time: overlapping calls share the running one. */
+export function syncGoogle(client: SupabaseClient, session: Session): Promise<SyncResult> {
+  googleInFlight ??= (async () => {
+    try {
+      const { data, error } = await client.functions.invoke("google-sync", {
+        body: { refreshToken: session.provider_refresh_token ?? null },
+      });
+      if (error) return { connected: false, error: "unreachable" } as SyncResult;
+      return data as SyncResult;
+    } finally {
+      googleInFlight = null;
+    }
+  })();
+  return googleInFlight;
 }
 
 interface State {

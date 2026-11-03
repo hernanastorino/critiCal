@@ -195,7 +195,12 @@ describe("remote", () => {
     const { client, invoke } = fakeClient({ activities: [], tasks: [] }, { data: {}, state: {} });
     const data = await loadData(client);
     expect(data.tasks).toEqual([]);
-    await syncGoogle(client, { provider_refresh_token: "r" } as never);
+    const session = { provider_refresh_token: "r" } as never;
+    const [a, b] = await Promise.all([syncGoogle(client, session), syncGoogle(client, session)]);
+    expect(a).toBe(b);
+    expect(invoke).toHaveBeenCalledTimes(1);
     expect(invoke).toHaveBeenCalledWith("google-sync", { body: { refreshToken: "r" } });
+    await syncGoogle(client, session);
+    expect(invoke).toHaveBeenCalledTimes(2);
   });
 });

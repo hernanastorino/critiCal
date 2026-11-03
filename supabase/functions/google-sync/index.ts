@@ -3,7 +3,16 @@
 // 2. imports events from the user's calendars into calendar_events,
 // 3. mirrors future plan_blocks into the "📚 Plan" calendar.
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-import { diffPlan, type GoogleEvent, PLAN_CALENDAR, planEvent, toRow } from "../_shared/google.ts";
+import {
+  type CalendarListItem,
+  choosePlanCalendar,
+  diffPlan,
+  type GoogleEvent,
+  PLAN_CALENDAR,
+  PLAN_CALENDAR_COLOR,
+  planEvent,
+  toRow,
+} from "../_shared/google.ts";
 
 const GOOGLE = "https://www.googleapis.com/calendar/v3";
 const DAY = 86_400_000;
@@ -127,13 +136,20 @@ Deno.serve(async (req) => {
     const to = new Date(now + 28 * DAY);
 
     // 1. Import events from every visible calendar except the Plan one.
-    const calendars = await google<{
-      items: { id: string; summary: string; selected?: boolean; hidden?: boolean }[];
-    }>(token, "/users/me/calendarList");
-    let plan = calendars.items.find((c) => c.summary === PLAN_CALENDAR);
+    const calendars = await google<{ items: CalendarListItem[] }>(token, "/users/me/calendarList");
+    const { data: planRow } = await user
+      .from("settings")
+      .select("google_plan_calendar")
+      .maybeSingle();
+    const choice = choosePlanCalendar(calendars.items, planRow?.google_plan_calendar);
+    // Duplicates from earlier versions (or two syncs racing) are the app's own: delete them.
+    for (const id of choice.remove) {
+      await google(token, `/calendars/${encodeURIComponent(id)}`, { method: "DELETE" });
+    }
+    const isPlan = (c: CalendarListItem) => c.summary === PLAN_CALENDAR;
     await user.from("calendars").upsert(
       calendars.items
-        .filter((c) => c !== plan)
+        .filter((c) => !isPlan(c))
         .map((c) => ({
           source: "google",
           external_id: c.id,
@@ -143,7 +159,7 @@ Deno.serve(async (req) => {
     );
     const rows = [];
     for (const cal of calendars.items) {
-      if (cal === plan || cal.hidden || cal.selected === false) continue;
+      if (isPlan(cal) || cal.hidden || cal.selected === false) continue;
       for (const e of await listEvents(token, cal.id, from, to)) {
         const row = toRow(uid, cal.id, e, timeZone);
         if (row) rows.push(row);
@@ -165,18 +181,33 @@ Deno.serve(async (req) => {
       await user.from("calendar_events").delete().eq("source", "google").in("external_id", stale);
 
     // 2. Mirror future planned blocks into the Plan calendar.
+    let plan = choice.keep;
     if (!plan) {
-      plan = await google(token, "/calendars", {
+      plan = await google<CalendarListItem>(token, "/calendars", {
         method: "POST",
         body: JSON.stringify({ summary: PLAN_CALENDAR, timeZone }),
       });
     }
-    const planId = (plan as { id: string }).id;
+    const planId = plan.id;
+    if (planRow?.google_plan_calendar !== planId) {
+      await user.from("settings").upsert({ user_id: uid, google_plan_calendar: planId });
+    }
+    if (plan.backgroundColor?.toLowerCase() !== PLAN_CALENDAR_COLOR) {
+      await google(
+        token,
+        `/users/me/calendarList/${encodeURIComponent(planId)}?colorRgbFormat=true`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({
+            backgroundColor: PLAN_CALENDAR_COLOR,
+            foregroundColor: "#ffffff",
+          }),
+        },
+      );
+    }
     const { data: blocks } = await user
       .from("plan_blocks")
-      .select(
-        "id, task_id, start_at, end_at, level, google_event_id, tasks(title, activities(color))",
-      )
+      .select("id, task_id, start_at, end_at, level, google_event_id, tasks(title)")
       .gte("end_at", new Date(now).toISOString());
     const existing = (await listEvents(token, planId, new Date(now), to)).filter(
       (e) => !!e.extendedProperties?.private?.criticalBlock,
@@ -184,13 +215,9 @@ Deno.serve(async (req) => {
     const diff = diffPlan(blocks ?? [], existing);
     const eventFor = (b: (typeof diff.create)[number]) => {
       const full = (blocks ?? []).find((x) => x.id === b.id) as unknown as {
-        tasks?: { title?: string; activities?: { color?: string } };
+        tasks?: { title?: string };
       };
-      return planEvent(
-        b,
-        full?.tasks?.title ?? "Bloque",
-        full?.tasks?.activities?.color ?? "#616161",
-      );
+      return planEvent(b, full?.tasks?.title ?? "Bloque");
     };
     for (const b of diff.create) {
       const ev = await google<{ id: string }>(

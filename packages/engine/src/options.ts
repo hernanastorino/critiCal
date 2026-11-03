@@ -50,27 +50,29 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
   const deficit = short.reduce((sum, s) => sum + s.minDeficit, 0);
   for (const t of [...involved].sort((a, b) => a.priority - b.priority)) {
     const lowered = Math.max(0, t.minRemainingMinutes - deficit);
-    add(
-      `lower-minimum:${t.id}`,
-      "lower-minimum",
-      `Dedicarle menos a ${t.title} (${lowered} min mínimo)`,
-      withTasks(
-        input,
-        input.tasks.map((x) =>
-          x.id === t.id
-            ? {
-                ...x,
-                minRemainingMinutes: lowered,
-                remainingMinutes: Math.min(
-                  x.remainingMinutes,
-                  Math.max(lowered, x.remainingMinutes - deficit),
-                ),
-              }
-            : x,
+    // Lowering to zero is just "No hacer", which is offered below.
+    if (lowered > 0)
+      add(
+        `lower-minimum:${t.id}`,
+        "lower-minimum",
+        `Dedicarle menos a ${t.title} (mínimo ${duration(lowered)})`,
+        withTasks(
+          input,
+          input.tasks.map((x) =>
+            x.id === t.id
+              ? {
+                  ...x,
+                  minRemainingMinutes: lowered,
+                  remainingMinutes: Math.min(
+                    x.remainingMinutes,
+                    Math.max(lowered, x.remainingMinutes - deficit),
+                  ),
+                }
+              : x,
+          ),
         ),
-      ),
-      t.id,
-    );
+        t.id,
+      );
     add(
       `drop:${t.id}`,
       "drop",
@@ -84,8 +86,8 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
   }
 
   const demand = involved.reduce((sum, t) => sum + t.minRemainingMinutes, 0);
-  if (demand > 0) {
-    const factor = Math.max(0, (demand - deficit) / demand);
+  const factor = demand > 0 ? (demand - deficit) / demand : 0;
+  if (factor > 0) {
     const ids = new Set(involved.map((t) => t.id));
     add(
       "proportional",
@@ -109,6 +111,13 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
   return options.sort(
     (a, b) => Number(b.result.feasible) - Number(a.result.feasible) || rank(a.kind) - rank(b.kind),
   );
+}
+
+function duration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (h === 0) return `${m} min`;
+  return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
 const ORDER: OptionKind[] = [
