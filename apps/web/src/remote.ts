@@ -143,6 +143,9 @@ export function rowsToData(r: {
         status: t.status as AppTask["status"],
         sourceEventId: (t.source_event_id as string) ?? undefined,
         needsReview: (t.needs_review as boolean) || undefined,
+        skipUntil: t.skip_until ? ms(t.skip_until as string) : undefined,
+        paused: (t.paused as boolean) || undefined,
+        endedAt: t.ended_at ? ms(t.ended_at as string) : undefined,
         units: r.units
           .filter((u) => u.task_id === t.id)
           .sort((a, b) => (a.position as number) - (b.position as number))
@@ -342,6 +345,9 @@ export function diffData(prev: AppData, next: AppData): Writes {
         status: t.status,
         source_event_id: t.sourceEventId ?? null,
         needs_review: !!t.needsReview,
+        skip_until: t.skipUntil ? iso(t.skipUntil) : null,
+        paused: !!t.paused,
+        ended_at: t.endedAt ? iso(t.endedAt) : null,
       })),
     });
     const units = tasks.flatMap((t) =>
@@ -361,6 +367,11 @@ export function diffData(prev: AppData, next: AppData): Writes {
       .filter((id) => !keptUnits.has(id));
     if (goneUnits.length) deletes.push({ table: "task_units", ids: goneUnits });
   }
+
+  // A deleted silo takes its units, blocks and check-ins along (FK cascade).
+  const keptTasks = new Set(next.tasks.map((t) => t.id));
+  const goneTasks = prev.tasks.map((t) => t.id).filter((id) => !keptTasks.has(id));
+  if (goneTasks.length) deletes.push({ table: "tasks", ids: goneTasks });
 
   const roles = changed(prev.calendars ?? [], next.calendars ?? []);
   if (roles.length) {

@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { dayAndTime, hours } from "../format";
+import { dayAndTime, dayDate, hours } from "../format";
 import type { AppTask } from "../model";
-import { progress, refreshPlan } from "../planning";
+import { isRunning, progress, refreshPlan } from "../planning";
 import { useStore } from "../store";
 import { TaskDetail } from "./TaskDetail";
 import { TaskEditor } from "./TaskEditor";
@@ -13,6 +13,8 @@ export function Silos() {
   const [detail, setDetail] = useState<AppTask | null>(null);
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const items = progress(data, now).sort((a, b) => a.deadline - b.deadline);
+  // Weekly silos switched off (this week or until resumed), shown faded.
+  const off = data.tasks.filter((t) => t.status === "active" && !isRunning(t, now));
 
   return (
     <div className="screen">
@@ -49,6 +51,27 @@ export function Silos() {
               </button>
             );
           })}
+          {off.map((t) => (
+            <button
+              type="button"
+              key={t.id}
+              className="silo off"
+              aria-label={`${t.title}: desactivado`}
+              onClick={() => setDetail(t)}
+            >
+              <div
+                className="tank"
+                style={{
+                  ["--c" as string]:
+                    data.activities.find((a) => a.id === t.activityId)?.color ?? "#888",
+                }}
+              />
+              <span className="name">{t.title}</span>
+              <span className="due">
+                {t.paused ? "pausado" : `vuelve el ${dayDate(tz, t.skipUntil ?? now)}`}
+              </span>
+            </button>
+          ))}
           <button
             type="button"
             className="silo"

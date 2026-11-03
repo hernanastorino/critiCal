@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { dayAndTime, hours } from "../format";
+import { dayAndTime, dayDate, hours } from "../format";
 import type { AppTask } from "../model";
-import { progress } from "../planning";
-import { useStore } from "../store";
+import { endOfWeek, progress } from "../planning";
+import { type RecurrenceChange, useStore } from "../store";
+import { ActionSheet } from "./ActionSheet";
 
 /** Silo detail: what is left and a quick "this is how far I got" log. */
 export function TaskDetail({
@@ -21,6 +22,18 @@ export function TaskDetail({
   const [topics, setTopics] = useState("");
   const [topicsDone, setTopicsDone] = useState("");
   const [units, setUnits] = useState<string[]>([]);
+  const [ask, setAsk] = useState<"off" | "delete" | null>(null);
+  const live = data.tasks.find((t) => t.id === task.id) ?? task;
+  const repeat = (change: RecurrenceChange) => {
+    dispatch({ type: "recurrence", taskId: task.id, change });
+    setAsk(null);
+    if (change !== "resume") onClose();
+  };
+  const offState = live.paused
+    ? "Pausado hasta que lo reactives."
+    : (live.skipUntil ?? 0) > now
+      ? `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`
+      : null;
   const pending = task.units.filter((u) => !u.doneAt);
   const done = task.units.length - pending.length;
 
@@ -112,7 +125,68 @@ export function TaskDetail({
             Guardar avance
           </button>
         </div>
+
+        {(task.kind === "habit" || offState) && (
+          <div className="repeat">
+            <div className="section-title">Se repite cada semana</div>
+            {offState && <p className="state">{offState}</p>}
+            <div className="row">
+              {offState ? (
+                <button type="button" className="btn" onClick={() => repeat("resume")}>
+                  Reactivar
+                </button>
+              ) : (
+                <button type="button" className="btn" onClick={() => setAsk("off")}>
+                  Desactivar…
+                </button>
+              )}
+              <button type="button" className="btn danger" onClick={() => setAsk("delete")}>
+                Eliminar…
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+      {ask === "off" && (
+        <ActionSheet
+          title={`Desactivar ${task.title}`}
+          message="Las semanas anteriores no cambian."
+          onCancel={() => setAsk(null)}
+          options={[
+            {
+              label: "Solo esta semana",
+              detail: `Vuelve el ${dayDate(tz, endOfWeek(tz, now))}`,
+              onPick: () => repeat("skipWeek"),
+            },
+            {
+              label: "Hasta que lo reactive",
+              detail: "Lo podés volver a prender desde este silo",
+              onPick: () => repeat("pause"),
+            },
+          ]}
+        />
+      )}
+      {ask === "delete" && (
+        <ActionSheet
+          title={`Eliminar ${task.title}`}
+          message="Es un silo que se repite cada semana."
+          onCancel={() => setAsk(null)}
+          options={[
+            {
+              label: "Eliminar de hoy en adelante",
+              detail: "Las semanas anteriores quedan en tu historial",
+              danger: true,
+              onPick: () => repeat("endFromToday"),
+            },
+            {
+              label: "Eliminar todo",
+              detail: "También borra lo registrado en semanas anteriores",
+              danger: true,
+              onPick: () => repeat("deleteAll"),
+            },
+          ]}
+        />
+      )}
     </>
   );
 }

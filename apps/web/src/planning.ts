@@ -38,7 +38,7 @@ export function endOfDay(tz: string, instant: number): number {
   return zonedInstant(tz, localParts(tz, instant).date, 1440);
 }
 
-function endOfWeek(tz: string, instant: number): number {
+export function endOfWeek(tz: string, instant: number): number {
   return zonedInstant(tz, addDays(weekStart(tz, instant), 7), 0);
 }
 
@@ -72,12 +72,16 @@ export interface TaskProgress {
   deadline: number;
 }
 
+/** Active and not paused or skipped this week: the planner works on it. */
+export const isRunning = (task: AppTask, now: number) =>
+  task.status === "active" && !task.paused && !((task.skipUntil ?? 0) > now);
+
 /** What is left of each active task, with the learned effort ratio applied. */
 export function progress(data: AppData, now: number): TaskProgress[] {
   const tz = data.settings.timezone;
   const effort = samples(data);
   return data.tasks
-    .filter((t) => t.status === "active")
+    .filter((t) => isRunning(t, now))
     .map((task) => {
       if (task.kind === "habit") {
         const total = (task.sessionsPerWeek ?? 0) * (task.sessionMinutes ?? 0);
@@ -186,7 +190,7 @@ export function pinClashes(data: AppData, now: number) {
 export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);
-  const active = new Set(data.tasks.filter((t) => t.status === "active").map((t) => t.id));
+  const active = new Set(data.tasks.filter((t) => isRunning(t, now)).map((t) => t.id));
   const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
   const past = data.plan.filter((b) => b.end <= now);
   const today = data.plan.filter((b) => b.end > now && b.start < todayEnd && active.has(b.taskId));

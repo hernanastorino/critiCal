@@ -43,6 +43,12 @@ export interface AppTask {
   sourceEventId?: string;
   /** Created automatically; waits for a quick OK in the inbox. */
   needsReview?: boolean;
+  /** Weekly silos: off until this instant (the start of the next week). */
+  skipUntil?: number;
+  /** Weekly silos: off until turned back on. */
+  paused?: boolean;
+  /** When it stopped repeating; earlier weeks stay as history. */
+  endedAt?: number;
 }
 
 export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion";
