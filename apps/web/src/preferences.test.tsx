@@ -1,0 +1,147 @@
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { App } from "./App";
+import { importFromCalendars } from "./calendars";
+import { demoData, emptyData } from "./demo";
+import { nextColor, PALETTE, uniqueColors } from "./model";
+
+const NOW = Date.UTC(2026, 10, 2, 20);
+const stored = () => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");
+
+beforeEach(() => {
+  localStorage.clear();
+  localStorage.setItem("critical.mode", "demo");
+  render(<App fixedNow={NOW} initial={demoData} />);
+  fireEvent.click(screen.getByLabelText("Ajustes"));
+});
+afterEach(cleanup);
+
+describe("fixed settings", () => {
+  it("edits the weekly routine for the chosen days", () => {
+    fireEvent.click(screen.getByLabelText("Día S"));
+    fireEvent.click(screen.getByLabelText("Día L"));
+    fireEvent.change(screen.getByLabelText("Desayuno, traslado (min)"), {
+      target: { value: "45" },
+    });
+    fireEvent.change(screen.getByLabelText("Almuerzo"), { target: { value: "12:30" } });
+    fireEvent.change(screen.getByLabelText("Nada de estudio desde"), {
+      target: { value: "19:00" },
+    });
+    expect(screen.getByText(/No se planifica nada antes de 08:15/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Guardar para M M J V S"));
+    const week = stored().settings.week;
+    expect(week[1].morningMinutes).toBe(30);
+    expect(week[2]).toMatchObject({ morningMinutes: 45, freeFrom: 1140 });
+    expect(week[2].meals[0]).toEqual({ start: 750, end: 810 });
+    expect(week[6].morningMinutes).toBe(45);
+    expect(screen.getByText("Guardado ✓")).toBeTruthy();
+  });
+
+  it("drops a meal whose duration is zero and keeps at least one day selected", () => {
+    for (const d of ["L", "M", "J", "V"])
+      fireEvent.click(screen.getAllByLabelText(`Día ${d}`)[0] as HTMLElement);
+    fireEvent.click(screen.getAllByLabelText("Día M")[1] as HTMLElement);
+    expect(screen.getAllByLabelText("Día M")[1]?.getAttribute("aria-pressed")).toBe("true");
+    const [, dinnerMin] = screen.getAllByLabelText("Dura (min)");
+    fireEvent.change(dinnerMin as HTMLElement, { target: { value: "0" } });
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(stored().settings.week[3].meals).toHaveLength(1);
+  });
+
+  it("saves planning rules", () => {
+    fireEvent.change(screen.getByLabelText("Máximo de materias por día"), {
+      target: { value: "3" },
+    });
+    fireEvent.change(screen.getByLabelText("Margen antes de cada evento (min)"), {
+      target: { value: "15" },
+    });
+    fireEvent.change(screen.getByLabelText("Avisar cuando el margen baja de (h)"), {
+      target: { value: "2,5" },
+    });
+    fireEvent.click(screen.getByText("Guardar reglas"));
+    expect(stored().settings).toMatchObject({
+      maxActivitiesPerDay: 3,
+      travelMarginMinutes: 15,
+      warnSlackMinutes: 150,
+    });
+  });
+
+  it("saves the default hours for detected events, capping the minimum", () => {
+    fireEvent.change(screen.getByLabelText("Horas de Parcial / examen"), {
+      target: { value: "8" },
+    });
+    fireEvent.change(screen.getByLabelText("Mínimo de Parcial / examen"), {
+      target: { value: "20" },
+    });
+    fireEvent.click(screen.getAllByText("Guardar").at(-1) as HTMLElement);
+    expect(stored().preferences.importDefaults.parcial).toEqual({
+      estimate: 480,
+      min: 480,
+      priority: 3,
+    });
+  });
+
+  it("edits a subject's colour and rules", () => {
+    fireEvent.click(screen.getByText("Cálculo II"));
+    fireEvent.change(screen.getByLabelText("Nombre de la materia"), {
+      target: { value: "Cálculo 2" },
+    });
+    fireEvent.click(screen.getByLabelText(`Color ${PALETTE[7]}`));
+    fireEvent.change(screen.getByLabelText("Sesión máxima (min)"), { target: { value: "90" } });
+    fireEvent.change(screen.getByLabelText("Prefiero desde"), { target: { value: "" } });
+    fireEvent.click(screen.getByLabelText(/Es estudio/));
+    fireEvent.click(screen.getByText("Guardar Cálculo 2"));
+    expect(stored().activities[0]).toMatchObject({
+      name: "Cálculo 2",
+      color: PALETTE[7],
+      maxSessionMinutes: 90,
+      academic: false,
+    });
+    expect(stored().activities[0].preferred).toBeUndefined();
+  });
+});
+
+describe("colours and defaults", () => {
+  it("gives each new subject an unused colour", () => {
+    expect(nextColor([{ color: PALETTE[0] }, { color: PALETTE[1] }])).toBe(PALETTE[2]);
+    expect(nextColor(PALETTE.map((color) => ({ color })))).toBe(PALETTE[0]);
+  });
+
+  it("separates subjects that share a colour", () => {
+    const same = [
+      { id: "a", color: PALETTE[0] },
+      { id: "b", color: PALETTE[0] },
+      { id: "c", color: PALETTE[1] },
+    ];
+    expect(uniqueColors(same).map((a) => a.color)).toEqual([PALETTE[0], PALETTE[2], PALETTE[1]]);
+    const distinct = [{ color: PALETTE[0] }, { color: PALETTE[1] }];
+    expect(uniqueColors(distinct)).toBe(distinct);
+    const full = [...PALETTE, PALETTE[0]].map((color) => ({ color }));
+    expect(uniqueColors(full)).toBe(full);
+  });
+
+  it("uses the saved default hours for imported events", () => {
+    const d = {
+      ...emptyData(),
+      calendars: [
+        { id: "google:p", source: "google" as const, externalId: "p", name: "Parciales" },
+      ],
+      events: [
+        {
+          id: "e",
+          title: "Parcial Física",
+          start: NOW + 86_400_000,
+          end: NOW + 90_000_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:p",
+        },
+      ],
+      preferences: { importDefaults: { parcial: { estimate: 300, min: 120, priority: 3 } } },
+    };
+    expect(importFromCalendars(d, NOW, () => "x").tasks[0]).toMatchObject({
+      estimateMinutes: 300,
+      minMinutes: 120,
+    });
+  });
+});

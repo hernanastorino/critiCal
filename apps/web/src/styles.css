@@ -48,9 +48,16 @@ body,
   min-height: -webkit-fill-available;
 }
 
-/* Behave like an app: no double-tap zoom, no text inflation. */
+/* Behave like an app: vertical scrolling only — no zoom, no sideways panning. */
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  overscroll-behavior: none;
+}
+
 html {
-  touch-action: manipulation;
+  touch-action: pan-y;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -356,6 +363,9 @@ textarea {
 }
 
 .sheet {
+  overflow-x: hidden;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
   position: fixed;
   left: 0;
   right: 0;
@@ -750,4 +760,109 @@ textarea {
   from {
     opacity: 0.25;
   }
+}
+
+/* ---------- Preferences ---------- */
+
+.prefs summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  justify-content: space-between;
+}
+
+.prefs summary::after {
+  content: "▼";
+  font-size: 11px;
+  color: var(--ink-soft);
+}
+
+.prefs[open] summary::after {
+  content: "▲";
+}
+
+.prefs[open] summary {
+  margin-bottom: 10px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 10px;
+}
+
+.grid3 {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr;
+  gap: 0 8px;
+  align-items: end;
+}
+
+.grid3-label {
+  font-size: 14px;
+  padding-bottom: 22px;
+}
+
+.day-chips {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.chip {
+  flex: 1;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--glass);
+  font-weight: 600;
+}
+
+.chip.on {
+  background: var(--ink);
+  color: var(--surface);
+}
+
+.activity-row {
+  border-top: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.activity-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  font-weight: 600;
+  text-align: left;
+}
+
+.swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.swatches {
+  border: 0;
+  padding: 0;
+  display: flex;
+  gap: 8px;
+  margin: 4px 0 12px;
+  flex-wrap: wrap;
+}
+
+.swatch.big {
+  width: 30px;
+  height: 30px;
+}
+
+.swatch.on {
+  box-shadow:
+    0 0 0 2px var(--surface),
+    0 0 0 4px var(--ink);
+}
+
+.swatch.taken {
+  opacity: 0.35;
 }

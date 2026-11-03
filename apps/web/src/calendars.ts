@@ -5,7 +5,9 @@ import {
   type AppEvent,
   type AppTask,
   type CalendarRole,
-  PALETTE,
+  type DetectedKind,
+  type Effort,
+  nextColor,
 } from "./model";
 
 const normalize = (s: string) =>
@@ -40,10 +42,7 @@ export const ROLE_LABEL: Record<CalendarRole, string> = {
 };
 
 /** Default effort per kind of deadline, in minutes. */
-export const DEFAULTS: Record<
-  "parcial" | "entrega" | "presentacion",
-  { estimate: number; min: number; priority: number }
-> = {
+export const DEFAULTS: Record<DetectedKind, Effort> = {
   parcial: { estimate: 600, min: 360, priority: 3 },
   entrega: { estimate: 360, min: 240, priority: 2 },
   presentacion: { estimate: 240, min: 120, priority: 2 },
@@ -128,7 +127,7 @@ export function importFromCalendars(data: AppData, now: number, newId: () => str
       const created: Activity = {
         id: newId(),
         name: subjectName(e.title),
-        color: PALETTE[activities.length % PALETTE.length] as string,
+        color: nextColor(activities),
         academic: true,
         maxSessionMinutes: 120,
         minBlockMinutes: 60,
@@ -136,7 +135,7 @@ export function importFromCalendars(data: AppData, now: number, newId: () => str
       activities = [...activities, created];
       activity = created;
     }
-    const d = DEFAULTS[role];
+    const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
     const task: AppTask = {
       id: newId(),
       activityId: activity.id,

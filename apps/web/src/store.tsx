@@ -1,4 +1,4 @@
-import { type Activity, type DayOverride, zonedInstant } from "@critical/engine";
+import { type Activity, type DayOverride, type Settings, zonedInstant } from "@critical/engine";
 import {
   createContext,
   type ReactNode,
@@ -11,8 +11,8 @@ import {
 } from "react";
 import { importFromCalendars } from "./calendars";
 import { demoData } from "./demo";
-import type { AppData, AppTask, CalendarRole, CheckIn } from "./model";
-import { newId } from "./model";
+import type { AppData, AppTask, CalendarRole, CheckIn, Preferences } from "./model";
+import { newId, uniqueColors } from "./model";
 import {
   applyOption,
   type Decisions,
@@ -33,10 +33,15 @@ export type Action =
   | { type: "applyOption"; optionId: string; now: number }
   | { type: "relaxContext"; until: number; now: number }
   | { type: "calendarRole"; calendarId: string; role: CalendarRole; now: number }
-  | { type: "review"; taskId: string; keep: boolean; now: number };
+  | { type: "review"; taskId: string; keep: boolean; now: number }
+  | { type: "settings"; settings: Settings; now: number }
+  | { type: "preferences"; preferences: Preferences; now: number }
+  | { type: "saveActivity"; activity: Activity; now: number };
 
 function refresh(input: AppData, now: number): AppData {
-  const data = importFromCalendars(input, now, newId);
+  const imported = importFromCalendars(input, now, newId);
+  const activities = uniqueColors(imported.activities);
+  const data = activities === imported.activities ? imported : { ...imported, activities };
   const r = refreshPlan(data, now);
   const proposals = r.proposal
     ? [...data.proposals.filter((p) => !p.id.startsWith("conflict@")), r.proposal]
@@ -107,6 +112,16 @@ export function reducer(data: AppData, action: Action): AppData {
         c.id === action.calendarId ? { ...c, role: action.role } : c,
       );
       return refresh({ ...data, calendars }, now);
+    }
+    case "settings":
+      return refresh({ ...data, settings: action.settings }, now);
+    case "preferences":
+      return refresh({ ...data, preferences: action.preferences }, now);
+    case "saveActivity": {
+      const activities = data.activities.map((a) =>
+        a.id === action.activity.id ? action.activity : a,
+      );
+      return refresh({ ...data, activities }, now);
     }
     case "review": {
       const tasks = data.tasks.map((t) =>

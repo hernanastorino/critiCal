@@ -13,6 +13,7 @@ export const TIMEZONE = "America/Montevideo";
 
 const weekday: DaySettings = {
   wake: 7 * 60 + 30,
+  morningMinutes: 30,
   bed: 0,
   meals: [
     { start: 13 * 60, end: 14 * 60 },

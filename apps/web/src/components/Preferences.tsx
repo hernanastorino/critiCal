@@ -1,0 +1,408 @@
+import type { Activity, DaySettings } from "@critical/engine";
+import { useState } from "react";
+import { DEFAULTS } from "../calendars";
+import { hhmmToMinutes, minutesToHhmm } from "../format";
+import { type DetectedKind, type Effort, PALETTE } from "../model";
+import { useStore } from "../store";
+
+const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
+const ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+const toHours = (m: number) => String(Math.round((m / 60) * 10) / 10);
+const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+
+/** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
+export function WeekSettings() {
+  const { data, dispatch } = useStore();
+  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const first = data.settings.week[days[0] ?? 1] as DaySettings;
+  const [lunch, dinner] = first.meals;
+  const [form, setForm] = useState(() => formOf(first));
+  const [saved, setSaved] = useState(false);
+
+  const pick = (d: number) => {
+    const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
+    if (next.length === 0) return;
+    setDays(next);
+    setForm(formOf(data.settings.week[next[0] as number] as DaySettings));
+    setSaved(false);
+  };
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [k]: e.target.value });
+    setSaved(false);
+  };
+
+  const save = () => {
+    const meals = [
+      { start: hhmmToMinutes(form.lunch), end: hhmmToMinutes(form.lunch) + Number(form.lunchMin) },
+      {
+        start: hhmmToMinutes(form.dinner),
+        end: hhmmToMinutes(form.dinner) + Number(form.dinnerMin),
+      },
+    ].filter((m) => m.end > m.start);
+    const day: DaySettings = {
+      wake: hhmmToMinutes(form.wake),
+      morningMinutes: Number(form.morning) || 0,
+      bed: hhmmToMinutes(form.bed),
+      meals,
+      freeFrom: hhmmToMinutes(form.freeFrom),
+    };
+    const week = data.settings.week.map((d, i) => (days.includes(i) ? day : d));
+    dispatch({ type: "settings", settings: { ...data.settings, week } });
+    setSaved(true);
+  };
+
+  return (
+    <details className="card prefs">
+      <summary className="title">Mi semana</summary>
+      <p className="meta">
+        Lo que casi nunca cambia. Para un día puntual usá «Hoy» arriba. Elegí los días y editá:
+      </p>
+      <div className="day-chips">
+        {ORDER.map((d) => (
+          <button
+            key={d}
+            type="button"
+            aria-pressed={days.includes(d)}
+            aria-label={`Día ${DAYS[d]}`}
+            className={`chip${days.includes(d) ? " on" : ""}`}
+            onClick={() => pick(d)}
+          >
+            {DAYS[d]}
+          </button>
+        ))}
+      </div>
+      <div className="grid2">
+        <Field label="Me levanto" type="time" value={form.wake} onChange={set("wake")} />
+        <Field label="Desayuno, traslado (min)" value={form.morning} onChange={set("morning")} />
+        <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
+        <Field label="Dura (min)" value={form.lunchMin} onChange={set("lunchMin")} />
+        <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
+        <Field label="Dura (min)" value={form.dinnerMin} onChange={set("dinnerMin")} />
+        <Field
+          label="Nada de estudio desde"
+          type="time"
+          value={form.freeFrom}
+          onChange={set("freeFrom")}
+        />
+        <Field label="Me acuesto" type="time" value={form.bed} onChange={set("bed")} />
+      </div>
+      <p className="meta">
+        No se planifica nada antes de{" "}
+        {minutesToHhmm(hhmmToMinutes(form.wake) + (Number(form.morning) || 0))}
+        {lunch || dinner ? "" : " (sin comidas cargadas)"}.
+      </p>
+      <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
+        {saved
+          ? "Guardado ✓"
+          : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
+      </button>
+    </details>
+  );
+}
+
+function formOf(d: DaySettings) {
+  const [lunch, dinner] = d.meals;
+  return {
+    wake: minutesToHhmm(d.wake),
+    morning: String(d.morningMinutes ?? 0),
+    lunch: minutesToHhmm(lunch?.start ?? 780),
+    lunchMin: String(lunch ? lunch.end - lunch.start : 0),
+    dinner: minutesToHhmm(dinner?.start ?? 1260),
+    dinnerMin: String(dinner ? dinner.end - dinner.start : 0),
+    freeFrom: minutesToHhmm(d.freeFrom),
+    bed: minutesToHhmm(d.bed),
+  };
+}
+
+function Field({
+  label,
+  type = "text",
+  value,
+  onChange,
+}: {
+  label: string;
+  type?: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <input
+        type={type}
+        inputMode={type === "text" ? "decimal" : undefined}
+        value={value}
+        onChange={onChange}
+      />
+    </label>
+  );
+}
+
+/** Planning rules that apply to every day. */
+export function RuleSettings() {
+  const { data, dispatch } = useStore();
+  const s = data.settings;
+  const [form, setForm] = useState({
+    maxActivities: String(s.maxActivitiesPerDay),
+    margin: String(s.travelMarginMinutes),
+    warn: toHours(s.warnSlackMinutes),
+  });
+  const [saved, setSaved] = useState(false);
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [k]: e.target.value });
+    setSaved(false);
+  };
+  return (
+    <details className="card prefs">
+      <summary className="title">Reglas</summary>
+      <div className="grid2">
+        <Field
+          label="Máximo de materias por día"
+          value={form.maxActivities}
+          onChange={set("maxActivities")}
+        />
+        <Field
+          label="Margen antes de cada evento (min)"
+          value={form.margin}
+          onChange={set("margin")}
+        />
+        <Field
+          label="Avisar cuando el margen baja de (h)"
+          value={form.warn}
+          onChange={set("warn")}
+        />
+      </div>
+      <button
+        type="button"
+        className="btn primary"
+        style={{ width: "100%" }}
+        onClick={() => {
+          dispatch({
+            type: "settings",
+            settings: {
+              ...s,
+              maxActivitiesPerDay: Math.max(1, Number(form.maxActivities) || 1),
+              travelMarginMinutes: Math.max(0, Number(form.margin) || 0),
+              warnSlackMinutes: fromHours(form.warn),
+            },
+          });
+          setSaved(true);
+        }}
+      >
+        {saved ? "Guardado ✓" : "Guardar reglas"}
+      </button>
+    </details>
+  );
+}
+
+const KINDS: { kind: DetectedKind; label: string }[] = [
+  { kind: "parcial", label: "Parcial / examen" },
+  { kind: "entrega", label: "Entrega" },
+  { kind: "presentacion", label: "Presentación / defensa" },
+];
+
+/** Default effort for tasks created from calendar events. */
+export function DetectedDefaults() {
+  const { data, dispatch } = useStore();
+  const current = (k: DetectedKind): Effort => data.preferences?.importDefaults?.[k] ?? DEFAULTS[k];
+  const [form, setForm] = useState(() =>
+    Object.fromEntries(
+      KINDS.map(({ kind }) => [
+        kind,
+        { estimate: toHours(current(kind).estimate), min: toHours(current(kind).min) },
+      ]),
+    ),
+  );
+  const [saved, setSaved] = useState(false);
+  return (
+    <details className="card prefs">
+      <summary className="title">Horas para lo que se detecta</summary>
+      <p className="meta">
+        Cuánto le planifico a cada evento nuevo de tus calendarios hasta que lo ajustes.
+      </p>
+      {KINDS.map(({ kind, label }) => (
+        <div key={kind} className="grid3">
+          <span className="grid3-label">{label}</span>
+          <label className="field">
+            <span>Horas</span>
+            <input
+              inputMode="decimal"
+              aria-label={`Horas de ${label}`}
+              value={form[kind]?.estimate}
+              onChange={(e) => {
+                setForm({ ...form, [kind]: { ...form[kind], estimate: e.target.value } as never });
+                setSaved(false);
+              }}
+            />
+          </label>
+          <label className="field">
+            <span>Mínimo</span>
+            <input
+              inputMode="decimal"
+              aria-label={`Mínimo de ${label}`}
+              value={form[kind]?.min}
+              onChange={(e) => {
+                setForm({ ...form, [kind]: { ...form[kind], min: e.target.value } as never });
+                setSaved(false);
+              }}
+            />
+          </label>
+        </div>
+      ))}
+      <button
+        type="button"
+        className="btn primary"
+        style={{ width: "100%" }}
+        onClick={() => {
+          const importDefaults = Object.fromEntries(
+            KINDS.map(({ kind }) => {
+              const estimate = fromHours(form[kind]?.estimate ?? "0");
+              return [
+                kind,
+                {
+                  estimate,
+                  min: Math.min(estimate, fromHours(form[kind]?.min ?? "0")),
+                  priority: current(kind).priority,
+                },
+              ];
+            }),
+          );
+          dispatch({ type: "preferences", preferences: { ...data.preferences, importDefaults } });
+          setSaved(true);
+        }}
+      >
+        {saved ? "Guardado ✓" : "Guardar"}
+      </button>
+    </details>
+  );
+}
+
+/** Per-subject colour and study rules. */
+export function ActivitySettings() {
+  const { data } = useStore();
+  return (
+    <details className="card prefs">
+      <summary className="title">Materias y actividades</summary>
+      <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
+      {data.activities.map((a) => (
+        <ActivityRow key={a.id} activity={a} />
+      ))}
+    </details>
+  );
+}
+
+function ActivityRow({ activity }: { activity: Activity }) {
+  const { data, dispatch } = useStore();
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    name: activity.name,
+    color: activity.color,
+    academic: activity.academic,
+    max: String(activity.maxSessionMinutes),
+    min: String(activity.minBlockMinutes),
+    from: activity.preferred ? minutesToHhmm(activity.preferred.start) : "",
+    to: activity.preferred ? minutesToHhmm(activity.preferred.end) : "",
+  });
+  const taken = new Set(
+    data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
+  );
+  return (
+    <div className="activity-row">
+      <button
+        type="button"
+        className="activity-head"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+      >
+        <span className="swatch" style={{ background: activity.color }} />
+        {activity.name}
+        <span className="meta" style={{ margin: 0, marginLeft: "auto" }}>
+          {open ? "▲" : "▼"}
+        </span>
+      </button>
+      {open && (
+        <div>
+          <label className="field">
+            <span>Nombre</span>
+            <input
+              aria-label="Nombre de la materia"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </label>
+          <fieldset className="swatches" aria-label="Color">
+            {PALETTE.map((c) => (
+              <button
+                key={c}
+                type="button"
+                aria-pressed={form.color === c}
+                aria-label={`Color ${c}${taken.has(c.toLowerCase()) ? " (ya usado)" : ""}`}
+                className={`swatch big${form.color === c ? " on" : ""}${taken.has(c.toLowerCase()) ? " taken" : ""}`}
+                style={{ background: c }}
+                onClick={() => setForm({ ...form, color: c })}
+              />
+            ))}
+          </fieldset>
+          <div className="grid2">
+            <Field
+              label="Sesión máxima (min)"
+              value={form.max}
+              onChange={(e) => setForm({ ...form, max: e.target.value })}
+            />
+            <Field
+              label="Bloque mínimo (min)"
+              value={form.min}
+              onChange={(e) => setForm({ ...form, min: e.target.value })}
+            />
+            <Field
+              label="Prefiero desde"
+              type="time"
+              value={form.from}
+              onChange={(e) => setForm({ ...form, from: e.target.value })}
+            />
+            <Field
+              label="hasta"
+              type="time"
+              value={form.to}
+              onChange={(e) => setForm({ ...form, to: e.target.value })}
+            />
+          </div>
+          <label className="check">
+            <input
+              type="checkbox"
+              checked={form.academic}
+              onChange={(e) => setForm({ ...form, academic: e.target.checked })}
+            />
+            Es estudio (respeta «nada de estudio desde»)
+          </label>
+          <button
+            type="button"
+            className="btn primary"
+            style={{ width: "100%", marginTop: 10 }}
+            onClick={() => {
+              dispatch({
+                type: "saveActivity",
+                activity: {
+                  ...activity,
+                  name: form.name.trim() || activity.name,
+                  color: form.color,
+                  academic: form.academic,
+                  maxSessionMinutes: Math.max(30, Number(form.max) || activity.maxSessionMinutes),
+                  minBlockMinutes: Math.max(30, Number(form.min) || activity.minBlockMinutes),
+                  preferred:
+                    form.from && form.to
+                      ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
+                      : undefined,
+                },
+              });
+              setOpen(false);
+            }}
+          >
+            Guardar {form.name}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}

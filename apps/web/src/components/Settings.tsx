@@ -3,6 +3,7 @@ import { useState } from "react";
 import { hhmmToMinutes, minutesToHhmm } from "../format";
 import { useStore } from "../store";
 import { Calendars } from "./Calendars";
+import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences";
 
 export function Settings({
   onClose,
@@ -56,6 +57,12 @@ export function Settings({
         >
           Reacomodar hoy
         </button>
+
+        <div className="section-title">Configuración fija</div>
+        <WeekSettings />
+        <RuleSettings />
+        <ActivitySettings />
+        <DetectedDefaults />
 
         <Calendars />
 
