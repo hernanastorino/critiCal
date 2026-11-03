@@ -97,7 +97,9 @@ export async function pruneCalendars(
   source: string,
   keep: string[],
 ): Promise<void> {
-  const list = `(${keep.map((id) => `"${id.replace(/"/g, '\\"')}"`).join(",")})`;
+  // PostgREST list literal: backslashes first, then quotes.
+  const quote = (id: string) => `"${id.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+  const list = `(${keep.map(quote).join(",")})`;
   const events = user.from("calendar_events").delete().eq("source", source);
   const calendars = user.from("calendars").delete().eq("source", source);
   const [a, b] = await Promise.all(

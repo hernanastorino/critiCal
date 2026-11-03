@@ -291,3 +291,20 @@ describe("icloud-sync partial reads (Node)", () => {
     );
   });
 });
+
+describe("pruneCalendars", () => {
+  it("escapes backslashes and quotes in calendar ids", async () => {
+    const { pruneCalendars } = await import("./_lib/server");
+    const seen: string[] = [];
+    const chain = {
+      delete: () => chain,
+      eq: () => chain,
+      not: (_col: string, _op: string, list: string) => {
+        seen.push(list);
+        return Promise.resolve({ error: null });
+      },
+    };
+    await pruneCalendars({ from: () => chain } as never, "icloud", ["a\\b", 'c"d']);
+    expect(seen[0]).toBe('("a\\\\b","c\\"d")');
+  });
+});
