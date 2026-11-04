@@ -248,7 +248,7 @@ export function TaskEditor({
           <button
             type="button"
             className="btn"
-            style={{ width: "100%", marginBottom: 8 }}
+            style={{ width: "100%" }}
             onClick={() => {
               dispatch({ type: "resetDetected", taskId: task.id });
               onClose();
