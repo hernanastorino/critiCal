@@ -5,6 +5,7 @@ import { Connected } from "./Connected.js";
 import { demoData } from "./demo.js";
 import { clearLocal, isOffline, readLocal, writeLocal } from "./offline.js";
 import { session, stubApi } from "./testing.js";
+import { held } from "./updates.js";
 
 afterEach(() => {
   cleanup();
@@ -61,6 +62,16 @@ describe("device copy", () => {
     expect(done).toBe(true);
   });
 
+  it("reports a write as saved even if clearing the old cache throws", async () => {
+    const data = demoData(Date.now());
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(await writeLocal("f", { data, stored: null })).toBe(true);
+    vi.restoreAllMocks();
+    expect(await readLocal("f")).toEqual({ data, stored: null });
+  });
+
   it("ignores broken copies and forgets the old cache on sign-out", async () => {
     localStorage.setItem("critical.cache.v1.b", "null");
     expect(await readLocal("b")).toBeNull();
@@ -111,6 +122,8 @@ describe("offline", () => {
       expect(screen.getByLabelText(/Sin conexión: los cambios se guardan/)).toBeTruthy(),
     );
     expect(writes).not.toContain("day_overrides");
+    // Kept on the device, so a new version may reload without losing it.
+    await waitFor(() => expect(held()).toBe(false));
     const kept = await readLocal("me");
     expect(kept?.data.overrides.length).toBe(1);
     expect(kept?.stored?.overrides.length).toBe(0);

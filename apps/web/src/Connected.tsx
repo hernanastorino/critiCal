@@ -186,12 +186,14 @@ export function Connected({
     (_prev: AppData, next: AppData) => {
       changes.current++;
       latest.current = next;
+      // Held from the start, so no reload for a new version slips in before the saves
+      // report; stored nowhere, it stays held until a later save succeeds.
+      hold("unsaved", true);
       const local = writeLocal(uid, { data: next, stored: stored.current });
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
       const remote = flush();
-      // Stored nowhere: no reload for a new version until a later save succeeds.
       void Promise.all([local, remote]).then(([l, r]) => {
-        if (latest.current === next) hold("unsaved", !l && !r);
+        if (latest.current === next && (l || r)) hold("unsaved", false);
       });
     },
     [flush, uid],

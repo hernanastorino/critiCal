@@ -98,12 +98,16 @@ export function writeLocal(uid: string, state: LocalState): Promise<boolean> {
     (async () => {
       try {
         await run("readwrite", (s) => s.put(state, key(uid)));
-        globalThis.localStorage?.removeItem(legacyKey(uid));
-        return true;
       } catch {
         // The next open just waits for the network.
         return false;
       }
+      try {
+        globalThis.localStorage?.removeItem(legacyKey(uid));
+      } catch {
+        // Stored all the same; the old copy is cleared on a later write.
+      }
+      return true;
     })(),
   );
 }
