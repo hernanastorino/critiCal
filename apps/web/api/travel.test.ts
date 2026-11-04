@@ -21,6 +21,20 @@ vi.mock("@supabase/supabase-js", () => ({
           return { error: null };
         },
       }),
+      delete: () => {
+        const filters: unknown[] = [];
+        const chain = {
+          eq: (_c: string, v: unknown) => {
+            filters.push(v);
+            if (filters.length === 3) {
+              writes.push({ table, op: "delete", payload: filters });
+              return Promise.resolve({ error: null });
+            }
+            return chain;
+          },
+        };
+        return chain;
+      },
       upsert: async (payload: unknown) => {
         writes.push({ table, op: "upsert", payload });
         return { error: null };
@@ -106,6 +120,27 @@ describe("travel", () => {
     expect(res.status).toBe(500);
     expect(writes).toEqual([]);
     manualError = null;
+  });
+
+  it("forgets computed times for pairs with no route", async () => {
+    places = [
+      { id: "casa", address: null, lat: -34.8, lon: -56.2 },
+      { id: "isla", address: null, lat: -34.9, lon: -56.1 },
+    ];
+    manual = [{ from_place: "isla", to_place: "casa" }];
+    vi.stubGlobal("fetch", async () =>
+      Response.json({
+        durations: [
+          [0, null],
+          [null, 0],
+        ],
+      }),
+    );
+    expect(await (await handle(req(), env)).json()).toEqual({ ok: true, geocoded: 0, pairs: 0 });
+    expect(writes).toEqual([
+      { table: "travel_times", op: "delete", payload: ["casa", "isla", false] },
+    ]);
+    manual = [];
   });
 
   it("needs two located places, and reports routing failures", async () => {

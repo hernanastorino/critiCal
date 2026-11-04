@@ -429,6 +429,13 @@ export function diffData(prev: AppData, next: AppData): Writes {
       })),
     });
   }
+  // Times dropped while both places remain (a moved address); a removed place takes its
+  // own along. Keyed "from>to": travel_times has no single id.
+  const nextPairs = new Set((next.travelTimes ?? []).map(pair));
+  const goneTimes = (prev.travelTimes ?? [])
+    .filter((t) => keptPlaces.has(t.from) && keptPlaces.has(t.to) && !nextPairs.has(pair(t)))
+    .map(pair);
+  if (goneTimes.length) deletes.push({ table: "travel_times", ids: goneTimes });
 
   const blocks = changed(prev.plan, next.plan);
   if (blocks.length) {
@@ -479,6 +486,18 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     if (error) throw error;
   }
   for (const d of w.deletes) {
+    if (d.table === "travel_times") {
+      for (const id of d.ids) {
+        const [from, to] = id.split(">");
+        const { error } = await client
+          .from(d.table)
+          .delete()
+          .eq("from_place", from)
+          .eq("to_place", to);
+        if (error) throw error;
+      }
+      continue;
+    }
     const { error } = await client.from(d.table).delete().in("id", d.ids);
     if (error) throw error;
   }

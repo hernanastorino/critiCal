@@ -92,6 +92,19 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
         return [{ from_place: from.id, to_place: to.id, minutes, manual: false }];
       }),
     );
+    // No route any more: an old computed time would still be planned around.
+    for (const [i, from] of located.entries()) {
+      for (const [j, to] of located.entries()) {
+        if (i === j || matrix[i]?.[j] != null || manual.has(`${from.id}>${to.id}`)) continue;
+        const { error: deleteError } = await user
+          .from("travel_times")
+          .delete()
+          .eq("from_place", from.id)
+          .eq("to_place", to.id)
+          .eq("manual", false);
+        if (deleteError) throw deleteError;
+      }
+    }
     if (rows.length) {
       const { error: writeError } = await user.from("travel_times").upsert(rows);
       if (writeError) throw writeError;
