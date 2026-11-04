@@ -39,6 +39,8 @@ export interface AppTask {
   priority: number;
   status: "active" | "done" | "dropped";
   units: Unit[];
+  /** A materia's weekly study silo (one per materia), whatever its title. */
+  study?: boolean;
   /** Calendar event this task was created from (`source:externalId`). */
   sourceEventId?: string;
   /** Created automatically; waits for a quick OK in the inbox. */

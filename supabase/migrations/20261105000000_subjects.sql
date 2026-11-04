@@ -8,3 +8,10 @@ alter table public.activities
 alter table public.calendars drop constraint calendars_role_check;
 alter table public.calendars add constraint calendars_role_check
   check (role in ('busy', 'ignore', 'parcial', 'entrega', 'presentacion', 'clases'));
+
+-- A materia's weekly study silo, told apart from its other habits by this mark rather
+-- than by its title (titles can be renamed or repeated).
+alter table public.tasks add column study boolean not null default false;
+update public.tasks t set study = true
+  from public.activities a
+  where a.id = t.activity_id and t.kind = 'habit' and t.title = 'Estudio ' || a.name;

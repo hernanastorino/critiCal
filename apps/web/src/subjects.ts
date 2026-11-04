@@ -99,12 +99,8 @@ export const validRoutine = (times: number, minutes: number) =>
 /** Title of a materia's weekly study silo (Inicio de cuatrimestre uses it too). */
 export const studyTitle = (a: Activity) => `Estudio ${a.name}`;
 
-/** A materia's weekly study: its active habit with that title, not any other habit. */
+/** A materia's weekly study: its active habit marked as such, never another habit. */
 export const studyOf = (data: AppData, a: Activity): AppTask | undefined =>
   data.tasks.find(
-    (t) =>
-      t.activityId === a.id &&
-      t.kind === "habit" &&
-      t.status === "active" &&
-      t.title === studyTitle(a),
+    (t) => t.activityId === a.id && t.kind === "habit" && t.status === "active" && t.study,
   );

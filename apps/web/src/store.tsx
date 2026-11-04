@@ -531,6 +531,7 @@ function apply(data: AppData, action: Action): AppData {
           status: "active" as const,
           units: [],
           sessionMinutes: 60,
+          study: true,
         }),
         minMinutes: Math.round(action.minutes),
         sessionsPerWeek: Math.ceil(action.minutes / (study?.sessionMinutes ?? 60)),

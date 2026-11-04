@@ -290,9 +290,35 @@ describe("materias", () => {
     expect(dropped.pins?.map((p) => p.start)).toEqual([NOW - 1_800_000]);
   });
 
-  it("keeps the weekly study of a renamed materia", () => {
-    let d = reducer(data(), { type: "weeklyStudy", activityId: "add", minutes: 120, now: NOW });
+  it("keeps the weekly study of a renamed materia, even next to a habit with its title", () => {
+    // A habit the user made, already called like the study will be after the rename.
+    const lookalike = {
+      id: "lookalike",
+      activityId: "add",
+      title: "Estudio ADD",
+      kind: "habit" as const,
+      estimateMinutes: 0,
+      minMinutes: 30,
+      sessionsPerWeek: 1,
+      sessionMinutes: 30,
+      priority: 2,
+      status: "active" as const,
+      units: [],
+    };
+    let d = reducer(data({ tasks: [lookalike] }), {
+      type: "weeklyStudy",
+      activityId: "add",
+      minutes: 120,
+      now: NOW,
+    });
     d = reducer(d, { type: "saveActivity", activity: { ...add, name: "ADD" }, now: NOW });
+    d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 0, now: NOW });
+    expect(d.tasks.find((t) => t.id === "lookalike")).toMatchObject({
+      status: "active",
+      minMinutes: 30,
+    });
+    d = { ...d, tasks: d.tasks.filter((t) => t.id !== "lookalike" && t.status === "active") };
+    d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 120, now: NOW });
     expect(d.tasks.filter((t) => t.kind === "habit").map((t) => t.title)).toEqual(["Estudio ADD"]);
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 180, now: NOW });
     expect(d.tasks.filter((t) => t.kind === "habit" && t.status === "active")).toHaveLength(1);

@@ -47,6 +47,7 @@ export function Semester() {
         id: newId(),
         activityId: activity.id,
         title: `Estudio ${name}`,
+        study: true,
         kind: "habit",
         estimateMinutes: 0,
         minMinutes: Math.round(hoursPerWeek * 60),
