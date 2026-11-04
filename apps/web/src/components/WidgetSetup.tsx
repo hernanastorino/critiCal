@@ -56,7 +56,12 @@ export function WidgetSetup() {
               type="button"
               className="btn"
               onClick={async () => {
-                await widgetToken(sync.client, "revoke");
+                const r = await widgetToken(sync.client, "revoke");
+                if (!r.ok) {
+                  // Still valid on the server: keep the script so the user can retry.
+                  setState("error");
+                  return;
+                }
                 setScript(null);
                 setState("revoked");
               }}

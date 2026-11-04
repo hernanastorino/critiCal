@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { demoData } from "../src/demo.js";
-import { clean, prompt, syllabusTasks } from "../src/syllabus.js";
+import { clean, editedHours, prompt, syllabusTasks } from "../src/syllabus.js";
 
 const rpc = vi.fn();
 const loadData = vi.fn();
@@ -83,6 +83,10 @@ describe("widget", () => {
     await widget.manage(bearer("jwt", { action: "revoke" }), env);
     expect(rpc).toHaveBeenLastCalledWith("revoke_widget_token", { p_user: "u1" });
     expect((await widget.manage(bearer("nope", { action: "create" }), env)).status).toBe(401);
+    rpc.mockResolvedValueOnce({ data: null, error: new Error("rls") });
+    const failed = await widget.manage(bearer("jwt", { action: "revoke" }), env);
+    expect(failed.status).toBe(500);
+    expect(await failed.json()).toEqual({ ok: false, error: "widget_failed" });
   });
 
   it("skips silos with nothing to do", () => {
@@ -131,6 +135,14 @@ describe("syllabus", () => {
         { title: "Laboratorio", kind: "parcial", date: null, hours: 4, units: [] },
       ],
     });
+    expect(
+      clean({ ...good, assessments: [{ ...good.assessments[0], date: "2026-02-31" }] })
+        ?.assessments[0]?.date,
+    ).toBeNull();
+    expect(editedHours("1e309")).toBe(0);
+    expect(editedHours("999")).toBe(200);
+    expect(editedHours("-3")).toBe(0);
+    expect(editedHours("2,5")).toBe(2.5);
     expect(clean(null)).toBeNull();
     expect(clean({})).toBeNull();
     expect(prompt(2027)).toContain("2027");

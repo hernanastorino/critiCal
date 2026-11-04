@@ -3,7 +3,7 @@ import { useSync } from "../Connected.js";
 import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
-import { type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
+import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
 
 const MAX_BYTES = 3_000_000;
 
@@ -72,7 +72,7 @@ export function SyllabusImport() {
     const assessments: PlannedAssessment[] = d.assessments
       .filter((a) => a.keep && a.date)
       .map((a) => ({
-        title: a.title,
+        title: a.title.trim() || "Evaluación",
         kind: a.kind,
         date: a.date,
         units: a.units
@@ -162,7 +162,7 @@ export function SyllabusImport() {
                 onChange={(e) =>
                   set({
                     units: draft.units.map((x, j) =>
-                      j === i ? { ...x, hours: Number(e.target.value.replace(",", ".")) || 0 } : x,
+                      j === i ? { ...x, hours: editedHours(e.target.value) } : x,
                     ),
                   })
                 }
@@ -184,7 +184,18 @@ export function SyllabusImport() {
                     })
                   }
                 />
-                <span style={{ flex: 1 }}>{a.title}</span>
+                <input
+                  style={{ flex: 1 }}
+                  aria-label={`Nombre de ${a.key}`}
+                  value={a.title}
+                  onChange={(e) =>
+                    set({
+                      assessments: draft.assessments.map((x, j) =>
+                        j === i ? { ...x, title: e.target.value } : x,
+                      ),
+                    })
+                  }
+                />
                 <input
                   type="date"
                   aria-label={`Fecha de ${a.title}`}
@@ -199,9 +210,27 @@ export function SyllabusImport() {
                 />
               </label>
               <p className="meta">
-                {a.units.length ? `Abarca: ${a.units.join(", ")}` : `${a.hours} h de preparación`}
+                {a.units.length ? `Abarca: ${a.units.join(", ")}` : "Sin unidades: "}
                 {!a.date && a.keep ? " · falta la fecha" : ""}
               </p>
+              {a.units.length === 0 && (
+                <label className="check">
+                  <span style={{ flex: 1 }}>Horas de preparación</span>
+                  <input
+                    inputMode="decimal"
+                    style={{ width: 56 }}
+                    aria-label={`Horas de preparación de ${a.key}`}
+                    value={a.hours}
+                    onChange={(e) =>
+                      set({
+                        assessments: draft.assessments.map((x, j) =>
+                          j === i ? { ...x, hours: editedHours(e.target.value) } : x,
+                        ),
+                      })
+                    }
+                  />
+                </label>
+              )}
             </div>
           ))}
           <div className="row">

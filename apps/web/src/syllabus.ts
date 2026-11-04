@@ -66,6 +66,18 @@ const clampHours = (h: unknown) => {
   const n = typeof h === "number" && Number.isFinite(h) ? h : 0;
   return Math.min(200, Math.max(0, Math.round(n * 2) / 2));
 };
+/** A day that exists (2026-02-31 does not): otherwise the user must enter it. */
+function realDate(x: unknown): x is string {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const d = new Date(`${x}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
+}
+
+/** Hours typed in the preview: finite, 0 to 200, half-hour steps. */
+export function editedHours(v: string): number {
+  return clampHours(Number(v.replace(",", ".")));
+}
+
 const text = (t: unknown, max = 120) => (typeof t === "string" ? t.trim().slice(0, max) : "");
 
 /** Keeps only well-formed fields, so a creative model cannot break the app. */
@@ -83,7 +95,7 @@ export function clean(raw: unknown): Syllabus | null {
       kind: (["parcial", "entrega", "presentacion"].includes(a?.kind)
         ? a.kind
         : "parcial") as AssessmentKind,
-      date: typeof a?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(a.date) ? a.date : null,
+      date: realDate(a?.date) ? a.date : null,
       hours: clampHours(a?.hours),
       units: (Array.isArray(a?.units) ? a.units : [])
         .map((t: unknown) => text(t))

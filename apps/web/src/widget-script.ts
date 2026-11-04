@@ -8,9 +8,14 @@ const URL = ${JSON.stringify(`${origin}/api/widget`)};
 const req = new Request(URL);
 req.headers = { Authorization: "Bearer " + TOKEN };
 let silos = [];
+let failed = false;
 try {
-  silos = (await req.loadJSON()).silos || [];
-} catch (e) {}
+  const body = await req.loadJSON();
+  if (Array.isArray(body.silos)) silos = body.silos;
+  else failed = true;
+} catch (e) {
+  failed = true;
+}
 
 const family = config.widgetFamily || "medium";
 const max = family === "small" ? 3 : family === "large" ? 8 : 5;
@@ -56,7 +61,12 @@ shown.forEach((s, i) => {
 
 const widget = new ListWidget();
 widget.setPadding(8, 8, 8, 8);
-if (shown.length === 0) {
+if (failed) {
+  // Never "all clear" when the data could not be read (revoked token, offline…).
+  const t = widget.addText("critiCal: no pude actualizar");
+  t.font = Font.semiboldSystemFont(13);
+  t.textColor = RED;
+} else if (shown.length === 0) {
   const t = widget.addText("Todo al día ✓");
   t.font = Font.semiboldSystemFont(14);
   t.textColor = ink;
