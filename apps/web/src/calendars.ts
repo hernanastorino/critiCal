@@ -10,7 +10,7 @@ import {
   nextColor,
 } from "./model.js";
 
-const normalize = (s: string) =>
+export const normalize = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
