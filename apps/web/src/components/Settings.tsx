@@ -66,7 +66,13 @@ export function Settings({
           onClick={() => {
             dispatch({
               type: "override",
-              override: { date: today, wake: hhmmToMinutes(wake), bed: hhmmToMinutes(bed) },
+              // Keep whatever else today's override says (its routine).
+              override: {
+                ...override,
+                date: today,
+                wake: hhmmToMinutes(wake),
+                bed: hhmmToMinutes(bed),
+              },
             });
             onClose();
           }}

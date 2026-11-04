@@ -245,6 +245,32 @@ describe("backup", () => {
     expect(parseBackup(exportJson({ ...data, tasks: [null as never] }, 1))).toEqual({
       error: "Al respaldo le faltan datos.",
     });
+    const ok = {
+      ...data.checkIns[0],
+      id: "x",
+      blockId: "b",
+      taskId: data.tasks[0]?.id as string,
+      status: "done" as const,
+      minutesDone: 1,
+      unitIds: [],
+      createdAt: 0,
+    };
+    expect(parseBackup(exportJson({ ...data, checkIns: [ok, ok] }, 1))).toEqual({
+      error: "El respaldo tiene registros duplicados.",
+    });
+    expect(
+      parseBackup(exportJson({ ...data, overrides: [{ date: "2026-11-05", asWeekday: 9 }] }, 1)),
+    ).toEqual({
+      error: "Al respaldo le faltan datos.",
+    });
+    const badWeek = data.settings.week.map((w, i) =>
+      i === 3 ? ({ ...w, meals: [null] } as never) : w,
+    );
+    expect(
+      parseBackup(exportJson({ ...data, settings: { ...data.settings, week: badWeek } }, 1)),
+    ).toEqual({
+      error: "Al respaldo le faltan datos.",
+    });
     const orphan = {
       id: "c",
       blockId: "b",
@@ -263,6 +289,7 @@ describe("backup", () => {
       { ...noUnits, unitIds: [], status: "maybe" as never },
       { ...noUnits, unitIds: [], minutesDone: -30 },
       { ...noUnits, unitIds: [], createdAt: 1e100 },
+      { ...noUnits, unitIds: [], status: "missed" as const, minutesDone: 30 },
     ])
       expect(parseBackup(exportJson({ ...data, checkIns: [bad] }, 1))).toEqual({
         error: "Al respaldo le faltan datos.",

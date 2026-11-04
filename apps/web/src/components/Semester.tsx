@@ -100,7 +100,7 @@ export function Semester() {
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            disabled={!end || end < start}
+            disabled={!start || !end || end < start}
             onClick={() => {
               prefs({ semester: { start, end } });
               setSaved("Fechas guardadas");

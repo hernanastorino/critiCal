@@ -57,20 +57,42 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     ["done", "missed", "partial"].includes(c.status as string) &&
     num(c.minutesDone) &&
     (c.minutesDone as number) >= 0 &&
+    // A missed block did no work.
+    (c.status !== "missed" || c.minutesDone === 0) &&
     instant(c.createdAt) &&
     Array.isArray(c.unitIds) &&
     c.unitIds.every(str);
+  const range = (r: unknown) => isObject(r) && num(r.start) && num(r.end);
+  const validDay = (w: unknown) =>
+    isObject(w) &&
+    num(w.wake) &&
+    num(w.bed) &&
+    num(w.freeFrom) &&
+    Array.isArray(w.meals) &&
+    w.meals.every(range);
+  const validOverride = (o: unknown) =>
+    isObject(o) &&
+    typeof o.date === "string" &&
+    /^\d{4}-\d{2}-\d{2}$/.test(o.date) &&
+    (o.asWeekday === undefined ||
+      (Number.isInteger(o.asWeekday) &&
+        (o.asWeekday as number) >= 0 &&
+        (o.asWeekday as number) <= 6));
   if (
     !isObject(d.settings) ||
     !Array.isArray(week) ||
     week.length !== 7 ||
-    !week.every(isObject) ||
+    !week.every(validDay) ||
     lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject)) ||
     !(d.activities as unknown[]).every((a) => isObject(a) && str(a.id)) ||
     !(d.tasks as unknown[]).every(validTask) ||
-    !(d.checkIns as unknown[]).every(validCheckIn)
+    !(d.checkIns as unknown[]).every(validCheckIn) ||
+    !(d.overrides as unknown[]).every(validOverride)
   ) {
     return { error: "Al respaldo le faltan datos." };
+  }
+  if (new Set(d.checkIns?.map((c) => c.id)).size !== d.checkIns?.length) {
+    return { error: "El respaldo tiene registros duplicados." };
   }
   const activities = new Set(d.activities?.map((a) => a.id));
   if (d.tasks?.some((t) => !activities.has(t.activityId))) {
