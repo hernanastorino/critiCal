@@ -39,7 +39,11 @@ export function SubjectSearch({
         onChange={(e) => setQuery(e.target.value)}
       />
       <p id={status} className="sr-only" aria-live="polite">
-        {terms.length ? `${hits.length} materias coinciden` : ""}
+        {terms.length
+          ? hits.length === 1
+            ? "1 materia coincide"
+            : `${hits.length} materias coinciden`
+          : ""}
       </p>
       {terms.length > 0 && (
         <div className="suggestions">

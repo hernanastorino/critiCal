@@ -187,14 +187,32 @@ describe("materias", () => {
   });
 
   it("keeps a materia's weekly study and adds routines", () => {
-    let d = data();
+    // Another weekly silo of the materia is not its study and is never touched.
+    const practice = {
+      id: "practice",
+      activityId: "add",
+      title: "Ejercicios",
+      kind: "habit" as const,
+      estimateMinutes: 0,
+      minMinutes: 90,
+      sessionsPerWeek: 2,
+      sessionMinutes: 45,
+      priority: 2,
+      status: "active" as const,
+      units: [],
+    };
+    let d = data({ tasks: [practice] });
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 150, now: NOW });
-    const study = d.tasks.find((t) => t.activityId === "add" && t.kind === "habit");
+    const study = d.tasks.find((t) => t.title === "Estudio Análisis y Diseño");
     expect(study).toMatchObject({ minMinutes: 150, sessionsPerWeek: 3, sessionMinutes: 60 });
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 60, now: NOW });
-    expect(d.tasks.filter((t) => t.kind === "habit")).toHaveLength(1);
+    expect(d.tasks.filter((t) => t.kind === "habit")).toHaveLength(2);
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 0, now: NOW });
     expect(d.tasks.find((t) => t.id === study?.id)?.status).toBe("dropped");
+    expect(d.tasks.find((t) => t.id === "practice")).toMatchObject({
+      status: "active",
+      minMinutes: 90,
+    });
 
     d = reducer(d, {
       type: "saveRoutine",

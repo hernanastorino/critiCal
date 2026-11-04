@@ -1,7 +1,7 @@
 // Materias, rutinas and the class schedule. Pure; shared by the app and the server.
 import { eventRole, normalize, roleOf, subjectOf } from "./calendars.js";
 import type { Activity } from "./engine.js";
-import type { AppData, AppEvent } from "./model.js";
+import type { AppData, AppEvent, AppTask } from "./model.js";
 
 /** Name of the activity evaluations wait in until the user says whose they are. */
 export const NO_SUBJECT = "Sin materia";
@@ -95,3 +95,16 @@ export const validRoutine = (times: number, minutes: number) =>
   Math.round(times) <= 14 &&
   Math.round(minutes) >= 1 &&
   Math.round(minutes) <= 1440;
+
+/** Title of a materia's weekly study silo (Inicio de cuatrimestre uses it too). */
+export const studyTitle = (a: Activity) => `Estudio ${a.name}`;
+
+/** A materia's weekly study: its active habit with that title, not any other habit. */
+export const studyOf = (data: AppData, a: Activity): AppTask | undefined =>
+  data.tasks.find(
+    (t) =>
+      t.activityId === a.id &&
+      t.kind === "habit" &&
+      t.status === "active" &&
+      t.title === studyTitle(a),
+  );

@@ -45,6 +45,8 @@ import {
   aliasFrom,
   isNoSubject,
   newClassTitles,
+  studyOf,
+  studyTitle,
   unassignedTasks,
   unsortedActivities,
   validRoutine,
@@ -495,9 +497,7 @@ function apply(data: AppData, action: Action): AppData {
       const subject = data.activities.find((a) => a.id === action.activityId);
       // At most a full week of study.
       if (!subject || !Number.isFinite(action.minutes) || action.minutes > 7 * 1440) return data;
-      const study = data.tasks.find(
-        (t) => t.activityId === subject.id && t.kind === "habit" && t.status === "active",
-      );
+      const study = studyOf(data, subject);
       if (action.minutes <= 0)
         return study
           ? refresh(
@@ -517,7 +517,7 @@ function apply(data: AppData, action: Action): AppData {
         ...(study ?? {
           id: newId(),
           activityId: subject.id,
-          title: `Estudio ${subject.name}`,
+          title: studyTitle(subject),
           kind: "habit" as const,
           estimateMinutes: 0,
           priority: 2,

@@ -4,7 +4,7 @@ import type { Activity, DaySettings } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { useStore } from "../store.js";
-import { subjectsOf, validRoutine } from "../subjects.js";
+import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -320,10 +320,8 @@ function ActivityRow({ activity }: { activity: Activity }) {
     data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
   );
   // A materia's weekly study is its weekly silo, if it has one.
-  const study = data.tasks.find(
-    (t) => t.activityId === activity.id && t.kind === "habit" && t.status === "active",
-  );
-  const studyHours = study ? String(study.minMinutes / 60) : "";
+  const study = studyOf(data, activity);
+  const studyHours = study ? toHours(study.minMinutes) : "";
   const [weekly, setWeekly] = useState(studyHours);
   const studies = subjectsOf(data).some((a) => a.id === activity.id);
   return (
