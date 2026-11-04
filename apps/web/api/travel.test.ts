@@ -45,12 +45,71 @@ vi.mock("@supabase/supabase-js", () => ({
 
 const { handle } = await import("./travel.js");
 const env = { url: "u", publishable: "p", secret: "s", orsKey: "ors" };
-const req = () =>
-  new Request("https://app/api/travel", { method: "POST", headers: { Authorization: "Bearer t" } });
+const req = (body?: unknown) =>
+  new Request("https://app/api/travel", {
+    method: "POST",
+    headers: { Authorization: "Bearer t" },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
 
 afterEach(() => {
   vi.unstubAllGlobals();
   writes.length = 0;
+});
+
+describe("event addresses", () => {
+  it("times them from home, the longer way, storing nothing", async () => {
+    places = [
+      { id: "casa", address: "Casa 1", lat: -34.8, lon: -56.2, is_home: true },
+      { id: "facu", address: null, lat: -34.9, lon: -56.1, is_home: false },
+    ];
+    const pauses: number[] = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      if (String(url).includes("nominatim"))
+        return Response.json(String(url).includes("Anglo") ? [{ lat: "-34.7", lon: "-56.3" }] : []);
+      expect(JSON.parse(String(init?.body)).locations).toEqual([
+        [-56.2, -34.8],
+        [-56.3, -34.7],
+      ]);
+      return Response.json({
+        durations: [
+          [0, 600],
+          [780, 0],
+        ],
+      });
+    });
+    const res = await handle(
+      req({ spots: ["Instituto Anglo", "Ningún lado"] }),
+      env,
+      async (ms) => {
+        pauses.push(ms);
+      },
+    );
+    expect(await res.json()).toEqual({
+      ok: true,
+      spots: [
+        { text: "Instituto Anglo", minutes: 13 },
+        { text: "Ningún lado", minutes: null },
+      ],
+    });
+    // One lookup per second, and nothing written.
+    expect(pauses).toEqual([1100]);
+    expect(writes).toEqual([]);
+  });
+
+  it("rejects bad lists and needs a located home", async () => {
+    expect((await handle(req({ spots: [] }), env)).status).toBe(400);
+    expect((await handle(req({ spots: ["a", "b", "c", "d", "e"] }), env)).status).toBe(400);
+    expect((await handle(req({ spots: [3] }), env)).status).toBe(400);
+    places = [{ id: "facu", address: null, lat: -34.9, lon: -56.1, is_home: false }];
+    expect(await (await handle(req({ spots: ["x"] }), env)).json()).toMatchObject({
+      error: "no_home",
+    });
+    places = [{ id: "casa", address: null, lat: null, lon: null, is_home: true }];
+    expect(await (await handle(req({ spots: ["x"] }), env)).json()).toMatchObject({
+      error: "home_not_located",
+    });
+  });
 });
 
 describe("travel", () => {

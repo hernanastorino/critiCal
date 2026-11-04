@@ -2,16 +2,22 @@
 // 1. geocodes places that have an address but no coordinates (Nominatim, once each),
 // 2. asks OpenRouteService for the driving-time matrix between all located places,
 // 3. stores the times, never touching pairs the user set by hand.
+// With `{ spots: [...] }` it instead times one-off event addresses from home, storing
+// nothing: the app keeps those minutes without turning the address into a place.
 import { report } from "./_lib/report.js";
-import { authenticate, type Env, json, readEnv } from "./_lib/server.js";
+import { authenticate, type Caller, type Env, json, readEnv } from "./_lib/server.js";
 
 const NOMINATIM = "https://nominatim.openstreetmap.org/search";
 const ORS = "https://api.openrouteservice.org/v2/matrix/driving-car";
 /** Nominatim's usage policy: an identifying agent, at most one request per second. */
 const AGENT = "critiCal/1.0 (+https://critical-cal.vercel.app)";
 
+/** One-off addresses timed per call: Nominatim allows one lookup per second. */
+export const MAX_SPOTS = 4;
+
 interface PlaceRow {
   id: string;
+  is_home?: boolean | null;
   address: string | null;
   lat: number | null;
   lon: number | null;
@@ -54,6 +60,18 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
   const caller = await authenticate(req, env, ["orsKey"]);
   if (caller instanceof Response) return caller;
   const { user } = caller;
+  const body = (await req.json().catch(() => null)) as { spots?: unknown } | null;
+  if (body && body.spots !== undefined) {
+    const spots = body.spots;
+    if (
+      !Array.isArray(spots) ||
+      spots.length === 0 ||
+      spots.length > MAX_SPOTS ||
+      !spots.every((t) => typeof t === "string" && t.trim().length > 0 && t.length <= 200)
+    )
+      return json({ ok: false, error: "bad_request" }, 400);
+    return timeSpots(env, user, spots as string[], pause);
+  }
   try {
     const { data, error } = await user.from("places").select("id, address, lat, lon");
     if (error) throw error;
@@ -121,6 +139,56 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       if (writeError) throw writeError;
     }
     return json({ ok: true, geocoded, pairs: rows.length, unroutable, ungeocoded, noAddress });
+  } catch (e) {
+    console.error(e);
+    await report(env, e, "travel");
+    return json({ ok: false, error: "travel_failed" }, 500);
+  }
+}
+
+/**
+ * Driving minutes from home to each address and back (the longer of the two), or
+ * null where it cannot be found or reached. Nothing is stored.
+ */
+async function timeSpots(
+  env: Env,
+  user: Caller["user"],
+  spots: string[],
+  pause: (ms: number) => Promise<unknown>,
+): Promise<Response> {
+  try {
+    const { data, error } = await user.from("places").select("id, address, lat, lon, is_home");
+    if (error) throw error;
+    const home = ((data ?? []) as PlaceRow[]).find((p) => p.is_home) ?? null;
+    if (!home) return json({ ok: false, error: "no_home" }, 409);
+    let at = home.lat != null && home.lon != null ? { lat: home.lat, lon: home.lon } : null;
+    let first = true;
+    if (!at && home.address?.trim()) {
+      at = await geocode(home.address);
+      first = false;
+      if (at) {
+        const { error: updateError } = await user.from("places").update(at).eq("id", home.id);
+        if (updateError) throw updateError;
+      }
+    }
+    if (!at) return json({ ok: false, error: "home_not_located" }, 409);
+    const hits: ({ lat: number; lon: number } | null)[] = [];
+    for (const text of spots) {
+      if (!first) await pause(1100);
+      first = false;
+      hits.push(await geocode(text));
+    }
+    const found = hits.flatMap((h, i) => (h ? [{ i, h }] : []));
+    const minutes: (number | null)[] = spots.map(() => null);
+    if (found.length) {
+      const matrix = await drivingMatrix(env.orsKey as string, [at, ...found.map((f) => f.h)]);
+      found.forEach(({ i }, k) => {
+        const there = matrix[0]?.[k + 1];
+        const back = matrix[k + 1]?.[0];
+        minutes[i] = there == null || back == null ? null : Math.max(there, back);
+      });
+    }
+    return json({ ok: true, spots: spots.map((text, i) => ({ text, minutes: minutes[i] })) });
   } catch (e) {
     console.error(e);
     await report(env, e, "travel");

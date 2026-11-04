@@ -1,7 +1,7 @@
 // Saved places and driving times → the engine's travel options. Pure.
 import { normalize } from "./calendars.js";
 import type { CalendarEvent, TravelOptions } from "./engine.js";
-import type { AppData, AppEvent, Place } from "./model.js";
+import type { AppData, AppEvent, Place, Spot } from "./model.js";
 
 /** Origin is the previous event's place if it ended less than this ago, else home. */
 const STAY_OUT_MINUTES = 120;
@@ -38,6 +38,16 @@ export function minutesBetween(data: AppData, from: string, to: string): number 
 const skipped = (data: AppData, text: string | undefined) =>
   !!text && (data.noTravel ?? []).includes(normalize(text));
 
+/** The one-off address an event's text refers to, if the app already has it. */
+export const spotFor = (data: AppData, text: string | undefined): Spot | undefined =>
+  text ? (data.spots ?? []).find((s) => s.key === normalize(text)) : undefined;
+
+/** A spot the planner can use: its driving time is known. */
+const timed = (data: AppData, text: string | undefined) =>
+  spotFor(data, text)?.minutes !== undefined;
+
+const SPOT = "spot:";
+
 /**
  * Events as the engine should see them for travel: an event without a location
  * takes the place its title names; events marked "no trip" have none.
@@ -53,7 +63,9 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
     if (skipped(data, e.location || e.title)) return { ...e, location: undefined };
     if (e.location) return e;
     const place = placeFor(places, e.title);
-    return place ? { ...e, location: place.name } : e;
+    if (place) return { ...e, location: place.name };
+    // Minutes typed for an event without an address are kept under its title.
+    return timed(data, e.title) ? { ...e, location: e.title } : e;
   });
 }
 
@@ -63,8 +75,17 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
   const places = data.places ?? [];
   return {
     home: start.id,
-    resolvePlace: (location) => placeFor(places, location)?.id,
-    travelMinutes: (from, to) => minutesBetween(data, from, to),
+    resolvePlace: (location) =>
+      placeFor(places, location)?.id ??
+      (timed(data, location) ? `${SPOT}${normalize(location)}` : undefined),
+    // A spot is only timed from home; trips between it and another place take that long too.
+    travelMinutes: (from, to) => {
+      const spots = [from, to].filter((id) => id.startsWith(SPOT));
+      if (spots.length === 0) return minutesBetween(data, from, to);
+      return Math.max(
+        ...spots.map((id) => (data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
+      );
+    },
     marginMinutes: data.settings.travelMarginMinutes,
     returnHomeAfterMinutes: STAY_OUT_MINUTES,
   };
@@ -84,12 +105,56 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
     const text = e.location || e.title;
     if (!text || skipped(data, text)) continue;
     if (placeFor(places, e.location) || (!e.location && placeFor(places, e.title))) continue;
+    if (timed(data, text)) continue;
     const key = normalize(text);
     if (!seen.has(key)) seen.set(key, e);
   }
-  return [...seen.entries()].map(([key, event]) => ({
-    key,
-    text: event.location || event.title,
-    event,
-  }));
+  return [...seen.entries()].map(([key, event]) => {
+    const spot = spotFor(data, event.location);
+    return {
+      key,
+      text: event.location || event.title,
+      event,
+      /** An address the server has not timed yet: no need to ask while it tries. */
+      lookup: !!event.location && !spot,
+    };
+  });
+}
+
+/**
+ * Saved places matching what the user types, best first: every word must start a word
+ * of the place's name, aliases, address or the titles of events held there ("clara"
+ * finds "Casa de Clara" and "Trabajo de Clara"; "futbol" finds the field used for
+ * "Fútbol 5"). Name matches go first, then the most used.
+ */
+export function searchPlaces(data: AppData, query: string, limit = 6): Place[] {
+  const terms = normalize(query).split(" ").filter(Boolean);
+  if (terms.length === 0) return [];
+  const places = data.places ?? [];
+  const titles = new Map<string, string[]>();
+  for (const e of data.events) {
+    const place =
+      placeFor(places, e.location) ?? (!e.location ? placeFor(places, e.title) : undefined);
+    if (place) titles.set(place.id, [...(titles.get(place.id) ?? []), e.title]);
+  }
+  const hits = (texts: (string | undefined)[]) => {
+    const words = texts.flatMap((t) => (t ? normalize(t).split(" ") : []));
+    return terms.every((q) => words.some((w) => w.startsWith(q)));
+  };
+  return places
+    .map((p) => {
+      const used = titles.get(p.id) ?? [];
+      const rank = hits([p.name])
+        ? 0
+        : hits([p.name, ...p.aliases, p.address])
+          ? 1
+          : hits([p.name, ...p.aliases, p.address, ...used])
+            ? 2
+            : -1;
+      return { p, rank, uses: used.length };
+    })
+    .filter((x) => x.rank >= 0)
+    .sort((a, b) => a.rank - b.rank || b.uses - a.uses || a.p.name.localeCompare(b.p.name))
+    .slice(0, limit)
+    .map((x) => x.p);
 }

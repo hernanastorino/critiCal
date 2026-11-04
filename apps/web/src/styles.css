@@ -1297,3 +1297,43 @@ input[type="datetime-local"] {
   flex: none;
   pointer-events: auto;
 }
+
+/* Place search: suggestions appear under the box as you type. */
+.search {
+  margin-bottom: 10px;
+}
+
+.search input {
+  width: 100%;
+}
+
+.suggestions {
+  margin-top: 4px;
+  border-radius: 12px;
+  background: var(--glass);
+  overflow: hidden;
+}
+
+.suggestion {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.suggestion:last-child {
+  border-bottom: none;
+}
+
+.suggestion .meta {
+  margin: 2px 0 0;
+  font-size: 12px;
+}
+
+.suggestions > .meta {
+  margin: 0;
+  padding: 10px 12px;
+}

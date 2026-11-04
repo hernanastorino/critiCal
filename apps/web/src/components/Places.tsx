@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
-import { CRITICAL, newId, type Place } from "../model.js";
+import { CRITICAL, newId, type Place, type Spot } from "../model.js";
 import { minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
@@ -112,6 +112,20 @@ export function Places() {
         >
           Agregar lugar
         </button>
+      )}
+
+      {(data.spots ?? []).length > 0 && (
+        <>
+          <div className="title" style={{ marginTop: 12 }}>
+            Direcciones de eventos
+          </div>
+          <p className="meta">
+            Se usan para el traslado sin guardarse como lugar. Guardá las que vayas a repetir.
+          </p>
+          {(data.spots ?? []).map((spot) => (
+            <SpotRow key={spot.key} spot={spot} />
+          ))}
+        </>
       )}
 
       {places.length > 1 && (
@@ -281,6 +295,63 @@ function PlaceForm({
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+/** An event address in use: its minutes from home, saving it as a place, or forgetting it. */
+function SpotRow({ spot }: { spot: Spot }) {
+  const { dispatch } = useStore();
+  const [naming, setNaming] = useState(false);
+  const [name, setName] = useState("");
+  return (
+    <div className="check" style={{ flexWrap: "wrap" }}>
+      <span style={{ flex: 1, minWidth: 0 }}>
+        {spot.text}
+        {spot.failed && (
+          <span className="meta" style={{ margin: 0 }}>
+            {" "}
+            · no encontrada
+          </span>
+        )}
+      </span>
+      <MinutesInput
+        label={`Minutos desde casa a ${spot.text}`}
+        value={spot.minutes}
+        onCommit={(minutes) => dispatch({ type: "spotMinutes", text: spot.text, minutes })}
+      />
+      {naming ? (
+        <div className="row" style={{ width: "100%" }}>
+          <input
+            aria-label={`Nombre para ${spot.text}`}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Casa de Clara"
+            style={{ flex: 1 }}
+          />
+          <button
+            type="button"
+            className="btn small"
+            disabled={!name.trim()}
+            onClick={() => dispatch({ type: "saveSpot", key: spot.key, name })}
+          >
+            Guardar
+          </button>
+        </div>
+      ) : (
+        <div className="row">
+          <button type="button" className="btn small" onClick={() => setNaming(true)}>
+            Guardar como lugar
+          </button>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => dispatch({ type: "forgetSpot", key: spot.key })}
+          >
+            Olvidar
+          </button>
+        </div>
+      )}
     </div>
   );
 }

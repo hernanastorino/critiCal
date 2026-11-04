@@ -15,10 +15,12 @@ import {
   applyWrites,
   diffData,
   loadData,
+  SPOTS_PER_CALL,
   type SyncResult,
   signInWithGoogle,
   syncGoogle,
   syncICloud,
+  timeSpots,
   type Writes,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
@@ -244,6 +246,7 @@ export function Connected({
         changes={changes}
         owned={owned}
       >
+        <AutoLocate client={client} />
         {children}
       </SyncProvider>
     </StoreProvider>
@@ -355,4 +358,36 @@ function SyncProvider({
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;
+}
+
+/** Answers that mean the server cannot time any address: the inbox asks instead. */
+const FINAL = new Set(["server_not_configured", "no_home", "home_not_located", "bad_request"]);
+
+/**
+ * Times upcoming events' addresses from home in the background, a few at a time, so
+ * the inbox only asks about the ones that cannot be found. Nothing becomes a place.
+ */
+function AutoLocate({ client }: { client: SupabaseClient }) {
+  const { unlocated, dispatch } = useStore();
+  const tried = useRef(new Set<string>());
+  const running = useRef(false);
+  useEffect(() => {
+    if (running.current) return;
+    const batch = unlocated
+      .filter((u) => u.lookup && !tried.current.has(u.key))
+      .slice(0, SPOTS_PER_CALL);
+    if (batch.length === 0) return;
+    for (const u of batch) tried.current.add(u.key);
+    const texts = batch.map((u) => u.event.location as string);
+    running.current = true;
+    void timeSpots(client, texts).then((r) => {
+      running.current = false;
+      if (r.ok && r.spots) dispatch({ type: "spots", results: r.spots });
+      else if (r.error && FINAL.has(r.error))
+        dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
+      // Offline or a passing failure: try again on the next change.
+      else for (const u of batch) tried.current.delete(u.key);
+    });
+  }, [unlocated, client, dispatch]);
+  return null;
 }

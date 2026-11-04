@@ -83,6 +83,36 @@ export async function computeTravel(client: SupabaseClient): Promise<TravelResul
   }
 }
 
+/** At most this many event addresses per call (the geocoder allows one per second). */
+export const SPOTS_PER_CALL = 4;
+
+/** Driving minutes from home to event addresses; null where not found or reachable. */
+export async function timeSpots(
+  client: SupabaseClient,
+  texts: string[],
+): Promise<{ ok: boolean; spots?: { text: string; minutes: number | null }[]; error?: string }> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "unauthorized" };
+    const res = await fetch("/api/travel", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ spots: texts.slice(0, SPOTS_PER_CALL) }),
+    });
+    const body = (await res.json().catch(() => null)) as {
+      ok?: boolean;
+      spots?: { text: string; minutes: number | null }[];
+      error?: string;
+    } | null;
+    return body?.ok && Array.isArray(body.spots)
+      ? { ok: true, spots: body.spots }
+      : { ok: false, error: body?.error ?? "travel_failed" };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
 /** Creates (or revokes) the personal token the Scriptable widget uses. */
 export async function widgetToken(
   client: SupabaseClient,
