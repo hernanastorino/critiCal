@@ -174,6 +174,20 @@ describe("syllabus", () => {
     });
   });
 
+  it("uses only the forced model when GEMINI_MODEL is set", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(String(url).split("/models/")[1] ?? "");
+      return new Response("busy", { status: 429 });
+    });
+    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+      ...env,
+      geminiModel: "gemini-x",
+    });
+    expect(await res.json()).toEqual({ ok: false, error: "gemini_busy" });
+    expect(calls).toEqual(["gemini-x:generateContent"]);
+  });
+
   it("refuses big or missing files and reports Gemini failures", async () => {
     expect((await syllabus.handle(bearer("jwt", {}), env)).status).toBe(400);
     const big = "A".repeat(4_100_000);

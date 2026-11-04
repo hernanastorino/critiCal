@@ -39,7 +39,8 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       temperature: 0.2,
     },
   });
-  const models = [...new Set([env.geminiModel, ...MODELS].filter(Boolean))] as string[];
+  // A forced model is the only one tried: the PDF never goes to another model.
+  const models = env.geminiModel ? [env.geminiModel] : MODELS;
   try {
     for (const model of models) {
       const res = await fetch(`${API}/${model}:generateContent`, {
