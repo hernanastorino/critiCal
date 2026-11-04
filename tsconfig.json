@@ -1,4 +1,17 @@
 {
   "files": [],
-  "references": [{ "path": "packages/engine" }, { "path": "apps/web" }, { "path": "apps/web/api" }]
+  "references": [
+    {
+      "path": "packages/engine"
+    },
+    {
+      "path": "apps/web"
+    },
+    {
+      "path": "apps/web/api"
+    },
+    {
+      "path": "apps/web/sw"
+    }
+  ]
 }

@@ -3,6 +3,7 @@ import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { useStore } from "../store.js";
 import { Calendars } from "./Calendars.js";
+import { Notifications } from "./Notifications.js";
 import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
 
 export function Settings({
@@ -65,6 +66,7 @@ export function Settings({
         <DetectedDefaults />
 
         <Calendars />
+        <Notifications />
 
         <div className="section-title">Cuenta</div>
         <div className="row">

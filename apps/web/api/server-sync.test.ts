@@ -163,7 +163,7 @@ describe("cron", () => {
     });
     vi.spyOn(console, "error").mockImplementationOnce(() => {});
     const res = await cron(tick("k"), env);
-    expect(await res.json()).toEqual({ ok: true, synced: 1 });
+    expect(await res.json()).toEqual({ ok: true, synced: 1, notified: 0 });
     expect(serverSync.mock.calls.map((c) => c[1])).toEqual(["u1", "u3"]);
     const finished = rpc.mock.calls.filter((c) => c[0] === "finish_sync").map((c) => c[1].p_user);
     expect(finished).toEqual(["u1", "u3"]);

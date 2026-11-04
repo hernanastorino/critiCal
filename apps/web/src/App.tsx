@@ -7,14 +7,33 @@ import { Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
 import { Week } from "./components/Week.js";
 import type { AppData } from "./model.js";
+import { clearLocal } from "./offline.js";
 import { signInWithGoogle, supabase } from "./remote.js";
 import { loadDemo, resetDemo, StoreProvider, useStore } from "./store.js";
 
 type Tab = "week" | "silos" | "inbox";
 
+const TABS: readonly Tab[] = ["week", "silos", "inbox"];
+
+/** `?tab=inbox` (from a notification) opens that tab. */
+function tabFrom(search: string): Tab | null {
+  const t = new URLSearchParams(search).get("tab");
+  return TABS.includes(t as Tab) ? (t as Tab) : null;
+}
+
 export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?: () => void }) {
   const { inboxCount } = useStore();
-  const [tab, setTab] = useState<Tab>("week");
+  const [tab, setTab] = useState<Tab>(() => tabFrom(globalThis.location?.search ?? "") ?? "week");
+  useEffect(() => {
+    // A notification tapped while the app is open: the service worker says where to go.
+    const onMessage = (e: MessageEvent) => {
+      const url = (e.data as { type?: string; url?: string })?.type === "open" ? e.data.url : null;
+      const next = url ? tabFrom(new URL(url, "https://x").search) : null;
+      if (next) setTab(next);
+    };
+    navigator.serviceWorker?.addEventListener("message", onMessage);
+    return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
+  }, []);
   const [settings, setSettings] = useState(false);
   const tabs: { id: Tab; label: string; icon: ReactNode }[] = [
     { id: "week", label: "Semana", icon: <WeekIcon /> },
@@ -107,7 +126,12 @@ export function App({
   if (client && session) {
     return (
       <Connected client={client} session={session}>
-        <Shell onSignOut={() => void client.auth.signOut()} />
+        <Shell
+          onSignOut={() => {
+            // Nothing of this account stays on the device.
+            void clearLocal().then(() => client.auth.signOut());
+          }}
+        />
       </Connected>
     );
   }

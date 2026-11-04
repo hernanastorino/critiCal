@@ -35,17 +35,23 @@ const ROLES = Object.keys(ROLE_LABEL) as CalendarRole[];
 
 const healthy = (r?: SyncResult) => !r || r.connected || r.error === "not_connected";
 
-/** Tiny status light: grey while syncing, green when everything is up to date, red on errors. */
+/**
+ * Tiny status light: grey while syncing, green when everything is up to date, hollow
+ * when offline with changes kept on this device, red on errors.
+ */
 export function SyncDot({ onClick }: { onClick: () => void }) {
   const sync = useSync();
   if (!sync) return null;
   const { status } = sync;
-  const state = status.busy
-    ? "syncing"
-    : healthy(status.google) && healthy(status.icloud)
-      ? "ok"
-      : "error";
+  const state = status.offline
+    ? "offline"
+    : status.busy
+      ? "syncing"
+      : healthy(status.google) && healthy(status.icloud)
+        ? "ok"
+        : "error";
   const label = {
+    offline: "Sin conexión: los cambios se guardan en este dispositivo",
     syncing: "Sincronizando",
     ok: "Todo sincronizado",
     error: "Error de sincronización",

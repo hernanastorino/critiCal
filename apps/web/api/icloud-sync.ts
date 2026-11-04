@@ -5,6 +5,7 @@
 //   {} → imports events from every iCloud calendar into calendar_events.
 import { basicAuth, DavError, discover, fetchEvents } from "./_lib/caldav.js";
 import { parseIcs } from "./_lib/ics.js";
+import { report } from "./_lib/report.js";
 import {
   authenticate,
   type Caller,
@@ -176,6 +177,7 @@ export async function syncICloudFor(
     });
   } catch (e) {
     console.error(e);
+    await report(readEnv(), e, "icloud-sync");
     return json({ connected: false, error: "sync_failed" }, 500);
   }
 }

@@ -2,13 +2,17 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-libra
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
+import { clearLocal, readLocal } from "./offline.js";
 import { session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
-beforeEach(() => localStorage.clear());
+beforeEach(async () => {
+  localStorage.clear();
+  await clearLocal();
+});
 
 function fakeClient(fail = false) {
   const writes: string[] = [];
@@ -146,7 +150,7 @@ describe("Connected", () => {
         <Shell />
       </Connected>,
     );
-    expect(screen.getByText(/Sincronizando/)).toBeTruthy();
+    expect(await screen.findByText(/Sincronizando/)).toBeTruthy();
     await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
     expect(invoke).toHaveBeenCalled();
 
@@ -172,23 +176,35 @@ describe("Connected", () => {
     );
     await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
     unmount();
-    expect(localStorage.getItem("critical.cache.v1.me")).toBeTruthy();
+    await waitFor(async () => expect(await readLocal("me")).toBeTruthy());
 
+    // The second open shows the week before any server answer arrives.
+    const held: (() => void)[] = [];
+    const answer = () => {
+      for (const release of held.splice(0)) release();
+    };
     const second = fakeClient();
+    second.invoke.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          held.push(() => resolve({ data: { connected: true }, error: null }));
+        }),
+    );
     render(
       <Connected client={second.client} session={{} as never}>
         <Shell />
       </Connected>,
     );
-    expect(screen.getByTestId("week")).toBeTruthy();
+    expect(await screen.findByTestId("week")).toBeTruthy();
     expect(screen.getByLabelText("Sincronizando")).toBeTruthy();
+    await act(async () => answer());
     await waitFor(() => expect(screen.getByLabelText("Todo sincronizado")).toBeTruthy());
   });
 
   it("shows an error when loading fails", async () => {
     const { client } = fakeClient(true);
     render(
-      <Connected client={client} session={{} as never}>
+      <Connected client={client} session={{ user: { id: "fresh" } } as never}>
         <Shell />
       </Connected>,
     );

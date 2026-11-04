@@ -389,7 +389,8 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
   }
   for (const i of w.inserts) {
     const { error } = await client.from(i.table).insert(i.rows);
-    if (error) throw error;
+    // Already there: an earlier attempt landed before the connection dropped.
+    if (error && error.code !== "23505") throw error;
   }
   for (const d of w.deletes) {
     const { error } = await client.from(d.table).delete().in("id", d.ids);

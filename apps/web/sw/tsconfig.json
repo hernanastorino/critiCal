@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "../../../node_modules/.cache/tsc/sw",
+    "lib": ["ES2023", "WebWorker"],
+    "types": []
+  },
+  "include": ["."]
+}
