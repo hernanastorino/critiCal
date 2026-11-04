@@ -22,6 +22,7 @@ import {
   type Writes,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
+import { saving } from "./updates.js";
 
 const SYNC_EVERY_MS = 5 * 60_000;
 /** While offline, try writing again this often (and whenever the browser says it is online). */
@@ -175,7 +176,8 @@ export function Connected({
         flushing.current = null;
       }
     };
-    flushing.current = run();
+    // A reload for a new version waits until this lands.
+    flushing.current = saving(run());
     return flushing.current;
   }, [client, session, uid]);
 

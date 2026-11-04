@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { busy, SETTLE_MS, watchUpdates } from "./updates.js";
+import { busy, RETRY_MS, SETTLE_MS, saving, watchUpdates } from "./updates.js";
 
 /** A window whose service worker container and visibility the test drives. */
 function fakeWindow(controlled: boolean) {
@@ -19,14 +19,19 @@ function fakeWindow(controlled: boolean) {
     navigator: { serviceWorker: sw },
     document,
     setTimeout: (fn: () => void, ms: number) => setTimeout(fn, ms),
+    setInterval: (fn: () => void, ms: number) => setInterval(fn, ms),
+    clearInterval: (id: ReturnType<typeof setInterval>) => clearInterval(id),
   } as unknown as Window;
   const reload = vi.fn();
   const show = (v: DocumentVisibilityState) => {
     visibility = v;
     document.dispatchEvent(new Event("visibilitychange"));
   };
-  return { win, sw, reload, update, show };
+  const takeOver = () => sw.dispatchEvent(new Event("controllerchange"));
+  return { win, reload, update, show, takeOver };
 }
+
+const wait = (ms: number) => vi.advanceTimersByTimeAsync(ms);
 
 describe("updates", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -35,39 +40,68 @@ describe("updates", () => {
     document.body.innerHTML = "";
   });
 
-  it("reloads once a new version takes over an already controlled page", () => {
-    const { win, sw, reload } = fakeWindow(true);
+  it("reloads once a new version takes over an already controlled page", async () => {
+    const { win, reload, takeOver } = fakeWindow(true);
     watchUpdates(win, reload);
-    sw.dispatchEvent(new Event("controllerchange"));
+    takeOver();
+    await wait(SETTLE_MS - 1);
     expect(reload).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(SETTLE_MS);
+    await wait(1);
+    expect(reload).toHaveBeenCalledTimes(1);
+    // The retry stops once it reloaded.
+    await wait(RETRY_MS * 3);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("does not reload on the very first install", () => {
-    const { win, sw, reload } = fakeWindow(false);
+  it("does not reload on the very first install", async () => {
+    const { win, reload, takeOver } = fakeWindow(false);
     watchUpdates(win, reload);
-    sw.dispatchEvent(new Event("controllerchange"));
-    vi.advanceTimersByTime(SETTLE_MS);
+    takeOver();
+    await wait(SETTLE_MS);
     expect(reload).not.toHaveBeenCalled();
     // A later deploy in the same session does.
-    sw.dispatchEvent(new Event("controllerchange"));
-    vi.advanceTimersByTime(SETTLE_MS);
+    takeOver();
+    await wait(SETTLE_MS);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 
-  it("waits until the app is left when the user is in the middle of something", () => {
-    const { win, sw, reload, show } = fakeWindow(true);
+  it("never reloads over a draft, not even when the app is left", async () => {
+    const { win, reload, show, takeOver } = fakeWindow(true);
     watchUpdates(win, reload);
     document.body.innerHTML = '<div role="dialog"></div>';
-    sw.dispatchEvent(new Event("controllerchange"));
-    vi.advanceTimersByTime(SETTLE_MS);
+    takeOver();
+    await wait(SETTLE_MS);
+    show("hidden");
+    await wait(RETRY_MS * 2);
     expect(reload).not.toHaveBeenCalled();
-    show("hidden");
-    expect(reload).toHaveBeenCalledTimes(1);
-    // Nothing left to do on later visits.
+    // Once the sheet is closed, the next check reloads.
     show("visible");
+    document.body.innerHTML = "";
+    await wait(RETRY_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the settle wait when the app is left right away", async () => {
+    const { win, reload, show, takeOver } = fakeWindow(true);
+    watchUpdates(win, reload);
+    takeOver();
     show("hidden");
+    await wait(0);
+    expect(reload).not.toHaveBeenCalled();
+    await wait(SETTLE_MS);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits for saves still in flight", async () => {
+    const { win, reload, takeOver } = fakeWindow(true);
+    watchUpdates(win, reload);
+    let land = () => {};
+    void saving(new Promise<void>((r) => (land = r)));
+    takeOver();
+    await wait(SETTLE_MS + RETRY_MS * 2);
+    expect(reload).not.toHaveBeenCalled();
+    land();
+    await wait(0);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 

@@ -1,6 +1,7 @@
 // This device's copy of the app state, in IndexedDB: the app opens and keeps working
 // without a connection, and changes made offline are written when it comes back.
 import type { AppData } from "./model.js";
+import { saving } from "./updates.js";
 
 export interface LocalState {
   /** What the screen shows, including changes not yet written. */
@@ -88,13 +89,17 @@ export async function readLocal(uid: string): Promise<LocalState | null> {
   }
 }
 
-export async function writeLocal(uid: string, state: LocalState): Promise<void> {
-  try {
-    await run("readwrite", (s) => s.put(state, key(uid)));
-    globalThis.localStorage?.removeItem(legacyKey(uid));
-  } catch {
-    // Storage full or blocked: the next open just waits for the network.
-  }
+export function writeLocal(uid: string, state: LocalState): Promise<void> {
+  return saving(
+    (async () => {
+      try {
+        await run("readwrite", (s) => s.put(state, key(uid)));
+        globalThis.localStorage?.removeItem(legacyKey(uid));
+      } catch {
+        // Storage full or blocked: the next open just waits for the network.
+      }
+    })(),
+  );
 }
 
 /** Forgets everything stored on this device (signing out, tests). */
