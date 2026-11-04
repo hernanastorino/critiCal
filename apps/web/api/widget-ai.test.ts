@@ -146,6 +146,16 @@ describe("syllabus", () => {
     expect(editedHours("999")).toBe(200);
     expect(editedHours("-3")).toBe(0);
     expect(editedHours("2,5")).toBe(2.5);
+    const dup = clean({
+      subject: "X",
+      units: [
+        { title: "A", hours: 2 },
+        { title: "A", hours: 9 },
+      ],
+      assessments: [{ title: "P", kind: "parcial", date: null, hours: 1, units: ["A", "A"] }],
+    });
+    expect(dup?.units).toEqual([{ title: "A", hours: 2 }]);
+    expect(dup?.assessments[0]?.units).toEqual(["A"]);
     expect(clean(null)).toBeNull();
     expect(clean({})).toBeNull();
     expect(prompt(2027)).toContain("2027");

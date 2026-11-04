@@ -87,6 +87,8 @@ export function clean(raw: unknown): Syllabus | null {
   const units = (Array.isArray(r.units) ? r.units : [])
     .map((u) => ({ title: text(u?.title), hours: clampHours(u?.hours) }))
     .filter((u) => u.title)
+    // Titles identify units (preview rows, hours by title): keep the first of each.
+    .filter((u, i, all) => all.findIndex((x) => x.title === u.title) === i)
     .slice(0, 40);
   const titles = new Set(units.map((u) => u.title));
   const assessments = (Array.isArray(r.assessments) ? r.assessments : [])
@@ -99,7 +101,7 @@ export function clean(raw: unknown): Syllabus | null {
       hours: clampHours(a?.hours),
       units: (Array.isArray(a?.units) ? a.units : [])
         .map((t: unknown) => text(t))
-        .filter((t: string) => titles.has(t)),
+        .filter((t: string, i: number, all: string[]) => titles.has(t) && all.indexOf(t) === i),
     }))
     .filter((a) => a.title)
     .slice(0, 20);
