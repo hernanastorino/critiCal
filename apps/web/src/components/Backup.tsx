@@ -27,38 +27,14 @@ export function Backup() {
       setMessage({ text: parsed.error, error: true });
       return;
     }
-    try {
-      // A dry run: anything the checks missed fails here, not in the app.
-      const tried = refresh(parsed.data, now);
-      // Against the refreshed tasks: refresh may create some from calendar events.
-      const tasks = new Set(tried.tasks.map((t) => t.id));
-      // The file's plan, not the dry run's: a block that ends between the dry run and
-      // the restore would stay as history. Pins and proposals may be dropped on refresh.
-      const blocks = [
-        ...parsed.data.plan,
-        ...(tried.pins ?? []),
-        ...tried.proposals.flatMap((p) => p.plan),
-      ];
-      if (blocks.some((b) => !tasks.has(b.taskId))) {
-        setMessage({
-          text: "El respaldo está incompleto: hay bloques de tareas que no están.",
-          error: true,
-        });
-        return;
-      }
-    } catch {
-      setMessage({ text: "El respaldo tiene datos que la app no puede usar.", error: true });
-      return;
-    }
-    if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
     // Check-ins are an append-only log: the ones made after the backup stay, as long as
     // their task is in it.
-    const tasks = new Set(parsed.data.tasks.map((t) => t.id));
+    const inBackup = new Set(parsed.data.tasks.map((t) => t.id));
     const inFile = new Set(parsed.data.checkIns.map((c) => c.id));
-    const newer = data.checkIns.filter((c) => tasks.has(c.taskId) && !inFile.has(c.id));
+    const newer = data.checkIns.filter((c) => inBackup.has(c.taskId) && !inFile.has(c.id));
     // Units those check-ins completed stay completed, including units added after the
     // backup (taken from the current copy of the task).
-    const restored = parsed.data.tasks.map((t) => {
+    const tasks = parsed.data.tasks.map((t) => {
       const done = new Map<string, number>();
       for (const c of newer)
         if (c.taskId === t.id) for (const u of c.unitIds) done.set(u, c.createdAt);
@@ -72,10 +48,36 @@ export function Backup() {
       );
       return { ...t, units };
     });
-    dispatch({
-      type: "replace",
-      data: { ...parsed.data, tasks: restored, checkIns: [...parsed.data.checkIns, ...newer] },
-    });
+    const candidate = {
+      ...parsed.data,
+      tasks,
+      checkIns: [...parsed.data.checkIns, ...newer],
+    };
+    // A dry run on exactly what will be stored: anything the checks missed fails here,
+    // not in the app, and the result itself is what replaces the data.
+    let restored: typeof candidate;
+    try {
+      restored = refresh(candidate, now);
+    } catch {
+      setMessage({ text: "El respaldo tiene datos que la app no puede usar.", error: true });
+      return;
+    }
+    const known = new Set(restored.tasks.map((t) => t.id));
+    const blocks = [
+      ...candidate.plan,
+      ...restored.plan,
+      ...(restored.pins ?? []),
+      ...restored.proposals.flatMap((p) => p.plan),
+    ];
+    if (blocks.some((b) => !known.has(b.taskId))) {
+      setMessage({
+        text: "El respaldo está incompleto: hay bloques de tareas que no están.",
+        error: true,
+      });
+      return;
+    }
+    if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
+    dispatch({ type: "replace", data: restored });
     setMessage({ text: "Datos importados ✓" });
   };
 
