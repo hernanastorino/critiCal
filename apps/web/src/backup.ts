@@ -47,6 +47,14 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit);
+  const validCheckIn = (c: unknown) =>
+    isObject(c) &&
+    str(c.id) &&
+    str(c.taskId) &&
+    num(c.minutesDone) &&
+    num(c.createdAt) &&
+    Array.isArray(c.unitIds) &&
+    c.unitIds.every(str);
   if (
     !isObject(d.settings) ||
     !Array.isArray(week) ||
@@ -54,7 +62,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     !week.every(isObject) ||
     lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject)) ||
     !(d.activities as unknown[]).every((a) => isObject(a) && str(a.id)) ||
-    !(d.tasks as unknown[]).every(validTask)
+    !(d.tasks as unknown[]).every(validTask) ||
+    !(d.checkIns as unknown[]).every(validCheckIn)
   ) {
     return { error: "Al respaldo le faltan datos." };
   }
