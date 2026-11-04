@@ -1,6 +1,6 @@
 // A course syllabus (programa) read by Gemini, checked before the app sees it, and
 // turned into tasks once the user confirms the preview.
-import { DEFAULTS, normalize } from "./calendars.js";
+import { DEFAULTS } from "./calendars.js";
 import { type Activity, zonedInstant } from "./engine.js";
 import type { AppTask } from "./model.js";
 
@@ -110,6 +110,18 @@ export function clean(raw: unknown): Syllabus | null {
   return { subject: subject || "Materia", units, assessments };
 }
 
+/** Same subject ignoring case, accents and spacing, but not punctuation ("C++" is not "C"). */
+function sameName(a: string, b: string): boolean {
+  const key = (s: string) =>
+    s
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  return key(a) === key(b);
+}
+
 export interface PlannedAssessment {
   title: string;
   kind: AssessmentKind;
@@ -132,7 +144,7 @@ export function syllabusTasks(input: {
   newId: () => string;
   color: string;
 }): { activity: Activity; isNew: boolean; tasks: AppTask[] } {
-  const existing = input.activities.find((a) => normalize(a.name) === normalize(input.subject));
+  const existing = input.activities.find((a) => sameName(a.name, input.subject));
   const activity: Activity = existing ?? {
     id: input.newId(),
     name: input.subject,

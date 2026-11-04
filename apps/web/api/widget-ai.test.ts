@@ -274,6 +274,42 @@ describe("syllabus", () => {
     expect(new Date(parcial?.deadline ?? 0).toISOString()).toBe("2026-09-20T11:00:00.000Z");
     expect(informe).toMatchObject({ estimateMinutes: 240 });
     expect(new Date(informe?.deadline ?? 0).toISOString()).toBe("2026-10-02T02:59:00.000Z");
+    const cpp = syllabusTasks({
+      subject: "C++",
+      activities: [
+        {
+          id: "c",
+          name: "C",
+          color: "#000",
+          academic: true,
+          maxSessionMinutes: 120,
+          minBlockMinutes: 60,
+        },
+      ],
+      assessments: [],
+      timeZone: "America/Montevideo",
+      newId: () => "cpp",
+      color: "#111",
+    });
+    expect(cpp).toMatchObject({ isNew: true, activity: { name: "C++" } });
+    const accents = syllabusTasks({
+      subject: "fisica  II",
+      activities: [
+        {
+          id: "f",
+          name: "Física II",
+          color: "#000",
+          academic: true,
+          maxSessionMinutes: 120,
+          minBlockMinutes: 60,
+        },
+      ],
+      assessments: [],
+      timeZone: "America/Montevideo",
+      newId: () => "x",
+      color: "#111",
+    });
+    expect(accents.activity.id).toBe("f");
     const fresh = syllabusTasks({
       subject: "Química",
       activities: [],
