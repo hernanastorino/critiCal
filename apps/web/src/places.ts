@@ -64,7 +64,9 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
 ): T[] {
   const places = data.places ?? [];
   if (!home(data)) return events;
-  return events.map((e) => {
+  return events.map((raw) => {
+    // An address of blanks is no address, here and in the inbox.
+    const e = raw.location && !raw.location.trim() ? { ...raw, location: undefined } : raw;
     // A title answer only counts for events without a location of their own.
     if (skipped(data, e.location || e.title)) return { ...e, location: undefined };
     if (e.location) return e;
@@ -109,9 +111,10 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
     // An address of blanks is no address.
-    const text = e.location?.trim() || e.title;
+    const location = e.location?.trim() ? e.location : undefined;
+    const text = location?.trim() || e.title;
     if (!text || skipped(data, text)) continue;
-    if (placeFor(places, e.location) || (!e.location && placeFor(places, e.title))) continue;
+    if (placeFor(places, location) || (!location && placeFor(places, e.title))) continue;
     if (timed(data, text)) continue;
     const key = spotKey(text);
     if (!seen.has(key)) seen.set(key, e);

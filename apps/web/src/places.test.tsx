@@ -156,6 +156,19 @@ describe("event addresses and search", () => {
     expect(reducer(both, { type: "deletePlace", placeId: "gym", now: NOW }).spots).toHaveLength(2);
   });
 
+  it("treats an address of blanks as none, in the inbox and in the plan", () => {
+    const blank = { ...event("b", "Fútbol", 18), location: "   " };
+    let d = data({ events: [blank] });
+    expect(unlocated(d, d.events, NOW).map((u) => [u.text, u.lookup])).toEqual([["Fútbol", false]]);
+    d = reducer(d, { type: "spotMinutes", text: "Fútbol", minutes: 20, now: NOW });
+    expect(unlocated(d, d.events, NOW)).toEqual([]);
+    expect(withPlaces(d, d.events)[0]?.location).toBe("Fútbol");
+    // A saved place named in the title answers it too.
+    const gymTitle = data({ events: [{ ...event("g", "Gym", 18), location: " " }] });
+    expect(unlocated(gymTitle, gymTitle.events, NOW)).toEqual([]);
+    expect(withPlaces(gymTitle, gymTitle.events)[0]?.location).toBe("Gym");
+  });
+
   it("tells apart addresses without Latin letters and keeps minutes in range", () => {
     let d = data();
     d = reducer(d, { type: "spotMinutes", text: "東京駅", minutes: 30.4, now: NOW });
