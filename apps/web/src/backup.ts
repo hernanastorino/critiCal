@@ -108,7 +108,39 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
       )
     )
       return false;
-    return p.holidaysOff === undefined || typeof p.holidaysOff === "boolean";
+    const optional = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
+    const bool = (v: unknown) => typeof v === "boolean";
+    const effort = (e: unknown) =>
+      isObject(e) &&
+      minute(e.estimate, 100_000) &&
+      minute(e.min, 100_000) &&
+      (e.min as number) <= (e.estimate as number) &&
+      [1, 2, 3].includes(e.priority as number);
+    const defaults = p.importDefaults;
+    if (
+      defaults !== undefined &&
+      !(
+        isObject(defaults) &&
+        Object.entries(defaults).every(
+          ([k, v]) => ["parcial", "entrega", "presentacion"].includes(k) && effort(v),
+        )
+      )
+    )
+      return false;
+    const n = p.notifications;
+    if (
+      n !== undefined &&
+      !(
+        isObject(n) &&
+        optional(n.critical, bool) &&
+        optional(n.proposals, bool) &&
+        optional(n.sunday, bool) &&
+        optional(n.leadMinutes, (v) => minute(v, 1440)) &&
+        optional(n.sundayAt, (v) => minute(v, 1439))
+      )
+    )
+      return false;
+    return optional(p.holidaysOff, bool);
   };
   if (
     !isObject(d.settings) ||

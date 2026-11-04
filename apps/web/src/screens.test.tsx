@@ -272,11 +272,30 @@ describe("backup", () => {
       expect(parseBackup(exportJson({ ...data, overrides }, 1))).toEqual({
         error: "Al respaldo le faltan datos.",
       });
+    expect(
+      parseBackup(
+        exportJson(
+          {
+            ...data,
+            preferences: {
+              importDefaults: { entrega: { estimate: 240, min: 120, priority: 3 } },
+              notifications: { leadMinutes: 15, sunday: false },
+            },
+          },
+          1,
+        ),
+      ),
+    ).toHaveProperty("data");
     for (const preferences of [
       { semester: { start: 1, end: 2 } as never },
       { semester: { start: "2026-08-01", end: "2026-02-30" } },
       { semester: { start: "2026-12-01", end: "2026-08-01" } },
       { holidaysOff: "no" as never },
+      { importDefaults: { parcial: { estimate: "bad" as never, min: 0, priority: 2 } } },
+      { importDefaults: { parcial: { estimate: 60, min: 120, priority: 2 } } },
+      { importDefaults: { otro: { estimate: 60, min: 0, priority: 2 } } as never },
+      { notifications: { leadMinutes: -5 } },
+      { notifications: { critical: "yes" as never } },
     ])
       expect(parseBackup(exportJson({ ...data, preferences }, 1))).toEqual({
         error: "Al respaldo le faltan datos.",
