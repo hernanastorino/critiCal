@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSync } from "../Connected.js";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, hours, time } from "../format.js";
 import { type AppTask, undoable } from "../model.js";
@@ -11,6 +12,7 @@ import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
   const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
+  const offline = !!useSync()?.status.offline;
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   const [editing, setEditing] = useState<AppTask | null>(null);
@@ -55,13 +57,14 @@ export function Inbox() {
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
         {unlocated.map((u) =>
-          u.lookup ? (
+          // Offline it cannot be timed yet: the user may answer meanwhile.
+          u.lookup && !offline ? (
             <div key={u.key} className="card">
               <div className="title">{u.event.title}</div>
               <p className="meta">Calculando el traslado a «{u.event.location}»…</p>
             </div>
           ) : (
-            <WhereCard key={u.key} item={u} />
+            <WhereCard key={u.key} item={u} later={u.lookup} />
           ),
         )}
 
@@ -295,7 +298,14 @@ export function Inbox() {
  * Where an event happens, when its address could not be timed: a saved place (found by
  * typing), minutes from home typed here (optionally saved as a new place), or no trip.
  */
-function WhereCard({ item }: { item: ReturnType<typeof useStore>["unlocated"][number] }) {
+function WhereCard({
+  item,
+  later,
+}: {
+  item: ReturnType<typeof useStore>["unlocated"][number];
+  /** Not timed yet only for lack of connection: it will be, unless answered here. */
+  later?: boolean;
+}) {
   const { data, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [minutes, setMinutes] = useState("");
@@ -311,6 +321,7 @@ function WhereCard({ item }: { item: ReturnType<typeof useStore>["unlocated"][nu
         {dayAndTime(tz, item.event.start)}
         {item.event.location ? ` · ${item.event.location}` : " · sin ubicación"}
         {failed ? " · no encontré esa dirección" : ""}
+        {later ? " · sin conexión: lo calculo al volver, o respondé acá" : ""}
       </p>
       <PlaceSearch
         label={`Lugar de ${item.event.title}`}

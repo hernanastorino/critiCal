@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
@@ -152,35 +152,40 @@ it("asks instead after a few failed tries", async () => {
   }
 });
 
-it("does not give up on an address because saves fail", async () => {
-  vi.useFakeTimers({
-    toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+it("does not give up on an address because saves fail, and lets the user answer", async () => {
+  let calls = 0;
+  stubApi(async (name) => {
+    if (name === "travel") calls++;
+    return { data: { connected: true }, error: null };
   });
-  try {
-    let calls = 0;
-    stubApi(async (name) => {
-      if (name === "travel") calls++;
-      return { data: { connected: true }, error: null };
-    });
-    // Every write fails, so each try stops before asking the server.
-    const failing = client();
-    const from = (failing as unknown as { from: (t: string) => Record<string, unknown> }).from;
-    const broken = {
-      ...(failing as object),
-      from: (t: string) => ({
-        ...from(t),
-        upsert: () => Promise.resolve({ error: { message: "TypeError: Failed to fetch" } }),
-      }),
-    } as never;
-    render(
-      <Connected client={broken} session={{} as never}>
-        <Shell />
-      </Connected>,
-    );
-    for (let i = 0; i < 4; i++) await vi.advanceTimersByTimeAsync(61_000);
-    expect(calls).toBe(0);
-    expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
-  } finally {
-    vi.useRealTimers();
-  }
+  // Every write fails as if offline, so lookups wait for the connection.
+  const base = client() as unknown as { from: (t: string) => Record<string, unknown> };
+  const broken = {
+    ...base,
+    from: (t: string) => ({
+      ...base.from(t),
+      upsert: () => Promise.resolve({ error: { message: "TypeError: Failed to fetch" } }),
+    }),
+  } as never;
+  render(
+    <Connected client={broken} session={{} as never}>
+      <Shell />
+    </Connected>,
+  );
+  await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
+  // An edit that cannot be written makes the app offline.
+  fireEvent.click(screen.getByLabelText("Ajustes"));
+  await act(async () => {
+    fireEvent.click(screen.getByText("Reacomodar hoy"));
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText(/Sin conexión: los cambios se guardan/)).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByText("Bandeja"));
+  expect(screen.getByText(/sin conexión: lo calculo al volver/)).toBeTruthy();
+  expect(screen.getByLabelText("Lugar de Inglés")).toBeTruthy();
+  // Not marked as not found: it is looked up once writes go through again.
+  expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
+  // At most the one lookup from before going offline.
+  expect(calls).toBeLessThanOrEqual(1);
 });

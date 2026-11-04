@@ -438,6 +438,12 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
   const inFlight = useRef(new Set<string>());
   const coolUntil = useRef(new Map<string, number>());
   const failures = useRef(new Map<string, number>());
+  // A new home starts every address afresh.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `homeKey` is the trigger.
+  useLayoutEffect(() => {
+    failures.current.clear();
+    coolUntil.current.clear();
+  }, [homeKey]);
   const running = useRef(false);
   // Bumped when a lookup ends, so the next batch starts even if nothing else changed.
   const [round, setRound] = useState(0);
@@ -473,11 +479,14 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
         failures.current.set(u.key, n);
         return n >= LOOKUP_TRIES;
       });
-      if (exhausted.length)
+      if (exhausted.length) {
+        // That episode is over: if the address is forgotten later, it gets fresh tries.
+        for (const u of exhausted) failures.current.delete(u.key);
         dispatch({
           type: "spots",
           results: exhausted.map((u) => ({ text: u.text, minutes: null })),
         });
+      }
       for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);
       setTimeout(() => setRound((r) => r + 1), LOOKUP_COOLDOWN_MS);
     };
