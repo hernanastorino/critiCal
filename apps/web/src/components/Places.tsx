@@ -37,8 +37,10 @@ export function Places() {
       return;
     }
     const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
-    // Only what still has no time: pairs already entered by hand need nothing.
-    const known = (from: string, to: string) => minutesBetween(data, from, to) !== undefined;
+    // Only pairs entered by hand are settled: computed times may be the ones the server
+    // just deleted, and it already leaves manual pairs out of `unroutable`.
+    const known = (from: string, to: string) =>
+      (data.travelTimes ?? []).some((t) => t.manual && t.from === from && t.to === to);
     const incomplete = (id: string) =>
       places.some((q) => q.id !== id && (!known(id, q.id) || !known(q.id, id)));
     const missing = (r.unroutable ?? [])

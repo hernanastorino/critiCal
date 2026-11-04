@@ -156,6 +156,7 @@ function Probe() {
         semester: data.preferences?.semester,
         holidaysOff: data.preferences?.holidaysOff,
         checkIns: data.checkIns.map((c) => c.id),
+        doneUnits: data.tasks.flatMap((t) => t.units.filter((u) => u.doneAt).map((u) => u.id)),
       })}
     </output>
   );
@@ -262,6 +263,12 @@ describe("backup", () => {
     );
     const withLog = (n: number) => ({
       ...demoData(n),
+      // A unit added and completed after the backup was made.
+      tasks: demoData(n).tasks.map((t) =>
+        t.id === kept
+          ? { ...t, units: [...t.units, { id: "new-unit", title: "Nueva", estimateMinutes: 30 }] }
+          : t,
+      ),
       checkIns: [
         {
           id: "later",
@@ -269,7 +276,7 @@ describe("backup", () => {
           taskId: kept,
           status: "done" as const,
           minutesDone: 30,
-          unitIds: [],
+          unitIds: ["new-unit"],
           createdAt: n,
         },
       ],
@@ -290,6 +297,7 @@ describe("backup", () => {
     await waitFor(() => expect(screen.getByText("Datos importados ✓")).toBeTruthy());
     expect(state().tasks.length).toBe(full.tasks.length - 1);
     expect(state().checkIns).toEqual(["later"]);
+    expect(state().doneUnits).toEqual(["new-unit"]);
 
     const bad = new File(["{}"], "x.json");
     await act(async () => {

@@ -32,9 +32,25 @@ export function Backup() {
     const tasks = new Set(parsed.data.tasks.map((t) => t.id));
     const inFile = new Set(parsed.data.checkIns.map((c) => c.id));
     const newer = data.checkIns.filter((c) => tasks.has(c.taskId) && !inFile.has(c.id));
+    // Units those check-ins completed stay completed, including units added after the
+    // backup (taken from the current copy of the task).
+    const restored = parsed.data.tasks.map((t) => {
+      const done = new Map<string, number>();
+      for (const c of newer)
+        if (c.taskId === t.id) for (const u of c.unitIds) done.set(u, c.createdAt);
+      if (done.size === 0) return t;
+      const current = data.tasks.find((x) => x.id === t.id);
+      const added = (current?.units ?? []).filter(
+        (u) => done.has(u.id) && !t.units.some((x) => x.id === u.id),
+      );
+      const units = [...t.units, ...added].map((u) =>
+        done.has(u.id) && !u.doneAt ? { ...u, doneAt: done.get(u.id) } : u,
+      );
+      return { ...t, units };
+    });
     dispatch({
       type: "replace",
-      data: { ...parsed.data, checkIns: [...parsed.data.checkIns, ...newer] },
+      data: { ...parsed.data, tasks: restored, checkIns: [...parsed.data.checkIns, ...newer] },
     });
     setMessage({ text: "Datos importados ✓" });
   };
