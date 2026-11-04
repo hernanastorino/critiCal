@@ -267,6 +267,7 @@ describe("backup", () => {
       [{ date: "2026-02-30" }],
       [{ date: "2026-11-05", wake: "invalid" as never }],
       [{ date: "2026-11-05", bed: 1e100 }],
+      [{ date: "2026-11-05", wake: 480.5 }],
     ])
       expect(parseBackup(exportJson({ ...data, overrides }, 1))).toEqual({
         error: "Al respaldo le faltan datos.",

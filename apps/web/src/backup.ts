@@ -63,7 +63,9 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     Array.isArray(c.unitIds) &&
     c.unitIds.every(str);
   // Minutes since midnight; up to two days for times after midnight (meals, free time).
-  const minute = (x: unknown, max = 1440) => num(x) && (x as number) >= 0 && (x as number) <= max;
+  // Whole minutes (the database stores integers).
+  const minute = (x: unknown, max = 1440) =>
+    Number.isInteger(x) && (x as number) >= 0 && (x as number) <= max;
   const range = (r: unknown) =>
     isObject(r) &&
     minute(r.start, 2880) &&
