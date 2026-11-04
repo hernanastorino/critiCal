@@ -206,6 +206,13 @@ describe("week", () => {
         vi.advanceTimersByTime(1500);
       });
       expect(replan.className).not.toContain("done");
+      // A second replan in the same minute empties the status first, so it is heard again.
+      fireEvent.click(replan);
+      expect(document.querySelector(".sr-only")?.textContent).toBe("");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(screen.getByText(/Semana reacomodada/)).toBeTruthy();
     } finally {
       vi.useRealTimers();
     }

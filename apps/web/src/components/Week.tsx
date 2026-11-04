@@ -287,6 +287,8 @@ export function Week({ onSettings }: { onSettings: () => void }) {
           onClick={() => {
             clearTimeout(replanTimer.current);
             setReplanned(false);
+            // Emptied first, so a second replan in the same minute is announced again.
+            setSpoken("");
             setReplanning(true);
             dispatch({ type: "replanWeek" });
             const at = now;
