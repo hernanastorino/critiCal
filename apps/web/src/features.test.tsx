@@ -311,7 +311,19 @@ describe("week", () => {
       // The next edit that is stored lets it go.
       fireEvent.click(replan);
       expect(held()).toBe(false);
+      // Leaving the demo while it cannot be stored lets it go too.
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("full", "QuotaExceededError");
+      });
+      act(() => {
+        vi.advanceTimersByTime(2500);
+      });
+      fireEvent.click(replan);
+      expect(held()).toBe(true);
+      cleanup();
+      expect(held()).toBe(false);
     } finally {
+      vi.restoreAllMocks();
       vi.useRealTimers();
     }
   });

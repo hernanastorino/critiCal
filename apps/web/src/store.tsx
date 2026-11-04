@@ -523,12 +523,14 @@ export function StoreProvider({
   // or task freeze that could let a reload for a new version in first.
   useLayoutEffect(() => {
     // A demo edit the browser refused to store lives only in memory: no reload then.
-    if (persist) hold("unsaved", !saveDemo(data));
+    if (persist) hold("demo", !saveDemo(data));
     if (onChange && previous.current !== data) onChange(previous.current, data);
     // Its saves are registered now, so a reload for a new version can wait for them.
     hold("edit", false);
     previous.current = data;
   }, [data, persist, onChange]);
+  // Leaving the demo (signing in instead) discards it, and with it what it was holding.
+  useEffect(() => () => hold("demo", false), []);
 
   const store = useMemo<Store>(() => {
     const r = refreshPlan(data, now);
