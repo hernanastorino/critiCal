@@ -367,6 +367,8 @@ function SyncProvider({
 const FINAL = new Set(["server_not_configured", "no_home", "home_not_located", "bad_request"]);
 /** After a passing failure (offline, geocoder busy), wait this long before trying again. */
 const LOOKUP_COOLDOWN_MS = 60_000;
+/** Passing failures before an address is given up and asked about instead. */
+const LOOKUP_TRIES = 3;
 
 /**
  * Times upcoming events' addresses from home in the background, a few at a time, so
@@ -385,6 +387,7 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
   }, [homeKey]);
   const inFlight = useRef(new Set<string>());
   const coolUntil = useRef(new Map<string, number>());
+  const failures = useRef(new Map<string, number>());
   const running = useRef(false);
   // Bumped when a lookup ends, so the next batch starts even if nothing else changed.
   const [round, setRound] = useState(0);
@@ -412,6 +415,17 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
     const texts = batch.map((u) => u.text);
     running.current = true;
     const cool = () => {
+      // After a few tries the inbox asks instead of "calculating" for ever.
+      const exhausted = batch.filter((u) => {
+        const n = (failures.current.get(u.key) ?? 0) + 1;
+        failures.current.set(u.key, n);
+        return n >= LOOKUP_TRIES;
+      });
+      if (exhausted.length)
+        dispatch({
+          type: "spots",
+          results: exhausted.map((u) => ({ text: u.text, minutes: null })),
+        });
       for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);
       setTimeout(() => setRound((r) => r + 1), LOOKUP_COOLDOWN_MS);
     };

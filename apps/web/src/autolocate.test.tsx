@@ -115,3 +115,39 @@ it("answers an address too long for the server without asking it", async () => {
   );
   expect(calls).toBe(0);
 });
+
+it("asks instead after a few failed tries", async () => {
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+  });
+  try {
+    let calls = 0;
+    stubApi(async (name) => {
+      if (name === "travel") {
+        calls++;
+        return { data: { ok: false, error: "travel_failed" }, error: null };
+      }
+      return { data: { connected: true }, error: null };
+    });
+    render(
+      <Connected client={client()} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    await vi.waitFor(() => expect(calls).toBe(1));
+    for (const tries of [2, 3]) {
+      await vi.advanceTimersByTimeAsync(61_000);
+      await vi.waitFor(() => expect(calls).toBe(tries));
+    }
+    await vi.waitFor(async () =>
+      expect((await readLocal("me"))?.data.spots).toEqual([
+        { key: "instituto anglo", text: "Instituto Anglo", failed: true },
+      ]),
+    );
+    // Given up: no more tries.
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect(calls).toBe(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
