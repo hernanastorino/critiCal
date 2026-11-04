@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Faster reviews without reviewing less: skip files nobody reviews by reading them
+# and the extras that are not review. The review profile and every analysis tool
+# stay; only Biome and Gitleaks are off here because CI already runs both on each PR.
+reviews:
+  path_filters:
+    - "!package-lock.json"
+    - "!**/coverage/**"
+    - "!**/dist/**"
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.svg"
+    - "!design/**"
+  sequence_diagrams: false
+  estimate_code_review_effort: false
+  assess_linked_issues: false
+  related_issues: false
+  related_prs: false
+  suggested_labels: false
+  suggested_reviewers: false
+  poem: false
+  auto_review:
+    # Every push is reviewed: never pause on long review rounds.
+    auto_pause_after_reviewed_commits: 0
+  tools:
+    biome:
+      enabled: false
+    gitleaks:
+      enabled: false
