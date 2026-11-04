@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { CRITICAL } from "../model.js";
 import { widgetToken } from "../remote.js";
@@ -9,17 +9,31 @@ export function WidgetSetup() {
   const sync = useSync();
   const [script, setScript] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "busy" | "copied" | "error" | "revoked">("idle");
+  // One token request at a time: a revoke racing a create could leave either outcome.
+  const inFlight = useRef(false);
   if (!sync) return null;
 
-  const create = async () => {
+  const run = async (action: "create" | "revoke") => {
+    if (inFlight.current) return;
+    inFlight.current = true;
     setState("busy");
-    const r = await widgetToken(sync.client, "create");
-    if (!r.ok || !r.token) {
-      setState("error");
-      return;
+    try {
+      const r = await widgetToken(sync.client, action);
+      if (!r.ok || (action === "create" && !r.token)) {
+        // A failed revoke leaves the token valid: keep the script so the user can retry.
+        setState("error");
+        return;
+      }
+      if (action === "create") {
+        setScript(widgetScript(window.location.origin, r.token as string));
+        setState("idle");
+      } else {
+        setScript(null);
+        setState("revoked");
+      }
+    } finally {
+      inFlight.current = false;
     }
-    setScript(widgetScript(window.location.origin, r.token));
-    setState("idle");
   };
 
   return (
@@ -60,7 +74,7 @@ export function WidgetSetup() {
           className="btn"
           style={{ width: "100%" }}
           disabled={state === "busy"}
-          onClick={() => void create()}
+          onClick={() => void run("create")}
         >
           Generar script
         </button>
@@ -70,16 +84,8 @@ export function WidgetSetup() {
         type="button"
         className="btn"
         style={{ width: "100%" }}
-        onClick={async () => {
-          const r = await widgetToken(sync.client, "revoke");
-          if (!r.ok) {
-            // Still valid on the server: keep the script so the user can retry.
-            setState("error");
-            return;
-          }
-          setScript(null);
-          setState("revoked");
-        }}
+        disabled={state === "busy"}
+        onClick={() => void run("revoke")}
       >
         Desactivar el widget
       </button>

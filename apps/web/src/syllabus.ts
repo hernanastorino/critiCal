@@ -145,7 +145,8 @@ export function syllabusTasks(input: {
       title: u.title,
       estimateMinutes: u.minutes,
     }));
-    const total = units.reduce((s, u) => s + u.estimateMinutes, 0) || a.minutes;
+    // Its own hours only without units: kept units define the estimate, even at zero.
+    const total = units.length ? units.reduce((s, u) => s + u.estimateMinutes, 0) : a.minutes;
     const d = DEFAULTS[a.kind];
     return {
       id: input.newId(),
