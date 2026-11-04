@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { normalize, subjectName } from "../calendars.js";
+import { subjectName } from "../calendars.js";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, hours, time } from "../format.js";
 import { type AppTask, undoable } from "../model.js";
-import { spotFor } from "../places.js";
+import { spotFor, spotKey } from "../places.js";
 import { endOfDay, pinClashes } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
@@ -430,7 +430,7 @@ function WhereCard({ item }: { item: ReturnType<typeof useStore>["unlocated"][nu
           disabled={!valid || (save && !name.trim())}
           onClick={() => {
             dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
-            if (save) dispatch({ type: "saveSpot", key: normalize(item.text), name });
+            if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
           }}
         >
           Usar

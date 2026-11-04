@@ -94,7 +94,7 @@ export function Semester() {
       <summary className="title">Inicio de cuatrimestre</summary>
       {open && (
         <>
-          <div className="row">
+          <div className="row fields">
             <label className="field" style={{ flex: 1 }}>
               <span>Empieza</span>
               <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
@@ -143,7 +143,7 @@ export function Semester() {
               ? " Las clases nuevas de tu calendario de clases aparecen en la Bandeja."
               : " Marcá tu calendario de clases como «Clases (materias)» en Calendarios para sumarlas solas."}
           </p>
-          <div className="row">
+          <div className="row fields">
             <label className="field" style={{ flex: 2 }}>
               <span>Materia</span>
               <input
@@ -176,7 +176,7 @@ export function Semester() {
               <div className="title" style={{ marginTop: 12 }}>
                 Parciales y entregas
               </div>
-              <div className="row">
+              <div className="row fields">
                 <label className="field" style={{ flex: 1 }}>
                   <span>De la materia</span>
                   <select

@@ -151,6 +151,18 @@ describe("event addresses and search", () => {
     );
   });
 
+  it("tells apart addresses without Latin letters and keeps minutes in range", () => {
+    let d = data();
+    d = reducer(d, { type: "spotMinutes", text: "東京駅", minutes: 30.4, now: NOW });
+    d = reducer(d, { type: "spotMinutes", text: "Москва", minutes: 5000, now: NOW });
+    expect(d.spots).toEqual([
+      { key: "東京駅", text: "東京駅", minutes: 30, manual: true },
+      { key: "москва", text: "Москва", minutes: 1440, manual: true },
+    ]);
+    expect(reducer(d, { type: "spotMinutes", text: "x", minutes: -1, now: NOW })).toBe(d);
+    expect(reducer(d, { type: "spotMinutes", text: "x", minutes: Number.NaN, now: NOW })).toBe(d);
+  });
+
   it("stores spots with the settings", () => {
     const before = data();
     const after = { ...before, spots: [{ key: "a", text: "A", minutes: 5 }] };
@@ -358,12 +370,12 @@ describe("places screens", () => {
     expect(screen.getByText("¿Dónde es?")).toBeTruthy();
     const search = screen.getByLabelText("Lugar de Inglés");
     fireEvent.change(search, { target: { value: "ingen" } });
-    expect(screen.getByRole("option", { name: /Facultad de Ingeniería/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /Facultad de Ingeniería/ })).toBeTruthy();
     fireEvent.change(search, { target: { value: "nada que ver" } });
     expect(screen.getByText("Ningún lugar guardado coincide.")).toBeTruthy();
     fireEvent.change(search, { target: { value: "fing" } });
     await act(async () => {
-      fireEvent.click(screen.getByRole("option", { name: /Facultad de Ingeniería/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Facultad de Ingeniería/ }));
     });
     expect(screen.queryByText("¿Dónde es?")).toBeNull();
     expect(screen.getByTestId("places").textContent).toContain("Instituto Anglo");

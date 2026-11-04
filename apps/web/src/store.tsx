@@ -28,7 +28,7 @@ import type {
   Preferences,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { home, unlocated } from "./places.js";
+import { home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   type Decisions,
@@ -562,20 +562,24 @@ function apply(data: AppData, action: Action): AppData {
     case "spots": {
       let spots = data.spots ?? [];
       for (const r of action.results) {
-        const key = normalize(r.text);
+        const key = spotKey(r.text);
         // What the user typed stays.
         if (spots.some((s) => s.key === key && s.manual)) continue;
         const spot =
           r.minutes === null
             ? { key, text: r.text, failed: true }
-            : { key, text: r.text, minutes: r.minutes };
+            : { key, text: r.text, minutes: Math.min(1440, Math.max(0, Math.round(r.minutes))) };
         spots = [...spots.filter((s) => s.key !== key), spot];
       }
       return refresh({ ...data, spots }, now);
     }
     case "spotMinutes": {
-      const key = normalize(action.text);
-      const spot = { key, text: action.text, minutes: action.minutes, manual: true };
+      // Whole minutes within a day, like every other travel time.
+      if (!Number.isFinite(action.minutes) || action.minutes < 0 || !action.text.trim())
+        return data;
+      const key = spotKey(action.text);
+      const minutes = Math.min(1440, Math.round(action.minutes));
+      const spot = { key, text: action.text, minutes, manual: true };
       return refresh(
         { ...data, spots: [...(data.spots ?? []).filter((s) => s.key !== key), spot] },
         now,
@@ -612,7 +616,7 @@ function apply(data: AppData, action: Action): AppData {
       );
     case "locate": {
       // Answered: a failed lookup for this text is no longer needed.
-      data = { ...data, spots: (data.spots ?? []).filter((s) => s.key !== normalize(action.text)) };
+      data = { ...data, spots: (data.spots ?? []).filter((s) => s.key !== spotKey(action.text)) };
       if (!action.placeId) {
         const noTravel = [...new Set([...(data.noTravel ?? []), normalize(action.text)])];
         return refresh({ ...data, noTravel }, now);

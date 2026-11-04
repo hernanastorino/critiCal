@@ -11,6 +11,7 @@ import {
 import type { AppData } from "./model.js";
 import { reportError } from "./monitoring.js";
 import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
+import { home } from "./places.js";
 import {
   applyWrites,
   diffData,
@@ -246,7 +247,7 @@ export function Connected({
         changes={changes}
         owned={owned}
       >
-        <AutoLocate client={client} />
+        <AutoLocate client={client} flush={flush} />
         {children}
       </SyncProvider>
     </StoreProvider>
@@ -362,32 +363,62 @@ function SyncProvider({
 
 /** Answers that mean the server cannot time any address: the inbox asks instead. */
 const FINAL = new Set(["server_not_configured", "no_home", "home_not_located", "bad_request"]);
+/** After a passing failure (offline, geocoder busy), wait this long before trying again. */
+const LOOKUP_COOLDOWN_MS = 60_000;
 
 /**
  * Times upcoming events' addresses from home in the background, a few at a time, so
  * the inbox only asks about the ones that cannot be found. Nothing becomes a place.
+ * An address with no answer yet is looked up again (after forgetting it, or with a new
+ * home); answers for a home that changed meanwhile are dropped.
  */
-function AutoLocate({ client }: { client: SupabaseClient }) {
-  const { unlocated, dispatch } = useStore();
-  const tried = useRef(new Set<string>());
+function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Promise<boolean> }) {
+  const { data, unlocated, dispatch } = useStore();
+  const at = home(data);
+  const homeKey = at ? `${at.id}|${at.address ?? ""}|${at.lat ?? ""},${at.lon ?? ""}` : "";
+  const currentHome = useRef(homeKey);
+  currentHome.current = homeKey;
+  const inFlight = useRef(new Set<string>());
+  const coolUntil = useRef(new Map<string, number>());
   const running = useRef(false);
+  // Bumped when a lookup ends, so the next batch starts even if nothing else changed.
+  const [round, setRound] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `round` only re-runs the effect.
   useEffect(() => {
     if (running.current) return;
+    const now = Date.now();
     const batch = unlocated
-      .filter((u) => u.lookup && !tried.current.has(u.key))
+      .filter(
+        (u) =>
+          u.lookup && !inFlight.current.has(u.key) && (coolUntil.current.get(u.key) ?? 0) <= now,
+      )
       .slice(0, SPOTS_PER_CALL);
     if (batch.length === 0) return;
-    for (const u of batch) tried.current.add(u.key);
+    const asked = homeKey;
+    for (const u of batch) inFlight.current.add(u.key);
     const texts = batch.map((u) => u.event.location as string);
     running.current = true;
-    void timeSpots(client, texts).then((r) => {
-      running.current = false;
-      if (r.ok && r.spots) dispatch({ type: "spots", results: r.spots });
-      else if (r.error && FINAL.has(r.error))
-        dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
-      // Offline or a passing failure: try again on the next change.
-      else for (const u of batch) tried.current.delete(u.key);
-    });
-  }, [unlocated, client, dispatch]);
+    const cool = () => {
+      for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);
+      setTimeout(() => setRound((r) => r + 1), LOOKUP_COOLDOWN_MS);
+    };
+    void (async () => {
+      try {
+        // The server reads the home from the database: a home just saved must be there.
+        if (!(await flush())) return cool();
+        const r = await timeSpots(client, texts);
+        // Timed from a home that is no longer this one: ask again for the current one.
+        if (currentHome.current !== asked) return;
+        if (r.ok && r.spots) dispatch({ type: "spots", results: r.spots });
+        else if (r.error && FINAL.has(r.error))
+          dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
+        else cool();
+      } finally {
+        for (const u of batch) inFlight.current.delete(u.key);
+        running.current = false;
+        setRound((n) => n + 1);
+      }
+    })();
+  }, [unlocated, client, dispatch, flush, homeKey, round]);
   return null;
 }

@@ -79,8 +79,9 @@ export function Calendars() {
   const icloudConnected = status.icloud?.connected;
 
   return (
-    <>
-      <div className="section-title">Calendarios</div>
+    // Closed by default: it is set up once and then rarely touched.
+    <details className="card prefs calendars">
+      <summary className="title">Calendarios</summary>
       <div className="card">
         <div className="title">Google Calendar</div>
         <p className="meta" data-testid="google-status">
@@ -201,6 +202,6 @@ export function Calendars() {
             ))}
         </div>
       )}
-    </>
+    </details>
   );
 }

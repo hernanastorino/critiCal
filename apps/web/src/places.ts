@@ -38,9 +38,15 @@ export function minutesBetween(data: AppData, from: string, to: string): number 
 const skipped = (data: AppData, text: string | undefined) =>
   !!text && (data.noTravel ?? []).includes(normalize(text));
 
+/**
+ * How an event's text is told apart from others: normalized, or (for addresses with no
+ * Latin letters or digits, which normalize away) its lower-cased self. Never empty.
+ */
+export const spotKey = (text: string) => normalize(text) || text.trim().toLowerCase();
+
 /** The one-off address an event's text refers to, if the app already has it. */
 export const spotFor = (data: AppData, text: string | undefined): Spot | undefined =>
-  text ? (data.spots ?? []).find((s) => s.key === normalize(text)) : undefined;
+  text?.trim() ? (data.spots ?? []).find((s) => s.key === spotKey(text)) : undefined;
 
 /** A spot the planner can use: its driving time is known. */
 const timed = (data: AppData, text: string | undefined) =>
@@ -77,7 +83,7 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
     home: start.id,
     resolvePlace: (location) =>
       placeFor(places, location)?.id ??
-      (timed(data, location) ? `${SPOT}${normalize(location)}` : undefined),
+      (timed(data, location) ? `${SPOT}${spotKey(location)}` : undefined),
     // A spot is only timed from home; trips between it and another place take that long too.
     travelMinutes: (from, to) => {
       const spots = [from, to].filter((id) => id.startsWith(SPOT));
@@ -106,7 +112,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
     if (!text || skipped(data, text)) continue;
     if (placeFor(places, e.location) || (!e.location && placeFor(places, e.title))) continue;
     if (timed(data, text)) continue;
-    const key = normalize(text);
+    const key = spotKey(text);
     if (!seen.has(key)) seen.set(key, e);
   }
   return [...seen.entries()].map(([key, event]) => {
