@@ -1,6 +1,8 @@
 // Vercel function (Node): Google Calendar push notifications. Each one names a channel
 // created by the sync; a change re-syncs that user's calendars and re-plans right away.
+import { notifyUser } from "./_lib/push.js";
 import { serverSync } from "./_lib/replan.js";
+import { report } from "./_lib/report.js";
 import { adminClient, type Env, json, missing, readEnv } from "./_lib/server.js";
 
 /** Bursts of notifications (one per edited event) share one sync. */
@@ -35,10 +37,13 @@ export async function handle(req: Request, env: Env): Promise<Response> {
   if (!claimed) return json({ ok: true, deferred: true });
   try {
     const r = await serverSync(env, channel.user_id as string);
+    // A clash with today's plan is worth telling right away, not at the next tick.
+    if (r.proposal) await notifyUser(env, admin, channel.user_id as string, Date.now(), r.proposal);
     return json({ ok: true, proposal: !!r.proposal });
   } catch (e) {
     // Answer 200 anyway: a retry storm would not help, the next tick syncs again.
     console.error("webhook sync", e);
+    await report(env, e, "google-webhook");
     return json({ ok: false });
   } finally {
     await admin.rpc("finish_sync", { p_user: channel.user_id });

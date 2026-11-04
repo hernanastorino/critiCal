@@ -6,7 +6,14 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       include: ["**/src/**/*.{ts,tsx}", "apps/web/api/**/*.ts"],
-      exclude: ["**/*.test.*", "**/main.tsx", "**/*.d.ts", "**/testing.ts", "**/vitest.config.ts"],
+      exclude: [
+        "**/*.test.*",
+        "**/main.tsx",
+        "**/*.d.ts",
+        "**/testing.ts",
+        "**/test-setup.ts",
+        "**/vitest.config.ts",
+      ],
       reporter: ["text", "lcov", "json-summary"],
       thresholds: {
         lines: 80,

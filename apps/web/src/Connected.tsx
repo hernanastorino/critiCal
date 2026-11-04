@@ -9,6 +9,8 @@ import {
   useState,
 } from "react";
 import type { AppData } from "./model.js";
+import { reportError } from "./monitoring.js";
+import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
 import {
   applyWrites,
   diffData,
@@ -17,38 +19,25 @@ import {
   signInWithGoogle,
   syncGoogle,
   syncICloud,
+  type Writes,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
 
 const SYNC_EVERY_MS = 5 * 60_000;
-
-/** Last known state on this device, so the app opens instantly. */
-const cacheKey = (session: Session) => `critical.cache.v1.${session.user?.id ?? "me"}`;
-
-export function readCache(session: Session): AppData | null {
-  try {
-    const raw = globalThis.localStorage?.getItem(cacheKey(session));
-    return raw ? (JSON.parse(raw) as AppData) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache(session: Session, data: AppData): void {
-  try {
-    globalThis.localStorage?.setItem(cacheKey(session), JSON.stringify(data));
-  } catch {
-    // Storage full or blocked: the next open just waits for the network.
-  }
-}
+/** While offline, try writing again this often (and whenever the browser says it is online). */
+const RETRY_MS = 30_000;
 
 export interface SyncStatus {
   google?: SyncResult & { at: number };
   icloud?: SyncResult & { at: number };
   busy: boolean;
+  /** Changes made on this device that are not in the database yet. */
+  pending?: boolean;
+  offline?: boolean;
 }
 
 interface SyncApi {
+  client: SupabaseClient;
   status: SyncStatus;
   syncNow: () => Promise<void>;
   reconnectGoogle: () => void;
@@ -61,6 +50,8 @@ const SyncContext = createContext<SyncApi | null>(null);
 /** Sync controls for the signed-in app; null in demo mode. */
 export const useSync = () => useContext(SyncContext);
 
+const nothing = (w: Writes) => !w.upserts.length && !w.inserts.length && !w.deletes.length;
+
 /** Signed-in app: loads from Supabase, writes every change back, syncs calendars. */
 export function Connected({
   client,
@@ -71,30 +62,58 @@ export function Connected({
   session: Session;
   children: React.ReactNode;
 }) {
+  const uid = session.user?.id ?? "me";
   // The owner seeds the ids of imported tasks; the session always knows it, even for
-  // an old cached copy or before the user has a settings row.
+  // an old local copy or before the user has a settings row.
   const owned = useCallback(
     (d: AppData): AppData => (session.user?.id && !d.owner ? { ...d, owner: session.user.id } : d),
     [session],
   );
-  const [cached] = useState(() => {
-    const d = readCache(session);
-    return d && owned(d);
-  });
-  const [data, setData] = useState<AppData | null>(cached);
+  // Read through a ref: a new session object must not re-read the local copy.
+  const ownedRef = useRef(owned);
+  ownedRef.current = owned;
+  // undefined while this device's copy is read (a few milliseconds).
+  const [local, setLocal] = useState<LocalState | null | undefined>(undefined);
+  const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [status, setStatus] = useState<SyncStatus>({ busy: !!cached });
+  const [status, setStatus] = useState<SyncStatus>({ busy: false });
+  // What the database holds as far as this device knows. Diffing against it (not the
+  // previous screen state) also removes blocks the server re-planned meanwhile, and
+  // whatever could not be written offline is simply still in the difference.
+  const stored = useRef<AppData | null>(null);
+  const latest = useRef<AppData | null>(null);
+  // Counts local changes, so a server copy loaded meanwhile is known to be stale.
+  const changes = useRef(0);
 
   const pullCalendars = useCallback(async () => {
     setStatus((s) => ({ ...s, busy: true }));
     const [google, icloud] = await Promise.all([syncGoogle(client, session), syncICloud(client)]);
     const at = Date.now();
-    setStatus({ google: { ...google, at }, icloud: { ...icloud, at }, busy: false });
+    setStatus((s) => ({ ...s, google: { ...google, at }, icloud: { ...icloud, at }, busy: false }));
   }, [client, session]);
 
   useEffect(() => {
-    // With a cached state the app is already usable; SyncProvider refreshes it.
-    if (cached) return;
+    let cancelled = false;
+    readLocal(uid).then((found) => {
+      if (cancelled) return;
+      if (found) {
+        const data = ownedRef.current(found.data);
+        stored.current = found.stored;
+        latest.current = data;
+        setData(data);
+        // Usable right away; SyncProvider refreshes it in the background.
+        setStatus((s) => ({ ...s, busy: true }));
+      }
+      setLocal(found);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [uid]);
+
+  useEffect(() => {
+    // With a local copy the app is already usable; SyncProvider refreshes it.
+    if (local !== null) return;
     let cancelled = false;
     (async () => {
       try {
@@ -102,41 +121,80 @@ export function Connected({
         await pullCalendars();
         const loaded = owned(await loadData(client));
         stored.current = loaded;
+        latest.current = loaded;
+        void writeLocal(uid, { data: loaded, stored: loaded });
         if (!cancelled) setData(loaded);
       } catch (e) {
+        reportError(e);
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [client, pullCalendars, cached, owned]);
+  }, [client, pullCalendars, local, uid, owned]);
 
-  // Writes run one at a time so parents always land before children.
-  const queue = useRef(Promise.resolve());
+  // One flush at a time, so parents always land before children.
+  const flushing = useRef<Promise<void> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // What the database holds as far as this device knows. Diffing against it (not the
-  // previous screen state) also removes blocks the server re-planned meanwhile.
-  const stored = useRef<AppData | null>(cached);
-  // Counts local changes, so a server copy loaded meanwhile is known to be stale.
-  const changes = useRef(0);
+  const flush = useCallback((): Promise<void> => {
+    if (flushing.current) return flushing.current;
+    const run = async () => {
+      // Never finish synchronously: `flushing` must be set before it is cleared.
+      await Promise.resolve();
+      let wrote = false;
+      try {
+        for (;;) {
+          const target = latest.current;
+          if (!target) break;
+          const writes = diffData(stored.current ?? target, target);
+          if (nothing(writes)) break;
+          await applyWrites(client, writes);
+          stored.current = target;
+          wrote = true;
+          void writeLocal(uid, { data: latest.current ?? target, stored: target });
+        }
+        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+        if (wrote) {
+          // Mirror the new plan into Google once the burst of edits settles.
+          clearTimeout(pushTimer.current);
+          pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
+        }
+      } catch (e) {
+        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+        else {
+          reportError(e);
+          setError(e instanceof Error ? e.message : String(e));
+        }
+      } finally {
+        flushing.current = null;
+      }
+    };
+    flushing.current = run();
+    return flushing.current;
+  }, [client, session, uid]);
+
   const onChange = useCallback(
-    (prev: AppData, next: AppData) => {
+    (_prev: AppData, next: AppData) => {
       changes.current++;
-      writeCache(session, next);
-      const writes = diffData(stored.current ?? prev, next);
-      stored.current = next;
-      if (!writes.upserts.length && !writes.inserts.length && !writes.deletes.length) return;
-      queue.current = queue.current
-        .then(() => applyWrites(client, writes))
-        .catch((e) => setError(e instanceof Error ? e.message : String(e)));
-      clearTimeout(pushTimer.current);
-      pushTimer.current = setTimeout(() => {
-        queue.current = queue.current.then(() => syncGoogle(client, session).then(() => undefined));
-      }, 5000);
+      latest.current = next;
+      void writeLocal(uid, { data: next, stored: stored.current });
+      setStatus((s) => (s.pending ? s : { ...s, pending: true }));
+      void flush();
     },
-    [client, session],
+    [flush, uid],
   );
+
+  useEffect(() => {
+    if (!status.offline) return;
+    const retry = () => void flush();
+    const id = setInterval(retry, RETRY_MS);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", retry);
+    };
+  }, [status.offline, flush]);
 
   if (error) {
     return (
@@ -149,6 +207,7 @@ export function Connected({
       </main>
     );
   }
+  if (local === undefined) return <main className="login" />;
   if (!data) {
     return (
       <main className="login">
@@ -164,9 +223,10 @@ export function Connected({
         status={status}
         pullCalendars={pullCalendars}
         setStatus={setStatus}
-        refreshOnMount={!!cached}
-        writes={queue}
+        refreshOnMount={local !== null}
+        flush={flush}
         stored={stored}
+        latest={latest}
         changes={changes}
         owned={owned}
       >
@@ -183,8 +243,9 @@ function SyncProvider({
   pullCalendars,
   setStatus,
   refreshOnMount,
-  writes,
+  flush,
   stored,
+  latest,
   changes,
   owned,
   children,
@@ -195,8 +256,9 @@ function SyncProvider({
   setStatus: React.Dispatch<React.SetStateAction<SyncStatus>>;
   /** Opened from the device cache: pull everything fresh right away. */
   refreshOnMount: boolean;
-  writes: React.MutableRefObject<Promise<void>>;
+  flush: () => Promise<void>;
   stored: React.MutableRefObject<AppData | null>;
+  latest: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
   owned: (d: AppData) => AppData;
   children: React.ReactNode;
@@ -207,13 +269,16 @@ function SyncProvider({
   const reload = useCallback(async () => {
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
-    await writes.current;
+    await flush();
+    // Changes still waiting (offline) must not be overwritten by the server's copy.
+    if (!latest.current || !stored.current || !nothing(diffData(stored.current, latest.current)))
+      return;
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, writes, stored, changes, owned]);
+  }, [client, dispatch, flush, stored, latest, changes, owned]);
 
   const syncNow = useCallback(async () => {
     try {
@@ -254,6 +319,7 @@ function SyncProvider({
 
   const api = useMemo<SyncApi>(
     () => ({
+      client,
       status,
       syncNow,
       reconnectGoogle: () => void signInWithGoogle(client),

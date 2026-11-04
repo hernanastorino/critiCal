@@ -11,6 +11,9 @@ export interface Env {
   googleClientSecret?: string;
   /** Public origin of the production deployment; webhooks and cron only run there. */
   appUrl?: string;
+  vapidPublic?: string;
+  vapidPrivate?: string;
+  sentryDsn?: string;
 }
 
 export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
@@ -24,6 +27,9 @@ export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
       e.VERCEL_ENV === "production" && e.VERCEL_PROJECT_PRODUCTION_URL
         ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL}`
         : undefined,
+    vapidPublic: e.VITE_VAPID_PUBLIC_KEY,
+    vapidPrivate: e.VAPID_PRIVATE_KEY,
+    sentryDsn: e.SENTRY_DSN || e.VITE_SENTRY_DSN,
   };
 }
 

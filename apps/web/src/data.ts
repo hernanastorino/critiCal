@@ -388,7 +388,11 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     }
   }
   for (const i of w.inserts) {
-    const { error } = await client.from(i.table).insert(i.rows);
+    // Rows that already landed (an attempt whose answer was lost) are skipped one by
+    // one; the rest of the batch is still written.
+    const { error } = await client
+      .from(i.table)
+      .upsert(i.rows, { onConflict: "id", ignoreDuplicates: true });
     if (error) throw error;
   }
   for (const d of w.deletes) {

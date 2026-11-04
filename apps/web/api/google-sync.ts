@@ -5,6 +5,7 @@
 // 4. mirrors future plan_blocks into a single green "📚 Plan" calendar.
 import { SyncError } from "./_lib/google-api.js";
 import { importGoogle, mirrorPlan, openGoogle, watchCalendars } from "./_lib/google-run.js";
+import { report } from "./_lib/report.js";
 import { authenticate, type Env, json, readBody, readEnv } from "./_lib/server.js";
 
 /** Vercel entry point. It passes its own second argument, so env is read here. */
@@ -29,13 +30,15 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     const mirrored = await mirrorPlan(session, now, result.planCalendar);
     return json({ connected: true, imported: result.imported, ...mirrored });
   } catch (e) {
-    return failure(e);
+    return failure(e, env);
   }
 }
 
-export function failure(e: unknown): Response {
+export async function failure(e: unknown, env: Env): Promise<Response> {
   // Details stay in the function logs; the client gets a stable code only.
   console.error(e);
+  // Expected upstream failures (revoked access, Google outages) are not bugs.
+  if (!(e instanceof SyncError)) await report(env, e, "google-sync");
   if (e instanceof SyncError)
     return json({ connected: false, error: e.code, status: e.status, reason: e.reason });
   return json({ connected: false, error: "sync_failed" }, 500);

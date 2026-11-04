@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [
     react(),
     VitePWA({
+      // Our own worker (sw/sw.ts): precache plus Web Push.
+      strategies: "injectManifest",
+      srcDir: "sw",
+      filename: "sw.ts",
+      injectManifest: { globPatterns: ["**/*.{js,css,html,png,svg,webmanifest}"] },
       includeAssets: ["favicon.png", "apple-touch-icon.png", "privacy.html"],
       registerType: "autoUpdate",
       manifest: {
@@ -27,5 +32,6 @@ export default defineConfig({
     name: "web",
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
+    setupFiles: ["src/test-setup.ts"],
   },
 });

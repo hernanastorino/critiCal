@@ -99,9 +99,31 @@ export interface Effort {
   priority: number;
 }
 
+/** Which push notifications to send (the server reads these too). */
+export interface NotificationPrefs {
+  /** Before each critical block. */
+  critical?: boolean;
+  leadMinutes?: number;
+  /** When a new event clashes with today's plan. */
+  proposals?: boolean;
+  /** Weekly planning reminder on Sundays. */
+  sunday?: boolean;
+  /** Minutes since midnight. */
+  sundayAt?: number;
+}
+
+export const NOTIFY_DEFAULTS: Required<NotificationPrefs> = {
+  critical: true,
+  leadMinutes: 10,
+  proposals: true,
+  sunday: true,
+  sundayAt: 19 * 60,
+};
+
 export interface Preferences {
   /** Effort given to tasks created from calendar events, per kind. */
   importDefaults?: Partial<Record<DetectedKind, Effort>>;
+  notifications?: NotificationPrefs;
 }
 
 export interface AppData {
