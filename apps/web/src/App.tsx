@@ -131,8 +131,10 @@ export function App({
           onSignOut={() => {
             // Nothing of this account stays on the device.
             // Unsubscribe first, while the session can still delete the device's row.
-            void disablePush(client)
-              .catch(() => undefined)
+            // Bounded: a stalled request must not keep the account signed in.
+            const unsubscribe = disablePush(client).catch(() => undefined);
+            const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+            void Promise.race([unsubscribe, timeout])
               .then(() => clearLocal())
               .then(() => client.auth.signOut());
           }}
