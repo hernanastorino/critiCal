@@ -69,6 +69,9 @@ describe("event addresses and search", () => {
     expect(searchPlaces(d, "futbol").map((p) => p.id)).toEqual(["c3"]);
     expect(searchPlaces(d, "casa clara").map((p) => p.id)).toEqual(["c1"]);
     expect(searchPlaces(d, "  ")).toEqual([]);
+    // An event with a blank address is held at the place its title names.
+    const yoga = { ...d, events: [{ ...event("y", "Yoga Gym", 9), location: " " }], places: [gym] };
+    expect(searchPlaces(yoga, "yoga").map((p) => p.id)).toEqual(["gym"]);
   });
 
   it("plans the trip to a timed address without it being a place", () => {
@@ -149,6 +152,33 @@ describe("event addresses and search", () => {
     expect(reducer(moved, { type: "forgetSpot", key: "instituto anglo", now: NOW }).spots).toEqual(
       [],
     );
+    // So does unchecking «Es mi casa».
+    expect(
+      reducer(both, {
+        type: "savePlace",
+        place: { ...casa, isHome: undefined },
+        now: NOW,
+      }).spots?.map((s) => s.key),
+    ).toEqual(["instituto anglo"]);
+    expect(reducer(both, { type: "savePlace", place: { ...gym }, now: NOW }).spots).toHaveLength(2);
+    // Deleting the home has the same effect.
+    expect(
+      reducer(both, { type: "deletePlace", placeId: "casa", now: NOW }).spots?.map((s) => s.key),
+    ).toEqual(["instituto anglo"]);
+    expect(reducer(both, { type: "deletePlace", placeId: "gym", now: NOW }).spots).toHaveLength(2);
+  });
+
+  it("treats an address of blanks as none, in the inbox and in the plan", () => {
+    const blank = { ...event("b", "Fútbol", 18), location: "   " };
+    let d = data({ events: [blank] });
+    expect(unlocated(d, d.events, NOW).map((u) => [u.text, u.lookup])).toEqual([["Fútbol", false]]);
+    d = reducer(d, { type: "spotMinutes", text: "Fútbol", minutes: 20, now: NOW });
+    expect(unlocated(d, d.events, NOW)).toEqual([]);
+    expect(withPlaces(d, d.events)[0]?.location).toBe("Fútbol");
+    // A saved place named in the title answers it too.
+    const gymTitle = data({ events: [{ ...event("g", "Gym", 18), location: " " }] });
+    expect(unlocated(gymTitle, gymTitle.events, NOW)).toEqual([]);
+    expect(withPlaces(gymTitle, gymTitle.events)[0]?.location).toBe("Gym");
   });
 
   it("tells apart addresses without Latin letters and keeps minutes in range", () => {

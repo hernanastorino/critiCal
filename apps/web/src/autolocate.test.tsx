@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
@@ -15,7 +15,7 @@ beforeEach(async () => {
 });
 
 /** A database with a home and one upcoming event at an address no place knows. */
-function client() {
+function client(location = "Instituto Anglo") {
   const soon = Date.now() + 2 * 3_600_000;
   const rows: Record<string, unknown[]> = {
     places: [{ id: "casa", name: "Casa", aliases: [], is_home: true, lat: -34.8, lon: -56.2 }],
@@ -26,7 +26,7 @@ function client() {
         title: "Inglés",
         start_at: new Date(soon).toISOString(),
         end_at: new Date(soon + 3_600_000).toISOString(),
-        location: "Instituto Anglo",
+        location,
         busy: true,
         all_day: false,
       },
@@ -96,4 +96,96 @@ it("leaves an address for later when the lookup fails for a while", async () => 
   // Cooling down instead of retrying in a loop, and never marked as not found.
   expect(calls).toBe(1);
   expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
+});
+
+it("answers an address too long for the server without asking it", async () => {
+  let calls = 0;
+  stubApi(async (name) => {
+    if (name === "travel") calls++;
+    return { data: { connected: true }, error: null };
+  });
+  const long = "x".repeat(201);
+  render(
+    <Connected client={client(long)} session={{} as never}>
+      <Shell />
+    </Connected>,
+  );
+  await waitFor(async () =>
+    expect((await readLocal("me"))?.data.spots).toEqual([{ key: long, text: long, failed: true }]),
+  );
+  expect(calls).toBe(0);
+});
+
+it("asks instead after a few failed tries", async () => {
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+  });
+  try {
+    let calls = 0;
+    stubApi(async (name) => {
+      if (name === "travel") {
+        calls++;
+        return { data: { ok: false, error: "travel_failed" }, error: null };
+      }
+      return { data: { connected: true }, error: null };
+    });
+    render(
+      <Connected client={client()} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    await vi.waitFor(() => expect(calls).toBe(1));
+    for (const tries of [2, 3]) {
+      await vi.advanceTimersByTimeAsync(61_000);
+      await vi.waitFor(() => expect(calls).toBe(tries));
+    }
+    await vi.waitFor(async () =>
+      expect((await readLocal("me"))?.data.spots).toEqual([
+        { key: "instituto anglo", text: "Instituto Anglo", failed: true },
+      ]),
+    );
+    // Given up: no more tries.
+    await vi.advanceTimersByTimeAsync(61_000);
+    expect(calls).toBe(3);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it("does not give up on an address because saves fail, and lets the user answer", async () => {
+  let calls = 0;
+  stubApi(async (name) => {
+    if (name === "travel") calls++;
+    return { data: { connected: true }, error: null };
+  });
+  // Every write fails as if offline, so lookups wait for the connection.
+  const base = client() as unknown as { from: (t: string) => Record<string, unknown> };
+  const broken = {
+    ...base,
+    from: (t: string) => ({
+      ...base.from(t),
+      upsert: () => Promise.resolve({ error: { message: "TypeError: Failed to fetch" } }),
+    }),
+  } as never;
+  render(
+    <Connected client={broken} session={{} as never}>
+      <Shell />
+    </Connected>,
+  );
+  await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
+  // An edit that cannot be written makes the app offline.
+  fireEvent.click(screen.getByLabelText("Ajustes"));
+  await act(async () => {
+    fireEvent.click(screen.getByText("Reacomodar hoy"));
+  });
+  await waitFor(() =>
+    expect(screen.getByLabelText(/Sin conexión: los cambios se guardan/)).toBeTruthy(),
+  );
+  fireEvent.click(screen.getByText("Bandeja"));
+  expect(screen.getByText(/sin conexión: lo calculo al volver/)).toBeTruthy();
+  expect(screen.getByLabelText("Lugar de Inglés")).toBeTruthy();
+  // Not marked as not found: it is looked up once writes go through again.
+  expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
+  // At most the one lookup from before going offline.
+  expect(calls).toBeLessThanOrEqual(1);
 });

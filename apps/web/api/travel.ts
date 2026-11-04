@@ -4,6 +4,7 @@
 // 3. stores the times, never touching pairs the user set by hand.
 // With `{ spots: [...] }` it instead times one-off event addresses from home, storing
 // nothing: the app keeps those minutes without turning the address into a place.
+import { SPOT_TEXT_MAX } from "../src/limits.js";
 import { report } from "./_lib/report.js";
 import { authenticate, type Caller, type Env, json, readEnv } from "./_lib/server.js";
 
@@ -99,7 +100,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       !Array.isArray(spots) ||
       spots.length === 0 ||
       spots.length > MAX_SPOTS ||
-      !spots.every((t) => typeof t === "string" && t.trim().length > 0 && t.length <= 200)
+      !spots.every((t) => typeof t === "string" && t.trim().length > 0 && t.length <= SPOT_TEXT_MAX)
     )
       return json({ ok: false, error: "bad_request" }, 400);
     return timeSpots(env, user, spots as string[], pause);

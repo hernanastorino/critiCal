@@ -4,10 +4,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { reportError } from "./monitoring.js";
 import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
@@ -154,7 +156,10 @@ export function Connected({
         for (;;) {
           const target = latest.current;
           if (!target) break;
-          const writes = diffData(stored.current ?? target, target);
+          // Nothing to compare with yet: the database may lack these changes, so this
+          // is not a save (and must not release the unsaved hold).
+          if (stored.current === null) return false;
+          const writes = diffData(stored.current, target);
           if (nothing(writes)) break;
           await applyWrites(client, writes);
           stored.current = target;
@@ -284,19 +289,66 @@ function SyncProvider({
   const { dispatch } = useStore();
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
-  const reload = useCallback(async () => {
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const reloadOnce = useCallback(async () => {
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
     await flush();
-    // Changes still waiting (offline) must not be overwritten by the server's copy.
-    if (!latest.current || !stored.current || !nothing(diffData(stored.current, latest.current)))
+    if (!latest.current) return;
+    // A device copy without its baseline (a damaged cache): what it lacks may have been
+    // added elsewhere, so nothing is deleted. Its own records are written over the
+    // database, and the merged result becomes both the copy and its baseline.
+    if (stored.current === null) {
+      try {
+        const server = owned(await loadData(client));
+        await applyWrites(client, { ...diffData(server, latest.current), deletes: [] });
+        const merged = owned(await loadData(client));
+        // An edit made meanwhile is not in `merged`: try again on the next sync.
+        if (changes.current !== before) return;
+        stored.current = merged;
+        latest.current = merged;
+        dispatch({ type: "replace", data: merged });
+        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+        hold("unsaved", false);
+      } catch (e) {
+        // Offline: the retry below tries the merge again; anything else is reported.
+        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+        else reportError(e);
+      }
       return;
+    }
+    // Changes still waiting (offline) must not be overwritten by the server's copy.
+    if (!nothing(diffData(stored.current, latest.current))) return;
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, flush, stored, latest, changes, owned]);
+  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
+  /**
+   * One reload at a time (mount, interval, foreground can overlap): an older merge's
+   * writes must never land after a newer one set the baseline. Each call waits for
+   * the one before and then runs, so it sees what its caller just changed; a failed
+   * one does not stop the next.
+   */
+  const reload = useCallback((): Promise<void> => {
+    const run = queue.current.catch(() => undefined).then(reloadOnce);
+    queue.current = run;
+    return run;
+  }, [reloadOnce]);
+
+  // A merge without baseline that failed offline is retried here: `flush` cannot do
+  // it (it never writes without a baseline).
+  useEffect(() => {
+    if (!status.offline || stored.current !== null) return;
+    const retry = () => void reload().catch(reportError);
+    const id = setInterval(retry, RETRY_MS);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", retry);
+    };
+  }, [status.offline, reload, stored]);
 
   const syncNow = useCallback(async () => {
     try {
@@ -365,6 +417,8 @@ function SyncProvider({
 const FINAL = new Set(["server_not_configured", "no_home", "home_not_located", "bad_request"]);
 /** After a passing failure (offline, geocoder busy), wait this long before trying again. */
 const LOOKUP_COOLDOWN_MS = 60_000;
+/** Passing failures before an address is given up and asked about instead. */
+const LOOKUP_TRIES = 3;
 
 /**
  * Times upcoming events' addresses from home in the background, a few at a time, so
@@ -377,9 +431,19 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
   const at = home(data);
   const homeKey = at ? `${at.id}|${at.address ?? ""}|${at.lat ?? ""},${at.lon ?? ""}` : "";
   const currentHome = useRef(homeKey);
-  currentHome.current = homeKey;
+  // Set on commit, so a lookup never compares with a render React threw away.
+  useLayoutEffect(() => {
+    currentHome.current = homeKey;
+  }, [homeKey]);
   const inFlight = useRef(new Set<string>());
   const coolUntil = useRef(new Map<string, number>());
+  const failures = useRef(new Map<string, number>());
+  // A new home starts every address afresh.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `homeKey` is the trigger.
+  useLayoutEffect(() => {
+    failures.current.clear();
+    coolUntil.current.clear();
+  }, [homeKey]);
   const running = useRef(false);
   // Bumped when a lookup ends, so the next batch starts even if nothing else changed.
   const [round, setRound] = useState(0);
@@ -394,25 +458,52 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
       )
       .slice(0, SPOTS_PER_CALL);
     if (batch.length === 0) return;
+    // The server refuses a whole call over one very long address: those are answered
+    // here as not found, and the rest still go.
+    const refused = batch.filter((u) => u.text.length > SPOT_TEXT_MAX);
+    if (refused.length)
+      return dispatch({
+        type: "spots",
+        results: refused.map((u) => ({ text: u.text, minutes: null })),
+      });
     const asked = homeKey;
     for (const u of batch) inFlight.current.add(u.key);
-    const texts = batch.map((u) => u.event.location as string);
+    const texts = batch.map((u) => u.text);
     running.current = true;
-    const cool = () => {
+    /** Waits a while before the next try; only failed lookups count towards giving up. */
+    const cool = (lookupFailed: boolean) => {
+      // After a few failed lookups the inbox asks instead of "calculating" for ever.
+      const exhausted = batch.filter((u) => {
+        if (!lookupFailed) return false;
+        const n = (failures.current.get(u.key) ?? 0) + 1;
+        failures.current.set(u.key, n);
+        return n >= LOOKUP_TRIES;
+      });
+      if (exhausted.length) {
+        // That episode is over: if the address is forgotten later, it gets fresh tries.
+        for (const u of exhausted) failures.current.delete(u.key);
+        dispatch({
+          type: "spots",
+          results: exhausted.map((u) => ({ text: u.text, minutes: null })),
+        });
+      }
       for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);
       setTimeout(() => setRound((r) => r + 1), LOOKUP_COOLDOWN_MS);
     };
     void (async () => {
       try {
         // The server reads the home from the database: a home just saved must be there.
-        if (!(await flush())) return cool();
+        // A save that did not go through is not the address's fault.
+        if (!(await flush())) return cool(false);
         const r = await timeSpots(client, texts);
         // Timed from a home that is no longer this one: ask again for the current one.
         if (currentHome.current !== asked) return;
-        if (r.ok && r.spots) dispatch({ type: "spots", results: r.spots });
-        else if (r.error && FINAL.has(r.error))
+        if (r.ok && r.spots) {
+          for (const u of batch) failures.current.delete(u.key);
+          dispatch({ type: "spots", results: r.spots });
+        } else if (r.error && FINAL.has(r.error))
           dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
-        else cool();
+        else cool(true);
       } finally {
         for (const u of batch) inFlight.current.delete(u.key);
         running.current = false;
