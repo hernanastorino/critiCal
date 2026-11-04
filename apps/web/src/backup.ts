@@ -38,6 +38,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   type Rec = Record<string, unknown>;
   const isObject = (x: unknown): x is Rec => !!x && typeof x === "object" && !Array.isArray(x);
   const str = (x: unknown) => typeof x === "string" && x.length > 0;
+  const between = (x: unknown, lo: number, hi: number) =>
+    typeof x === "number" && Number.isFinite(x) && x >= lo && x <= hi;
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   const validUnit = (u: unknown) =>
     isObject(u) && str(u.id) && str(u.title) && num(u.estimateMinutes);
@@ -156,10 +158,58 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     isObject(settings) &&
     zone(settings.timezone) &&
     [15, 30, 60].includes(settings.slotMinutes as number) &&
-    minute(settings.travelMarginMinutes) &&
-    Number.isInteger(settings.maxActivitiesPerDay) &&
-    (settings.maxActivitiesPerDay as number) >= 1 &&
-    minute(settings.warnSlackMinutes, 100_000);
+    // The rules form accepts decimals, so a backup may carry them.
+    between(settings.travelMarginMinutes, 0, 1440) &&
+    between(settings.maxActivitiesPerDay, 1, 100) &&
+    between(settings.warnSlackMinutes, 0, 100_000);
+  const DAY_MS = 86_400_000;
+  // Bounded intervals: the planner walks them slot by slot.
+  const block = (b: unknown) =>
+    isObject(b) &&
+    str(b.id) &&
+    str(b.taskId) &&
+    instant(b.start) &&
+    instant(b.end) &&
+    (b.end as number) > (b.start as number) &&
+    (b.end as number) - (b.start as number) <= DAY_MS;
+  const event = (e: unknown) =>
+    isObject(e) &&
+    str(e.id) &&
+    typeof e.title === "string" &&
+    instant(e.start) &&
+    instant(e.end) &&
+    (e.end as number) >= (e.start as number) &&
+    (e.end as number) - (e.start as number) <= 366 * DAY_MS;
+  const proposal = (p: unknown) =>
+    isObject(p) &&
+    str(p.id) &&
+    Array.isArray(p.plan) &&
+    p.plan.every(block) &&
+    Array.isArray(p.conflicts);
+  const place = (p: unknown) =>
+    isObject(p) &&
+    str(p.id) &&
+    str(p.name) &&
+    Array.isArray(p.aliases) &&
+    p.aliases.every((a) => typeof a === "string") &&
+    (p.lat === undefined || between(p.lat, -90, 90)) &&
+    (p.lon === undefined || between(p.lon, -180, 180));
+  const travel = (t: unknown) =>
+    isObject(t) &&
+    str(t.from) &&
+    str(t.to) &&
+    minute(t.minutes, 1440) &&
+    typeof t.manual === "boolean";
+  const optionalList = (x: unknown, ok: (v: unknown) => boolean) =>
+    x === undefined || (Array.isArray(x) && x.every(ok));
+  // Called only once the lists are known to be arrays.
+  const validShapes = () =>
+    (d.plan as unknown[]).every(block) &&
+    optionalList(d.pins, block) &&
+    (d.events as unknown[]).every(event) &&
+    (d.proposals as unknown[]).every(proposal) &&
+    optionalList(d.places, place) &&
+    optionalList(d.travelTimes, travel);
   if (
     !validSettings ||
     !Array.isArray(week) ||
@@ -170,6 +220,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     !(d.tasks as unknown[]).every(validTask) ||
     !(d.checkIns as unknown[]).every(validCheckIn) ||
     !(d.overrides as unknown[]).every(validOverride) ||
+    !validShapes() ||
     !validPreferences(d.preferences)
   ) {
     return { error: "Al respaldo le faltan datos." };

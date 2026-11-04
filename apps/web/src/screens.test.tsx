@@ -286,6 +286,22 @@ describe("backup", () => {
         ),
       ),
     ).toHaveProperty("data");
+    // Decimals the rules form accepts round-trip.
+    expect(
+      parseBackup(
+        exportJson({ ...data, settings: { ...data.settings, travelMarginMinutes: 7.5 } }, 1),
+      ),
+    ).toHaveProperty("data");
+    const [firstBlock] = data.plan;
+    for (const broken of [
+      { plan: [{ ...(firstBlock as object), start: 0, end: 1e100 }] },
+      { places: [{ id: "p", name: "X" }] },
+      { travelTimes: [{ from: "a", to: "b", minutes: -1, manual: false }] },
+      { events: [{ id: "e", title: "x", start: 10, end: 5 }] },
+    ])
+      expect(parseBackup(exportJson({ ...data, ...broken } as never, 1))).toEqual({
+        error: "Al respaldo le faltan datos.",
+      });
     for (const settings of [
       { ...data.settings, timezone: "Mars/Olympus" },
       { ...data.settings, slotMinutes: 7 },
