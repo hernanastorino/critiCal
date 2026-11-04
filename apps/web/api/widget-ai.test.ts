@@ -68,6 +68,9 @@ describe("widget", () => {
     expect(release).toHaveBeenCalled();
     expect((await widget.read(bearer("cw_wrong"), env, NOW)).status).toBe(401);
     expect((await widget.read(bearer(), env, NOW)).status).toBe(401);
+    rpc.mockResolvedValueOnce({ data: null, error: new Error("db down") });
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    expect((await widget.read(bearer("cw_abc"), env, NOW)).status).toBe(500);
     expect((await widget.read(bearer("x"), { ...env, secret: undefined }, NOW)).status).toBe(503);
   });
 

@@ -28,7 +28,15 @@ export async function read(req: Request, env: Env, now = Date.now()): Promise<Re
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "unauthorized" }, 401);
   const admin = adminClient(env);
-  const { data: uid } = await admin.rpc("widget_user", { p_hash: await sha256(token) });
+  const { data: uid, error: lookup } = await admin.rpc("widget_user", {
+    p_hash: await sha256(token),
+  });
+  // A failed lookup is our problem, not a bad token.
+  if (lookup) {
+    console.error(lookup);
+    await report(env, lookup, "widget");
+    return json({ error: "widget_failed" }, 500);
+  }
   if (!uid) return json({ error: "unauthorized" }, 401);
   let caller: Awaited<ReturnType<typeof actAs>> | undefined;
   try {

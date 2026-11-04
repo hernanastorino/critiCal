@@ -86,8 +86,15 @@ export function SyllabusImport() {
       return;
     }
     setBusy(true);
-    const r = await readSyllabus(sync.client, await toBase64(file));
-    setBusy(false);
+    let r: Awaited<ReturnType<typeof readSyllabus>>;
+    try {
+      r = await readSyllabus(sync.client, await toBase64(file));
+    } catch {
+      setError("No se pudo leer el archivo PDF.");
+      return;
+    } finally {
+      setBusy(false);
+    }
     if (!r.ok) {
       setError(ERRORS[r.error] ?? "No se pudo leer el programa.");
       return;
