@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest";
 import { Inbox } from "./components/Inbox.js";
 import { Places } from "./components/Places.js";
+import { applyWrites, diffData } from "./data.js";
 import { emptyData } from "./demo.js";
 import { MINUTE, zonedInstant } from "./engine.js";
 import type { AppData, AppEvent, Place } from "./model.js";
@@ -115,6 +116,43 @@ describe("places", () => {
     expect(d.places?.find((p) => p.id === "facu")?.aliases).toEqual(["FING", "Instituto Anglo"]);
     d = reducer(d, { type: "locate", text: "Juntada en lo de Juan", placeId: null, now: NOW });
     expect(d.noTravel).toEqual(["juntada en lo de juan"]);
+  });
+
+  it("drops computed times of a place whose address changed, and writes the deletion", async () => {
+    const before = data();
+    const moved = reducer(before, {
+      type: "savePlace",
+      place: { ...facu, address: "Otra dirección 123" },
+      now: NOW,
+    });
+    expect(moved.travelTimes).toEqual([{ from: "casa", to: "facu", minutes: 30, manual: true }]);
+    const w = diffData(before, moved);
+    expect(w.deletes).toContainEqual({ table: "travel_times", ids: ["facu>casa>computed"] });
+    const deleted: unknown[][] = [];
+    const client = {
+      from: () => ({
+        upsert: async () => ({ error: null }),
+        delete: () => {
+          const filters: unknown[] = [];
+          const query = Object.assign(Promise.resolve({ error: null }), {
+            eq: (_c: string, v: unknown) => {
+              filters.push(v);
+              if (filters.length === 1) deleted.push(filters);
+              return query;
+            },
+            in: async () => ({ error: null }),
+          });
+          return query;
+        },
+      }),
+    };
+    await applyWrites(client as never, w);
+    // Only while still computed: a manual time written elsewhere survives.
+    expect(deleted).toEqual([["facu", "casa", false]]);
+    // Same address: nothing is dropped.
+    expect(
+      reducer(before, { type: "savePlace", place: { ...facu }, now: NOW }).travelTimes,
+    ).toEqual(before.travelTimes);
   });
 
   it("keeps one home, and forgets a deleted place's times", () => {

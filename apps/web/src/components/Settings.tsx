@@ -1,28 +1,42 @@
 import { useState } from "react";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { holidaysBetween } from "../holidays.js";
 import { useStore } from "../store.js";
+import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
 import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
+import { Semester } from "./Semester.js";
 
 export function Settings({
   onClose,
   onReset,
   onSignOut,
+  onWeeklyPlan,
 }: {
   onClose: () => void;
   onReset?: () => void;
   onSignOut?: () => void;
+  onWeeklyPlan?: () => void;
 }) {
   const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const override = data.overrides.find((o) => o.date === today);
-  const base = data.settings.week[localParts(tz, now).weekday];
-  const [wake, setWake] = useState(minutesToHhmm(override?.wake ?? base?.wake ?? 480));
-  const [bed, setBed] = useState(minutesToHhmm(override?.bed ?? base?.bed ?? 0));
+  // Same routine the planner uses: holidays are Sundays unless turned off.
+  const holiday =
+    data.preferences?.holidaysOff !== false && holidaysBetween(today, today).length > 0;
+  const base =
+    data.settings.week[override?.asWeekday ?? (holiday ? 0 : localParts(tz, now).weekday)];
+  const defaultWake = minutesToHhmm(override?.wake ?? base?.wake ?? 480);
+  const defaultBed = minutesToHhmm(override?.bed ?? base?.bed ?? 0);
+  // Untouched fields follow the routine (e.g. holidays switched on or off here).
+  const [wakeEdit, setWake] = useState<string | null>(null);
+  const [bedEdit, setBed] = useState<string | null>(null);
+  const wake = wakeEdit ?? defaultWake;
+  const bed = bedEdit ?? defaultBed;
 
   return (
     <>
@@ -52,7 +66,13 @@ export function Settings({
           onClick={() => {
             dispatch({
               type: "override",
-              override: { date: today, wake: hhmmToMinutes(wake), bed: hhmmToMinutes(bed) },
+              // Keep whatever else today's override says (its routine).
+              override: {
+                ...override,
+                date: today,
+                wake: hhmmToMinutes(wake),
+                bed: hhmmToMinutes(bed),
+              },
             });
             onClose();
           }}
@@ -60,7 +80,14 @@ export function Settings({
           Reacomodar hoy
         </button>
 
+        {onWeeklyPlan && (
+          <button type="button" className="btn" style={{ width: "100%" }} onClick={onWeeklyPlan}>
+            Planificación semanal
+          </button>
+        )}
+
         <div className="section-title">Configuración fija</div>
+        <Semester />
         <WeekSettings />
         <RuleSettings />
         <ActivitySettings />
@@ -71,6 +98,7 @@ export function Settings({
         <Notifications />
 
         <div className="section-title">Cuenta</div>
+        <Backup />
         <div className="row">
           {onReset && (
             <button type="button" className="btn" onClick={onReset}>

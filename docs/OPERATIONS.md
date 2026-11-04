@@ -59,6 +59,14 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - «Calcular con las direcciones»: geocodifica con OpenStreetMap (una vez por lugar) y pide los tiempos en auto a OpenRouteService. Los tiempos cargados a mano nunca se pisan.
 - La Bandeja pregunta «¿Dónde es?» por los eventos de los próximos 7 días sin lugar conocido; la respuesta queda como alias (o «no hace falta traslado»), así que no vuelve a preguntar.
 
+## Planificación y cuatrimestre
+
+- **Planificación semanal**: Ajustes → «Planificación semanal» (o el aviso del domingo). Muestra la semana (la próxima en fin de semana), horas por día, críticos, lo que no llega al mínimo y cuántas decisiones esperan en la Bandeja.
+- **Inicio de cuatrimestre**: Ajustes → fechas, feriados del período, materias (con mínimo semanal opcional → silo semanal) y parciales/entregas.
+- **Feriados de Uruguay**: calculados (fijos, Carnaval y Turismo según Pascua, y los trasladables al lunes). Se planifican con la rutina del domingo; se puede apagar.
+- **Planificado vs. hecho**: en Silos, lo planificado en bloques ya terminados esta semana contra lo registrado.
+- **Respaldo**: Ajustes → Cuenta → Exportar / Importar JSON (importar reemplaza todo, con confirmación).
+
 ## Backups
 
 - Nocturno: workflow **Backup** → artefacto `backup-AAAA-MM-DD.tgz.gpg` (90 días).

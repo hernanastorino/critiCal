@@ -21,6 +21,20 @@ vi.mock("@supabase/supabase-js", () => ({
           return { error: null };
         },
       }),
+      delete: () => {
+        const filters: unknown[] = [];
+        const chain = {
+          eq: (_c: string, v: unknown) => {
+            filters.push(v);
+            if (filters.length === 3) {
+              writes.push({ table, op: "delete", payload: filters });
+              return Promise.resolve({ error: null });
+            }
+            return chain;
+          },
+        };
+        return chain;
+      },
       upsert: async (payload: unknown) => {
         writes.push({ table, op: "upsert", payload });
         return { error: null };
@@ -75,7 +89,14 @@ describe("travel", () => {
     });
     const pause = vi.fn(async () => {});
     const res = await handle(req(), env, pause);
-    expect(await res.json()).toEqual({ ok: true, geocoded: 1, pairs: 1 });
+    expect(await res.json()).toEqual({
+      ok: true,
+      geocoded: 1,
+      pairs: 1,
+      unroutable: [],
+      ungeocoded: ["gym"],
+      noAddress: [],
+    });
     expect(pause).toHaveBeenCalledTimes(1);
     expect(writes).toEqual([
       { table: "places", op: "update", payload: { lat: -34.8, lon: -56.2 } },
@@ -108,9 +129,44 @@ describe("travel", () => {
     manualError = null;
   });
 
+  it("forgets computed times for pairs with no route", async () => {
+    places = [
+      { id: "casa", address: null, lat: -34.8, lon: -56.2 },
+      { id: "isla", address: null, lat: -34.9, lon: -56.1 },
+    ];
+    manual = [{ from_place: "isla", to_place: "casa" }];
+    vi.stubGlobal("fetch", async () =>
+      Response.json({
+        durations: [
+          [0, null],
+          [null, 0],
+        ],
+      }),
+    );
+    expect(await (await handle(req(), env)).json()).toEqual({
+      ok: true,
+      geocoded: 0,
+      pairs: 0,
+      unroutable: [{ from: "casa", to: "isla" }],
+      ungeocoded: [],
+      noAddress: [],
+    });
+    expect(writes).toEqual([
+      { table: "travel_times", op: "delete", payload: ["casa", "isla", false] },
+    ]);
+    manual = [];
+  });
+
   it("needs two located places, and reports routing failures", async () => {
     places = [{ id: "casa", address: null, lat: -34.8, lon: -56.2 }];
-    expect(await (await handle(req(), env)).json()).toEqual({ ok: true, geocoded: 0, pairs: 0 });
+    expect(await (await handle(req(), env)).json()).toEqual({
+      ok: true,
+      geocoded: 0,
+      pairs: 0,
+      unroutable: [],
+      ungeocoded: [],
+      noAddress: [],
+    });
     places = [
       { id: "casa", address: null, lat: -34.8, lon: -56.2 },
       { id: "facu", address: null, lat: -34.9, lon: -56.1 },

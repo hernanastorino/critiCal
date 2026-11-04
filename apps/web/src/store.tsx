@@ -311,13 +311,22 @@ export function reducer(data: AppData, action: Action): AppData {
     case "preferences":
       return refresh({ ...data, preferences: action.preferences }, now);
     case "saveActivity": {
-      const activities = data.activities.map((a) =>
-        a.id === action.activity.id ? action.activity : a,
-      );
+      const exists = data.activities.some((a) => a.id === action.activity.id);
+      const activities = exists
+        ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
+        : [...data.activities, action.activity];
       return refresh({ ...data, activities }, now);
     }
     case "savePlace": {
-      const exists = (data.places ?? []).some((p) => p.id === action.place.id);
+      const old = (data.places ?? []).find((p) => p.id === action.place.id);
+      const exists = !!old;
+      // A new address makes its computed times stale; manual ones are the user's.
+      const travelTimes =
+        old && (old.address ?? "") !== (action.place.address ?? "")
+          ? (data.travelTimes ?? []).filter(
+              (t) => t.manual || (t.from !== old.id && t.to !== old.id),
+            )
+          : data.travelTimes;
       let places = exists
         ? (data.places ?? []).map((p) => (p.id === action.place.id ? action.place : p))
         : [...(data.places ?? []), action.place];
@@ -326,7 +335,7 @@ export function reducer(data: AppData, action: Action): AppData {
         places = places.map((p) =>
           p.id !== action.place.id && p.isHome ? { ...p, isHome: undefined } : p,
         );
-      return refresh({ ...data, places }, now);
+      return refresh({ ...data, places, travelTimes }, now);
     }
     case "deletePlace": {
       const places = (data.places ?? []).filter((p) => p.id !== action.placeId);

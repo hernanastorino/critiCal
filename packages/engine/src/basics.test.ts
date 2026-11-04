@@ -121,6 +121,19 @@ describe("buildSlots", () => {
     expect(late).toHaveLength(25);
   });
 
+  it("plans a day with another weekday's routine", () => {
+    const sunday = { ...settings.week[0], wake: 10 * 60 } as (typeof settings.week)[number];
+    const week = [sunday, ...settings.week.slice(1)];
+    const asSunday = buildSlots(
+      { ...settings, week },
+      [{ date: "2026-11-02", asWeekday: 0 }],
+      from,
+      to,
+      [],
+    );
+    expect(asSunday[0]?.start).toBe(at("2026-11-02", "10:00"));
+  });
+
   it("keeps after-midnight time on the previous logical day", () => {
     const night = buildSlots(
       settings,

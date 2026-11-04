@@ -43,6 +43,8 @@ export interface DayOverride {
   date: string;
   wake?: number;
   bed?: number;
+  /** Plan the day with this weekday's routine (a holiday as a Sunday). */
+  asWeekday?: number;
 }
 
 export interface Activity {

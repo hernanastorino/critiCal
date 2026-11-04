@@ -40,6 +40,8 @@ interface SyncApi {
   client: SupabaseClient;
   status: SyncStatus;
   syncNow: () => Promise<void>;
+  /** Writes pending changes now; false if they could not be written (offline). */
+  flush: () => Promise<boolean>;
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
@@ -135,9 +137,10 @@ export function Connected({
   }, [client, pullCalendars, local, uid, owned]);
 
   // One flush at a time, so parents always land before children.
-  const flushing = useRef<Promise<void> | null>(null);
+  const flushing = useRef<Promise<boolean> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const flush = useCallback((): Promise<void> => {
+  /** Writes what is pending; true once the database has everything this device has. */
+  const flush = useCallback((): Promise<boolean> => {
     if (flushing.current) return flushing.current;
     const run = async () => {
       // Never finish synchronously: `flushing` must be set before it is cleared.
@@ -160,12 +163,14 @@ export function Connected({
           clearTimeout(pushTimer.current);
           pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
         }
+        return true;
       } catch (e) {
         if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
         else {
           reportError(e);
           setError(e instanceof Error ? e.message : String(e));
         }
+        return false;
       } finally {
         flushing.current = null;
       }
@@ -256,7 +261,7 @@ function SyncProvider({
   setStatus: React.Dispatch<React.SetStateAction<SyncStatus>>;
   /** Opened from the device cache: pull everything fresh right away. */
   refreshOnMount: boolean;
-  flush: () => Promise<void>;
+  flush: () => Promise<boolean>;
   stored: React.MutableRefObject<AppData | null>;
   latest: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
@@ -322,6 +327,7 @@ function SyncProvider({
       client,
       status,
       syncNow,
+      flush,
       reconnectGoogle: () => void signInWithGoogle(client),
       connectICloud: async (appleId, appPassword) => {
         setStatus((s) => ({ ...s, busy: true }));
@@ -336,7 +342,7 @@ function SyncProvider({
         await reload();
       },
     }),
-    [status, syncNow, client, setStatus, reload],
+    [status, syncNow, flush, client, setStatus, reload],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;

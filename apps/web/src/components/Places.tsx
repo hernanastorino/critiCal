@@ -20,6 +20,12 @@ export function Places() {
     if (!sync) return;
     setBusy(true);
     setNote(null);
+    // An address just edited must reach the database before the server reads it.
+    if (!(await sync.flush())) {
+      setBusy(false);
+      setNote("Hay cambios sin guardar (¿sin conexión?): probá de nuevo cuando se sincronicen.");
+      return;
+    }
     const r = await computeTravel(sync.client);
     setBusy(false);
     if (!r.ok) {
@@ -30,7 +36,28 @@ export function Places() {
       );
       return;
     }
-    setNote(`Listo: ${r.pairs ?? 0} tiempos calculados.`);
+    const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+    // Only pairs entered by hand are settled: computed times may be the ones the server
+    // just deleted, and it already leaves manual pairs out of `unroutable`.
+    const known = (from: string, to: string) =>
+      (data.travelTimes ?? []).some((t) => t.manual && t.from === from && t.to === to);
+    const incomplete = (id: string) =>
+      places.some((q) => q.id !== id && (!known(id, q.id) || !known(q.id, id)));
+    const missing = (r.unroutable ?? [])
+      .filter((u) => !known(u.from, u.to))
+      .map((u) => `${name(u.from)} → ${name(u.to)}`);
+    const unknown = (r.ungeocoded ?? []).filter(incomplete).map(name);
+    const noAddress = (r.noAddress ?? []).filter(incomplete).map(name);
+    const problems = [
+      noAddress.length ? `Sin dirección: ${noAddress.join(", ")}` : "",
+      unknown.length ? `no encontré la dirección de ${unknown.join(", ")}` : "",
+      missing.length ? `sin ruta en auto para ${missing.join(", ")}` : "",
+    ].filter(Boolean);
+    setNote(
+      problems.length
+        ? `${problems.join("; ")}: cargá esos minutos a mano.`
+        : `Listo: ${r.pairs ?? 0} tiempos calculados.`,
+    );
     await sync.syncNow();
   };
 

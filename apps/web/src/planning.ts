@@ -18,6 +18,7 @@ import {
   targetOptions,
   zonedInstant,
 } from "./engine.js";
+import { withHolidays } from "./holidays.js";
 import type { AppData, AppTask, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
@@ -135,20 +136,24 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
   const tasks = toEngineTasks(data, now);
+  // Reach the furthest deadline so its capacity (and slack) is complete.
+  const horizonEnd = Math.min(
+    now + MAX_HORIZON_DAYS * 1440 * MINUTE,
+    Math.max(now + HORIZON_DAYS * 1440 * MINUTE, ...tasks.map((t) => t.deadline)),
+  );
   return {
     now,
-    // Reach the furthest deadline so its capacity (and slack) is complete.
-    horizonEnd: Math.min(
-      now + MAX_HORIZON_DAYS * 1440 * MINUTE,
-      Math.max(now + HORIZON_DAYS * 1440 * MINUTE, ...tasks.map((t) => t.deadline)),
-    ),
+    horizonEnd,
     settings: data.settings,
     activities: data.activities,
     tasks,
     events: withPlaces(data, visibleEvents(data)),
     travel: travelOptions(data),
     frozen,
-    overrides: data.overrides,
+    overrides:
+      data.preferences?.holidaysOff === false
+        ? data.overrides
+        : withHolidays(data.overrides, data.settings.timezone, now, horizonEnd),
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,
     maxActivitiesPerDay: (data.relaxContextUntil ?? 0) > now ? Number.POSITIVE_INFINITY : undefined,
   };

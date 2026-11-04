@@ -6,7 +6,9 @@ import { zonedInstant } from "./engine.js";
 import { loadDemo, resetDemo, seedHistory } from "./store.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
-const seeded = (now: number) => seedHistory(demoData(now), now);
+// 2026-11-02 is a holiday (Difuntos); the demo here is an ordinary Monday.
+const seeded = (now: number) =>
+  seedHistory({ ...demoData(now), preferences: { holidaysOff: false } }, now);
 
 beforeEach(() => {
   localStorage.clear();

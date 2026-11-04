@@ -59,20 +59,28 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
     if (error) throw error;
     const places = (data ?? []) as PlaceRow[];
     let geocoded = 0;
+    /** Places with an address OpenStreetMap could not find: their times go by hand. */
+    const ungeocoded: string[] = [];
     let first = true;
     for (const p of places) {
       if (p.lat != null || !p.address?.trim()) continue;
       if (!first) await pause(1100);
       first = false;
       const hit = await geocode(p.address);
-      if (!hit) continue;
+      if (!hit) {
+        ungeocoded.push(p.id);
+        continue;
+      }
       const { error: updateError } = await user.from("places").update(hit).eq("id", p.id);
       if (updateError) throw updateError;
       Object.assign(p, hit);
       geocoded++;
     }
     const located = places.filter((p) => p.lat != null && p.lon != null);
-    if (located.length < 2) return json({ ok: true, geocoded, pairs: 0 });
+    // Without an address there is nothing to look up: those times go by hand too.
+    const noAddress = places.filter((p) => p.lat == null && !p.address?.trim()).map((p) => p.id);
+    if (located.length < 2)
+      return json({ ok: true, geocoded, pairs: 0, unroutable: [], ungeocoded, noAddress });
 
     const matrix = await drivingMatrix(
       env.orsKey as string,
@@ -92,11 +100,27 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
         return [{ from_place: from.id, to_place: to.id, minutes, manual: false }];
       }),
     );
+    // No route any more: an old computed time would still be planned around. The app
+    // asks for these by hand (an unknown time counts as zero minutes).
+    const unroutable: { from: string; to: string }[] = [];
+    for (const [i, from] of located.entries()) {
+      for (const [j, to] of located.entries()) {
+        if (i === j || matrix[i]?.[j] != null || manual.has(`${from.id}>${to.id}`)) continue;
+        unroutable.push({ from: from.id, to: to.id });
+        const { error: deleteError } = await user
+          .from("travel_times")
+          .delete()
+          .eq("from_place", from.id)
+          .eq("to_place", to.id)
+          .eq("manual", false);
+        if (deleteError) throw deleteError;
+      }
+    }
     if (rows.length) {
       const { error: writeError } = await user.from("travel_times").upsert(rows);
       if (writeError) throw writeError;
     }
-    return json({ ok: true, geocoded, pairs: rows.length });
+    return json({ ok: true, geocoded, pairs: rows.length, unroutable, ungeocoded, noAddress });
   } catch (e) {
     console.error(e);
     await report(env, e, "travel");

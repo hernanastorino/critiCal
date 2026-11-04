@@ -54,6 +54,12 @@ export interface TravelResult {
   ok: boolean;
   geocoded?: number;
   pairs?: number;
+  /** Place pairs with no driving route: their time must be entered by hand. */
+  unroutable?: { from: string; to: string }[];
+  /** Places whose address could not be found. */
+  ungeocoded?: string[];
+  /** Places without coordinates and without an address. */
+  noAddress?: string[];
   error?: string;
 }
 
