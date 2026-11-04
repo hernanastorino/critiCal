@@ -62,18 +62,32 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     instant(c.createdAt) &&
     Array.isArray(c.unitIds) &&
     c.unitIds.every(str);
-  const range = (r: unknown) => isObject(r) && num(r.start) && num(r.end);
+  // Minutes since midnight; up to two days for times after midnight (meals, free time).
+  const minute = (x: unknown, max = 1440) => num(x) && (x as number) >= 0 && (x as number) <= max;
+  const range = (r: unknown) =>
+    isObject(r) &&
+    minute(r.start, 2880) &&
+    minute(r.end, 2880) &&
+    (r.end as number) > (r.start as number);
   const validDay = (w: unknown) =>
     isObject(w) &&
-    num(w.wake) &&
-    num(w.bed) &&
-    num(w.freeFrom) &&
+    minute(w.wake) &&
+    minute(w.bed) &&
+    minute(w.freeFrom, 2880) &&
+    (w.morningMinutes === undefined || minute(w.morningMinutes)) &&
     Array.isArray(w.meals) &&
     w.meals.every(range);
+  // A real calendar day, not just its shape (2026-02-30 is not one).
+  const realDate = (x: unknown) => {
+    if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+    const d = new Date(`${x}T12:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
+  };
   const validOverride = (o: unknown) =>
     isObject(o) &&
-    typeof o.date === "string" &&
-    /^\d{4}-\d{2}-\d{2}$/.test(o.date) &&
+    realDate(o.date) &&
+    (o.wake === undefined || o.wake === null || minute(o.wake)) &&
+    (o.bed === undefined || o.bed === null || minute(o.bed)) &&
     (o.asWeekday === undefined ||
       (Number.isInteger(o.asWeekday) &&
         (o.asWeekday as number) >= 0 &&

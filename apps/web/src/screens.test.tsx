@@ -263,6 +263,20 @@ describe("backup", () => {
     ).toEqual({
       error: "Al respaldo le faltan datos.",
     });
+    for (const overrides of [
+      [{ date: "2026-02-30" }],
+      [{ date: "2026-11-05", wake: "invalid" as never }],
+      [{ date: "2026-11-05", bed: 1e100 }],
+    ])
+      expect(parseBackup(exportJson({ ...data, overrides }, 1))).toEqual({
+        error: "Al respaldo le faltan datos.",
+      });
+    const lateWake = data.settings.week.map((w, i) => (i === 2 ? { ...w, wake: 1e100 } : w));
+    expect(
+      parseBackup(exportJson({ ...data, settings: { ...data.settings, week: lateWake } }, 1)),
+    ).toEqual({
+      error: "Al respaldo le faltan datos.",
+    });
     const badWeek = data.settings.week.map((w, i) =>
       i === 3 ? ({ ...w, meals: [null] } as never) : w,
     );

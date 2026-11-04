@@ -20,7 +20,8 @@ export function Semester() {
   const [saved, setSaved] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const holidaysOn = data.preferences?.holidaysOff !== false;
-  const holidays = end && end >= start ? holidaysBetween(start, end) : [];
+  // Both dates are needed: an empty start would mean "from year 0".
+  const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
 
   const prefs = (patch: Partial<NonNullable<typeof data.preferences>>) =>
     dispatch({ type: "preferences", preferences: { ...data.preferences, ...patch } });
