@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, hours, time } from "../format.js";
-import type { AppTask } from "../model.js";
+import { type AppTask, undoable } from "../model.js";
 import { endOfDay, pinClashes } from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -16,6 +16,10 @@ export function Inbox() {
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
   const clashes = pinClashes(data, now);
+  // Only decisions something can still be undone in (free-time ones never had tasks).
+  const applied = (data.applied ?? []).filter(
+    (d) => d.before.length === 0 || undoable(data, d).length > 0,
+  );
   const empty =
     unlocated.length +
       pending.length +
@@ -202,10 +206,8 @@ export function Inbox() {
           </div>
         ))}
 
-        {(data.applied ?? []).length > 0 && (
-          <div className="section-title">Decisiones que tomaste</div>
-        )}
-        {(data.applied ?? []).map((d) => (
+        {applied.length > 0 && <div className="section-title">Decisiones que tomaste</div>}
+        {applied.map((d) => (
           <div key={d.id} className="card">
             <div className="title">{d.label}</div>
             <p className="meta">{dayAndTime(tz, d.at)}</p>

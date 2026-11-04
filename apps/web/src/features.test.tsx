@@ -87,6 +87,56 @@ describe("decisions and defaults", () => {
     expect(reducer(undone, { type: "undoDecision", id: "nope", now: NOW })).toBe(undone);
   });
 
+  it("never brings back silos deleted or ended after a decision", () => {
+    const d = demoData(NOW);
+    const [a, b, c] = d.tasks.filter((t) => t.status === "active");
+    if (!a || !b || !c) throw new Error("demo needs three tasks");
+    const decision = {
+      id: "cut@1",
+      label: "Recorte proporcional",
+      at: NOW,
+      // Before the cut: A and B had more minutes, C was active (the cut dropped it).
+      before: [
+        { ...a, minMinutes: a.minMinutes + 60 },
+        { ...b, minMinutes: b.minMinutes + 60 },
+        { ...c, status: "active" as const },
+      ],
+      dropped: [c.id],
+    };
+    const start: AppData = {
+      ...d,
+      tasks: d.tasks.map((t) => (t.id === c.id ? { ...t, status: "dropped" as const } : t)),
+      applied: [decision],
+    };
+    // B ends by hand: the decision forgets it.
+    const ended = reducer(start, {
+      type: "recurrence",
+      taskId: b.id,
+      change: "endFromToday",
+      now: NOW,
+    });
+    expect(ended.applied?.[0]?.before.map((t) => t.id)).toEqual([a.id, c.id]);
+    const undone = reducer(ended, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(undone.tasks.find((t) => t.id === a.id)?.minMinutes).toBe(a.minMinutes + 60);
+    expect(undone.tasks.find((t) => t.id === b.id)?.status).toBe("dropped");
+    // C was dropped by the decision itself: undo brings it back.
+    expect(undone.tasks.find((t) => t.id === c.id)?.status).toBe("active");
+
+    // A silo dropped later by other means is not revived either.
+    const later: AppData = {
+      ...start,
+      tasks: start.tasks.map((t) => (t.id === a.id ? { ...t, status: "dropped" as const } : t)),
+    };
+    const kept = reducer(later, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(kept.tasks.find((t) => t.id === a.id)?.status).toBe("dropped");
+
+    // Every silo it touched deleted: the decision is gone.
+    let gone = start;
+    for (const t of [a, b, c])
+      gone = reducer(gone, { type: "recurrence", taskId: t.id, change: "deleteAll", now: NOW });
+    expect(gone.applied).toEqual([]);
+  });
+
   it("shows applied decisions in the inbox with an undo button", () => {
     render(<App fixedNow={NOW} initial={tight} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));

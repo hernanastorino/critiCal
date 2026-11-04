@@ -185,7 +185,33 @@ export interface AppliedDecision {
   at: number;
   /** Tasks as they were before the decision. */
   before: AppTask[];
+  /** Tasks the decision itself dropped: undo brings these back, never ones dropped later. */
+  dropped?: string[];
   freeTimeUntil?: number;
+}
+
+/**
+ * The tasks undoing a decision would restore: still there, and not dropped since
+ * (unless the decision is what dropped them).
+ */
+export function undoable(data: AppData, d: AppliedDecision): AppTask[] {
+  return d.before.filter((b) => {
+    const now = data.tasks.find((t) => t.id === b.id);
+    return !!now && (now.status !== "dropped" || !!d.dropped?.includes(b.id));
+  });
+}
+
+/** Forgets tasks in the undo history; a decision left with no task goes away. */
+export function pruneApplied(
+  applied: AppliedDecision[] | undefined,
+  gone: (taskId: string) => boolean,
+): AppliedDecision[] | undefined {
+  return applied?.flatMap((d) => {
+    const before = d.before.filter((t) => !gone(t.id));
+    // A decision about free time never had tasks: it stays.
+    if (d.before.length > 0 && before.length === 0) return [];
+    return [{ ...d, before, dropped: d.dropped?.filter((id) => !gone(id)) }];
+  });
 }
 
 /** First palette colour no activity uses yet, so every subject looks different. */

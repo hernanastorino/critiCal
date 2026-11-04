@@ -26,7 +26,7 @@ import type {
   Place,
   Preferences,
 } from "./model.js";
-import { newId } from "./model.js";
+import { newId, pruneApplied, undoable } from "./model.js";
 import { unlocated } from "./places.js";
 import {
   applyOption,
@@ -150,11 +150,18 @@ export function reducer(data: AppData, action: Action): AppData {
             n.status !== t.status)
         );
       });
+      const dropped = changed
+        .filter(
+          (t) =>
+            t.status !== "dropped" && next.tasks.find((x) => x.id === t.id)?.status === "dropped",
+        )
+        .map((t) => t.id);
       const record: AppliedDecision = {
         id: `${option.id}@${now}`,
         label: option.label,
         at: now,
         before: changed,
+        ...(dropped.length ? { dropped } : {}),
         freeTimeUntil: data.freeTimeUntil,
       };
       return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
@@ -162,8 +169,10 @@ export function reducer(data: AppData, action: Action): AppData {
     case "undoDecision": {
       const record = data.applied?.find((d) => d.id === action.id);
       if (!record) return data;
+      // Deleted silos stay deleted and silos dropped since stay dropped.
+      const restore = undoable(data, record);
       const tasks = data.tasks.map((t) => {
-        const old = record.before.find((b) => b.id === t.id);
+        const old = restore.find((b) => b.id === t.id);
         return old
           ? {
               ...t,
@@ -264,10 +273,7 @@ export function reducer(data: AppData, action: Action): AppData {
             plan: data.plan.filter((b) => b.taskId !== id),
             pins: (data.pins ?? []).filter((b) => b.taskId !== id),
             // Nothing of it survives, not even in the undo history.
-            applied: data.applied?.map((d) => ({
-              ...d,
-              before: d.before.filter((t) => t.id !== id),
-            })),
+            applied: pruneApplied(data.applied, (t) => t === id),
           },
           now,
         );
@@ -287,12 +293,20 @@ export function reducer(data: AppData, action: Action): AppData {
         }
       };
       const tasks = data.tasks.map((t) => (t.id === id ? change(t) : t));
-      // A silo that stops repeating keeps no hand-placed future blocks.
-      const pins =
-        action.change === "endFromToday"
-          ? (data.pins ?? []).filter((b) => b.taskId !== id || b.end <= now)
-          : data.pins;
-      return refresh({ ...data, tasks, pins }, now);
+      if (action.change === "endFromToday") {
+        return refresh(
+          {
+            ...data,
+            tasks,
+            // A silo that stops repeating keeps no hand-placed future blocks…
+            pins: (data.pins ?? []).filter((b) => b.taskId !== id || b.end <= now),
+            // …and undoing an earlier decision must not bring it back.
+            applied: pruneApplied(data.applied, (t) => t === id),
+          },
+          now,
+        );
+      }
+      return refresh({ ...data, tasks }, now);
     }
     case "unpin": {
       const pins = (data.pins ?? []).filter((p) => p.id !== action.blockId);
