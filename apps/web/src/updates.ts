@@ -4,6 +4,25 @@ export const SETTLE_MS = 500;
 export const RETRY_MS = 2000;
 
 const inFlight = new Set<Promise<unknown>>();
+/** Reasons not to reload yet, each with when it lapses on its own (Infinity: never). */
+const holds = new Map<string, number>();
+
+/**
+ * Keeps a reload from happening while `reason` holds: an edit made but not yet handed
+ * to a save, or one that neither this device nor the server could store. `forMs` lets
+ * it lapse on its own, for when nothing may come to release it.
+ */
+export function hold(reason: string, on: boolean, forMs = Number.POSITIVE_INFINITY) {
+  if (on) holds.set(reason, Date.now() + forMs);
+  else holds.delete(reason);
+}
+
+/** Whether some reason still keeps a reload from happening. */
+export function held(): boolean {
+  const now = Date.now();
+  for (const [reason, until] of holds) if (until <= now) holds.delete(reason);
+  return holds.size > 0;
+}
 
 /** Marks a save in progress (on this device or to the server); a reload waits for it. */
 export function saving<T>(p: Promise<T>): Promise<T> {
@@ -41,7 +60,7 @@ export function watchUpdates(win: Window = window, reload = () => win.location.r
   let trying = false;
   let retry: number | undefined;
   const attempt = async () => {
-    if (!pending || !settled || trying || busy(doc)) return;
+    if (!pending || !settled || trying || held() || busy(doc)) return;
     trying = true;
     try {
       while (inFlight.size > 0) await Promise.allSettled([...inFlight]);
@@ -49,7 +68,7 @@ export function watchUpdates(win: Window = window, reload = () => win.location.r
       trying = false;
     }
     // The user may have started something while the saves finished.
-    if (!pending || busy(doc)) return;
+    if (!pending || held() || busy(doc)) return;
     pending = false;
     win.clearInterval(retry);
     reload();

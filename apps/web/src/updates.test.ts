@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { busy, RETRY_MS, SETTLE_MS, saving, watchUpdates } from "./updates.js";
+import { busy, held, hold, RETRY_MS, SETTLE_MS, saving, watchUpdates } from "./updates.js";
 
 /** A window whose service worker container and visibility the test drives. */
 function fakeWindow(controlled: boolean) {
@@ -38,6 +38,8 @@ describe("updates", () => {
   afterEach(() => {
     vi.useRealTimers();
     document.body.innerHTML = "";
+    hold("edit", false);
+    hold("unsaved", false);
   });
 
   it("reloads once a new version takes over an already controlled page", async () => {
@@ -102,6 +104,21 @@ describe("updates", () => {
     expect(reload).not.toHaveBeenCalled();
     land();
     await wait(0);
+    expect(reload).toHaveBeenCalledTimes(1);
+  });
+
+  it("waits while an edit is unsaved, and lets a lapsing hold go by itself", async () => {
+    const { win, reload, takeOver } = fakeWindow(true);
+    watchUpdates(win, reload);
+    hold("unsaved", true);
+    hold("edit", true, 1000);
+    takeOver();
+    await wait(SETTLE_MS + RETRY_MS * 3);
+    expect(reload).not.toHaveBeenCalled();
+    hold("unsaved", false);
+    // Only the lapsing one is left, and it is long gone.
+    expect(held()).toBe(false);
+    await wait(RETRY_MS);
     expect(reload).toHaveBeenCalledTimes(1);
   });
 

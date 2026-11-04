@@ -92,14 +92,17 @@ export async function readLocal(uid: string): Promise<LocalState | null> {
   }
 }
 
-export function writeLocal(uid: string, state: LocalState): Promise<void> {
+/** Stores this device's copy; false if storage refused it (full or blocked). */
+export function writeLocal(uid: string, state: LocalState): Promise<boolean> {
   return saving(
     (async () => {
       try {
         await run("readwrite", (s) => s.put(state, key(uid)));
         globalThis.localStorage?.removeItem(legacyKey(uid));
+        return true;
       } catch {
-        // Storage full or blocked: the next open just waits for the network.
+        // The next open just waits for the network.
+        return false;
       }
     })(),
   );
