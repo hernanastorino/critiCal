@@ -39,9 +39,12 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
   return db().then(
     (d) =>
       new Promise<T>((resolve, reject) => {
-        const req = fn(d.transaction(STORE, mode).objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        // Settled by the transaction, not the request: a write is on disk only once it commits.
+        const tx = d.transaction(STORE, mode);
+        const req = fn(tx.objectStore(STORE));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onerror = () => reject(tx.error ?? req.error);
+        tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
       }),
   );
 }

@@ -28,6 +28,39 @@ describe("device copy", () => {
     expect(await readLocal("a")).toBeNull();
   });
 
+  it("counts a write as saved only once its transaction commits", async () => {
+    const data = demoData(Date.now());
+    await readLocal("e"); // opens the database first
+    // Holds back the commit signal of the next transaction.
+    let commit: (() => void) | undefined;
+    const open = IDBDatabase.prototype.transaction;
+    const spy = vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(function (
+      this: IDBDatabase,
+      ...args: Parameters<IDBDatabase["transaction"]>
+    ) {
+      const tx = open.apply(this, args);
+      Object.defineProperty(tx, "oncomplete", {
+        configurable: true,
+        get: () => null,
+        set: (fn: () => void) => {
+          commit = fn;
+        },
+      });
+      return tx;
+    });
+    let done = false;
+    const write = writeLocal("e", { data, stored: null }).then(() => {
+      done = true;
+    });
+    await vi.waitFor(() => expect(commit).toBeDefined());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(done).toBe(false);
+    spy.mockRestore();
+    commit?.();
+    await write;
+    expect(done).toBe(true);
+  });
+
   it("ignores broken copies and forgets the old cache on sign-out", async () => {
     localStorage.setItem("critical.cache.v1.b", "null");
     expect(await readLocal("b")).toBeNull();
