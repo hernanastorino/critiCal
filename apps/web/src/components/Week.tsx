@@ -305,6 +305,17 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         <span className="sr-only" role="status">
           {spoken}
         </span>
+        {(data.planHistory ?? []).length > 0 && (
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label={`Deshacer: ${data.planHistory?.at(-1)?.label}`}
+            title={`Deshacer: ${data.planHistory?.at(-1)?.label}`}
+            onClick={() => dispatch({ type: "undoPlan" })}
+          >
+            ↶
+          </button>
+        )}
         <SyncDot onClick={onSettings} />
         <button type="button" className="icon-btn" aria-label="Ajustes" onClick={onSettings}>
           <GearIcon />
