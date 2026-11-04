@@ -144,8 +144,9 @@ export function Places() {
 }
 
 /**
- * Minutes field: shows the stored value, but while it has focus the user's draft wins,
- * so a time computed meanwhile never replaces what is being typed.
+ * Minutes field: shows the stored value until the user types; from then on their draft
+ * wins, so a time computed meanwhile never replaces what is being typed, and an
+ * untouched field never turns a computed time into a manual one.
  */
 function MinutesInput({
   label,
@@ -170,7 +171,6 @@ function MinutesInput({
       aria-label={label}
       style={{ width: 72 }}
       value={draft ?? value ?? ""}
-      onFocus={() => setDraft(String(value ?? ""))}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={commit}
       onKeyDown={(e) => {

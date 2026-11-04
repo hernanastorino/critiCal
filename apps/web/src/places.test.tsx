@@ -158,6 +158,13 @@ describe("places screens", () => {
       fireEvent.blur(input);
     });
     expect((screen.getByLabelText("Minutos de Casa a Gym") as HTMLInputElement).value).toBe("15");
+    // Focusing and leaving without typing keeps a computed time computed.
+    const computed = screen.getByLabelText("Minutos de Facultad de Ingeniería a Casa");
+    fireEvent.focus(computed);
+    await act(async () => {
+      fireEvent.blur(computed);
+    });
+    expect(screen.getByText(/Facultad de Ingeniería → Casa/).textContent).toContain("calculado");
   });
 
   it("asks where an event is from the inbox", async () => {
