@@ -35,17 +35,21 @@ export interface ServerSync {
 /** Everything the app does on open, for a user who is not looking. */
 export async function serverSync(env: Env, uid: string, now = Date.now()): Promise<ServerSync> {
   const caller = await actAs(env, uid);
-  const google = await openGoogle(caller, env).catch((e) => {
-    console.warn("google token", e);
-    return null;
-  });
-  let imported: Awaited<ReturnType<typeof importGoogle>> | undefined;
-  if (google) {
-    imported = await importGoogle(google, now);
-    if (env.appUrl) await watchCalendars(google, imported.calendarIds, env.appUrl, now);
+  try {
+    const google = await openGoogle(caller, env).catch((e) => {
+      console.warn("google token", e);
+      return null;
+    });
+    let imported: Awaited<ReturnType<typeof importGoogle>> | undefined;
+    if (google) {
+      imported = await importGoogle(google, now);
+      if (env.appUrl) await watchCalendars(google, imported.calendarIds, env.appUrl, now);
+    }
+    const icloud = (await (await syncICloudFor(caller)).json()) as { connected?: boolean };
+    const { data, proposal } = await replan(caller, now);
+    if (google) await mirrorPlan(google, now, imported?.planCalendar);
+    return { google: !!google, icloud: !!icloud.connected, proposal, data, caller };
+  } finally {
+    await caller.release?.().catch((e) => console.warn("release", e));
   }
-  const icloud = (await (await syncICloudFor(caller)).json()) as { connected?: boolean };
-  const { data, proposal } = await replan(caller, now);
-  if (google) await mirrorPlan(google, now, imported?.planCalendar);
-  return { google: !!google, icloud: !!icloud.connected, proposal, data, caller };
 }

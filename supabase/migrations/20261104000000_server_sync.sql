@@ -17,11 +17,13 @@ revoke all on public.google_channels from anon, authenticated;
 grant select, insert, update, delete on public.google_channels to service_role;
 
 -- When each user's calendars were last synced server-side; `pending` marks a webhook
--- that arrived during a sync, for the next cron tick.
+-- that arrived during a sync, for the next cron tick. `running_until` is a lease: one
+-- sync per user at a time (two would undo each other's plan and duplicate Plan events).
 create table private.sync_state (
   user_id uuid primary key references auth.users on delete cascade,
   ran_at timestamptz,
-  pending boolean not null default false
+  pending boolean not null default false,
+  running_until timestamptz
 );
 
 -- Values the database itself needs: the production origin (registered by the app's
@@ -46,18 +48,28 @@ returns boolean language sql security definer stable set search_path = '' as $$
   select exists (select 1 from private.app_config where key = 'cron_key' and value = p_key);
 $$;
 
--- True when the caller may sync this user now (nothing ran in the last `p_gap`);
--- otherwise remembers the request for the next tick.
+-- True when the caller may sync this user now: no sync is running and nothing ran in
+-- the last `p_gap` (unless a request is pending). Otherwise remembers the request for
+-- the next tick. The caller ends the lease with finish_sync; a crashed sync's lease
+-- simply expires.
 create function public.claim_sync(p_user uuid, p_gap interval)
 returns boolean language plpgsql security definer set search_path = '' as $$
 begin
   insert into private.sync_state (user_id) values (p_user) on conflict (user_id) do nothing;
-  update private.sync_state set ran_at = now(), pending = false
-    where user_id = p_user and (pending or ran_at is null or ran_at < now() - p_gap);
+  update private.sync_state
+    set ran_at = now(), pending = false, running_until = now() + interval '5 minutes'
+    where user_id = p_user
+      and (running_until is null or running_until < now())
+      and (pending or ran_at is null or ran_at < now() - p_gap);
   if found then return true; end if;
   update private.sync_state set pending = true where user_id = p_user;
   return false;
 end $$;
+
+create function public.finish_sync(p_user uuid)
+returns void language sql security definer set search_path = '' as $$
+  update private.sync_state set running_until = null where user_id = p_user;
+$$;
 
 -- Users with a connected calendar: the ones the cron syncs.
 create function public.connected_users()
@@ -70,7 +82,7 @@ declare f text;
 begin
   foreach f in array array[
     'register_app_url(text)', 'check_cron_key(text)', 'claim_sync(uuid, interval)',
-    'connected_users()'
+    'finish_sync(uuid)', 'connected_users()'
   ] loop
     execute format('revoke execute on function public.%s from public, anon, authenticated', f);
     execute format('grant execute on function public.%s to service_role', f);

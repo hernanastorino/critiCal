@@ -8,7 +8,8 @@ vi.mock("../../src/data.js", async (original) => ({
   loadData: async () => stored.current,
   applyWrites: async (_client: unknown, w: unknown) => writes(w),
 }));
-const caller = { uid: "u1", user: {}, admin: {} };
+const release = vi.fn(async () => {});
+const caller = { uid: "u1", user: {}, admin: {}, release };
 vi.mock("./server.js", async (original) => ({
   ...(await original<typeof import("./server.js")>()),
   actAs: async () => caller,
@@ -58,6 +59,7 @@ describe("server re-plan", () => {
     writes.mockImplementation(() => order.push("replan"));
     const r = await serverSync(env, "u1", now);
     expect(order).toEqual(["open", "import", "watch", "icloud", "replan", "mirror"]);
+    expect(release).toHaveBeenCalled();
     expect(r).toMatchObject({ google: true, icloud: false });
   });
 

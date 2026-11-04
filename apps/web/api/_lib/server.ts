@@ -33,6 +33,8 @@ export interface Caller {
   user: SupabaseClient;
   /** Service role: only for the token functions. */
   admin: SupabaseClient;
+  /** Ends a session opened by `actAs`. */
+  release?: () => Promise<void>;
 }
 
 /**
@@ -98,7 +100,16 @@ export async function actAs(env: Env, uid: string): Promise<Caller> {
     token_hash: link.properties.hashed_token,
   });
   if (error || !data.session) throw error ?? new Error("no_session");
-  return { uid, user: userClient(env, data.session.access_token), admin };
+  const jwt = data.session.access_token;
+  return {
+    uid,
+    user: userClient(env, jwt),
+    admin,
+    // Revoke this one session so server syncs do not pile up refresh tokens.
+    release: async () => {
+      await admin.auth.admin.signOut(jwt, "local");
+    },
+  };
 }
 
 export async function readBody(req: Request): Promise<Record<string, unknown>> {

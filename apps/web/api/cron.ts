@@ -31,6 +31,8 @@ export async function handle(req: Request, env: Env): Promise<Response> {
       synced.push(uid);
     } catch (e) {
       console.error("cron sync", uid, e);
+    } finally {
+      await admin.rpc("finish_sync", { p_user: uid });
     }
   }
   return json({ ok: true, synced: synced.length });

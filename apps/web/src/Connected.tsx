@@ -109,8 +109,11 @@ export function Connected({
   // What the database holds as far as this device knows. Diffing against it (not the
   // previous screen state) also removes blocks the server re-planned meanwhile.
   const stored = useRef<AppData | null>(cached);
+  // Counts local changes, so a server copy loaded meanwhile is known to be stale.
+  const changes = useRef(0);
   const onChange = useCallback(
     (prev: AppData, next: AppData) => {
+      changes.current++;
       writeCache(session, next);
       const writes = diffData(stored.current ?? prev, next);
       stored.current = next;
@@ -155,6 +158,7 @@ export function Connected({
         refreshOnMount={!!cached}
         writes={queue}
         stored={stored}
+        changes={changes}
       >
         {children}
       </SyncProvider>
@@ -171,6 +175,7 @@ function SyncProvider({
   refreshOnMount,
   writes,
   stored,
+  changes,
   children,
 }: {
   client: SupabaseClient;
@@ -181,6 +186,7 @@ function SyncProvider({
   refreshOnMount: boolean;
   writes: React.MutableRefObject<Promise<void>>;
   stored: React.MutableRefObject<AppData | null>;
+  changes: React.MutableRefObject<number>;
   children: React.ReactNode;
 }) {
   const { dispatch } = useStore();
@@ -188,10 +194,13 @@ function SyncProvider({
   /** Everything from the server replaces this device's copy (the server re-plans too). */
   const reload = useCallback(async () => {
     await writes.current;
+    const before = changes.current;
     const fresh = await loadData(client);
+    // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
+    if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, writes, stored]);
+  }, [client, dispatch, writes, stored, changes]);
 
   const syncNow = useCallback(async () => {
     try {

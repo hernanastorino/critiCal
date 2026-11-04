@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(7);
+select plan(9);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-00000000000d', 'd@test.local');
 
@@ -31,8 +31,20 @@ select ok(
   'a second sync right away is deferred'
 );
 select ok(
+  not public.claim_sync('00000000-0000-0000-0000-00000000000d', interval '0 seconds'),
+  'never while another sync of the same user is running'
+);
+select public.finish_sync('00000000-0000-0000-0000-00000000000d');
+select ok(
   public.claim_sync('00000000-0000-0000-0000-00000000000d', interval '1 hour'),
-  'a deferred sync is claimed by the next tick'
+  'a deferred sync is claimed once the running one finished'
+);
+reset role;
+update private.sync_state set running_until = now() - interval '1 second';
+set local role service_role;
+select ok(
+  public.claim_sync('00000000-0000-0000-0000-00000000000d', interval '1 hour') is not null,
+  'an expired lease does not block forever'
 );
 
 select * from finish();

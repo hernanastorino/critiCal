@@ -98,8 +98,14 @@ export function subjectName(title: string): string {
  * Keeps tasks in step with deadline events: a new parcial/entrega/presentación
  * creates a task (marked for review) under the matching activity, and a moved
  * event moves the task's deadline. Pure; returns `data` itself if nothing changed.
+ * `newId` gets a seed per event (and per new subject) so that the app and the server,
+ * importing the same event at once, create the same row instead of two.
  */
-export function importFromCalendars(data: AppData, now: number, newId: () => string): AppData {
+export function importFromCalendars(
+  data: AppData,
+  now: number,
+  newId: (seed: string) => string,
+): AppData {
   if (!data.calendars?.length) return data;
   let tasks = data.tasks;
   let activities = data.activities;
@@ -128,9 +134,10 @@ export function importFromCalendars(data: AppData, now: number, newId: () => str
       );
     });
     if (!activity) {
+      const name = subjectName(e.title);
       const created: Activity = {
-        id: newId(),
-        name: subjectName(e.title),
+        id: newId(`activity:${normalize(name)}`),
+        name,
         color: nextColor(activities),
         academic: true,
         maxSessionMinutes: 120,
@@ -141,7 +148,7 @@ export function importFromCalendars(data: AppData, now: number, newId: () => str
     }
     const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
     const task: AppTask = {
-      id: newId(),
+      id: newId(`task:${e.id}`),
       activityId: activity.id,
       title: e.title,
       kind: "deliverable",

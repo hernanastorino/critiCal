@@ -239,4 +239,17 @@ describe("remote", () => {
     await syncGoogle(client, session);
     expect(invoke).toHaveBeenCalledTimes(2);
   });
+
+  it("fails rather than falling back to default settings", async () => {
+    const boom = new Error("settings unreadable");
+    const client = {
+      from: () => ({
+        select: () =>
+          Object.assign(Promise.resolve({ data: [], error: null }), {
+            maybeSingle: () => Promise.resolve({ data: null, error: boom }),
+          }),
+      }),
+    };
+    await expect(loadData(client as never)).rejects.toBe(boom);
+  });
 });

@@ -6,7 +6,7 @@ const rows: Record<string, unknown[]> = {};
 const ops: { table: string; op: string; payload?: unknown }[] = [];
 const auth = {
   getUser: vi.fn(),
-  admin: { getUserById: vi.fn(), generateLink: vi.fn() },
+  admin: { getUserById: vi.fn(), generateLink: vi.fn(), signOut: vi.fn() },
   verifyOtp: vi.fn(),
 };
 
@@ -122,6 +122,7 @@ describe("google-webhook", () => {
     expect(await res.json()).toEqual({ ok: true, proposal: true });
     expect(rpc).toHaveBeenCalledWith("claim_sync", { p_user: "u1", p_gap: "20 seconds" });
     expect(serverSync).toHaveBeenCalledWith(env, "u1");
+    expect(rpc).toHaveBeenCalledWith("finish_sync", { p_user: "u1" });
   });
 
   it("defers a burst to the running sync and survives failures", async () => {
@@ -164,6 +165,8 @@ describe("cron", () => {
     const res = await cron(tick("k"), env);
     expect(await res.json()).toEqual({ ok: true, synced: 1 });
     expect(serverSync.mock.calls.map((c) => c[1])).toEqual(["u1", "u3"]);
+    const finished = rpc.mock.calls.filter((c) => c[0] === "finish_sync").map((c) => c[1].p_user);
+    expect(finished).toEqual(["u1", "u3"]);
   });
 });
 
@@ -181,6 +184,8 @@ describe("acting as a user", () => {
     expect((caller.user as unknown as { headers: object }).headers).toEqual({
       Authorization: "Bearer jwt",
     });
+    await caller.release?.();
+    expect(auth.admin.signOut).toHaveBeenCalledWith("jwt", "local");
   });
 
   it("fails without an email or a session", async () => {

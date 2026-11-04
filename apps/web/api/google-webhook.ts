@@ -40,5 +40,7 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     // Answer 200 anyway: a retry storm would not help, the next tick syncs again.
     console.error("webhook sync", e);
     return json({ ok: false });
+  } finally {
+    await admin.rpc("finish_sync", { p_user: channel.user_id });
   }
 }

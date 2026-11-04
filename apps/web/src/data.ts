@@ -161,7 +161,11 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
         .from("settings")
         .select("*")
         .maybeSingle()
-        .then((r) => r.data as Row | null),
+        .then((r) => {
+          // Defaults here would be written back over the real settings.
+          if (r.error) throw r.error;
+          return r.data as Row | null;
+        }),
       all("activities"),
       all("tasks"),
       all("task_units"),
