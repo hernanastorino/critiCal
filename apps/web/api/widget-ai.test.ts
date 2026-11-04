@@ -134,8 +134,16 @@ describe("syllabus", () => {
           date: "2026-09-20",
           hours: 12,
           units: ["Electrostática"],
+          weights: {},
         },
-        { title: "Laboratorio", kind: "parcial", date: null, hours: 4, units: [] },
+        {
+          title: "Laboratorio",
+          kind: "parcial",
+          date: null,
+          hours: 4,
+          units: [],
+          weights: {},
+        },
       ],
     });
     expect(
@@ -156,6 +164,26 @@ describe("syllabus", () => {
     });
     expect(dup?.units).toEqual([{ title: "A", hours: 2 }]);
     expect(dup?.assessments[0]?.units).toEqual(["A"]);
+    // Weights follow their unit, are kept within 0–100 and dropped when not numbers.
+    const weighed = clean({
+      subject: "X",
+      units: [
+        { title: "A", hours: 2 },
+        { title: "B", hours: 2 },
+        { title: "C", hours: 2 },
+      ],
+      assessments: [
+        {
+          title: "P",
+          kind: "parcial",
+          date: null,
+          hours: 1,
+          units: ["Z", "A", "B", "C"],
+          weights: [5, 60, 150, "mucho"],
+        },
+      ],
+    });
+    expect(weighed?.assessments[0]?.weights).toEqual({ A: 60, B: 100 });
     expect(clean(null)).toBeNull();
     expect(clean({})).toBeNull();
     expect(prompt(2027)).toContain("2027");

@@ -19,6 +19,10 @@ export interface Unit {
   title: string;
   estimateMinutes: number;
   doneAt?: number;
+  /** How much it weighs in the exam, 0–100 (e.g. % of the grade). */
+  weight?: number;
+  /** Left out to make the rest fit: not studied, not counted as missing. */
+  skipped?: boolean;
 }
 
 export interface AppTask {
@@ -53,7 +57,14 @@ export interface AppTask {
   endedAt?: number;
 }
 
-export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion" | "clases";
+export type CalendarRole =
+  | "busy"
+  | "ignore"
+  | "parcial"
+  | "entrega"
+  | "presentacion"
+  | "clases"
+  | "flexible";
 
 export interface AppCalendar {
   /** `source:externalId` */
@@ -160,6 +171,8 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** Flexible events the user agreed to move: planned at the new time until moved. */
+  movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
   notSubjects?: string[];
 }
@@ -213,6 +226,8 @@ export interface AppliedDecision {
   /** Each task's status right after the decision: undo touches only tasks still there. */
   after?: Record<string, AppTask["status"]>;
   freeTimeUntil?: number;
+  /** A flexible event this decision moved: undoing puts it back. */
+  movedEventId?: string;
 }
 
 /**

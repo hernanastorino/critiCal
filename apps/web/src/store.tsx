@@ -105,6 +105,8 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** A flexible event goes back to its own time in the plan. */
+  | { type: "unmoveEvent"; eventId: string; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
   | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
   /** A class-calendar title that is another name of an existing materia. */
@@ -209,7 +211,8 @@ function apply(data: AppData, action: Action): AppData {
           !!n &&
           (n.minMinutes !== t.minMinutes ||
             n.estimateMinutes !== t.estimateMinutes ||
-            n.status !== t.status)
+            n.status !== t.status ||
+            n.units.some((u, i) => !!u.skipped !== !!t.units[i]?.skipped))
         );
       });
       const dropped = changed
@@ -228,6 +231,7 @@ function apply(data: AppData, action: Action): AppData {
           changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
         ),
         freeTimeUntil: data.freeTimeUntil,
+        ...(option.kind === "move-event" && option.eventId ? { movedEventId: option.eventId } : {}),
       };
       return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
     }
@@ -244,6 +248,11 @@ function apply(data: AppData, action: Action): AppData {
               minMinutes: old.minMinutes,
               estimateMinutes: old.estimateMinutes,
               status: old.status,
+              // Units left out come back (whatever was done since stays done).
+              units: t.units.map((u) => ({
+                ...u,
+                skipped: old.units.find((o) => o.id === u.id)?.skipped,
+              })),
             }
           : t;
       });
@@ -251,6 +260,9 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...data,
           tasks,
+          movedEvents: record.movedEventId
+            ? data.movedEvents?.filter((m) => m.eventId !== record.movedEventId)
+            : data.movedEvents,
           freeTimeUntil: record.freeTimeUntil,
           applied: data.applied?.filter((d) => d.id !== record.id),
         },
@@ -638,6 +650,14 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
+    case "unmoveEvent":
+      return refresh(
+        {
+          ...data,
+          movedEvents: data.movedEvents?.filter((m) => m.eventId !== action.eventId),
+        },
+        now,
+      );
     case "forgetSpot":
       return refresh(
         { ...data, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
@@ -846,6 +866,7 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       inboxCount:
+        (data.movedEvents?.length ?? 0) +
         // Addresses still being timed are not questions yet.
         where.filter((u) => !u.lookup).length +
         newClassTitles(data).length +

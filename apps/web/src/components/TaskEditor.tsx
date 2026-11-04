@@ -172,13 +172,32 @@ export function TaskEditor({
               </label>
             </div>
             <div className="field">
-              <span>Partes (opcional: lo que falta se mide por partes hechas)</span>
+              <span>
+                Partes (opcional: lo que falta se mide por partes hechas). Con peso, si no llegás se
+                pueden dejar afuera las que menos pesan.
+              </span>
               {units.map((u) => (
                 <div key={u.id} className="check">
                   <span style={{ flex: 1, textDecoration: u.doneAt ? "line-through" : undefined }}>
                     {u.title}
                   </span>
                   <span>{u.estimateMinutes} min</span>
+                  <input
+                    inputMode="numeric"
+                    aria-label={`Peso de ${u.title} en el examen (%)`}
+                    placeholder="peso %"
+                    style={{ width: 64 }}
+                    value={u.weight ?? ""}
+                    onChange={(e) => {
+                      const n = Math.round(Number(e.target.value));
+                      const weight =
+                        e.target.value.trim() === "" || !Number.isFinite(n)
+                          ? undefined
+                          : Math.min(100, Math.max(0, n));
+                      setUnits(units.map((x) => (x.id === u.id ? { ...x, weight } : x)));
+                    }}
+                  />
+                  {u.skipped && <span className="meta">afuera</span>}
                   <button
                     type="button"
                     aria-label={`Quitar ${u.title}`}

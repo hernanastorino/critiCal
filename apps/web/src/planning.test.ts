@@ -345,3 +345,100 @@ describe("reducer", () => {
     expect(seedHistory(demoData(early), early).checkIns).toEqual([]);
   });
 });
+
+describe("more ways out in the app", () => {
+  const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
+  const deadline = zonedInstant(TIMEZONE, "2026-11-03", 19 * 60);
+  const act = {
+    id: "m",
+    name: "Mate",
+    color: "#000",
+    academic: false,
+    maxSessionMinutes: 600,
+    minBlockMinutes: 60,
+  };
+  const base = (extra: Partial<ReturnType<typeof emptyData>> = {}) => ({
+    ...emptyData(),
+    activities: [act],
+    ...extra,
+  });
+  const task = (id: string, title: string, minutes: number, extra = {}) => ({
+    id,
+    activityId: "m",
+    title,
+    kind: "deliverable" as const,
+    deadline,
+    estimateMinutes: minutes,
+    minMinutes: minutes,
+    priority: 2,
+    status: "active" as const,
+    units: [],
+    ...extra,
+  });
+
+  it("offers a smaller entrega, never a smaller exam", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const d = base({
+      tasks: [task("e", "TP de laboratorio", 600), task("p", "Parcial de Mate", 600)],
+    });
+    const [e, p] = toEngineTasks(d, now);
+    expect(e?.mvpMinutes).toBe(300);
+    expect(p?.mvpMinutes).toBeUndefined();
+  });
+
+  it("leaves out units, marks them, and undo brings them back", async () => {
+    const { reducer } = await import("./store.js");
+    const { decisions, refreshPlan } = await import("./planning.js");
+    const units = [
+      { id: "u1", title: "Integrales", estimateMinutes: 400, weight: 60 },
+      { id: "u2", title: "Series", estimateMinutes: 400, weight: 10 },
+      { id: "u3", title: "Límites", estimateMinutes: 400, weight: 30 },
+    ];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 1200, { units })] });
+    const r = refreshPlan(d, now);
+    const opt = decisions(r.input, r.result).options.find((o) => o.kind === "prioritize");
+    expect(opt?.unitIds?.[0]).toBe("u2");
+    const done = reducer(d, { type: "applyOption", optionId: opt?.id as string, now });
+    expect(done.tasks[0]?.units.find((u) => u.id === "u2")?.skipped).toBe(true);
+    const record = done.applied?.at(-1);
+    const back = reducer(done, { type: "undoDecision", id: record?.id as string, now });
+    expect(back.tasks[0]?.units.every((u) => !u.skipped)).toBe(true);
+  });
+
+  it("plans a flexible event at its new time until the calendar moves it", async () => {
+    const { reducer } = await import("./store.js");
+    const { decisions, refreshPlan } = await import("./planning.js");
+    const { isFlexible, visibleEvents } = await import("./calendars.js");
+    const cafe = {
+      id: "google:x",
+      title: "Café con Ana #flex",
+      start: zonedInstant(TIMEZONE, "2026-11-03", 9 * 60),
+      // Four hours: a free stretch that long exists between meals on other days.
+      end: zonedInstant(TIMEZONE, "2026-11-03", 13 * 60),
+      busy: true,
+      source: "google" as const,
+    };
+    const d = base({ events: [cafe], tasks: [task("e", "Parcial", 540)] });
+    expect(isFlexible(d, cafe)).toBe(true);
+    const r = refreshPlan(d, now);
+    const opt = decisions(r.input, r.result).options.find((o) => o.kind === "move-event");
+    expect(opt?.moveTo).toBeTruthy();
+    const moved = reducer(d, { type: "applyOption", optionId: opt?.id as string, now });
+    expect(moved.movedEvents).toEqual([{ eventId: "google:x", from: cafe.start, ...opt?.moveTo }]);
+    expect(visibleEvents(moved)[0]).toMatchObject({ start: opt?.moveTo?.start, flexible: true });
+    // Undo puts it back…
+    const record = moved.applied?.at(-1);
+    expect(
+      reducer(moved, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([]);
+    // …and once the calendar shows it elsewhere, the move is over.
+    const synced = reducer(
+      { ...moved, events: [{ ...cafe, start: cafe.start + 3_600_000 }] },
+      { type: "refresh", now },
+    );
+    expect(synced.movedEvents).toEqual([]);
+    expect(reducer(moved, { type: "unmoveEvent", eventId: "google:x", now }).movedEvents).toEqual(
+      [],
+    );
+  });
+});

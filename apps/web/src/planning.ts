@@ -99,10 +99,12 @@ export function progress(data: AppData, now: number): TaskProgress[] {
       }
       const done = doneMinutes(data, task.id);
       const capLeft = Math.max(0, task.estimateMinutes - done);
+      // Units left out to make the rest fit are neither done nor missing.
+      const units = task.units.filter((u) => !u.skipped);
       const fromUnits =
-        task.units.length > 0
+        units.length > 0
           ? remainingFromUnits(
-              task.units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
+              units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
               effortRatio(effort, task.activityId),
             )
           : capLeft;
@@ -131,8 +133,27 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
+      // An entrega can be handed in smaller: half its minimum, never below an hour.
+      mvpMinutes:
+        p.task.kind === "deliverable" && !EXAM.test(p.task.title) && p.minRemainingMinutes > 60
+          ? Math.max(60, Math.round(p.minRemainingMinutes / 2 / 30) * 30)
+          : undefined,
+      // Exams with weighed units can leave the lightest ones out.
+      units: p.task.units.some((u) => u.weight !== undefined)
+        ? p.task.units
+            .filter((u) => !u.doneAt && !u.skipped)
+            .map((u) => ({
+              id: u.id,
+              title: u.title,
+              minutes: u.estimateMinutes,
+              weight: u.weight ?? 0,
+            }))
+        : undefined,
     }));
 }
+
+/** Titles of exams (not entregas): no "smaller version" of those. */
+const EXAM = /\b(parcial|examen|prueba|final)\b/i;
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
   const tasks = toEngineTasks(data, now);
@@ -287,6 +308,16 @@ export function applyOption(
 ): AppData {
   if (option.kind === "use-free-time")
     return { ...data, freeTimeUntil: endOfWeek(data.settings.timezone, now) };
+  if (option.kind === "move-event" && option.eventId && option.moveTo) {
+    const event = data.events.find((e) => e.id === option.eventId);
+    if (!event) return data;
+    // Planned at the new time until the calendar shows it moved (or the user undoes it).
+    const move = { eventId: event.id, from: event.start, ...option.moveTo };
+    return {
+      ...data,
+      movedEvents: [...(data.movedEvents ?? []).filter((m) => m.eventId !== event.id), move],
+    };
+  }
   const before = new Map(input.tasks.map((t) => [t.id, t]));
   const after = new Map(option.input.tasks.map((t) => [t.id, t]));
   const tasks = data.tasks.map((task) => {
@@ -296,10 +327,14 @@ export function applyOption(
     if (!next) return { ...task, status: "dropped" as const };
     const minCut = old.minRemainingMinutes - next.minRemainingMinutes;
     const cut = old.remainingMinutes - next.remainingMinutes;
+    const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
     return {
       ...task,
       minMinutes: Math.max(0, task.minMinutes - minCut),
       estimateMinutes: Math.max(0, task.estimateMinutes - cut),
+      units: out.size
+        ? task.units.map((u) => (out.has(u.id) ? { ...u, skipped: true } : u))
+        : task.units,
     };
   });
   return { ...data, tasks };

@@ -12,7 +12,15 @@ export function refresh(raw: AppData, now: number): AppData {
   // Same ids for the same user on every device and on the server; never across users.
   const owner = raw.owner;
   const ids = owner ? (seed: string) => stableId(`${owner}:${seed}`) : newId;
-  const imported = importFromCalendars(input, now, ids);
+  // A move ends once the calendar shows the event elsewhere (or gone), or it is over.
+  const movedEvents = raw.movedEvents?.filter(
+    (m) => m.end > now && raw.events.some((e) => e.id === m.eventId && e.start === m.from),
+  );
+  const imported = importFromCalendars(
+    movedEvents?.length === raw.movedEvents?.length ? input : { ...input, movedEvents },
+    now,
+    ids,
+  );
   const activities = uniqueColors(imported.activities);
   const data = activities === imported.activities ? imported : { ...imported, activities };
   const r = refreshPlan(data, now);

@@ -28,6 +28,7 @@ interface State {
   noTravel?: string[];
   spots?: Spot[];
   notSubjects?: string[];
+  movedEvents?: AppData["movedEvents"];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -96,6 +97,8 @@ export function rowsToData(r: {
             title: u.title as string,
             estimateMinutes: u.estimate_minutes as number,
             doneAt: u.done_at ? ms(u.done_at as string) : undefined,
+            weight: (u.weight as number | null) ?? undefined,
+            skipped: (u.skipped as boolean) || undefined,
           })),
       }),
     ),
@@ -174,6 +177,7 @@ export function rowsToData(r: {
     noTravel: state.noTravel,
     spots: state.spots,
     notSubjects: state.notSubjects,
+    movedEvents: state.movedEvents,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -266,6 +270,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.noTravel,
       prev.spots,
       prev.notSubjects,
+      prev.movedEvents,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -278,6 +283,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.noTravel,
       next.spots,
       next.notSubjects,
+      next.movedEvents,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -295,6 +301,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             noTravel: next.noTravel,
             spots: next.spots,
             notSubjects: next.notSubjects,
+            movedEvents: next.movedEvents,
           },
         },
       ],
@@ -353,6 +360,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         estimate_minutes: u.estimateMinutes,
         position: i,
         done_at: u.doneAt ? iso(u.doneAt) : null,
+        weight: u.weight ?? null,
+        skipped: !!u.skipped,
       })),
     );
     if (units.length) upserts.push({ table: "task_units", rows: units });

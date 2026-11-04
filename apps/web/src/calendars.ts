@@ -44,6 +44,7 @@ export const ROLE_LABEL: Record<CalendarRole, string> = {
   entrega: "Entregas",
   presentacion: "Presentaciones",
   clases: "Clases (materias)",
+  flexible: "Flexible (se puede mover)",
   ignore: "Ignorar",
 };
 
@@ -76,13 +77,24 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
   return c ? roleOf(c) : "busy";
 }
 
-/** Events the planner and the week view use: ignored calendars out, deadlines of "entrega" do not block time. */
+/** An event that may be moved when the minimums do not fit: #flex, or a flexible calendar. */
+export const isFlexible = (data: AppData, e: AppEvent) =>
+  /#flex\b/iu.test(e.title) || eventRole(data, e) === "flexible";
+
+/**
+ * Events the planner and the week view use: ignored calendars out, deadlines of
+ * "entrega" do not block time, and flexible events the user agreed to move are at their
+ * new time (until the calendar itself shows them elsewhere).
+ */
 export function visibleEvents(data: AppData): AppEvent[] {
-  return data.events.flatMap((e) => {
+  const moved = new Map((data.movedEvents ?? []).map((m) => [m.eventId, m]));
+  return data.events.flatMap((e): AppEvent[] => {
     const role = eventRole(data, e);
     if (role === "ignore") return [];
     if (role === "entrega") return [{ ...e, busy: false }];
-    return [e];
+    const m = moved.get(e.id);
+    const at = m && m.from === e.start ? { start: m.start, end: m.end } : {};
+    return [{ ...e, ...at, flexible: isFlexible(data, e) || undefined }];
   });
 }
 

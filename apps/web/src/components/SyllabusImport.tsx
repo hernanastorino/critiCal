@@ -112,7 +112,7 @@ export function SyllabusImport() {
         date: a.date,
         units: a.units
           .filter((t) => hours.has(t))
-          .map((t) => ({ title: t, minutes: (hours.get(t) ?? 0) * 60 })),
+          .map((t) => ({ title: t, minutes: (hours.get(t) ?? 0) * 60, weight: a.weights?.[t] })),
         minutes: a.hours * 60,
       }));
     const { activity, isNew, tasks } = syllabusTasks({
