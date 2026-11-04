@@ -51,7 +51,7 @@ export interface AppTask {
   endedAt?: number;
 }
 
-export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion";
+export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion" | "clases";
 
 export interface AppCalendar {
   /** `source:externalId` */
@@ -158,6 +158,8 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** Normalized titles of class-calendar events that are not a materia (a talk…). */
+  notSubjects?: string[];
 }
 
 /**

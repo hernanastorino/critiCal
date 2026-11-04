@@ -9,6 +9,7 @@ import {
   type Effort,
   nextColor,
 } from "./model.js";
+import { hasClasses, isNoSubject, NO_SUBJECT, NO_SUBJECT_SEED, subjectFor } from "./subjects.js";
 
 export const normalize = (s: string) =>
   s
@@ -28,6 +29,7 @@ export function guessRole(name: string): CalendarRole {
   if (/\b(presentacion|presentaciones|exposicion|exposiciones|defensa)\b/.test(n))
     return "presentacion";
   if (/\b(feriado|feriados|holiday|holidays|cumpleanos|birthdays)\b/.test(n)) return "ignore";
+  if (/\b(clases|horario|horarios|cursos)\b/.test(n)) return "clases";
   return "busy";
 }
 
@@ -42,6 +44,7 @@ export const ROLE_LABEL: Record<CalendarRole, string> = {
   parcial: "Parciales",
   entrega: "Entregas",
   presentacion: "Presentaciones",
+  clases: "Clases (materias)",
   ignore: "Ignorar",
 };
 
@@ -125,6 +128,29 @@ export function importFromCalendars(
     }
     if (deadline <= now) continue;
 
+    // With a class schedule, evaluations join its materias and never create one: an
+    // unknown name waits under "Sin materia" until the inbox asks.
+    if (hasClasses(data)) {
+      let activity = subjectFor({ ...data, activities }, e.title);
+      if (!activity) {
+        activity = activities.find(isNoSubject);
+        if (!activity) {
+          const created: Activity = {
+            id: newId(NO_SUBJECT_SEED),
+            name: NO_SUBJECT,
+            color: nextColor(activities),
+            academic: true,
+            maxSessionMinutes: 120,
+            minBlockMinutes: 60,
+          };
+          activities = [...activities, created];
+          activity = created;
+        }
+      }
+      tasks = [...tasks, deadlineTask(data, e, role, deadline, activity.id, newId)];
+      changed = true;
+      continue;
+    }
     const subject = subjectOf(e.title);
     let activity = activities.find((a) => {
       const name = normalize(a.name);
@@ -146,23 +172,34 @@ export function importFromCalendars(
       activities = [...activities, created];
       activity = created;
     }
-    const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
-    const task: AppTask = {
-      id: newId(`task:${e.id}`),
-      activityId: activity.id,
-      title: e.title,
-      kind: "deliverable",
-      deadline,
-      estimateMinutes: d.estimate,
-      minMinutes: d.min,
-      priority: d.priority,
-      status: "active",
-      units: [],
-      sourceEventId: e.id,
-      needsReview: true,
-    };
-    tasks = [...tasks, task];
+    tasks = [...tasks, deadlineTask(data, e, role, deadline, activity.id, newId)];
     changed = true;
   }
   return changed ? { ...data, tasks, activities } : data;
+}
+
+/** The task a parcial/entrega/presentación event becomes, waiting for a quick review. */
+function deadlineTask(
+  data: AppData,
+  e: AppEvent,
+  role: DetectedKind,
+  deadline: number,
+  activityId: string,
+  newId: (seed: string) => string,
+): AppTask {
+  const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
+  return {
+    id: newId(`task:${e.id}`),
+    activityId,
+    title: e.title,
+    kind: "deliverable",
+    deadline,
+    estimateMinutes: d.estimate,
+    minMinutes: d.min,
+    priority: d.priority,
+    status: "active",
+    units: [],
+    sourceEventId: e.id,
+    needsReview: true,
+  };
 }

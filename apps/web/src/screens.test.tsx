@@ -183,7 +183,7 @@ describe("semester start", () => {
     expect(state().semester).toEqual({ start: "2026-08-01", end: "2026-11-30" });
 
     fireEvent.change(screen.getByPlaceholderText("Física II"), { target: { value: "Física II" } });
-    fireEvent.change(screen.getByLabelText("Mínimo semanal (h)"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("Estudio semanal (h)"), { target: { value: "3" } });
     await act(async () => fireEvent.click(screen.getByText("Agregar materia")));
     fireEvent.change(screen.getByPlaceholderText("Física II"), { target: { value: "Inglés" } });
     await act(async () => fireEvent.click(screen.getByText("Agregar materia")));

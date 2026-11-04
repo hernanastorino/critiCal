@@ -56,6 +56,13 @@ export interface Activity {
   maxSessionMinutes: number;
   minBlockMinutes: number;
   preferred?: MinuteRange;
+  /**
+   * What it is for the app (the planner ignores it): a subject taken this semester, or
+   * a routine like the gym. Unset for activities from before the distinction.
+   */
+  kind?: "materia" | "rutina";
+  /** Other names a materia goes by in events, normalized ("add"). */
+  aliases?: string[];
 }
 
 export interface Task {

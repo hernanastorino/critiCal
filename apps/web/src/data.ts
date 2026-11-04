@@ -27,6 +27,7 @@ interface State {
   relaxContextUntil?: number;
   noTravel?: string[];
   spots?: Spot[];
+  notSubjects?: string[];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -63,6 +64,8 @@ export function rowsToData(r: {
           a.preferred_start != null && a.preferred_end != null
             ? { start: a.preferred_start as number, end: a.preferred_end as number }
             : undefined,
+        kind: (a.kind as Activity["kind"]) ?? undefined,
+        aliases: (a.aliases as string[] | null)?.length ? (a.aliases as string[]) : undefined,
       }),
     ),
     tasks: r.tasks.map(
@@ -169,6 +172,7 @@ export function rowsToData(r: {
     ),
     noTravel: state.noTravel,
     spots: state.spots,
+    notSubjects: state.notSubjects,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -260,6 +264,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.pins,
       prev.noTravel,
       prev.spots,
+      prev.notSubjects,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -271,6 +276,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.pins,
       next.noTravel,
       next.spots,
+      next.notSubjects,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -287,6 +293,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             pins: next.pins,
             noTravel: next.noTravel,
             spots: next.spots,
+            notSubjects: next.notSubjects,
           },
         },
       ],
@@ -306,6 +313,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         min_block_minutes: a.minBlockMinutes,
         preferred_start: a.preferred?.start ?? null,
         preferred_end: a.preferred?.end ?? null,
+        kind: a.kind ?? null,
+        aliases: a.aliases ?? [],
       })),
     });
   }
