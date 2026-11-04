@@ -475,21 +475,23 @@ function apply(data: AppData, action: Action): AppData {
       const move = <T extends { activityId: string }>(x: T): T =>
         x.activityId === from.id ? { ...x, activityId: action.into } : x;
       const merged = withAlias(data, action.into, aliasFrom(from.name));
+      const target = merged.activities.find((a) => a.id === action.into) as Activity;
+      // One weekly study per materia: the target's wins; the other one ends here (its
+      // history stays) along with its pins ahead.
+      const ending =
+        studyOf(merged, target) && studyOf(merged, from) ? studyOf(merged, from)?.id : undefined;
       return refresh(
         {
           ...merged,
           activities: merged.activities.filter((a) => a.id !== from.id),
-          // One weekly study per materia: if the target has one, the other stays a habit.
           tasks: merged.tasks.map((t) => {
             const moved = move(t);
-            return moved !== t &&
-              t.study &&
-              studyOf(merged, merged.activities.find((a) => a.id === action.into) as Activity)
-              ? { ...moved, study: undefined }
+            return t.id === ending
+              ? { ...moved, study: undefined, status: "dropped" as const, endedAt: now }
               : moved;
           }),
           plan: merged.plan.map(move),
-          pins: merged.pins?.map(move),
+          pins: merged.pins?.filter((p) => p.taskId !== ending || p.start <= now).map(move),
         },
         now,
       );

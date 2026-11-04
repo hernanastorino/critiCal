@@ -332,9 +332,19 @@ describe("materias", () => {
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 60, now: NOW });
     d = reducer(d, { type: "weeklyStudy", activityId: "old", minutes: 120, now: NOW });
     d = reducer(d, { type: "mergeActivity", activityId: "old", into: "add", now: NOW });
-    const habits = d.tasks.filter((t) => t.activityId === "add" && t.kind === "habit");
-    expect(habits).toHaveLength(2);
-    expect(habits.filter((t) => t.study).map((t) => t.minMinutes)).toEqual([60]);
+    // The target's study wins; the other one ends, so only 60 minutes are planned.
+    const active = d.tasks.filter(
+      (t) => t.activityId === "add" && t.kind === "habit" && t.status === "active",
+    );
+    expect(active.map((t) => [t.minMinutes, !!t.study])).toEqual([[60, true]]);
+    expect(d.tasks.filter((t) => t.kind === "habit" && t.status === "dropped")).toHaveLength(1);
+    const planned = d.plan
+      .filter((b) => b.activityId === "add" && b.taskId === active[0]?.id)
+      .reduce((m, b) => m + (b.end - b.start) / 60_000, 0);
+    expect(
+      d.plan.every((b) => b.taskId === active[0]?.id || b.activityId !== "add" || b.start < NOW),
+    ).toBe(true);
+    expect(planned).toBeGreaterThan(0);
 
     // A backup from before the mark: its «Estudio <materia>» becomes the study.
     const legacy = {
@@ -355,8 +365,14 @@ describe("materias", () => {
         },
       ],
     };
-    const restored = parseBackup(exportJson(legacy, 1));
-    expect("data" in restored && restored.data.tasks[0]?.study).toBe(true);
+    // A version 1 file, from before the mark: its «Estudio <materia>» is the study, once.
+    const twice = { ...legacy, tasks: [legacy.tasks[0], { ...legacy.tasks[0], id: "s2" }] };
+    const v1 = JSON.stringify({ app: "critiCal", version: 1, exportedAt: 1, data: twice });
+    const restored = parseBackup(v1);
+    expect("data" in restored && restored.data.tasks.map((t) => !!t.study)).toEqual([true, false]);
+    // Current files already carry the mark: an unmarked lookalike stays unmarked.
+    const current = parseBackup(exportJson(legacy, 1));
+    expect("data" in current && current.data.tasks[0]?.study).toBeUndefined();
   });
 
   it("stores kinds, aliases and the titles that are not materias", () => {

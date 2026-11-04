@@ -2,7 +2,8 @@
 import type { AppData } from "./model.js";
 import { markLegacyStudy } from "./subjects.js";
 
-export const BACKUP_VERSION = 1;
+/** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
+export const BACKUP_VERSION = 2;
 
 export function exportJson(data: AppData, now: number): string {
   return JSON.stringify(
@@ -248,5 +249,5 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   if (d.checkIns?.some((c) => !tasks.has(c.taskId))) {
     return { error: "El respaldo está incompleto: hay registros de tareas que no están." };
   }
-  return { data: markLegacyStudy(d as AppData) };
+  return { data: file.version < 2 ? markLegacyStudy(d as AppData) : (d as AppData) };
 }

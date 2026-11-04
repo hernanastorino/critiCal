@@ -112,11 +112,14 @@ export const studyOf = (data: AppData, a: Activity): AppTask | undefined =>
  */
 export function markLegacyStudy(data: AppData): AppData {
   let changed = false;
+  // One per materia: those already marked, then each one marked here.
+  const marked = new Set(data.tasks.filter((t) => t.study).map((t) => t.activityId));
   const tasks = data.tasks.map((t) => {
     const a = data.activities.find((x) => x.id === t.activityId);
     if (!a || t.study || t.kind !== "habit" || t.status !== "active" || t.title !== studyTitle(a))
       return t;
-    if (data.tasks.some((o) => o.activityId === a.id && o.study)) return t;
+    if (marked.has(a.id)) return t;
+    marked.add(a.id);
     changed = true;
     return { ...t, study: true };
   });
