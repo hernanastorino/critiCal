@@ -74,6 +74,8 @@ export function Semester() {
       activityId: exam.activityId,
       title: exam.title.trim() || "Parcial",
       kind: "deliverable",
+      // A parcial, examen or prueba gets spaced review; an entrega does not.
+      exam: /\b(parcial|examen|prueba|final)\b/i.test(exam.title || "Parcial") || undefined,
       deadline: zonedInstant(tz, exam.date, 8 * 60),
       estimateMinutes: d.estimate,
       minMinutes: d.min,

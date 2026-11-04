@@ -117,7 +117,29 @@ export function progress(data: AppData, now: number): TaskProgress[] {
     });
 }
 
+/** Days before an exam its review sessions should fall on. */
+export const REVIEW_DAYS_BEFORE = [7, 3, 1];
+
+/** The exam's local date and its review dates still ahead. */
+function examDays(tz: string, deadline: number, now: number) {
+  const date = localParts(tz, deadline).date;
+  const today = localParts(tz, now).date;
+  const reviews = REVIEW_DAYS_BEFORE.map((d) => addDays(date, -d)).filter((d) => d >= today);
+  return { date, reviews };
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
+  const tz = data.settings.timezone;
+  // Days kept for one materia's exam: everything else stays away from them.
+  const kept = data.tasks
+    .filter((t) => t.exam && t.dayBeforeOnly && t.deadline && t.deadline > now && isRunning(t, now))
+    .map((t) => {
+      const before = addDays(examDays(tz, t.deadline as number, now).date, -1);
+      return {
+        activityId: t.activityId,
+        span: { start: zonedInstant(tz, before, 0), end: zonedInstant(tz, before, 1440) },
+      };
+    });
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => ({
@@ -131,6 +153,9 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
+      reviewDates:
+        p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
+      avoid: kept.filter((k) => k.activityId !== p.task.activityId).map((k) => k.span),
     }));
 }
 

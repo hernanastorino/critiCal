@@ -49,6 +49,8 @@ const W = {
   freeTime: 120,
   perDayLater: 10,
   perDayLaterUrgent: 120,
+  /** Pull towards an exam's review days, enough to beat several days of "later". */
+  reviewDay: -90,
 };
 
 interface Prepared {
@@ -164,6 +166,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
   const eligible = (p: Prepared, slot: Slot, strict: boolean): boolean =>
     slot.start >= Math.max(now, p.task.earliestStart ?? now) &&
     slot.end <= p.task.deadline &&
+    !(p.task.avoid ?? []).some((a) => slot.start < a.end && slot.end > a.start) &&
     (!slot.soft || !p.activity.academic || (!strict && !!input.allowFreeTime));
 
   const placed = new Map<string, number>(prepared.map((p) => [p.task.id, 0]));
@@ -222,6 +225,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
       s += W.outsidePreferred;
     }
     for (let i = start; i < start + length; i++) if (board.slots[i]?.soft) s += W.freeTime;
+    if (p.task.reviewDates?.includes(first.date)) s += W.reviewDay;
     const daysOut = (first.start - now) / (1440 * MINUTE);
     s += daysOut * (urgent ? W.perDayLaterUrgent : W.perDayLater);
     return s;

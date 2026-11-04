@@ -615,3 +615,39 @@ describe("schedule invariants", () => {
     );
   });
 });
+
+describe("exam review", () => {
+  const dayOf = (b: PlanBlock) => new Date(b.start - 3 * 3_600_000).toISOString().slice(0, 10);
+
+  it("leans an exam's sessions towards its review days", () => {
+    const exam = task("parcial", "mate", at("2026-11-09", "08:00"), {
+      remainingMinutes: 180,
+      minRemainingMinutes: 180,
+    });
+    const plain = schedule(base({ tasks: [exam] }));
+    const spaced = schedule(
+      base({ tasks: [{ ...exam, reviewDates: ["2026-11-05", "2026-11-08"] }] }),
+    );
+    expect(minutesOf(spaced, "parcial")).toBe(180);
+    const on = (r: ScheduleResult) =>
+      r.blocks.filter((b) => ["2026-11-05", "2026-11-08"].includes(dayOf(b))).length;
+    expect(on(spaced)).toBeGreaterThan(on(plain));
+  });
+
+  it("never uses times a task must avoid", () => {
+    const keep = { start: at("2026-11-03", "00:00"), end: at("2026-11-04", "00:00") };
+    const r = schedule(
+      base({
+        tasks: [
+          task("fis", "fisica", at("2026-11-05", "08:00"), {
+            remainingMinutes: 240,
+            minRemainingMinutes: 60,
+            avoid: [keep],
+          }),
+        ],
+      }),
+    );
+    expect(minutesOf(r, "fis")).toBeGreaterThan(0);
+    expect(r.blocks.every((b) => b.end <= keep.start || b.start >= keep.end)).toBe(true);
+  });
+});

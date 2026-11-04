@@ -345,3 +345,52 @@ describe("reducer", () => {
     expect(seedHistory(demoData(early), early).checkIns).toEqual([]);
   });
 });
+
+describe("exams", () => {
+  it("give the planner review days and keep the day before for their materia", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);
+    const act = (id: string) => ({
+      id,
+      name: id,
+      color: "#000",
+      academic: true,
+      maxSessionMinutes: 120,
+      minBlockMinutes: 60,
+    });
+    const deliverable = (id: string, activityId: string, day: string, extra = {}) => ({
+      id,
+      activityId,
+      title: id,
+      kind: "deliverable" as const,
+      deadline: zonedInstant(TIMEZONE, day, 9 * 60),
+      estimateMinutes: 300,
+      minMinutes: 120,
+      priority: 2,
+      status: "active" as const,
+      units: [],
+      ...extra,
+    });
+    const d = {
+      ...emptyData(),
+      activities: [act("fis"), act("mate")],
+      tasks: [
+        deliverable("p", "fis", "2026-11-12", { exam: true, dayBeforeOnly: true }),
+        deliverable("tp", "mate", "2026-11-14"),
+      ],
+    };
+    const [exam, other] = toEngineTasks(d, now);
+    expect(exam?.reviewDates).toEqual(["2026-11-05", "2026-11-09", "2026-11-11"]);
+    expect(exam?.avoid).toEqual([]);
+    expect(other?.reviewDates).toBeUndefined();
+    expect(other?.avoid).toEqual([
+      {
+        start: zonedInstant(TIMEZONE, "2026-11-11", 0),
+        end: zonedInstant(TIMEZONE, "2026-11-11", 1440),
+      },
+    ]);
+    // Review days already past are not asked for.
+    const late = toEngineTasks(d, zonedInstant(TIMEZONE, "2026-11-10", 9 * 60))[0];
+    expect(late?.reviewDates).toEqual(["2026-11-11"]);
+  });
+});

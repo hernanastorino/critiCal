@@ -40,6 +40,8 @@ export function TaskEditor({
   const [sessionMin, setSessionMin] = useState(String(task?.sessionMinutes ?? 60));
   const [priority, setPriority] = useState(task?.priority ?? 2);
   const [units, setUnits] = useState<Unit[]>(task?.units ?? []);
+  const [isExam, setIsExam] = useState(!!task?.exam);
+  const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
 
   const save = () => {
@@ -79,6 +81,8 @@ export function TaskEditor({
       priority,
       status: task?.status ?? "active",
       units,
+      exam: (kind === "deliverable" && isExam) || undefined,
+      dayBeforeOnly: (kind === "deliverable" && isExam && dayBefore) || undefined,
     };
     dispatch({ type: "saveTask", task: next, activity });
     onSaved?.(next);
@@ -153,6 +157,24 @@ export function TaskEditor({
                 onChange={(e) => setDeadline(e.target.value)}
               />
             </label>
+            <label className="check">
+              <input
+                type="checkbox"
+                checked={isExam}
+                onChange={(e) => setIsExam(e.target.checked)}
+              />
+              <span>Es un parcial: repaso espaciado (una semana, tres días y un día antes)</span>
+            </label>
+            {isExam && (
+              <label className="check">
+                <input
+                  type="checkbox"
+                  checked={dayBefore}
+                  onChange={(e) => setDayBefore(e.target.checked)}
+                />
+                <span>El día anterior, solo esta materia</span>
+              </label>
+            )}
             <div className="row">
               <label className="field" style={{ flex: 1 }}>
                 <span>Horas estimadas</span>

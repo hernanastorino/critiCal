@@ -200,5 +200,6 @@ function deadlineTask(
     units: [],
     sourceEventId: e.id,
     needsReview: true,
+    exam: role === "parcial" || undefined,
   };
 }
