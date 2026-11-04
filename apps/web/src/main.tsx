@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import { startMonitoring } from "./monitoring.js";
 import "./styles.css";
+import { watchUpdates } from "./updates.js";
 
 // iOS ignores user-scalable=no for pinch gestures; block them so the app never
 // zooms away from its content.
@@ -11,6 +12,7 @@ for (const type of ["gesturestart", "gesturechange"]) {
 }
 
 void startMonitoring();
+watchUpdates();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
