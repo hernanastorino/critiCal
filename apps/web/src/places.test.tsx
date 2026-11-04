@@ -152,6 +152,7 @@ describe("places screens", () => {
     expect(saved.at(-1)).toMatchObject({ name: "Trabajo", aliases: ["Oficina", "WeWork"] });
 
     const input = screen.getByLabelText("Minutos de Casa a Gym") as HTMLInputElement;
+    fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "15" } });
     await act(async () => {
       fireEvent.blur(input);

@@ -100,12 +100,7 @@ export function Places() {
                   (t) => t.from === from.id && t.to === to.id,
                 );
                 return (
-                  <label
-                    // Remount when the stored time changes (e.g. after computing), so the
-                    // uncontrolled input shows it.
-                    key={`${from.id}>${to.id}:${minutesBetween(data, from.id, to.id) ?? ""}`}
-                    className="check"
-                  >
+                  <div key={`${from.id}>${to.id}`} className="check">
                     <span style={{ flex: 1 }}>
                       {from.name} → {to.name}
                       {auto && !auto.manual && (
@@ -115,24 +110,14 @@ export function Places() {
                         </span>
                       )}
                     </span>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min={0}
-                      aria-label={`Minutos de ${from.name} a ${to.name}`}
-                      style={{ width: 72 }}
-                      defaultValue={minutesBetween(data, from.id, to.id) ?? ""}
-                      onBlur={(e) => {
-                        const minutes = Number(e.target.value);
-                        if (
-                          e.target.value !== "" &&
-                          minutes >= 0 &&
-                          minutes !== minutesBetween(data, from.id, to.id)
-                        )
-                          dispatch({ type: "travelTime", from: from.id, to: to.id, minutes });
-                      }}
+                    <MinutesInput
+                      label={`Minutos de ${from.name} a ${to.name}`}
+                      value={minutesBetween(data, from.id, to.id)}
+                      onCommit={(minutes) =>
+                        dispatch({ type: "travelTime", from: from.id, to: to.id, minutes })
+                      }
                     />
-                  </label>
+                  </div>
                 );
               }),
           )}
@@ -155,6 +140,43 @@ export function Places() {
         </>
       )}
     </details>
+  );
+}
+
+/**
+ * Minutes field: shows the stored value, but while it has focus the user's draft wins,
+ * so a time computed meanwhile never replaces what is being typed.
+ */
+function MinutesInput({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string;
+  value: number | undefined;
+  onCommit: (minutes: number) => void;
+}) {
+  const [draft, setDraft] = useState<string | null>(null);
+  const commit = () => {
+    if (draft !== null && draft !== "" && Number(draft) >= 0 && Number(draft) !== value)
+      onCommit(Number(draft));
+    setDraft(null);
+  };
+  return (
+    <input
+      type="number"
+      inputMode="numeric"
+      min={0}
+      aria-label={label}
+      style={{ width: 72 }}
+      value={draft ?? value ?? ""}
+      onFocus={() => setDraft(String(value ?? ""))}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") e.currentTarget.blur();
+      }}
+    />
   );
 }
 
