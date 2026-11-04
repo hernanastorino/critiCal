@@ -32,8 +32,10 @@ export function Backup() {
       const tried = refresh(parsed.data, now);
       // Against the refreshed tasks: refresh may create some from calendar events.
       const tasks = new Set(tried.tasks.map((t) => t.id));
+      // The file's plan, not the dry run's: a block that ends between the dry run and
+      // the restore would stay as history. Pins and proposals may be dropped on refresh.
       const blocks = [
-        ...tried.plan,
+        ...parsed.data.plan,
         ...(tried.pins ?? []),
         ...tried.proposals.flatMap((p) => p.plan),
       ];
