@@ -25,7 +25,7 @@ export function PlaceSearch({ label, onPick }: { label: string; onPick: (place: 
         onChange={(e) => setQuery(e.target.value)}
       />
       <p id={status} className="sr-only" aria-live="polite">
-        {typed ? `${hits.length} lugares coinciden` : ""}
+        {typed ? (hits.length === 1 ? "1 lugar coincide" : `${hits.length} lugares coinciden`) : ""}
       </p>
       {typed && (
         <div className="suggestions">

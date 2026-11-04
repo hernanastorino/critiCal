@@ -394,7 +394,10 @@ function apply(data: AppData, action: Action): AppData {
       const travelTimes = (data.travelTimes ?? []).filter(
         (t) => t.from !== action.placeId && t.to !== action.placeId,
       );
-      return refresh({ ...data, places, travelTimes }, now);
+      // Without that home, minutes computed from it mean nothing; typed ones stay.
+      const spots =
+        home(data)?.id === action.placeId ? (data.spots ?? []).filter((s) => s.manual) : data.spots;
+      return refresh({ ...data, places, travelTimes, spots }, now);
     }
     case "travelTime": {
       const others = (data.travelTimes ?? []).filter(

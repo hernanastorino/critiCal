@@ -15,7 +15,7 @@ beforeEach(async () => {
 });
 
 /** A database with a home and one upcoming event at an address no place knows. */
-function client() {
+function client(location = "Instituto Anglo") {
   const soon = Date.now() + 2 * 3_600_000;
   const rows: Record<string, unknown[]> = {
     places: [{ id: "casa", name: "Casa", aliases: [], is_home: true, lat: -34.8, lon: -56.2 }],
@@ -26,7 +26,7 @@ function client() {
         title: "Inglés",
         start_at: new Date(soon).toISOString(),
         end_at: new Date(soon + 3_600_000).toISOString(),
-        location: "Instituto Anglo",
+        location,
         busy: true,
         all_day: false,
       },
@@ -96,4 +96,22 @@ it("leaves an address for later when the lookup fails for a while", async () => 
   // Cooling down instead of retrying in a loop, and never marked as not found.
   expect(calls).toBe(1);
   expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
+});
+
+it("answers an address too long for the server without asking it", async () => {
+  let calls = 0;
+  stubApi(async (name) => {
+    if (name === "travel") calls++;
+    return { data: { connected: true }, error: null };
+  });
+  const long = "x".repeat(201);
+  render(
+    <Connected client={client(long)} session={{} as never}>
+      <Shell />
+    </Connected>,
+  );
+  await waitFor(async () =>
+    expect((await readLocal("me"))?.data.spots).toEqual([{ key: long, text: long, failed: true }]),
+  );
+  expect(calls).toBe(0);
 });

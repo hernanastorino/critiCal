@@ -4,10 +4,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { reportError } from "./monitoring.js";
 import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
@@ -377,7 +379,10 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
   const at = home(data);
   const homeKey = at ? `${at.id}|${at.address ?? ""}|${at.lat ?? ""},${at.lon ?? ""}` : "";
   const currentHome = useRef(homeKey);
-  currentHome.current = homeKey;
+  // Set on commit, so a lookup never compares with a render React threw away.
+  useLayoutEffect(() => {
+    currentHome.current = homeKey;
+  }, [homeKey]);
   const inFlight = useRef(new Set<string>());
   const coolUntil = useRef(new Map<string, number>());
   const running = useRef(false);
@@ -394,9 +399,17 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
       )
       .slice(0, SPOTS_PER_CALL);
     if (batch.length === 0) return;
+    // The server refuses a whole call over one very long address: those are answered
+    // here as not found, and the rest still go.
+    const refused = batch.filter((u) => u.text.length > SPOT_TEXT_MAX);
+    if (refused.length)
+      return dispatch({
+        type: "spots",
+        results: refused.map((u) => ({ text: u.text, minutes: null })),
+      });
     const asked = homeKey;
     for (const u of batch) inFlight.current.add(u.key);
-    const texts = batch.map((u) => u.event.location as string);
+    const texts = batch.map((u) => u.text);
     running.current = true;
     const cool = () => {
       for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);

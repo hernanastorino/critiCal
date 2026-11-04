@@ -108,7 +108,8 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   const seen = new Map<string, AppEvent>();
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
-    const text = e.location || e.title;
+    // An address of blanks is no address.
+    const text = e.location?.trim() || e.title;
     if (!text || skipped(data, text)) continue;
     if (placeFor(places, e.location) || (!e.location && placeFor(places, e.title))) continue;
     if (timed(data, text)) continue;
@@ -119,10 +120,10 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
     const spot = spotFor(data, event.location);
     return {
       key,
-      text: event.location || event.title,
+      text: event.location?.trim() || event.title,
       event,
       /** An address the server has not timed yet: no need to ask while it tries. */
-      lookup: !!event.location && !spot,
+      lookup: !!event.location?.trim() && !spot,
     };
   });
 }
