@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -515,7 +516,9 @@ export function StoreProvider({
     raw({ type: "refresh", now });
   }, [now]);
   const previous = useRef(seed);
-  useEffect(() => {
+  // A layout effect runs right after the commit, so the saves start before any repaint
+  // or task freeze that could let a reload for a new version in first.
+  useLayoutEffect(() => {
     if (persist) saveDemo(data);
     if (onChange && previous.current !== data) onChange(previous.current, data);
     // Its saves are registered now, so a reload for a new version can wait for them.
