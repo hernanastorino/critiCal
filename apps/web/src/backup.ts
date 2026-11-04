@@ -47,12 +47,17 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit);
+  // An instant Date can represent (toISOString would throw otherwise).
+  const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
   const validCheckIn = (c: unknown) =>
     isObject(c) &&
     str(c.id) &&
+    str(c.blockId) &&
     str(c.taskId) &&
+    ["done", "missed", "partial"].includes(c.status as string) &&
     num(c.minutesDone) &&
-    num(c.createdAt) &&
+    (c.minutesDone as number) >= 0 &&
+    instant(c.createdAt) &&
     Array.isArray(c.unitIds) &&
     c.unitIds.every(str);
   if (
