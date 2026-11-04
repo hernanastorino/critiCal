@@ -8,20 +8,25 @@ export function parseDsn(dsn: string): { url: string; key: string } | null {
   return { url: `https://${m[2]}/api/${m[3]}/envelope/`, key: m[1] as string };
 }
 
-/** Supabase and fetch errors are plain objects: keep their message and code. */
-function toError(error: unknown): Error {
-  if (error instanceof Error) return error;
+/**
+ * An Error to describe, and the type to file it under: a database code ("42501") when
+ * there is one, Error or not (Supabase errors come both ways).
+ */
+function describe(error: unknown): { err: Error; type: string } {
   const e = error as { message?: unknown; code?: unknown } | null;
-  const err = new Error(typeof e?.message === "string" ? e.message : String(error));
-  if (typeof e?.code === "string" && e.code) err.name = e.code;
-  return err;
+  const err =
+    error instanceof Error
+      ? error
+      : new Error(typeof e?.message === "string" ? e.message : String(error));
+  const code = typeof e?.code === "string" && e.code ? e.code : undefined;
+  return { err, type: code ?? err.name };
 }
 
 /** Reports an error; never throws, so it is safe inside catch blocks. */
 export async function report(env: Env, error: unknown, where: string): Promise<void> {
   const dsn = env.sentryDsn ? parseDsn(env.sentryDsn) : null;
   if (!dsn) return;
-  const err = toError(error);
+  const { err, type } = describe(error);
   const eventId = crypto.randomUUID().replace(/-/g, "");
   const event = {
     event_id: eventId,
@@ -31,7 +36,7 @@ export async function report(env: Env, error: unknown, where: string): Promise<v
     environment: process.env.VERCEL_ENV ?? "development",
     tags: { function: where },
     exception: {
-      values: [{ type: err.name, value: err.message, stacktrace: undefined }],
+      values: [{ type, value: err.message, stacktrace: undefined }],
     },
     extra: { stack: err.stack },
   };

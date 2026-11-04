@@ -173,4 +173,12 @@ describe("error reports", () => {
       },
     );
   });
+    // An Error subclass with a code (like PostgrestError) is filed under its code too.
+    const coded = Object.assign(new Error("rls"), { name: "PostgrestError", code: "42501" });
+    await report({ sentryDsn: "https://abc@o1.ingest.sentry.io/42" }, coded, "widget");
+    const [, init3] = sent.mock.calls[1] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init3.body).split("\n")[2] ?? "{}").exception.values[0]).toMatchObject({
+      type: "42501",
+      value: "rls",
+    });
 });
