@@ -272,6 +272,15 @@ describe("backup", () => {
       expect(parseBackup(exportJson({ ...data, overrides }, 1))).toEqual({
         error: "Al respaldo le faltan datos.",
       });
+    for (const preferences of [
+      { semester: { start: 1, end: 2 } as never },
+      { semester: { start: "2026-08-01", end: "2026-02-30" } },
+      { semester: { start: "2026-12-01", end: "2026-08-01" } },
+      { holidaysOff: "no" as never },
+    ])
+      expect(parseBackup(exportJson({ ...data, preferences }, 1))).toEqual({
+        error: "Al respaldo le faltan datos.",
+      });
     const lateWake = data.settings.week.map((w, i) => (i === 2 ? { ...w, wake: 1e100 } : w));
     expect(
       parseBackup(exportJson({ ...data, settings: { ...data.settings, week: lateWake } }, 1)),

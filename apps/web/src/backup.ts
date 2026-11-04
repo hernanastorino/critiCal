@@ -94,6 +94,22 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
       (Number.isInteger(o.asWeekday) &&
         (o.asWeekday as number) >= 0 &&
         (o.asWeekday as number) <= 6));
+  const validPreferences = (p: unknown) => {
+    if (p === undefined || p === null) return true;
+    if (!isObject(p)) return false;
+    const s = p.semester;
+    if (
+      s !== undefined &&
+      !(
+        isObject(s) &&
+        realDate(s.start) &&
+        realDate(s.end) &&
+        (s.end as string) >= (s.start as string)
+      )
+    )
+      return false;
+    return p.holidaysOff === undefined || typeof p.holidaysOff === "boolean";
+  };
   if (
     !isObject(d.settings) ||
     !Array.isArray(week) ||
@@ -103,7 +119,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     !(d.activities as unknown[]).every((a) => isObject(a) && str(a.id)) ||
     !(d.tasks as unknown[]).every(validTask) ||
     !(d.checkIns as unknown[]).every(validCheckIn) ||
-    !(d.overrides as unknown[]).every(validOverride)
+    !(d.overrides as unknown[]).every(validOverride) ||
+    !validPreferences(d.preferences)
   ) {
     return { error: "Al respaldo le faltan datos." };
   }
