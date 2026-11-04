@@ -151,7 +151,10 @@ export function Connected({
         for (;;) {
           const target = latest.current;
           if (!target) break;
-          const writes = diffData(stored.current ?? target, target);
+          // Nothing to compare with yet: the database may lack these changes, so this
+          // is not a save (and must not release the unsaved hold).
+          if (stored.current === null) return false;
+          const writes = diffData(stored.current, target);
           if (nothing(writes)) break;
           await applyWrites(client, writes);
           stored.current = target;
@@ -280,19 +283,66 @@ function SyncProvider({
   const { dispatch } = useStore();
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
-  const reload = useCallback(async () => {
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const reloadOnce = useCallback(async () => {
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
     await flush();
-    // Changes still waiting (offline) must not be overwritten by the server's copy.
-    if (!latest.current || !stored.current || !nothing(diffData(stored.current, latest.current)))
+    if (!latest.current) return;
+    // A device copy without its baseline (a damaged cache): what it lacks may have been
+    // added elsewhere, so nothing is deleted. Its own records are written over the
+    // database, and the merged result becomes both the copy and its baseline.
+    if (stored.current === null) {
+      try {
+        const server = owned(await loadData(client));
+        await applyWrites(client, { ...diffData(server, latest.current), deletes: [] });
+        const merged = owned(await loadData(client));
+        // An edit made meanwhile is not in `merged`: try again on the next sync.
+        if (changes.current !== before) return;
+        stored.current = merged;
+        latest.current = merged;
+        dispatch({ type: "replace", data: merged });
+        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+        hold("unsaved", false);
+      } catch (e) {
+        // Offline: the retry below tries the merge again; anything else is reported.
+        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+        else reportError(e);
+      }
       return;
+    }
+    // Changes still waiting (offline) must not be overwritten by the server's copy.
+    if (!nothing(diffData(stored.current, latest.current))) return;
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, flush, stored, latest, changes, owned]);
+  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
+  /**
+   * One reload at a time (mount, interval, foreground can overlap): an older merge's
+   * writes must never land after a newer one set the baseline. Each call waits for
+   * the one before and then runs, so it sees what its caller just changed; a failed
+   * one does not stop the next.
+   */
+  const reload = useCallback((): Promise<void> => {
+    const run = queue.current.catch(() => undefined).then(reloadOnce);
+    queue.current = run;
+    return run;
+  }, [reloadOnce]);
+
+  // A merge without baseline that failed offline is retried here: `flush` cannot do
+  // it (it never writes without a baseline).
+  useEffect(() => {
+    if (!status.offline || stored.current !== null) return;
+    const retry = () => void reload().catch(reportError);
+    const id = setInterval(retry, RETRY_MS);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", retry);
+    };
+  }, [status.offline, reload, stored]);
 
   const syncNow = useCallback(async () => {
     try {
