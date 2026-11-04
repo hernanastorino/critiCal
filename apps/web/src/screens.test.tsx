@@ -155,6 +155,7 @@ function Probe() {
         tasks: data.tasks.map((t) => [t.title, t.kind, t.minMinutes]),
         semester: data.preferences?.semester,
         holidaysOff: data.preferences?.holidaysOff,
+        checkIns: data.checkIns.map((c) => c.id),
       })}
     </output>
   );
@@ -252,14 +253,29 @@ describe("backup", () => {
     const now = at("2026-11-04", 600);
     const full = demoData(now);
     const backup = { ...full, tasks: full.tasks.slice(1) };
+    const kept = full.tasks[1]?.id as string;
     vi.stubGlobal("confirm", () => true);
     const created = vi.fn(() => "blob:x");
     vi.stubGlobal(
       "URL",
       Object.assign(URL, { createObjectURL: created, revokeObjectURL: () => {} }),
     );
+    const withLog = (n: number) => ({
+      ...demoData(n),
+      checkIns: [
+        {
+          id: "later",
+          blockId: "b",
+          taskId: kept,
+          status: "done" as const,
+          minutesDone: 30,
+          unitIds: [],
+          createdAt: n,
+        },
+      ],
+    });
     render(
-      <StoreProvider initial={demoData} persist={false} fixedNow={now}>
+      <StoreProvider initial={withLog} persist={false} fixedNow={now}>
         <Backup />
         <Probe />
       </StoreProvider>,
@@ -273,6 +289,7 @@ describe("backup", () => {
     });
     await waitFor(() => expect(screen.getByText("Datos importados ✓")).toBeTruthy());
     expect(state().tasks.length).toBe(full.tasks.length - 1);
+    expect(state().checkIns).toEqual(["later"]);
 
     const bad = new File(["{}"], "x.json");
     await act(async () => {

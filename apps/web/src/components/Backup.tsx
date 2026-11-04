@@ -27,7 +27,15 @@ export function Backup() {
       return;
     }
     if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
-    dispatch({ type: "replace", data: parsed.data });
+    // Check-ins are an append-only log: the ones made after the backup stay, as long as
+    // their task is in it.
+    const tasks = new Set(parsed.data.tasks.map((t) => t.id));
+    const inFile = new Set(parsed.data.checkIns.map((c) => c.id));
+    const newer = data.checkIns.filter((c) => tasks.has(c.taskId) && !inFile.has(c.id));
+    dispatch({
+      type: "replace",
+      data: { ...parsed.data, checkIns: [...parsed.data.checkIns, ...newer] },
+    });
     setMessage({ text: "Datos importados ✓" });
   };
 

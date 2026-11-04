@@ -37,9 +37,15 @@ export function Places() {
       return;
     }
     const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
-    const missing = (r.unroutable ?? []).map((u) => `${name(u.from)} → ${name(u.to)}`);
-    const unknown = (r.ungeocoded ?? []).map(name);
-    const noAddress = (r.noAddress ?? []).map(name);
+    // Only what still has no time: pairs already entered by hand need nothing.
+    const known = (from: string, to: string) => minutesBetween(data, from, to) !== undefined;
+    const incomplete = (id: string) =>
+      places.some((q) => q.id !== id && (!known(id, q.id) || !known(q.id, id)));
+    const missing = (r.unroutable ?? [])
+      .filter((u) => !known(u.from, u.to))
+      .map((u) => `${name(u.from)} → ${name(u.to)}`);
+    const unknown = (r.ungeocoded ?? []).filter(incomplete).map(name);
+    const noAddress = (r.noAddress ?? []).filter(incomplete).map(name);
     const problems = [
       noAddress.length ? `Sin dirección: ${noAddress.join(", ")}` : "",
       unknown.length ? `no encontré la dirección de ${unknown.join(", ")}` : "",
