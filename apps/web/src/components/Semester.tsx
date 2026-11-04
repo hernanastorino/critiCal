@@ -5,7 +5,7 @@ import { dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
-import { hasClasses, isMateria, isNoSubject } from "../subjects.js";
+import { hasClasses, subjectsOf } from "../subjects.js";
 
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
@@ -21,11 +21,7 @@ export function Semester() {
   const [saved, setSaved] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const holidaysOn = data.preferences?.holidaysOff !== false;
-  // Before materias were told apart, every activity but a routine may hold exams.
-  const named = data.activities.filter(isMateria);
-  const subjects = named.length
-    ? named
-    : data.activities.filter((a) => a.kind !== "rutina" && !isNoSubject(a));
+  const subjects = subjectsOf(data);
   // Both dates are needed: an empty start would mean "from year 0".
   const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
 

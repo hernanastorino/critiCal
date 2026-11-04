@@ -4,6 +4,7 @@ import type { Activity, DaySettings } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { useStore } from "../store.js";
+import { subjectsOf, validRoutine } from "../subjects.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -324,6 +325,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
   );
   const studyHours = study ? String(study.minMinutes / 60) : "";
   const [weekly, setWeekly] = useState(studyHours);
+  const studies = subjectsOf(data).some((a) => a.id === activity.id);
   return (
     <div className="activity-row">
       <button
@@ -393,7 +395,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
               onChange={(e) => setForm({ ...form, to: e.target.value })}
             />
           </div>
-          {activity.kind === "materia" && (
+          {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
               value={weekly}
@@ -432,7 +434,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
                 },
               });
               const hours = Number(weekly.replace(",", "."));
-              if (activity.kind === "materia" && weekly !== studyHours && hours >= 0)
+              if (studies && weekly !== studyHours && Number.isFinite(hours) && hours >= 0)
                 dispatch({
                   type: "weeklyStudy",
                   activityId: activity.id,
@@ -497,7 +499,7 @@ export function Routines() {
         type="button"
         className="btn"
         style={{ width: "100%" }}
-        disabled={!name.trim() || !(Number(times) >= 1) || !(Number(minutes) >= 1)}
+        disabled={!name.trim() || !validRoutine(Number(times), Number(minutes))}
         onClick={() => {
           dispatch({
             type: "saveRoutine",

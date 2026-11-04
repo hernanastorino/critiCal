@@ -29,7 +29,6 @@ export function guessRole(name: string): CalendarRole {
   if (/\b(presentacion|presentaciones|exposicion|exposiciones|defensa)\b/.test(n))
     return "presentacion";
   if (/\b(feriado|feriados|holiday|holidays|cumpleanos|birthdays)\b/.test(n)) return "ignore";
-  if (/\b(clases|horario|horarios|cursos)\b/.test(n)) return "clases";
   return "busy";
 }
 

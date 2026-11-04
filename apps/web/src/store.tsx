@@ -47,6 +47,7 @@ import {
   newClassTitles,
   unassignedTasks,
   unsortedActivities,
+  validRoutine,
 } from "./subjects.js";
 import { hold } from "./updates.js";
 
@@ -492,7 +493,8 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "weeklyStudy": {
       const subject = data.activities.find((a) => a.id === action.activityId);
-      if (!subject) return data;
+      // At most a full week of study.
+      if (!subject || !Number.isFinite(action.minutes) || action.minutes > 7 * 1440) return data;
       const study = data.tasks.find(
         (t) => t.activityId === subject.id && t.kind === "habit" && t.status === "active",
       );
@@ -504,6 +506,8 @@ function apply(data: AppData, action: Action): AppData {
                 tasks: data.tasks.map((t) =>
                   t.id === study.id ? { ...t, status: "dropped" as const, endedAt: now } : t,
                 ),
+                // Its blocks pinned ahead go too; the past ones are history.
+                pins: data.pins?.filter((p) => p.taskId !== study.id || p.start <= now),
               },
               now,
             )
@@ -521,7 +525,7 @@ function apply(data: AppData, action: Action): AppData {
           units: [],
           sessionMinutes: 60,
         }),
-        minMinutes: action.minutes,
+        minMinutes: Math.round(action.minutes),
         sessionsPerWeek: Math.ceil(action.minutes / (study?.sessionMinutes ?? 60)),
       };
       const tasks = study
@@ -531,15 +535,17 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "saveRoutine": {
       const name = action.name.trim();
-      if (!name || action.sessionsPerWeek < 1 || action.sessionMinutes < 1) return data;
+      if (!name || !validRoutine(action.sessionsPerWeek, action.sessionMinutes)) return data;
+      const times = Math.round(action.sessionsPerWeek);
+      const minutes = Math.round(action.sessionMinutes);
       const routine: Activity = {
         id: newId(),
         name,
         color: nextColor(data.activities),
         academic: false,
         kind: "rutina",
-        maxSessionMinutes: Math.max(action.sessionMinutes, 30),
-        minBlockMinutes: Math.min(action.sessionMinutes, 60),
+        maxSessionMinutes: Math.max(minutes, 30),
+        minBlockMinutes: Math.min(minutes, 60),
       };
       const habit: AppTask = {
         id: newId(),
@@ -547,9 +553,9 @@ function apply(data: AppData, action: Action): AppData {
         title: name,
         kind: "habit",
         estimateMinutes: 0,
-        minMinutes: action.sessionsPerWeek * action.sessionMinutes,
-        sessionsPerWeek: action.sessionsPerWeek,
-        sessionMinutes: action.sessionMinutes,
+        minMinutes: times * minutes,
+        sessionsPerWeek: times,
+        sessionMinutes: minutes,
         priority: 2,
         status: "active",
         units: [],

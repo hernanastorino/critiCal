@@ -9,9 +9,11 @@ import type { AppData, AppEvent } from "./model.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 import {
   aliasFrom,
+  hasClasses,
   NO_SUBJECT,
   newClassTitles,
   subjectFor,
+  subjectsOf,
   unassignedTasks,
   unsortedActivities,
 } from "./subjects.js";
@@ -211,6 +213,64 @@ describe("materias", () => {
     });
   });
 
+  it("enters class mode only when the user picks the role", () => {
+    const named = data({
+      calendars: [{ id: "icloud:h", source: "icloud", externalId: "h", name: "Horarios" }],
+    });
+    expect(hasClasses(named)).toBe(false);
+    expect(hasClasses(data())).toBe(true);
+    // Without a schedule, old activities hold exams and study; with one, only materias.
+    const old: Activity = { ...add, id: "old", name: "Física", kind: undefined };
+    const gym: Activity = { ...add, id: "g", name: "Gym", kind: "rutina" };
+    const all = { activities: [add, old, gym] };
+    expect(subjectsOf({ ...named, ...all }).map((a) => a.id)).toEqual(["add", "old"]);
+    expect(subjectsOf({ ...data(), ...all }).map((a) => a.id)).toEqual(["add"]);
+  });
+
+  it("refuses endless study or routines and drops the study's future pins", () => {
+    const d = reducer(data(), { type: "weeklyStudy", activityId: "add", minutes: 120, now: NOW });
+    expect(
+      reducer(d, {
+        type: "weeklyStudy",
+        activityId: "add",
+        minutes: Number.POSITIVE_INFINITY,
+        now: NOW,
+      }),
+    ).toBe(d);
+    for (const [times, minutes] of [
+      [Number.POSITIVE_INFINITY, 60],
+      [3, Number("1e309")],
+      [0, 60],
+      [3, 0],
+    ] as const)
+      expect(
+        reducer(d, {
+          type: "saveRoutine",
+          name: "Gym",
+          sessionsPerWeek: times,
+          sessionMinutes: minutes,
+          now: NOW,
+        }),
+      ).toBe(d);
+    const study = d.tasks.find((t) => t.kind === "habit") as AppData["tasks"][number];
+    const pin = (start: number) => ({
+      id: `pin:${study.id}@${start}`,
+      taskId: study.id,
+      activityId: "add",
+      start,
+      end: start + 3_600_000,
+    });
+    // One already under way stays; one ahead goes.
+    const pinned = { ...d, pins: [pin(NOW - 1_800_000), pin(NOW + 86_400_000)] };
+    const dropped = reducer(pinned, {
+      type: "weeklyStudy",
+      activityId: "add",
+      minutes: 0,
+      now: NOW,
+    });
+    expect(dropped.pins?.map((p) => p.start)).toEqual([NOW - 1_800_000]);
+  });
+
   it("stores kinds, aliases and the titles that are not materias", () => {
     const before = data();
     const after = {
@@ -263,7 +323,7 @@ describe("inbox", () => {
     expect(screen.getByText("¿De qué materia es?")).toBeTruthy();
     fireEvent.change(screen.getByLabelText("Materia de P1 IO"), { target: { value: "anal" } });
     await act(async () => {
-      fireEvent.click(screen.getByRole("option", { name: /Análisis y Diseño/ }));
+      fireEvent.click(screen.getByRole("button", { name: /Análisis y Diseño/ }));
     });
     expect(screen.queryByText("¿De qué materia es?")).toBeNull();
     expect(screen.getByTestId("subjects").textContent).toContain('"io"');

@@ -60,6 +60,16 @@ export function unsortedActivities(data: AppData): Activity[] {
   return data.activities.filter((a) => !a.kind && !isNoSubject(a));
 }
 
+/**
+ * What can hold exams and weekly study: the materias once there is a class schedule;
+ * before that, every activity but routines and "Sin materia".
+ */
+export function subjectsOf(data: AppData): Activity[] {
+  return hasClasses(data)
+    ? data.activities.filter(isMateria)
+    : data.activities.filter((a) => a.kind !== "rutina" && !isNoSubject(a));
+}
+
 /** Evaluations waiting to be told which materia they belong to. */
 export function unassignedTasks(data: AppData) {
   const waiting = data.activities.find(isNoSubject);
@@ -76,3 +86,12 @@ export const aliasFrom = (title: string) =>
     .split(" ")
     .filter((w) => w && !CODES.test(w))
     .join(" ");
+
+/** Times a week and minutes a session that a routine can be planned with. */
+export const validRoutine = (times: number, minutes: number) =>
+  Number.isFinite(times) &&
+  Number.isFinite(minutes) &&
+  Math.round(times) >= 1 &&
+  Math.round(times) <= 14 &&
+  Math.round(minutes) >= 1 &&
+  Math.round(minutes) <= 1440;
