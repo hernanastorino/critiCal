@@ -221,7 +221,7 @@ describe("remote", () => {
       "upsert:task_units",
       "upsert:day_overrides",
       "upsert:plan_blocks",
-      "insert:check_ins",
+      "upsert:check_ins",
       "delete:task_units",
       "delete:plan_blocks",
     ]);

@@ -69,6 +69,9 @@ export function Connected({
     (d: AppData): AppData => (session.user?.id && !d.owner ? { ...d, owner: session.user.id } : d),
     [session],
   );
+  // Read through a ref: a new session object must not re-read the local copy.
+  const ownedRef = useRef(owned);
+  ownedRef.current = owned;
   // undefined while this device's copy is read (a few milliseconds).
   const [local, setLocal] = useState<LocalState | null | undefined>(undefined);
   const [data, setData] = useState<AppData | null>(null);
@@ -94,7 +97,7 @@ export function Connected({
     readLocal(uid).then((found) => {
       if (cancelled) return;
       if (found) {
-        const data = owned(found.data);
+        const data = ownedRef.current(found.data);
         stored.current = found.stored;
         latest.current = data;
         setData(data);
@@ -106,7 +109,7 @@ export function Connected({
     return () => {
       cancelled = true;
     };
-  }, [uid, owned]);
+  }, [uid]);
 
   useEffect(() => {
     // With a local copy the app is already usable; SyncProvider refreshes it.
@@ -268,7 +271,8 @@ function SyncProvider({
     const before = changes.current;
     await flush();
     // Changes still waiting (offline) must not be overwritten by the server's copy.
-    if (latest.current !== stored.current) return;
+    if (!latest.current || !stored.current || !nothing(diffData(stored.current, latest.current)))
+      return;
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;

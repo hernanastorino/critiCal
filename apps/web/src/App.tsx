@@ -8,6 +8,7 @@ import { Silos } from "./components/Silos.js";
 import { Week } from "./components/Week.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
+import { disablePush } from "./push.js";
 import { signInWithGoogle, supabase } from "./remote.js";
 import { loadDemo, resetDemo, StoreProvider, useStore } from "./store.js";
 
@@ -129,7 +130,11 @@ export function App({
         <Shell
           onSignOut={() => {
             // Nothing of this account stays on the device.
-            void clearLocal().then(() => client.auth.signOut());
+            // Unsubscribe first, while the session can still delete the device's row.
+            void disablePush(client)
+              .catch(() => undefined)
+              .then(() => clearLocal())
+              .then(() => client.auth.signOut());
           }}
         />
       </Connected>

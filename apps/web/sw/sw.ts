@@ -44,10 +44,15 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const url = new URL(
-    (event.notification.data as { url?: string })?.url ?? "/",
-    self.location.origin,
-  );
+  // Only this app's own pages, whatever the payload says.
+  const raw = (event.notification.data as { url?: unknown } | null)?.url;
+  let url = new URL("/", self.location.origin);
+  try {
+    const parsed = new URL(typeof raw === "string" ? raw : "/", self.location.origin);
+    if (parsed.origin === self.location.origin) url = parsed;
+  } catch {
+    // Malformed: open the app's home.
+  }
   event.waitUntil(
     (async () => {
       const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });

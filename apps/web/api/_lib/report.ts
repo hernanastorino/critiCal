@@ -34,6 +34,8 @@ export async function report(env: Env, error: unknown, where: string): Promise<v
   try {
     await fetch(dsn.url, {
       method: "POST",
+      // A stalled Sentry must not hold up the cron or the webhook.
+      signal: AbortSignal.timeout(3000),
       headers: {
         "Content-Type": "application/x-sentry-envelope",
         "X-Sentry-Auth": `Sentry sentry_version=7, sentry_key=${dsn.key}, sentry_client=critical/1.0`,

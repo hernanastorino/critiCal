@@ -28,6 +28,17 @@ describe("device copy", () => {
     expect(await readLocal("a")).toBeNull();
   });
 
+  it("ignores broken copies and forgets the old cache on sign-out", async () => {
+    localStorage.setItem("critical.cache.v1.b", "null");
+    expect(await readLocal("b")).toBeNull();
+    await writeLocal("c", { data: { settings: {} } as never, stored: null });
+    expect(await readLocal("c")).toBeNull();
+    const data = demoData(Date.now());
+    localStorage.setItem("critical.cache.v1.d", JSON.stringify(data));
+    await clearLocal();
+    expect(localStorage.getItem("critical.cache.v1.d")).toBeNull();
+  });
+
   it("tells a lost connection from a real failure", () => {
     expect(isOffline(new TypeError("Failed to fetch"))).toBe(true);
     expect(isOffline({ message: "TypeError: Load failed" })).toBe(true);

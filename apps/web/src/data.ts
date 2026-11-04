@@ -388,9 +388,12 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     }
   }
   for (const i of w.inserts) {
-    const { error } = await client.from(i.table).insert(i.rows);
-    // Already there: an earlier attempt landed before the connection dropped.
-    if (error && error.code !== "23505") throw error;
+    // Rows that already landed (an attempt whose answer was lost) are skipped one by
+    // one; the rest of the batch is still written.
+    const { error } = await client
+      .from(i.table)
+      .upsert(i.rows, { onConflict: "id", ignoreDuplicates: true });
+    if (error) throw error;
   }
   for (const d of w.deletes) {
     const { error } = await client.from(d.table).delete().in("id", d.ids);

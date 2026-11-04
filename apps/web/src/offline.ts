@@ -46,11 +46,33 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
 }
 
 const key = (uid: string) => `state.v2.${uid}`;
+
+const LISTS = [
+  "activities",
+  "tasks",
+  "events",
+  "checkIns",
+  "overrides",
+  "plan",
+  "proposals",
+] as const;
+
+/** Something an older or broken version wrote is treated as no copy at all. */
+function isData(d: unknown): d is AppData {
+  const x = d as Record<string, unknown> | null;
+  return !!x && typeof x === "object" && !!x.settings && LISTS.every((k) => Array.isArray(x[k]));
+}
+
+function valid(state: unknown): LocalState | null {
+  const s = state as Partial<LocalState> | null;
+  if (!s || !isData(s.data)) return null;
+  return { data: s.data, stored: isData(s.stored) ? s.stored : null };
+}
 const legacyKey = (uid: string) => `critical.cache.v1.${uid}`;
 
 export async function readLocal(uid: string): Promise<LocalState | null> {
   try {
-    const found = await run<LocalState | undefined>("readonly", (s) => s.get(key(uid)));
+    const found = valid(await run<unknown>("readonly", (s) => s.get(key(uid))));
     if (found) return found;
   } catch {
     // No IndexedDB (private mode, old browser): fall through to the legacy copy.
@@ -59,8 +81,8 @@ export async function readLocal(uid: string): Promise<LocalState | null> {
     // Earlier versions kept the screen state in localStorage, already written.
     const raw = globalThis.localStorage?.getItem(legacyKey(uid));
     if (!raw) return null;
-    const data = JSON.parse(raw) as AppData;
-    return { data, stored: data };
+    const data: unknown = JSON.parse(raw);
+    return isData(data) ? { data, stored: data } : null;
   } catch {
     return null;
   }
@@ -92,6 +114,16 @@ export async function clearLocal(): Promise<void> {
       resolve();
     }
   });
+  try {
+    // The localStorage copy of earlier versions, in case IndexedDB never took over.
+    const ls = globalThis.localStorage;
+    for (let i = (ls?.length ?? 0) - 1; i >= 0; i--) {
+      const k = ls?.key(i);
+      if (k?.startsWith("critical.cache.v1.")) ls?.removeItem(k);
+    }
+  } catch {
+    // Storage blocked: nothing was kept there either.
+  }
 }
 
 /** Failures that mean "no connection right now", not a bug. */
