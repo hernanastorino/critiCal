@@ -23,6 +23,7 @@ export async function geocode(address: string): Promise<{ lat: number; lon: numb
   const q = new URLSearchParams({ q: address, format: "jsonv2", limit: "1" });
   const res = await fetch(`${NOMINATIM}?${q}`, {
     headers: { "User-Agent": AGENT, "Accept-Language": "es" },
+    signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) return null;
   const [hit] = (await res.json()) as { lat: string; lon: string }[];
@@ -36,6 +37,7 @@ export async function drivingMatrix(
 ): Promise<(number | null)[][]> {
   const res = await fetch(ORS, {
     method: "POST",
+    signal: AbortSignal.timeout(8000),
     headers: { Authorization: key, "Content-Type": "application/json" },
     body: JSON.stringify({ locations: points.map((p) => [p.lon, p.lat]), metrics: ["duration"] }),
   });
@@ -64,9 +66,10 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       first = false;
       const hit = await geocode(p.address);
       if (!hit) continue;
+      const { error: updateError } = await user.from("places").update(hit).eq("id", p.id);
+      if (updateError) throw updateError;
       Object.assign(p, hit);
       geocoded++;
-      await user.from("places").update(hit).eq("id", p.id);
     }
     const located = places.filter((p) => p.lat != null && p.lon != null);
     if (located.length < 2) return json({ ok: true, geocoded, pairs: 0 });
@@ -75,10 +78,12 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       env.orsKey as string,
       located.map((p) => ({ lat: p.lat as number, lon: p.lon as number })),
     );
-    const { data: manualRows } = await user
+    const { data: manualRows, error: manualError } = await user
       .from("travel_times")
       .select("from_place, to_place")
       .eq("manual", true);
+    // Without this list, manual times would be overwritten.
+    if (manualError) throw manualError;
     const manual = new Set((manualRows ?? []).map((r) => `${r.from_place}>${r.to_place}`));
     const rows = located.flatMap((from, i) =>
       located.flatMap((to, j) => {

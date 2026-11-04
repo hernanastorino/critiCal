@@ -60,6 +60,7 @@ export function Places() {
       ))}
       {editing ? (
         <PlaceForm
+          key={editing.id}
           place={editing}
           onCancel={() => setEditing(null)}
           onSave={(place) => {
@@ -99,7 +100,12 @@ export function Places() {
                   (t) => t.from === from.id && t.to === to.id,
                 );
                 return (
-                  <label key={`${from.id}>${to.id}`} className="check">
+                  <label
+                    // Remount when the stored time changes (e.g. after computing), so the
+                    // uncontrolled input shows it.
+                    key={`${from.id}>${to.id}:${minutesBetween(data, from.id, to.id) ?? ""}`}
+                    className="check"
+                  >
                     <span style={{ flex: 1 }}>
                       {from.name} → {to.name}
                       {auto && !auto.manual && (

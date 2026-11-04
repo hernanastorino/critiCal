@@ -49,7 +49,8 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   const places = data.places ?? [];
   if (!home(data)) return events;
   return events.map((e) => {
-    if (skipped(data, e.location) || skipped(data, e.title)) return { ...e, location: undefined };
+    // A title answer only counts for events without a location of their own.
+    if (skipped(data, e.location || e.title)) return { ...e, location: undefined };
     if (e.location) return e;
     const place = placeFor(places, e.title);
     return place ? { ...e, location: place.name } : e;
@@ -81,7 +82,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
     const text = e.location || e.title;
-    if (!text || skipped(data, e.location) || skipped(data, e.title)) continue;
+    if (!text || skipped(data, text)) continue;
     if (placeFor(places, e.location) || (!e.location && placeFor(places, e.title))) continue;
     const key = normalize(text);
     if (!seen.has(key)) seen.set(key, e);

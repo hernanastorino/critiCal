@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const writes: { table: string; op: string; payload: unknown }[] = [];
 let places: Record<string, unknown>[] = [];
 let manual: Record<string, unknown>[] = [];
+let manualError: Error | null = null;
 
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
@@ -10,7 +11,9 @@ vi.mock("@supabase/supabase-js", () => ({
     from: (table: string) => ({
       select: () => {
         const result = { data: table === "places" ? places : manual, error: null };
-        return Object.assign(Promise.resolve(result), { eq: async () => result });
+        return Object.assign(Promise.resolve(result), {
+          eq: async () => ({ ...result, error: manualError }),
+        });
       },
       update: (payload: unknown) => ({
         eq: async () => {
@@ -82,6 +85,27 @@ describe("travel", () => {
         payload: [{ from_place: "casa", to_place: "facu", minutes: 25, manual: false }],
       },
     ]);
+  });
+
+  it("never overwrites manual times when it cannot read them", async () => {
+    places = [
+      { id: "casa", address: null, lat: -34.8, lon: -56.2 },
+      { id: "facu", address: null, lat: -34.9, lon: -56.1 },
+    ];
+    manualError = new Error("rls");
+    vi.stubGlobal("fetch", async () =>
+      Response.json({
+        durations: [
+          [0, 60],
+          [60, 0],
+        ],
+      }),
+    );
+    vi.spyOn(console, "error").mockImplementationOnce(() => {});
+    const res = await handle(req(), env);
+    expect(res.status).toBe(500);
+    expect(writes).toEqual([]);
+    manualError = null;
   });
 
   it("needs two located places, and reports routing failures", async () => {
