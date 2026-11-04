@@ -8,7 +8,7 @@ import { diffData } from "./data.js";
 import { emptyData } from "./demo.js";
 import { type Activity, zonedInstant } from "./engine.js";
 import type { AppData, AppEvent } from "./model.js";
-import { reducer, StoreProvider, useStore } from "./store.js";
+import { loadDemo, reducer, resetDemo, StoreProvider, useStore } from "./store.js";
 import {
   aliasFrom,
   hasClasses,
@@ -469,4 +469,32 @@ it("does not save a weekly study longer than a week", () => {
   expect(save.disabled).toBe(true);
   fireEvent.change(field, { target: { value: "3" } });
   expect(save.disabled).toBe(false);
+});
+
+it("migrates a demo saved before the study mark, once", () => {
+  localStorage.clear();
+  const old = {
+    ...data(),
+    tasks: [
+      {
+        id: "s",
+        activityId: "add",
+        title: "Estudio Análisis y Diseño",
+        kind: "habit" as const,
+        estimateMinutes: 0,
+        minMinutes: 60,
+        priority: 2,
+        status: "active" as const,
+        units: [],
+      },
+    ],
+  };
+  localStorage.setItem("critical.demo.v1", JSON.stringify(old));
+  expect(loadDemo(NOW).tasks[0]?.study).toBe(true);
+  expect(localStorage.getItem("critical.demo.v1")).toBeNull();
+  expect(JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}").tasks[0].study).toBe(true);
+  localStorage.setItem("critical.demo.v1", "{}");
+  resetDemo();
+  expect(localStorage.getItem("critical.demo.v1")).toBeNull();
+  expect(localStorage.getItem("critical.demo.v2")).toBeNull();
 });

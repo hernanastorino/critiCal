@@ -44,6 +44,7 @@ import { refresh } from "./refresh.js";
 import {
   aliasFrom,
   isNoSubject,
+  markLegacyStudy,
   newClassTitles,
   studyOf,
   studyTitle,
@@ -663,12 +664,21 @@ function apply(data: AppData, action: Action): AppData {
   }
 }
 
-const STORAGE_KEY = "critical.demo.v1";
+const STORAGE_KEY = "critical.demo.v2";
+/** Demos saved before the study mark: migrated once, on the first load. */
+const LEGACY_STORAGE_KEY = "critical.demo.v1";
 
 export function loadDemo(now: number): AppData {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as AppData;
+    const legacy = globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      const data = markLegacyStudy(JSON.parse(legacy) as AppData);
+      globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
+      globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+      return data;
+    }
   } catch {
     // Storage blocked or corrupt: start fresh.
   }
@@ -708,6 +718,7 @@ function saveDemo(data: AppData): void {
 export function resetDemo(): void {
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY);
+    globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
   } catch {
     // ignore
   }

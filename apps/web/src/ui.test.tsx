@@ -128,7 +128,7 @@ describe("app", () => {
     const [wake] = screen.getAllByDisplayValue(/:/) as HTMLInputElement[];
     fireEvent.change(wake as HTMLInputElement, { target: { value: "10:00" } });
     fireEvent.click(screen.getByText("Reacomodar hoy"));
-    expect(JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}").overrides).toHaveLength(1);
+    expect(JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}").overrides).toHaveLength(1);
 
     fireEvent.click(screen.getByLabelText("Ajustes"));
     act(() => fireEvent.click(screen.getByText("Reiniciar demo")));
@@ -184,11 +184,11 @@ describe("app", () => {
   });
 
   it("loads and resets persisted demo data", () => {
-    localStorage.setItem("critical.demo.v1", JSON.stringify({ ...demoData(NOW), tasks: [] }));
+    localStorage.setItem("critical.demo.v2", JSON.stringify({ ...demoData(NOW), tasks: [] }));
     expect(loadDemo(NOW).tasks).toEqual([]);
     resetDemo();
     expect(loadDemo(NOW).tasks.length).toBeGreaterThan(0);
-    localStorage.setItem("critical.demo.v1", "{bad json");
+    localStorage.setItem("critical.demo.v2", "{bad json");
     expect(loadDemo(NOW).tasks.length).toBeGreaterThan(0);
   });
 });
