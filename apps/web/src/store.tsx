@@ -383,9 +383,10 @@ function apply(data: AppData, action: Action): AppData {
         );
       // Spots are timed from home: a new home (or address) makes the computed ones stale.
       const was = home(data);
-      const moved =
-        !!action.place.isHome &&
-        (was?.id !== action.place.id || (old?.address ?? "") !== (action.place.address ?? ""));
+      const moved = action.place.isHome
+        ? was?.id !== action.place.id || (old?.address ?? "") !== (action.place.address ?? "")
+        : // Or the home stops being one.
+          was?.id === action.place.id;
       const spots = moved ? (data.spots ?? []).filter((s) => s.manual) : data.spots;
       return refresh({ ...data, places, travelTimes, spots }, now);
     }

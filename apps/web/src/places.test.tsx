@@ -152,6 +152,15 @@ describe("event addresses and search", () => {
     expect(reducer(moved, { type: "forgetSpot", key: "instituto anglo", now: NOW }).spots).toEqual(
       [],
     );
+    // So does unchecking «Es mi casa».
+    expect(
+      reducer(both, {
+        type: "savePlace",
+        place: { ...casa, isHome: undefined },
+        now: NOW,
+      }).spots?.map((s) => s.key),
+    ).toEqual(["instituto anglo"]);
+    expect(reducer(both, { type: "savePlace", place: { ...gym }, now: NOW }).spots).toHaveLength(2);
     // Deleting the home has the same effect.
     expect(
       reducer(both, { type: "deletePlace", placeId: "casa", now: NOW }).spots?.map((s) => s.key),
