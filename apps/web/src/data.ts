@@ -439,9 +439,11 @@ export function diffData(prev: AppData, next: AppData): Writes {
   // Times dropped while both places remain (a moved address); a removed place takes its
   // own along. Keyed "from>to": travel_times has no single id.
   const nextPairs = new Set((next.travelTimes ?? []).map(pair));
+  // A computed time is deleted only while it is still computed: a manual time another
+  // device wrote meanwhile survives. Manual ones go only when the user dropped them.
   const goneTimes = (prev.travelTimes ?? [])
     .filter((t) => keptPlaces.has(t.from) && keptPlaces.has(t.to) && !nextPairs.has(pair(t)))
-    .map(pair);
+    .map((t) => `${pair(t)}>${t.manual ? "manual" : "computed"}`);
   if (goneTimes.length) deletes.push({ table: "travel_times", ids: goneTimes });
 
   const blocks = changed(prev.plan, next.plan);
@@ -501,12 +503,10 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     }
     if (d.table === "travel_times") {
       for (const id of d.ids) {
-        const [from, to] = id.split(">");
-        const { error } = await client
-          .from(d.table)
-          .delete()
-          .eq("from_place", from)
-          .eq("to_place", to);
+        const [from, to, kind] = id.split(">");
+        let query = client.from(d.table).delete().eq("from_place", from).eq("to_place", to);
+        if (kind === "computed") query = query.eq("manual", false);
+        const { error } = await query;
         if (error) throw error;
       }
       continue;

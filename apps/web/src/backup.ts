@@ -41,7 +41,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     !Array.isArray(week) ||
     week.length !== 7 ||
     !week.every(isObject) ||
-    lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject))
+    lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject)) ||
+    !d.tasks?.every((t) => Array.isArray(t.units))
   ) {
     return { error: "Al respaldo le faltan datos." };
   }

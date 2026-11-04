@@ -30,8 +30,13 @@ export function Settings({
     data.preferences?.holidaysOff !== false && holidaysBetween(today, today).length > 0;
   const base =
     data.settings.week[override?.asWeekday ?? (holiday ? 0 : localParts(tz, now).weekday)];
-  const [wake, setWake] = useState(minutesToHhmm(override?.wake ?? base?.wake ?? 480));
-  const [bed, setBed] = useState(minutesToHhmm(override?.bed ?? base?.bed ?? 0));
+  const defaultWake = minutesToHhmm(override?.wake ?? base?.wake ?? 480);
+  const defaultBed = minutesToHhmm(override?.bed ?? base?.bed ?? 0);
+  // Untouched fields follow the routine (e.g. holidays switched on or off here).
+  const [wakeEdit, setWake] = useState<string | null>(null);
+  const [bedEdit, setBed] = useState<string | null>(null);
+  const wake = wakeEdit ?? defaultWake;
+  const bed = bedEdit ?? defaultBed;
 
   return (
     <>

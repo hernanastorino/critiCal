@@ -56,6 +56,8 @@ export interface TravelResult {
   pairs?: number;
   /** Place pairs with no driving route: their time must be entered by hand. */
   unroutable?: { from: string; to: string }[];
+  /** Places whose address could not be found. */
+  ungeocoded?: string[];
   error?: string;
 }
 

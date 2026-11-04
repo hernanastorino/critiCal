@@ -89,7 +89,13 @@ describe("travel", () => {
     });
     const pause = vi.fn(async () => {});
     const res = await handle(req(), env, pause);
-    expect(await res.json()).toEqual({ ok: true, geocoded: 1, pairs: 1, unroutable: [] });
+    expect(await res.json()).toEqual({
+      ok: true,
+      geocoded: 1,
+      pairs: 1,
+      unroutable: [],
+      ungeocoded: ["gym"],
+    });
     expect(pause).toHaveBeenCalledTimes(1);
     expect(writes).toEqual([
       { table: "places", op: "update", payload: { lat: -34.8, lon: -56.2 } },
@@ -141,6 +147,7 @@ describe("travel", () => {
       geocoded: 0,
       pairs: 0,
       unroutable: [{ from: "casa", to: "isla" }],
+      ungeocoded: [],
     });
     expect(writes).toEqual([
       { table: "travel_times", op: "delete", payload: ["casa", "isla", false] },
@@ -150,7 +157,13 @@ describe("travel", () => {
 
   it("needs two located places, and reports routing failures", async () => {
     places = [{ id: "casa", address: null, lat: -34.8, lon: -56.2 }];
-    expect(await (await handle(req(), env)).json()).toEqual({ ok: true, geocoded: 0, pairs: 0 });
+    expect(await (await handle(req(), env)).json()).toEqual({
+      ok: true,
+      geocoded: 0,
+      pairs: 0,
+      unroutable: [],
+      ungeocoded: [],
+    });
     places = [
       { id: "casa", address: null, lat: -34.8, lon: -56.2 },
       { id: "facu", address: null, lat: -34.9, lon: -56.1 },

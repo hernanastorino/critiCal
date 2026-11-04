@@ -59,20 +59,26 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
     if (error) throw error;
     const places = (data ?? []) as PlaceRow[];
     let geocoded = 0;
+    /** Places with an address OpenStreetMap could not find: their times go by hand. */
+    const ungeocoded: string[] = [];
     let first = true;
     for (const p of places) {
       if (p.lat != null || !p.address?.trim()) continue;
       if (!first) await pause(1100);
       first = false;
       const hit = await geocode(p.address);
-      if (!hit) continue;
+      if (!hit) {
+        ungeocoded.push(p.id);
+        continue;
+      }
       const { error: updateError } = await user.from("places").update(hit).eq("id", p.id);
       if (updateError) throw updateError;
       Object.assign(p, hit);
       geocoded++;
     }
     const located = places.filter((p) => p.lat != null && p.lon != null);
-    if (located.length < 2) return json({ ok: true, geocoded, pairs: 0 });
+    if (located.length < 2)
+      return json({ ok: true, geocoded, pairs: 0, unroutable: [], ungeocoded });
 
     const matrix = await drivingMatrix(
       env.orsKey as string,
@@ -112,7 +118,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       const { error: writeError } = await user.from("travel_times").upsert(rows);
       if (writeError) throw writeError;
     }
-    return json({ ok: true, geocoded, pairs: rows.length, unroutable });
+    return json({ ok: true, geocoded, pairs: rows.length, unroutable, ungeocoded });
   } catch (e) {
     console.error(e);
     await report(env, e, "travel");

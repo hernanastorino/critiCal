@@ -40,6 +40,8 @@ interface SyncApi {
   client: SupabaseClient;
   status: SyncStatus;
   syncNow: () => Promise<void>;
+  /** Writes pending changes now (no-op offline). */
+  flush: () => Promise<void>;
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
@@ -322,6 +324,7 @@ function SyncProvider({
       client,
       status,
       syncNow,
+      flush,
       reconnectGoogle: () => void signInWithGoogle(client),
       connectICloud: async (appleId, appPassword) => {
         setStatus((s) => ({ ...s, busy: true }));
@@ -336,7 +339,7 @@ function SyncProvider({
         await reload();
       },
     }),
-    [status, syncNow, client, setStatus, reload],
+    [status, syncNow, flush, client, setStatus, reload],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;
