@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { exportJson, parseBackup } from "./backup.js";
 import { importFromCalendars } from "./calendars.js";
 import { Inbox } from "./components/Inbox.js";
 import { ActivitySettings } from "./components/Preferences.js";
@@ -323,6 +324,39 @@ describe("materias", () => {
     d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 180, now: NOW });
     expect(d.tasks.filter((t) => t.kind === "habit" && t.status === "active")).toHaveLength(1);
     expect(d.tasks.find((t) => t.kind === "habit")?.minMinutes).toBe(180);
+  });
+
+  it("keeps one weekly study when merging and marks old backups' study", () => {
+    const old: Activity = { ...add, id: "old", name: "Viejo", kind: undefined, aliases: [] };
+    let d = data({ activities: [add, old] });
+    d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 60, now: NOW });
+    d = reducer(d, { type: "weeklyStudy", activityId: "old", minutes: 120, now: NOW });
+    d = reducer(d, { type: "mergeActivity", activityId: "old", into: "add", now: NOW });
+    const habits = d.tasks.filter((t) => t.activityId === "add" && t.kind === "habit");
+    expect(habits).toHaveLength(2);
+    expect(habits.filter((t) => t.study).map((t) => t.minMinutes)).toEqual([60]);
+
+    // A backup from before the mark: its «Estudio <materia>» becomes the study.
+    const legacy = {
+      ...data(),
+      tasks: [
+        {
+          id: "s",
+          activityId: "add",
+          title: "Estudio Análisis y Diseño",
+          kind: "habit" as const,
+          estimateMinutes: 0,
+          minMinutes: 120,
+          sessionsPerWeek: 2,
+          sessionMinutes: 60,
+          priority: 2,
+          status: "active" as const,
+          units: [],
+        },
+      ],
+    };
+    const restored = parseBackup(exportJson(legacy, 1));
+    expect("data" in restored && restored.data.tasks[0]?.study).toBe(true);
   });
 
   it("stores kinds, aliases and the titles that are not materias", () => {

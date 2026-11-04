@@ -479,7 +479,15 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...merged,
           activities: merged.activities.filter((a) => a.id !== from.id),
-          tasks: merged.tasks.map(move),
+          // One weekly study per materia: if the target has one, the other stays a habit.
+          tasks: merged.tasks.map((t) => {
+            const moved = move(t);
+            return moved !== t &&
+              t.study &&
+              studyOf(merged, merged.activities.find((a) => a.id === action.into) as Activity)
+              ? { ...moved, study: undefined }
+              : moved;
+          }),
           plan: merged.plan.map(move),
           pins: merged.pins?.map(move),
         },

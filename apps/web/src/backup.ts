@@ -1,5 +1,6 @@
 // Export and import of everything as one JSON file (also a manual backup).
 import type { AppData } from "./model.js";
+import { markLegacyStudy } from "./subjects.js";
 
 export const BACKUP_VERSION = 1;
 
@@ -247,5 +248,5 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   if (d.checkIns?.some((c) => !tasks.has(c.taskId))) {
     return { error: "El respaldo está incompleto: hay registros de tareas que no están." };
   }
-  return { data: d as AppData };
+  return { data: markLegacyStudy(d as AppData) };
 }

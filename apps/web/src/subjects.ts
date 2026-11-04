@@ -104,3 +104,21 @@ export const studyOf = (data: AppData, a: Activity): AppTask | undefined =>
   data.tasks.find(
     (t) => t.activityId === a.id && t.kind === "habit" && t.status === "active" && t.study,
   );
+
+/**
+ * Marks the weekly study of materias saved before the mark existed (a backup): the
+ * active habit titled «Estudio <materia>», if the materia has no marked one yet. Same
+ * rule as the database migration.
+ */
+export function markLegacyStudy(data: AppData): AppData {
+  let changed = false;
+  const tasks = data.tasks.map((t) => {
+    const a = data.activities.find((x) => x.id === t.activityId);
+    if (!a || t.study || t.kind !== "habit" || t.status !== "active" || t.title !== studyTitle(a))
+      return t;
+    if (data.tasks.some((o) => o.activityId === a.id && o.study)) return t;
+    changed = true;
+    return { ...t, study: true };
+  });
+  return changed ? { ...data, tasks } : data;
+}
