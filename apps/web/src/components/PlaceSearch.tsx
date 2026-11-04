@@ -5,35 +5,35 @@ import { useStore } from "../store.js";
 
 /**
  * A search box over the saved places that suggests matches as you type, like a web
- * search: "clara" lists "Casa de Clara" and "Trabajo de Clara" to pick from.
+ * search: "clara" lists "Casa de Clara" and "Trabajo de Clara" to pick from. Plain
+ * buttons under the box (reachable with Tab); a polite status says how many match.
  */
 export function PlaceSearch({ label, onPick }: { label: string; onPick: (place: Place) => void }) {
   const { data } = useStore();
   const [query, setQuery] = useState("");
-  const list = useId();
+  const status = useId();
   const hits = searchPlaces(data, query);
+  const typed = query.trim().length > 0;
   return (
     <div className="search">
       <input
         type="search"
-        role="combobox"
         aria-label={label}
-        aria-expanded={hits.length > 0}
-        aria-controls={list}
-        aria-autocomplete="list"
+        aria-describedby={status}
         placeholder="Buscar un lugar guardado…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      {query.trim() && (
-        <div id={list} className="suggestions" role="listbox">
+      <p id={status} className="sr-only" aria-live="polite">
+        {typed ? `${hits.length} lugares coinciden` : ""}
+      </p>
+      {typed && (
+        <div className="suggestions">
           {hits.length === 0 && <p className="meta">Ningún lugar guardado coincide.</p>}
           {hits.map((p) => (
             <button
               key={p.id}
               type="button"
-              role="option"
-              aria-selected={false}
               className="suggestion"
               onClick={() => {
                 setQuery("");

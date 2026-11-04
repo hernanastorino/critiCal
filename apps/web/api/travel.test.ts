@@ -43,7 +43,7 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-const { handle } = await import("./travel.js");
+const { handle, resetGeocoder } = await import("./travel.js");
 const env = { url: "u", publishable: "p", secret: "s", orsKey: "ors" };
 const req = (body?: unknown) =>
   new Request("https://app/api/travel", {
@@ -55,6 +55,7 @@ const req = (body?: unknown) =>
 afterEach(() => {
   vi.unstubAllGlobals();
   writes.length = 0;
+  resetGeocoder();
 });
 
 describe("event addresses", () => {
@@ -93,8 +94,33 @@ describe("event addresses", () => {
       ],
     });
     // One lookup per second, and nothing written.
-    expect(pauses).toEqual([1100]);
+    expect(pauses).toHaveLength(1);
+    expect(pauses[0]).toBeGreaterThan(1000);
     expect(writes).toEqual([]);
+  });
+
+  it("looks up a home without coordinates without saving them", async () => {
+    places = [{ id: "casa", address: "Casa 1", lat: null, lon: null, is_home: true }];
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("nominatim")) return Response.json([{ lat: "-34.8", lon: "-56.2" }]);
+      return Response.json({
+        durations: [
+          [0, 300],
+          [300, 0],
+        ],
+      });
+    });
+    const res = await handle(req({ spots: ["Anglo"] }), env, async () => {});
+    expect(await res.json()).toEqual({ ok: true, spots: [{ text: "Anglo", minutes: 5 }] });
+    expect(writes).toEqual([]);
+  });
+
+  it("fails retryably when the geocoder refuses, instead of calling it not found", async () => {
+    places = [{ id: "casa", address: null, lat: -34.8, lon: -56.2, is_home: true }];
+    vi.stubGlobal("fetch", async () => new Response("slow down", { status: 429 }));
+    const res = await handle(req({ spots: ["Anglo"] }), env, async () => {});
+    expect(res.status).toBe(500);
+    expect(await res.json()).toMatchObject({ ok: false, error: "travel_failed" });
   });
 
   it("rejects bad lists and needs a located home", async () => {

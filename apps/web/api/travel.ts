@@ -25,13 +25,45 @@ interface PlaceRow {
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export async function geocode(address: string): Promise<{ lat: number; lon: number } | null> {
+/** Spacing between lookups, a little over Nominatim's one per second. */
+const GAP_MS = 1100;
+/**
+ * Lookups wait their turn across every request this instance serves, not just within
+ * one. (A second warm instance has its own queue; for one person's app that is fine.)
+ */
+let nextAt = 0;
+let turn: Promise<void> = Promise.resolve();
+function slot(pause: (ms: number) => Promise<unknown>): Promise<void> {
+  const mine = turn.then(async () => {
+    const gap = nextAt - Date.now();
+    if (gap > 0) await pause(gap);
+    nextAt = Date.now() + GAP_MS;
+  });
+  turn = mine.catch(() => undefined);
+  return mine;
+}
+
+/** Tests only: forget earlier lookups. */
+export function resetGeocoder() {
+  nextAt = 0;
+  turn = Promise.resolve();
+}
+
+/**
+ * Coordinates of an address, or null if OpenStreetMap does not know it. A refused or
+ * failed lookup (429, 503…) throws instead, so the caller can try again later.
+ */
+export async function geocode(
+  address: string,
+  pause: (ms: number) => Promise<unknown> = wait,
+): Promise<{ lat: number; lon: number } | null> {
+  await slot(pause);
   const q = new URLSearchParams({ q: address, format: "jsonv2", limit: "1" });
   const res = await fetch(`${NOMINATIM}?${q}`, {
     headers: { "User-Agent": AGENT, "Accept-Language": "es" },
     signal: AbortSignal.timeout(8000),
   });
-  if (!res.ok) return null;
+  if (!res.ok) throw new Error(`nominatim_${res.status}`);
   const [hit] = (await res.json()) as { lat: string; lon: string }[];
   return hit ? { lat: Number(hit.lat), lon: Number(hit.lon) } : null;
 }
@@ -79,12 +111,9 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
     let geocoded = 0;
     /** Places with an address OpenStreetMap could not find: their times go by hand. */
     const ungeocoded: string[] = [];
-    let first = true;
     for (const p of places) {
       if (p.lat != null || !p.address?.trim()) continue;
-      if (!first) await pause(1100);
-      first = false;
-      const hit = await geocode(p.address);
+      const hit = await geocode(p.address, pause);
       if (!hit) {
         ungeocoded.push(p.id);
         continue;
@@ -161,23 +190,13 @@ async function timeSpots(
     if (error) throw error;
     const home = ((data ?? []) as PlaceRow[]).find((p) => p.is_home) ?? null;
     if (!home) return json({ ok: false, error: "no_home" }, 409);
+    // Read-only: a home without coordinates is looked up for this answer only (the
+    // places computation stores them).
     let at = home.lat != null && home.lon != null ? { lat: home.lat, lon: home.lon } : null;
-    let first = true;
-    if (!at && home.address?.trim()) {
-      at = await geocode(home.address);
-      first = false;
-      if (at) {
-        const { error: updateError } = await user.from("places").update(at).eq("id", home.id);
-        if (updateError) throw updateError;
-      }
-    }
+    if (!at && home.address?.trim()) at = await geocode(home.address, pause);
     if (!at) return json({ ok: false, error: "home_not_located" }, 409);
     const hits: ({ lat: number; lon: number } | null)[] = [];
-    for (const text of spots) {
-      if (!first) await pause(1100);
-      first = false;
-      hits.push(await geocode(text));
-    }
+    for (const text of spots) hits.push(await geocode(text, pause));
     const found = hits.flatMap((h, i) => (h ? [{ i, h }] : []));
     const minutes: (number | null)[] = spots.map(() => null);
     if (found.length) {
