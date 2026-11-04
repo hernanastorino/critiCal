@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { isPlanCalendar, visibleEvents } from "./calendars.js";
 import { demoData, emptyData } from "./demo.js";
-import type { AppData } from "./model.js";
+import type { AppData, AppTask } from "./model.js";
 import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
@@ -85,6 +85,112 @@ describe("decisions and defaults", () => {
       ).toBe(true);
     }
     expect(reducer(undone, { type: "undoDecision", id: "nope", now: NOW })).toBe(undone);
+  });
+
+  it("never brings back silos deleted or ended after a decision", () => {
+    const d = demoData(NOW);
+    const [a, b, c] = d.tasks.filter((t) => t.status === "active");
+    if (!a || !b || !c) throw new Error("demo needs three tasks");
+    const decision = {
+      id: "cut@1",
+      label: "Recorte proporcional",
+      at: NOW,
+      // Before the cut: A and B had more minutes, C was active (the cut dropped it).
+      before: [
+        { ...a, minMinutes: a.minMinutes + 60 },
+        { ...b, minMinutes: b.minMinutes + 60 },
+        { ...c, status: "active" as const },
+      ],
+      dropped: [c.id],
+    };
+    const start: AppData = {
+      ...d,
+      tasks: d.tasks.map((t) => (t.id === c.id ? { ...t, status: "dropped" as const } : t)),
+      applied: [decision],
+    };
+    // B ends by hand: the decision forgets it.
+    const ended = reducer(start, {
+      type: "recurrence",
+      taskId: b.id,
+      change: "endFromToday",
+      now: NOW,
+    });
+    expect(ended.applied?.[0]?.before.map((t) => t.id)).toEqual([a.id, c.id]);
+    const undone = reducer(ended, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(undone.tasks.find((t) => t.id === a.id)?.minMinutes).toBe(a.minMinutes + 60);
+    expect(undone.tasks.find((t) => t.id === b.id)?.status).toBe("dropped");
+    // C was dropped by the decision itself: undo brings it back.
+    expect(undone.tasks.find((t) => t.id === c.id)?.status).toBe("active");
+
+    // A silo dropped later by other means is not revived either.
+    const later: AppData = {
+      ...start,
+      tasks: start.tasks.map((t) => (t.id === a.id ? { ...t, status: "dropped" as const } : t)),
+    };
+    const kept = reducer(later, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(kept.tasks.find((t) => t.id === a.id)?.status).toBe("dropped");
+
+    // With the statuses it left recorded, any later change wins: finished, or dropped
+    // and brought back and dropped again.
+    const recorded: AppData = {
+      ...start,
+      applied: [{ ...decision, after: { [a.id]: "active", [b.id]: "active", [c.id]: "dropped" } }],
+      tasks: start.tasks.map((t) => (t.id === a.id ? { ...t, status: "done" as const } : t)),
+    };
+    const kept2 = reducer(recorded, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(kept2.tasks.find((t) => t.id === a.id)?.status).toBe("done");
+    expect(kept2.tasks.find((t) => t.id === b.id)?.minMinutes).toBe(b.minMinutes + 60);
+    expect(kept2.tasks.find((t) => t.id === c.id)?.status).toBe("active");
+
+    // Dropped by the decision, brought back, dropped again: the same status, but the
+    // later drop is the user's, so undo leaves it alone.
+    const fromDecision: AppData = {
+      ...start,
+      applied: [{ ...decision, after: { [a.id]: "active", [b.id]: "active", [c.id]: "dropped" } }],
+    };
+    const back = reducer(fromDecision, {
+      type: "saveTask",
+      task: { ...(fromDecision.tasks.find((t) => t.id === c.id) as AppTask), status: "active" },
+      now: NOW,
+    });
+    const again = reducer(back, {
+      type: "saveTask",
+      task: { ...(back.tasks.find((t) => t.id === c.id) as AppTask), status: "dropped" },
+      now: NOW,
+    });
+    const undoneAgain = reducer(again, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(undoneAgain.tasks.find((t) => t.id === c.id)?.status).toBe("dropped");
+
+    // The same with an old record (no `after`): the later change takes it out.
+    const legacyBack = reducer(start, {
+      type: "saveTask",
+      task: { ...(start.tasks.find((t) => t.id === c.id) as AppTask), status: "active" },
+      now: NOW,
+    });
+    const legacyAgain = reducer(legacyBack, {
+      type: "saveTask",
+      task: { ...(legacyBack.tasks.find((t) => t.id === c.id) as AppTask), status: "dropped" },
+      now: NOW,
+    });
+    expect(legacyAgain.applied?.[0]?.before.map((t) => t.id)).not.toContain(c.id);
+    // Data loaded from elsewhere keeps its decision history as it comes.
+    const loaded = reducer(fromDecision, {
+      type: "replace",
+      data: {
+        ...fromDecision,
+        tasks: fromDecision.tasks.map((t) =>
+          t.id === c.id ? { ...t, status: "active" as const } : t,
+        ),
+      },
+      now: NOW,
+    });
+    expect(loaded.applied?.[0]?.after?.[c.id]).toBe("dropped");
+
+    // Every silo it touched deleted: the decision is gone.
+    let gone = start;
+    for (const t of [a, b, c])
+      gone = reducer(gone, { type: "recurrence", taskId: t.id, change: "deleteAll", now: NOW });
+    expect(gone.applied).toEqual([]);
   });
 
   it("shows applied decisions in the inbox with an undo button", () => {
