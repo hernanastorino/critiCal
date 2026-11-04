@@ -288,11 +288,18 @@ function SyncProvider({
     const before = changes.current;
     await flush();
     if (!latest.current) return;
-    // A device copy without its baseline (a damaged cache): the database becomes the
-    // baseline and this device's changes are written over it, like offline edits.
+    // A device copy without its baseline (a damaged cache): what it lacks may have been
+    // added elsewhere, so nothing is deleted. Its own records are written over the
+    // database, and the merged result becomes both the copy and its baseline.
     if (stored.current === null) {
-      stored.current = owned(await loadData(client));
-      await flush();
+      const server = owned(await loadData(client));
+      await applyWrites(client, { ...diffData(server, latest.current), deletes: [] });
+      const merged = owned(await loadData(client));
+      // An edit made meanwhile is not in `merged`: try again on the next sync.
+      if (changes.current !== before) return;
+      stored.current = merged;
+      latest.current = merged;
+      dispatch({ type: "replace", data: merged });
       return;
     }
     // Changes still waiting (offline) must not be overwritten by the server's copy.

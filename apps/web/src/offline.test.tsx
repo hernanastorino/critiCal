@@ -136,20 +136,39 @@ describe("offline", () => {
     await waitFor(async () => expect((await readLocal("me"))?.stored?.overrides.length).toBe(1));
   });
 
-  it("adopts the database as baseline for a copy without one, keeping its changes", async () => {
+  it("merges a copy without baseline into the database without deleting anything", async () => {
     const mine = { ...demoData(Date.now()), owner: undefined };
     await writeLocal("me", { data: mine, stored: null });
-    const writes: string[] = [];
-    const ok = Promise.resolve({ data: [], error: null });
+    // The database: an activity added from another device, and whatever gets written.
+    const db: Record<string, Record<string, unknown>[]> = {
+      activities: [
+        {
+          id: "elsewhere",
+          name: "Added elsewhere",
+          color: "#123456",
+          academic: true,
+          max_session_minutes: 120,
+          min_block_minutes: 60,
+        },
+      ],
+    };
+    const deletes: string[] = [];
     const from = (table: string) => ({
       select: () =>
-        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
-      upsert: () => {
-        writes.push(table);
+        Object.assign(Promise.resolve({ data: db[table] ?? [], error: null }), {
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        }),
+      upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
+        const list = Array.isArray(rows) ? rows : [rows];
+        const kept = (db[table] ?? []).filter((r) => !list.some((n) => n.id && n.id === r.id));
+        db[table] = [...kept, ...list];
         return Promise.resolve({ error: null });
       },
       insert: () => Promise.resolve({ error: null }),
-      delete: () => ({ in: () => Promise.resolve({ error: null }) }),
+      delete: () => {
+        deletes.push(table);
+        return { in: () => Promise.resolve({ error: null }) };
+      },
     });
     stubApi(async () => ({ data: { connected: true }, error: null }));
     render(
@@ -157,11 +176,13 @@ describe("offline", () => {
         <Shell />
       </Connected>,
     );
-    await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
-    // The device's activities reach the (empty) database instead of being replaced by it.
-    await waitFor(() => expect(writes).toContain("activities"));
+    await waitFor(async () => expect((await readLocal("me"))?.stored).not.toBeNull());
+    // Nothing of the user's is deleted (the plan is regenerated, so its blocks may be).
+    expect(deletes.filter((t) => t !== "plan_blocks")).toEqual([]);
     const kept = await readLocal("me");
-    expect(kept?.stored).not.toBeNull();
-    expect(kept?.data.activities.length).toBe(mine.activities.length);
+    const names = kept?.data.activities.map((x) => x.name) ?? [];
+    // Both this device's activities and the one added elsewhere survive.
+    expect(names).toContain("Added elsewhere");
+    for (const x of mine.activities) expect(names).toContain(x.name);
   });
 });
