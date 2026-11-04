@@ -190,12 +190,20 @@ describe("offline", () => {
     const mine = { ...demoData(Date.now()), owner: undefined };
     await writeLocal("me", { data: mine, stored: null });
     let online = false;
-    const ok = Promise.resolve({ data: [], error: null });
-    const from = () => ({
+    // Keeps what is written, so the merged copy comes back from it.
+    const db: Record<string, Record<string, unknown>[]> = {};
+    const from = (table: string) => ({
       select: () =>
-        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
-      upsert: () =>
-        Promise.resolve({ error: online ? null : { message: "TypeError: Failed to fetch" } }),
+        Object.assign(Promise.resolve({ data: db[table] ?? [], error: null }), {
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        }),
+      upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
+        if (!online) return Promise.resolve({ error: { message: "TypeError: Failed to fetch" } });
+        const list = Array.isArray(rows) ? rows : [rows];
+        const kept = (db[table] ?? []).filter((r) => !list.some((n) => n.id && n.id === r.id));
+        db[table] = [...kept, ...list];
+        return Promise.resolve({ error: null });
+      },
       insert: () => Promise.resolve({ error: null }),
       delete: () => ({ in: () => Promise.resolve({ error: null }) }),
     });
@@ -214,5 +222,8 @@ describe("offline", () => {
       window.dispatchEvent(new Event("online"));
     });
     await waitFor(async () => expect((await readLocal("me"))?.stored).not.toBeNull());
+    // The device's activities made it into the database and back.
+    const names = (await readLocal("me"))?.data.activities.map((x) => x.name) ?? [];
+    for (const x of mine.activities) expect(names).toContain(x.name);
   });
 });

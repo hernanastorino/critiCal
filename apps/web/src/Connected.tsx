@@ -283,7 +283,8 @@ function SyncProvider({
   const { dispatch } = useStore();
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
-  const reload = useCallback(async () => {
+  const reloading = useRef<Promise<void> | null>(null);
+  const reloadOnce = useCallback(async () => {
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
     await flush();
@@ -318,6 +319,18 @@ function SyncProvider({
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
   }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
+  /**
+   * One reload at a time (mount, interval, foreground can overlap): an older merge's
+   * writes must never land after a newer one set the baseline. Callers share it.
+   */
+  const reload = useCallback((): Promise<void> => {
+    if (reloading.current) return reloading.current;
+    const run = reloadOnce().finally(() => {
+      reloading.current = null;
+    });
+    reloading.current = run;
+    return run;
+  }, [reloadOnce]);
 
   // A merge without baseline that failed offline is retried here: `flush` cannot do
   // it (it never writes without a baseline).
