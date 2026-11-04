@@ -18,7 +18,9 @@ export function newProposal(before: AppData, after: AppData): Proposal | undefin
 
 /** Re-plans from `now` exactly as the app would and stores the difference. */
 export async function replan(caller: Caller, now: number) {
-  const before = await loadData(caller.user);
+  const loaded = await loadData(caller.user);
+  // Same id seeds as the app, even before the user has a settings row.
+  const before = loaded.owner ? loaded : { ...loaded, owner: caller.uid };
   const after = refresh(before, now);
   await applyWrites(caller.user, diffData(before, after));
   return { data: after, proposal: newProposal(before, after) };

@@ -35,6 +35,7 @@ describe("server re-plan", () => {
     writes.mockClear();
     const { data } = await replan(caller as never, now);
     expect(data.plan.length).toBeGreaterThan(0);
+    expect(data.owner).toBe("u1");
     const w = writes.mock.calls[0]?.[0] as { upserts: { table: string }[] };
     expect(w.upserts.map((u) => u.table)).toContain("plan_blocks");
   });

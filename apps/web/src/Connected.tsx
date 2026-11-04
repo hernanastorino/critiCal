@@ -71,7 +71,16 @@ export function Connected({
   session: Session;
   children: React.ReactNode;
 }) {
-  const [cached] = useState(() => readCache(session));
+  // The owner seeds the ids of imported tasks; the session always knows it, even for
+  // an old cached copy or before the user has a settings row.
+  const owned = useCallback(
+    (d: AppData): AppData => (session.user?.id && !d.owner ? { ...d, owner: session.user.id } : d),
+    [session],
+  );
+  const [cached] = useState(() => {
+    const d = readCache(session);
+    return d && owned(d);
+  });
   const [data, setData] = useState<AppData | null>(cached);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<SyncStatus>({ busy: !!cached });
@@ -91,7 +100,7 @@ export function Connected({
       try {
         // First sync stores the Google refresh token and imports events.
         await pullCalendars();
-        const loaded = await loadData(client);
+        const loaded = owned(await loadData(client));
         stored.current = loaded;
         if (!cancelled) setData(loaded);
       } catch (e) {
@@ -101,7 +110,7 @@ export function Connected({
     return () => {
       cancelled = true;
     };
-  }, [client, pullCalendars, cached]);
+  }, [client, pullCalendars, cached, owned]);
 
   // Writes run one at a time so parents always land before children.
   const queue = useRef(Promise.resolve());
@@ -159,6 +168,7 @@ export function Connected({
         writes={queue}
         stored={stored}
         changes={changes}
+        owned={owned}
       >
         {children}
       </SyncProvider>
@@ -176,6 +186,7 @@ function SyncProvider({
   writes,
   stored,
   changes,
+  owned,
   children,
 }: {
   client: SupabaseClient;
@@ -187,6 +198,7 @@ function SyncProvider({
   writes: React.MutableRefObject<Promise<void>>;
   stored: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
+  owned: (d: AppData) => AppData;
   children: React.ReactNode;
 }) {
   const { dispatch } = useStore();
@@ -196,12 +208,12 @@ function SyncProvider({
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
     await writes.current;
-    const fresh = await loadData(client);
+    const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, writes, stored, changes]);
+  }, [client, dispatch, writes, stored, changes, owned]);
 
   const syncNow = useCallback(async () => {
     try {
