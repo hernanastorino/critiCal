@@ -19,6 +19,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
+import { withLateNight } from "./lateNight.js";
 import type { AppData, AppTask, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
@@ -152,8 +153,8 @@ export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): 
     frozen,
     overrides:
       data.preferences?.holidaysOff === false
-        ? data.overrides
-        : withHolidays(data.overrides, data.settings.timezone, now, horizonEnd),
+        ? withLateNight(data, now)
+        : withHolidays(withLateNight(data, now), data.settings.timezone, now, horizonEnd),
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,
     maxActivitiesPerDay: (data.relaxContextUntil ?? 0) > now ? Number.POSITIVE_INFINITY : undefined,
   };
