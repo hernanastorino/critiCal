@@ -3,13 +3,49 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
 import { demoData } from "./demo.js";
 import { dropTarget, nearestFree } from "./drag.js";
-import { zonedInstant } from "./engine.js";
+import { localParts, zonedInstant } from "./engine.js";
 import { time } from "./format.js";
 import type { AppData } from "./model.js";
-import { isPinned, pinClashes, refreshPlan } from "./planning.js";
+import { isPinned, pinClashes, pinShortfall, refreshPlan } from "./planning.js";
 import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
+
+/**
+ * Pointer position, with the mocked 50px-wide, 1000px-tall day columns, that drops a
+ * block grabbed 10px below its top so it starts at `start`.
+ */
+function spot(d: AppData, start: number) {
+  const tz = d.settings.timezone;
+  const { date } = localParts(tz, start);
+  const startMin = Math.min(...d.settings.week.map((w) => w.wake));
+  const endMin = Math.max(...d.settings.week.map((w) => (w.bed <= w.wake ? w.bed + 1440 : w.bed)));
+  const minute = (start - zonedInstant(tz, date, 0)) / 60_000;
+  return {
+    x: (Number(date.slice(8)) - 2) * 50 + 25,
+    y: ((minute - startMin) / (endMin - startMin)) * 1000 + 10,
+  };
+}
+
+/**
+ * Demo data where the parcial needs exactly what the plan can give it, so any block
+ * pinned over one of its sessions puts its minimum out of reach.
+ */
+function tight(now: number): AppData {
+  const squeeze = (min: number) => {
+    const d = demoData(now);
+    return {
+      ...d,
+      tasks: d.tasks.map((t) =>
+        t.id === "parcial-calc" ? { ...t, minMinutes: min, estimateMinutes: min, units: [] } : t,
+      ),
+    };
+  };
+  const most = refreshPlan(squeeze(10_000), now).result.status.find(
+    (s) => s.taskId === "parcial-calc",
+  );
+  return squeeze(most?.scheduledMinutes ?? 0);
+}
 
 describe("dropTarget", () => {
   const cols = [
@@ -131,6 +167,24 @@ describe("pins", () => {
     );
     expect(pinClashes(later, NOW).map((c) => c.event.title)).toEqual(["Dentista"]);
     expect(later.pins).toHaveLength(1);
+  });
+
+  it("tells which minimums the pins put out of reach", () => {
+    const d = reducer(tight(NOW), { type: "refresh", now: NOW });
+    expect(pinShortfall(d, NOW).short).toEqual([]);
+    const session = d.plan.find((b) => b.taskId === "parcial-calc" && b.start > NOW);
+    const other = d.plan.find((b) => b.taskId !== "parcial-calc" && b.start > NOW);
+    const pinned = reducer(d, {
+      type: "pin",
+      blockId: other?.id as string,
+      start: session?.start as number,
+      now: NOW,
+    });
+    const { pins, short } = pinShortfall(pinned, NOW);
+    expect(pins).toHaveLength(1);
+    expect(short).toEqual([{ taskId: "parcial-calc", minutes: expect.any(Number) }]);
+    // Pins that already started are history, not a choice to revisit.
+    expect(pinShortfall(pinned, pins[0]?.start as number).pins).toEqual([]);
   });
 
   it("turns past pins into history", () => {
@@ -338,6 +392,92 @@ describe("edit mode", () => {
     const pin = saved.pins?.[0];
     expect(pin).toBeTruthy();
     expect((pin?.end ?? 0) <= clash.start || (pin?.start ?? 0) >= clash.end).toBe(true);
+  });
+
+  it("drops over the plan's blocks, warns when a minimum breaks and undoes it", () => {
+    const d = reducer(tight(NOW), { type: "refresh", now: NOW });
+    const tz = d.settings.timezone;
+    const session = d.plan.find((b) => b.taskId === "parcial-calc" && b.start > NOW);
+    const other = d.plan.find(
+      (b) => b.taskId !== "parcial-calc" && b.start > NOW,
+    ) as AppData["plan"][number];
+    render(<App fixedNow={NOW} initial={tight} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const title = d.tasks.find((t) => t.id === other.taskId)?.title;
+    const pill = screen.getByLabelText(`${title}, ${time(tz, other.start)}`);
+    const { x, y } = spot(d, session?.start as number);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 3 });
+    // The parcial's session under the landing spot is shown as about to move.
+    expect(document.querySelector(".pill.displaced")).toBeTruthy();
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 3 });
+    expect(document.querySelector(".pill.displaced")).toBeNull();
+    const pinned = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    expect(pinned.pins?.[0]?.start).toBe(session?.start);
+    expect(screen.getByText(/Con esto no llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
+    // The inbox has it too, with the pin to let go.
+    expect(screen.getByText("Bandeja").parentElement?.querySelector(".badge")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    const undone = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    expect(undone.pins).toEqual([]);
+    expect(screen.queryByText(/Con esto no llegás/)).toBeNull();
+  });
+
+  it("puts a moved pin back where it was on undo", () => {
+    const d = reducer(tight(NOW), { type: "refresh", now: NOW });
+    const session = d.plan.find((b) => b.taskId === "parcial-calc" && b.start > NOW);
+    const other = d.plan.find(
+      (b) => b.taskId !== "parcial-calc" && b.start > NOW,
+    ) as AppData["plan"][number];
+    // Already pinned where the plan had it; moving it onto the parcial breaks the minimum.
+    const first = reducer(d, { type: "pin", blockId: other.id, start: other.start, now: NOW });
+    const pin = first.pins?.[0] as AppData["plan"][number];
+    expect(pinShortfall(first, NOW).short).toEqual([]);
+    render(<App fixedNow={NOW} initial={() => first} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const { x, y } = spot(d, session?.start as number);
+    const pill = screen.getByLabelText(/, fijado$/);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 8 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 8 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 8 });
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    expect(saved.pins?.map((p) => p.start)).toEqual([pin.start]);
+  });
+
+  it("lists pins that break a minimum in the inbox and lets them go", () => {
+    const d = reducer(tight(NOW), { type: "refresh", now: NOW });
+    const session = d.plan.find((b) => b.taskId === "parcial-calc" && b.start > NOW);
+    const other = d.plan.find((b) => b.taskId !== "parcial-calc" && b.start > NOW);
+    const pinned = reducer(d, {
+      type: "pin",
+      blockId: other?.id as string,
+      start: session?.start as number,
+      now: NOW,
+    });
+    render(<App fixedNow={NOW} initial={() => pinned} />);
+    fireEvent.click(screen.getByText("Bandeja"));
+    expect(screen.getByText("Lo que fijaste no te deja llegar")).toBeTruthy();
+    expect(screen.getByText(/faltan .* de Parcial Cálculo II/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Soltar" }));
+    expect(screen.queryByText("Lo que fijaste no te deja llegar")).toBeNull();
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    expect(saved.pins).toEqual([]);
+  });
+
+  it("pins a block where the plan put it, from its bubble", () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    // The last one is surely ahead, not running.
+    const pill = [...document.querySelectorAll<HTMLElement>(".pill.planned:not(.past)")].at(
+      -1,
+    ) as HTMLElement;
+    fireEvent.click(pill, { clientX: 10, clientY: 10 });
+    expect(screen.getByText("Lo puso el plan")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Fijar acá" }));
+    expect(document.querySelector(".bubble")).toBeNull();
+    expect(screen.getByLabelText(/, fijado$/)).toBeTruthy();
+    expect(screen.getByText(/Fijado acá/)).toBeTruthy();
   });
 
   describe("long-press outside edit mode", () => {

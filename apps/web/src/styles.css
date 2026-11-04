@@ -162,6 +162,36 @@ textarea {
   animation: spin 0.6s linear infinite;
 }
 
+.icon-btn.replan.done {
+  color: var(--ok);
+}
+
+.icon-btn.replan.done svg {
+  animation: pop 0.25s ease-out;
+}
+
+@keyframes pop {
+  from {
+    transform: scale(0.5);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .icon-btn.replan.spinning svg,
+  .icon-btn.replan.done svg {
+    animation: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -326,18 +356,15 @@ textarea {
 
 .fab {
   position: fixed;
-  right: 18px;
+  right: 16px;
   bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
-  height: 52px;
-  padding: 0 18px 0 14px;
-  border-radius: 26px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
   background: var(--surface);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
-  font-weight: 600;
-  font-size: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.16);
   z-index: 20;
 }
 
@@ -346,24 +373,36 @@ textarea {
   color: #fff;
 }
 
-.calm.short {
-  background: var(--critical);
-  color: #fff;
-  max-width: calc(100vw - 48px);
-  text-align: center;
+/* Above the tab bar and left of the round button; touches go through to the week. */
+.snacks {
+  position: fixed;
+  left: 16px;
+  right: 76px;
+  bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  pointer-events: none;
+  z-index: 15;
 }
 
-.calm {
-  position: fixed;
-  left: 50%;
-  top: 40%;
-  transform: translateX(-50%);
+.snack {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
   background: var(--surface);
-  padding: 10px 16px;
+  padding: 8px 14px;
   border-radius: 16px;
+  font-size: 14px;
   font-weight: 600;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
-  z-index: 10;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+}
+
+.snack.short {
+  background: var(--critical);
+  color: #fff;
 }
 
 /* ---------- Bubble & sheet ---------- */
@@ -997,10 +1036,17 @@ input[type="datetime-local"] {
   box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3);
 }
 
-.week .pill.planned {
+/* A long press drags; it must never select text or open the callout on iOS. */
+.week,
+.loupe {
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* Blocks the plan will move out of the way of the one being dropped. */
+.pill.planned.displaced {
+  opacity: 0.3;
 }
 
 .week.dragging-on {
@@ -1244,4 +1290,10 @@ input[type="datetime-local"] {
 .pvd .track div {
   height: 100%;
   background: var(--c, var(--ok));
+}
+
+/* After .btn, so it is not stretched like the full-width buttons. */
+.snack-btn {
+  flex: none;
+  pointer-events: auto;
 }

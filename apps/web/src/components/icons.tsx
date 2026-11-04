@@ -71,3 +71,9 @@ export const EditIcon = () => (
     <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
   </svg>
 );
+
+export const CheckIcon = () => (
+  <svg {...base} strokeWidth={2.6} aria-hidden="true">
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
+  </svg>
+);

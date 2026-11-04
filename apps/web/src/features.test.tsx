@@ -1,5 +1,5 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
 import { isPlanCalendar, visibleEvents } from "./calendars.js";
 import { demoData, emptyData } from "./demo.js";
@@ -185,6 +185,30 @@ describe("week", () => {
     expect(replan.disabled).toBe(true);
     fireEvent.click(screen.getByRole("button", { name: /Camino crítico/ }));
     expect(screen.getByText(/No llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
+  });
+
+  it("answers a replan with a tick on its button, not a notice over the week", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      render(<App fixedNow={NOW} initial={demoData} />);
+      const replan = screen.getByLabelText("Reacomodar semana");
+      fireEvent.click(replan);
+      expect(replan.className).toContain("spinning");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(replan.className).toContain("done");
+      expect(replan.className).not.toContain("spinning");
+      // Only screen readers hear it; nothing is drawn over the calendar.
+      expect(screen.getByText(/Semana reacomodada/).className).toBe("sr-only");
+      expect(document.querySelector(".snack")).toBeNull();
+      act(() => {
+        vi.advanceTimersByTime(1500);
+      });
+      expect(replan.className).not.toContain("done");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("never treats a Plan calendar as an input", () => {

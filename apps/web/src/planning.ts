@@ -197,6 +197,26 @@ export function pinClashes(data: AppData, now: number) {
   });
 }
 
+/**
+ * Minimums that the upcoming pins put out of reach: what each task misses with them,
+ * beyond what it would miss if the plan were free to place those blocks itself.
+ */
+export function pinShortfall(
+  data: AppData,
+  now: number,
+  withPins: ScheduleResult = refreshPlan(data, now).result,
+) {
+  const pins = (data.pins ?? []).filter((p) => p.start > now);
+  if (pins.length === 0) return { pins, short: [] };
+  const free = refreshPlan({ ...data, pins: (data.pins ?? []).filter((p) => p.start <= now) }, now)
+    .result.status;
+  const unpinned = new Map(free.map((s) => [s.taskId, s.minDeficit]));
+  const short = withPins.status
+    .map((s) => ({ taskId: s.taskId, minutes: s.minDeficit - (unpinned.get(s.taskId) ?? 0) }))
+    .filter((s) => s.minutes > 0);
+  return { pins, short };
+}
+
 export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);

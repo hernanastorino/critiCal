@@ -8,7 +8,7 @@ import { BlockSheet } from "./BlockSheet.js";
 import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
-  const { data, now, pending, decisions, unlocated, dispatch } = useStore();
+  const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   const [editing, setEditing] = useState<AppTask | null>(null);
@@ -20,6 +20,7 @@ export function Inbox() {
     unlocated.length +
       pending.length +
       clashes.length +
+      pinShort.short.length +
       data.proposals.length +
       decisions.options.length +
       decisions.recommendations.length +
@@ -160,6 +161,38 @@ export function Inbox() {
             </button>
           </div>
         ))}
+
+        {pinShort.short.length > 0 && (
+          <>
+            <div className="section-title">Lo que fijaste no te deja llegar</div>
+            <div className="card" style={{ ["--c" as string]: "var(--critical)" }}>
+              <p className="meta">
+                Con los bloques fijados faltan{" "}
+                {pinShort.short
+                  .map(
+                    (s) =>
+                      `${hours(s.minutes)} de ${data.tasks.find((t) => t.id === s.taskId)?.title ?? "una tarea"}`,
+                  )
+                  .join(", ")}
+                . Movelos o soltá alguno para que el plan lo acomode.
+              </p>
+              {pinShort.pins.map((pin) => (
+                <div key={pin.id} className="check">
+                  <span style={{ flex: 1 }}>
+                    📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn small"
+                    onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
+                  >
+                    Soltar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
 
         {decisions.options.length > 0 && (
           <>
