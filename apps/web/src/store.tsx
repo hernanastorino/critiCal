@@ -3,6 +3,7 @@ import {
   type ReactNode,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -40,6 +41,7 @@ import {
   weekStart,
 } from "./planning.js";
 import { refresh } from "./refresh.js";
+import { hold } from "./updates.js";
 
 /**
  * What to do with a weekly silo, like a repeating calendar event: skip only
@@ -514,9 +516,13 @@ export function StoreProvider({
     raw({ type: "refresh", now });
   }, [now]);
   const previous = useRef(seed);
-  useEffect(() => {
+  // A layout effect runs right after the commit, so the saves start before any repaint
+  // or task freeze that could let a reload for a new version in first.
+  useLayoutEffect(() => {
     if (persist) saveDemo(data);
     if (onChange && previous.current !== data) onChange(previous.current, data);
+    // Its saves are registered now, so a reload for a new version can wait for them.
+    hold("edit", false);
     previous.current = data;
   }, [data, persist, onChange]);
 
@@ -529,7 +535,12 @@ export function StoreProvider({
     return {
       data,
       now,
-      dispatch: (a) => raw({ ...a, now: fixedNow ?? Date.now() } as Action),
+      dispatch: (a) => {
+        // Until the effect above hands it to a save, the edit lives only in memory. An
+        // action that changes nothing runs no effect, so the hold also lapses.
+        hold("edit", true, 1000);
+        raw({ ...a, now: fixedNow ?? Date.now() } as Action);
+      },
       pending,
       decisions: d,
       result: r.result,

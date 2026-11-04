@@ -1,6 +1,7 @@
 // This device's copy of the app state, in IndexedDB: the app opens and keeps working
 // without a connection, and changes made offline are written when it comes back.
 import type { AppData } from "./model.js";
+import { saving } from "./updates.js";
 
 export interface LocalState {
   /** What the screen shows, including changes not yet written. */
@@ -38,9 +39,12 @@ function run<T>(mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<
   return db().then(
     (d) =>
       new Promise<T>((resolve, reject) => {
-        const req = fn(d.transaction(STORE, mode).objectStore(STORE));
-        req.onsuccess = () => resolve(req.result);
-        req.onerror = () => reject(req.error);
+        // Settled by the transaction, not the request: a write is on disk only once it commits.
+        const tx = d.transaction(STORE, mode);
+        const req = fn(tx.objectStore(STORE));
+        tx.oncomplete = () => resolve(req.result);
+        tx.onerror = () => reject(tx.error ?? req.error);
+        tx.onabort = () => reject(tx.error ?? new Error("IndexedDB transaction aborted"));
       }),
   );
 }
@@ -88,13 +92,24 @@ export async function readLocal(uid: string): Promise<LocalState | null> {
   }
 }
 
-export async function writeLocal(uid: string, state: LocalState): Promise<void> {
-  try {
-    await run("readwrite", (s) => s.put(state, key(uid)));
-    globalThis.localStorage?.removeItem(legacyKey(uid));
-  } catch {
-    // Storage full or blocked: the next open just waits for the network.
-  }
+/** Stores this device's copy; false if storage refused it (full or blocked). */
+export function writeLocal(uid: string, state: LocalState): Promise<boolean> {
+  return saving(
+    (async () => {
+      try {
+        await run("readwrite", (s) => s.put(state, key(uid)));
+      } catch {
+        // The next open just waits for the network.
+        return false;
+      }
+      try {
+        globalThis.localStorage?.removeItem(legacyKey(uid));
+      } catch {
+        // Stored all the same; the old copy is cleared on a later write.
+      }
+      return true;
+    })(),
+  );
 }
 
 /** Forgets everything stored on this device (signing out, tests). */

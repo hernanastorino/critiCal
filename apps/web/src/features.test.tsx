@@ -5,6 +5,7 @@ import { isPlanCalendar, visibleEvents } from "./calendars.js";
 import { demoData, emptyData } from "./demo.js";
 import type { AppData, AppTask } from "./model.js";
 import { reducer } from "./store.js";
+import { held } from "./updates.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 const stored = (): AppData => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");
@@ -299,6 +300,8 @@ describe("week", () => {
       render(<App fixedNow={NOW} initial={demoData} />);
       const replan = screen.getByLabelText("Reacomodar semana");
       fireEvent.click(replan);
+      // The edit was handed to its save, so it no longer keeps a new version waiting.
+      expect(held()).toBe(false);
       expect(replan.className).toContain("spinning");
       act(() => {
         vi.advanceTimersByTime(600);

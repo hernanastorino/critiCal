@@ -5,6 +5,7 @@ import { Connected } from "./Connected.js";
 import { demoData } from "./demo.js";
 import { clearLocal, isOffline, readLocal, writeLocal } from "./offline.js";
 import { session, stubApi } from "./testing.js";
+import { held } from "./updates.js";
 
 afterEach(() => {
   cleanup();
@@ -26,6 +27,49 @@ describe("device copy", () => {
     expect(await readLocal("a")).toEqual({ data, stored: null });
     await clearLocal();
     expect(await readLocal("a")).toBeNull();
+  });
+
+  it("counts a write as saved only once its transaction commits", async () => {
+    const data = demoData(Date.now());
+    await readLocal("e"); // opens the database first
+    // Holds back the commit signal of the next transaction.
+    let commit: (() => void) | undefined;
+    const open = IDBDatabase.prototype.transaction;
+    const spy = vi.spyOn(IDBDatabase.prototype, "transaction").mockImplementation(function (
+      this: IDBDatabase,
+      ...args: Parameters<IDBDatabase["transaction"]>
+    ) {
+      const tx = open.apply(this, args);
+      Object.defineProperty(tx, "oncomplete", {
+        configurable: true,
+        get: () => null,
+        set: (fn: () => void) => {
+          commit = fn;
+        },
+      });
+      return tx;
+    });
+    let done = false;
+    const write = writeLocal("e", { data, stored: null }).then(() => {
+      done = true;
+    });
+    await vi.waitFor(() => expect(commit).toBeDefined());
+    await new Promise((r) => setTimeout(r, 20));
+    expect(done).toBe(false);
+    spy.mockRestore();
+    commit?.();
+    await write;
+    expect(done).toBe(true);
+  });
+
+  it("reports a write as saved even if clearing the old cache throws", async () => {
+    const data = demoData(Date.now());
+    vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
+      throw new DOMException("blocked", "SecurityError");
+    });
+    expect(await writeLocal("f", { data, stored: null })).toBe(true);
+    vi.restoreAllMocks();
+    expect(await readLocal("f")).toEqual({ data, stored: null });
   });
 
   it("ignores broken copies and forgets the old cache on sign-out", async () => {
@@ -78,6 +122,8 @@ describe("offline", () => {
       expect(screen.getByLabelText(/Sin conexión: los cambios se guardan/)).toBeTruthy(),
     );
     expect(writes).not.toContain("day_overrides");
+    // Kept on the device, so a new version may reload without losing it.
+    await waitFor(() => expect(held()).toBe(false));
     const kept = await readLocal("me");
     expect(kept?.data.overrides.length).toBe(1);
     expect(kept?.stored?.overrides.length).toBe(0);

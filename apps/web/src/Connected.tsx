@@ -22,6 +22,7 @@ import {
   type Writes,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
+import { hold, saving } from "./updates.js";
 
 const SYNC_EVERY_MS = 5 * 60_000;
 /** While offline, try writing again this often (and whenever the browser says it is online). */
@@ -158,6 +159,7 @@ export function Connected({
           void writeLocal(uid, { data: latest.current ?? target, stored: target });
         }
         setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+        hold("unsaved", false);
         if (wrote) {
           // Mirror the new plan into Google once the burst of edits settles.
           clearTimeout(pushTimer.current);
@@ -175,7 +177,8 @@ export function Connected({
         flushing.current = null;
       }
     };
-    flushing.current = run();
+    // A reload for a new version waits until this lands.
+    flushing.current = saving(run());
     return flushing.current;
   }, [client, session, uid]);
 
@@ -183,9 +186,15 @@ export function Connected({
     (_prev: AppData, next: AppData) => {
       changes.current++;
       latest.current = next;
-      void writeLocal(uid, { data: next, stored: stored.current });
+      // Held from the start, so no reload for a new version slips in before the saves
+      // report; stored nowhere, it stays held until a later save succeeds.
+      hold("unsaved", true);
+      const local = writeLocal(uid, { data: next, stored: stored.current });
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
-      void flush();
+      const remote = flush();
+      void Promise.all([local, remote]).then(([l, r]) => {
+        if (latest.current === next && (l || r)) hold("unsaved", false);
+      });
     },
     [flush, uid],
   );
