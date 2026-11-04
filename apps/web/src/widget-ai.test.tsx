@@ -60,7 +60,7 @@ describe("Scriptable widget", () => {
     expect(area.value).toContain("cw_tok");
     await act(async () => fireEvent.click(screen.getByText("Copiar script")));
     expect(writeText).toHaveBeenCalledWith(area.value);
-    await act(async () => fireEvent.click(screen.getByText("Desactivar")));
+    await act(async () => fireEvent.click(screen.getByText("Desactivar el widget")));
     expect(screen.getByText("Widget desactivado ✓")).toBeTruthy();
   });
 });

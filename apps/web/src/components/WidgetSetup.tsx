@@ -52,22 +52,6 @@ export function WidgetSetup() {
             >
               {state === "copied" ? "Copiado ✓" : "Copiar script"}
             </button>
-            <button
-              type="button"
-              className="btn"
-              onClick={async () => {
-                const r = await widgetToken(sync.client, "revoke");
-                if (!r.ok) {
-                  // Still valid on the server: keep the script so the user can retry.
-                  setState("error");
-                  return;
-                }
-                setScript(null);
-                setState("revoked");
-              }}
-            >
-              Desactivar
-            </button>
           </div>
         </>
       ) : (
@@ -81,6 +65,24 @@ export function WidgetSetup() {
           Generar script
         </button>
       )}
+      {/* Always available: after a reload the script is gone but the token may live on. */}
+      <button
+        type="button"
+        className="btn"
+        style={{ width: "100%" }}
+        onClick={async () => {
+          const r = await widgetToken(sync.client, "revoke");
+          if (!r.ok) {
+            // Still valid on the server: keep the script so the user can retry.
+            setState("error");
+            return;
+          }
+          setScript(null);
+          setState("revoked");
+        }}
+      >
+        Desactivar el widget
+      </button>
       {state === "error" && (
         <p className="meta" style={{ color: CRITICAL }}>
           No se pudo. Probá de nuevo.

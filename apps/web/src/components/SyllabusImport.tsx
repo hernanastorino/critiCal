@@ -40,6 +40,32 @@ const draftOf = (s: Syllabus): Draft => ({
   })),
 });
 
+/** Hours field that keeps what is typed ("1,") until it loses focus, then bounds it. */
+function HoursInput({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  onChange: (hours: number) => void;
+}) {
+  const [text, setText] = useState<string | null>(null);
+  return (
+    <input
+      inputMode="decimal"
+      style={{ width: 56 }}
+      aria-label={label}
+      value={text ?? String(value)}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        if (text !== null) onChange(editedHours(text));
+        setText(null);
+      }}
+    />
+  );
+}
+
 /** Cargar un programa en PDF: Gemini propone unidades y evaluaciones; nada se crea sin OK. */
 export function SyllabusImport() {
   const sync = useSync();
@@ -97,6 +123,9 @@ export function SyllabusImport() {
   };
 
   const set = (patch: Partial<Draft>) => draft && setDraft({ ...draft, ...patch });
+  /** Units of an assessment that are still kept: without any, its own hours count. */
+  const covered = (a: Draft["assessments"][number]) =>
+    a.units.filter((t) => draft?.units.some((u) => u.title === t && u.keep));
 
   return (
     <details className="card prefs">
@@ -154,17 +183,11 @@ export function SyllabusImport() {
                 }
               />
               <span style={{ flex: 1 }}>{u.title}</span>
-              <input
-                inputMode="decimal"
-                style={{ width: 56 }}
-                aria-label={`Horas de ${u.title}`}
+              <HoursInput
+                label={`Horas de ${u.title}`}
                 value={u.hours}
-                onChange={(e) =>
-                  set({
-                    units: draft.units.map((x, j) =>
-                      j === i ? { ...x, hours: editedHours(e.target.value) } : x,
-                    ),
-                  })
+                onChange={(hours) =>
+                  set({ units: draft.units.map((x, j) => (j === i ? { ...x, hours } : x)) })
                 }
               />
             </label>
@@ -210,26 +233,24 @@ export function SyllabusImport() {
                 />
               </label>
               <p className="meta">
-                {a.units.length ? `Abarca: ${a.units.join(", ")}` : "Sin unidades: "}
+                {covered(a).length ? `Abarca: ${covered(a).join(", ")}` : "Sin unidades: "}
                 {!a.date && a.keep ? " · falta la fecha" : ""}
               </p>
-              {a.units.length === 0 && (
-                <label className="check">
+              {covered(a).length === 0 && (
+                <div className="check">
                   <span style={{ flex: 1 }}>Horas de preparación</span>
-                  <input
-                    inputMode="decimal"
-                    style={{ width: 56 }}
-                    aria-label={`Horas de preparación de ${a.key}`}
+                  <HoursInput
+                    label={`Horas de preparación de ${a.key}`}
                     value={a.hours}
-                    onChange={(e) =>
+                    onChange={(hours) =>
                       set({
                         assessments: draft.assessments.map((x, j) =>
-                          j === i ? { ...x, hours: editedHours(e.target.value) } : x,
+                          j === i ? { ...x, hours } : x,
                         ),
                       })
                     }
                   />
-                </label>
+                </div>
               )}
             </div>
           ))}
