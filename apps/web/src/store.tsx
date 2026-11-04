@@ -85,7 +85,32 @@ export type Action =
   /** An event's place: adds what the event says as an alias, or marks it as no trip. */
   | { type: "locate"; text: string; placeId: string | null; now: number };
 
+/**
+ * Every change, plus one rule for the undo history: a task whose status changed by
+ * anything other than a decision or its undo leaves the earlier decisions, so undo
+ * never overrides it, even if it later returns to the same status.
+ */
 export function reducer(data: AppData, action: Action): AppData {
+  const next = apply(data, action);
+  if (action.type === "applyOption" || action.type === "undoDecision" || !next.applied?.length)
+    return next;
+  const before = new Map(data.tasks.map((t) => [t.id, t.status]));
+  const moved = new Set(
+    next.tasks.filter((t) => before.has(t.id) && before.get(t.id) !== t.status).map((t) => t.id),
+  );
+  if (moved.size === 0) return next;
+  const applied = next.applied.map((d) =>
+    d.after && Object.keys(d.after).some((id) => moved.has(id))
+      ? {
+          ...d,
+          after: Object.fromEntries(Object.entries(d.after).filter(([id]) => !moved.has(id))),
+        }
+      : d,
+  );
+  return { ...next, applied };
+}
+
+function apply(data: AppData, action: Action): AppData {
   const now = action.now;
   switch (action.type) {
     case "refresh":

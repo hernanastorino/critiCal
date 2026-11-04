@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { isPlanCalendar, visibleEvents } from "./calendars.js";
 import { demoData, emptyData } from "./demo.js";
-import type { AppData } from "./model.js";
+import type { AppData, AppTask } from "./model.js";
 import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
@@ -141,6 +141,25 @@ describe("decisions and defaults", () => {
     expect(kept2.tasks.find((t) => t.id === a.id)?.status).toBe("done");
     expect(kept2.tasks.find((t) => t.id === b.id)?.minMinutes).toBe(b.minMinutes + 60);
     expect(kept2.tasks.find((t) => t.id === c.id)?.status).toBe("active");
+
+    // Dropped by the decision, brought back, dropped again: the same status, but the
+    // later drop is the user's, so undo leaves it alone.
+    const fromDecision: AppData = {
+      ...start,
+      applied: [{ ...decision, after: { [a.id]: "active", [b.id]: "active", [c.id]: "dropped" } }],
+    };
+    const back = reducer(fromDecision, {
+      type: "saveTask",
+      task: { ...(fromDecision.tasks.find((t) => t.id === c.id) as AppTask), status: "active" },
+      now: NOW,
+    });
+    const again = reducer(back, {
+      type: "saveTask",
+      task: { ...(back.tasks.find((t) => t.id === c.id) as AppTask), status: "dropped" },
+      now: NOW,
+    });
+    const undoneAgain = reducer(again, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(undoneAgain.tasks.find((t) => t.id === c.id)?.status).toBe("dropped");
 
     // Every silo it touched deleted: the decision is gone.
     let gone = start;
