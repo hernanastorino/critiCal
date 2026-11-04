@@ -151,7 +151,10 @@ export function Connected({
         for (;;) {
           const target = latest.current;
           if (!target) break;
-          const writes = diffData(stored.current ?? target, target);
+          // Nothing to compare with yet: the database may lack these changes, so this
+          // is not a save (and must not release the unsaved hold).
+          if (stored.current === null) return false;
+          const writes = diffData(stored.current, target);
           if (nothing(writes)) break;
           await applyWrites(client, writes);
           stored.current = target;

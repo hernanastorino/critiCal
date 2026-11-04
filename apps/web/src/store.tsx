@@ -447,11 +447,14 @@ export function seedHistory(data: AppData, now: number): AppData {
   return { ...caught, checkIns };
 }
 
-function saveDemo(data: AppData): void {
+/** Stores the demo; false if the browser refused (full or blocked storage). */
+function saveDemo(data: AppData): boolean {
   try {
-    globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
+    if (!globalThis.localStorage) return false;
+    globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+    return true;
   } catch {
-    // Not persisting is fine for a demo.
+    return false;
   }
 }
 
@@ -519,7 +522,8 @@ export function StoreProvider({
   // A layout effect runs right after the commit, so the saves start before any repaint
   // or task freeze that could let a reload for a new version in first.
   useLayoutEffect(() => {
-    if (persist) saveDemo(data);
+    // A demo edit the browser refused to store lives only in memory: no reload then.
+    if (persist) hold("unsaved", !saveDemo(data));
     if (onChange && previous.current !== data) onChange(previous.current, data);
     // Its saves are registered now, so a reload for a new version can wait for them.
     hold("edit", false);

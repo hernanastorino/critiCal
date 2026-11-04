@@ -294,6 +294,28 @@ describe("week", () => {
     expect(screen.getByText(/No llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
   });
 
+  it("keeps a new version waiting while the demo cannot be stored", () => {
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    try {
+      render(<App fixedNow={NOW} initial={demoData} />);
+      const replan = screen.getByLabelText("Reacomodar semana");
+      const blocked = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new DOMException("full", "QuotaExceededError");
+      });
+      fireEvent.click(replan);
+      expect(held()).toBe(true);
+      blocked.mockRestore();
+      act(() => {
+        vi.advanceTimersByTime(2500);
+      });
+      // The next edit that is stored lets it go.
+      fireEvent.click(replan);
+      expect(held()).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("answers a replan with a tick on its button, not a notice over the week", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
