@@ -58,6 +58,8 @@ export interface TravelResult {
   unroutable?: { from: string; to: string }[];
   /** Places whose address could not be found. */
   ungeocoded?: string[];
+  /** Places without coordinates and without an address. */
+  noAddress?: string[];
   error?: string;
 }
 

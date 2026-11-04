@@ -95,6 +95,7 @@ describe("travel", () => {
       pairs: 1,
       unroutable: [],
       ungeocoded: ["gym"],
+      noAddress: [],
     });
     expect(pause).toHaveBeenCalledTimes(1);
     expect(writes).toEqual([
@@ -148,6 +149,7 @@ describe("travel", () => {
       pairs: 0,
       unroutable: [{ from: "casa", to: "isla" }],
       ungeocoded: [],
+      noAddress: [],
     });
     expect(writes).toEqual([
       { table: "travel_times", op: "delete", payload: ["casa", "isla", false] },
@@ -163,6 +165,7 @@ describe("travel", () => {
       pairs: 0,
       unroutable: [],
       ungeocoded: [],
+      noAddress: [],
     });
     places = [
       { id: "casa", address: null, lat: -34.8, lon: -56.2 },

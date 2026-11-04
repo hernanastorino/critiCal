@@ -77,8 +77,10 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       geocoded++;
     }
     const located = places.filter((p) => p.lat != null && p.lon != null);
+    // Without an address there is nothing to look up: those times go by hand too.
+    const noAddress = places.filter((p) => p.lat == null && !p.address?.trim()).map((p) => p.id);
     if (located.length < 2)
-      return json({ ok: true, geocoded, pairs: 0, unroutable: [], ungeocoded });
+      return json({ ok: true, geocoded, pairs: 0, unroutable: [], ungeocoded, noAddress });
 
     const matrix = await drivingMatrix(
       env.orsKey as string,
@@ -118,7 +120,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       const { error: writeError } = await user.from("travel_times").upsert(rows);
       if (writeError) throw writeError;
     }
-    return json({ ok: true, geocoded, pairs: rows.length, unroutable, ungeocoded });
+    return json({ ok: true, geocoded, pairs: rows.length, unroutable, ungeocoded, noAddress });
   } catch (e) {
     console.error(e);
     await report(env, e, "travel");

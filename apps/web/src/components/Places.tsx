@@ -21,7 +21,11 @@ export function Places() {
     setBusy(true);
     setNote(null);
     // An address just edited must reach the database before the server reads it.
-    await sync.flush();
+    if (!(await sync.flush())) {
+      setBusy(false);
+      setNote("Hay cambios sin guardar (¿sin conexión?): probá de nuevo cuando se sincronicen.");
+      return;
+    }
     const r = await computeTravel(sync.client);
     setBusy(false);
     if (!r.ok) {
@@ -35,8 +39,10 @@ export function Places() {
     const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
     const missing = (r.unroutable ?? []).map((u) => `${name(u.from)} → ${name(u.to)}`);
     const unknown = (r.ungeocoded ?? []).map(name);
+    const noAddress = (r.noAddress ?? []).map(name);
     const problems = [
-      unknown.length ? `No encontré la dirección de ${unknown.join(", ")}` : "",
+      noAddress.length ? `Sin dirección: ${noAddress.join(", ")}` : "",
+      unknown.length ? `no encontré la dirección de ${unknown.join(", ")}` : "",
       missing.length ? `sin ruta en auto para ${missing.join(", ")}` : "",
     ].filter(Boolean);
     setNote(
