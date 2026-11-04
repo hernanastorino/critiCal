@@ -197,6 +197,8 @@ describe("Connected", () => {
     );
     expect(await screen.findByTestId("week")).toBeTruthy();
     expect(screen.getByLabelText("Sincronizando")).toBeTruthy();
+    // Release only once both sync calls are out (slow machines start them later).
+    await waitFor(() => expect(held.length).toBe(2));
     await act(async () => answer());
     await waitFor(() => expect(screen.getByLabelText("Todo sincronizado")).toBeTruthy());
   });
