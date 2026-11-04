@@ -62,5 +62,10 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   if (d.tasks?.some((t) => !activities.has(t.activityId))) {
     return { error: "El respaldo está incompleto: hay actividades sin materia." };
   }
+  // Every check-in needs its task in the file (the database enforces it too).
+  const tasks = new Set(d.tasks?.map((t) => t.id));
+  if (d.checkIns?.some((c) => !tasks.has(c.taskId))) {
+    return { error: "El respaldo está incompleto: hay registros de tareas que no están." };
+  }
   return { data: d as AppData };
 }

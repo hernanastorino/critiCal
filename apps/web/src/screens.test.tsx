@@ -245,6 +245,18 @@ describe("backup", () => {
     expect(parseBackup(exportJson({ ...data, tasks: [null as never] }, 1))).toEqual({
       error: "Al respaldo le faltan datos.",
     });
+    const orphan = {
+      id: "c",
+      blockId: "b",
+      taskId: "nope",
+      status: "done" as const,
+      minutesDone: 1,
+      unitIds: [],
+      createdAt: 0,
+    };
+    expect(parseBackup(exportJson({ ...data, checkIns: [orphan] }, 1))).toEqual({
+      error: "El respaldo está incompleto: hay registros de tareas que no están.",
+    });
     expect(parseBackup(exportJson({ ...data, activities: [] }, 1))).toEqual({
       error: "El respaldo está incompleto: hay actividades sin materia.",
     });
