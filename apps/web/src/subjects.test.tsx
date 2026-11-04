@@ -502,6 +502,36 @@ it("migrates a demo saved before the study mark, once", () => {
   expect(loadDemo(NOW).tasks[0]?.study).toBe(true);
   full.mockRestore();
   expect(localStorage.getItem("critical.demo.v1")).not.toBeNull();
+  // The first edit saved makes room by dropping the old copy, so edits are not lost.
+  let room = false;
+  const quota = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+    this: Storage,
+    key: string,
+    value: string,
+  ) {
+    if (!room) throw new DOMException("full", "QuotaExceededError");
+    Object.defineProperty(this, key, {
+      value,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+  });
+  const remove = vi.spyOn(Storage.prototype, "removeItem").mockImplementation(function (
+    this: Storage,
+    key: string,
+  ) {
+    if (key === "critical.demo.v1") room = true;
+    delete (this as unknown as Record<string, string>)[key];
+  });
+  render(
+    <StoreProvider initial={loadDemo} persist fixedNow={NOW}>
+      {null}
+    </StoreProvider>,
+  );
+  quota.mockRestore();
+  remove.mockRestore();
+  expect(room).toBe(true);
   localStorage.setItem("critical.demo.v1", "{}");
   resetDemo();
   expect(localStorage.getItem("critical.demo.v1")).toBeNull();
