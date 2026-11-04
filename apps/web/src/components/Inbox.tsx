@@ -1,14 +1,18 @@
 import { useState } from "react";
+import { useSync } from "../Connected.js";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, hours, time } from "../format.js";
 import { type AppTask, undoable } from "../model.js";
+import { spotFor, spotKey } from "../places.js";
 import { endOfDay, pinClashes } from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
+import { PlaceSearch } from "./PlaceSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
   const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
+  const offline = !!useSync()?.status.offline;
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   const [editing, setEditing] = useState<AppTask | null>(null);
@@ -52,36 +56,17 @@ export function Inbox() {
         {empty && <p className="empty">Todo al día ✓</p>}
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
-        {unlocated.map((u) => (
-          <div key={u.key} className="card">
-            <div className="title">{u.event.title}</div>
-            <p className="meta">
-              {dayAndTime(tz, u.event.start)}
-              {u.event.location ? ` · ${u.event.location}` : " · sin ubicación"}
-            </p>
-            <select
-              aria-label={`Lugar de ${u.event.title}`}
-              value=""
-              onChange={(e) =>
-                dispatch({
-                  type: "locate",
-                  text: u.text,
-                  placeId: e.target.value === "none" ? null : e.target.value,
-                })
-              }
-            >
-              <option value="" disabled>
-                Elegí el lugar…
-              </option>
-              {(data.places ?? []).map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-              <option value="none">No hace falta traslado</option>
-            </select>
-          </div>
-        ))}
+        {unlocated.map((u) =>
+          // Offline it cannot be timed yet: the user may answer meanwhile.
+          u.lookup && !offline ? (
+            <div key={u.key} className="card">
+              <div className="title">{u.event.title}</div>
+              <p className="meta">Calculando el traslado a «{u.event.location}»…</p>
+            </div>
+          ) : (
+            <WhereCard key={u.key} item={u} later={u.lookup} />
+          ),
+        )}
 
         {review.length > 0 && <div className="section-title">Detectado en tu calendario</div>}
         {review.map((t) => (
@@ -305,6 +290,88 @@ export function Inbox() {
           onClose={() => setOpen(null)}
         />
       )}
+    </div>
+  );
+}
+
+/**
+ * Where an event happens, when its address could not be timed: a saved place (found by
+ * typing), minutes from home typed here (optionally saved as a new place), or no trip.
+ */
+function WhereCard({
+  item,
+  later,
+}: {
+  item: ReturnType<typeof useStore>["unlocated"][number];
+  /** Not timed yet only for lack of connection: it will be, unless answered here. */
+  later?: boolean;
+}) {
+  const { data, dispatch } = useStore();
+  const tz = data.settings.timezone;
+  const [minutes, setMinutes] = useState("");
+  const [save, setSave] = useState(false);
+  const [name, setName] = useState("");
+  const failed = spotFor(data, item.event.location)?.failed;
+  const typed = Number(minutes);
+  const valid = minutes !== "" && Number.isInteger(typed) && typed >= 0 && typed <= 1440;
+  return (
+    <div className="card">
+      <div className="title">{item.event.title}</div>
+      <p className="meta">
+        {dayAndTime(tz, item.event.start)}
+        {item.event.location ? ` · ${item.event.location}` : " · sin ubicación"}
+        {failed ? " · no encontré esa dirección" : ""}
+        {later ? " · sin conexión: lo calculo al volver, o respondé acá" : ""}
+      </p>
+      <PlaceSearch
+        label={`Lugar de ${item.event.title}`}
+        onPick={(place) => dispatch({ type: "locate", text: item.text, placeId: place.id })}
+      />
+      <div className="row fields">
+        <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <span>O minutos desde casa</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            max={1440}
+            value={minutes}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
+        </label>
+        <button
+          type="button"
+          className="btn small"
+          disabled={!valid || (save && !name.trim())}
+          onClick={() => {
+            dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
+            if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
+          }}
+        >
+          Usar
+        </button>
+      </div>
+      <label className="check">
+        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
+        <span>Guardar como lugar</span>
+      </label>
+      {save && (
+        <label className="field">
+          <span>Nombre del lugar</span>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Casa de Clara"
+          />
+        </label>
+      )}
+      <button
+        type="button"
+        className="btn small"
+        onClick={() => dispatch({ type: "locate", text: item.text, placeId: null })}
+      >
+        No hace falta traslado
+      </button>
     </div>
   );
 }

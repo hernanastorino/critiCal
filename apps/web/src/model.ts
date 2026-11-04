@@ -156,6 +156,25 @@ export interface AppData {
   travelTimes?: TravelTime[];
   /** Normalized locations/titles of events that need no trip (online, at home…). */
   noTravel?: string[];
+  /** Event addresses used for travel without being saved as places. */
+  spots?: Spot[];
+}
+
+/**
+ * Where a one-off event happens (an address in the event, or what the user typed for
+ * it), with the driving time from home; kept out of the saved places on purpose.
+ */
+export interface Spot {
+  /** `normalize(text)`: events saying the same thing share it. */
+  key: string;
+  /** What the event says, as written. */
+  text: string;
+  /** Driving minutes from home (each way); missing while not known. */
+  minutes?: number;
+  /** Typed by the user: never replaced by a computed time. */
+  manual?: boolean;
+  /** The address could not be found or reached: the inbox asks. */
+  failed?: boolean;
 }
 
 /** A saved place (home, facu, gym…), matched against event locations and titles. */

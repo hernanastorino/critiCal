@@ -4,21 +4,26 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { reportError } from "./monitoring.js";
 import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
+import { home } from "./places.js";
 import {
   applyWrites,
   diffData,
   loadData,
+  SPOTS_PER_CALL,
   type SyncResult,
   signInWithGoogle,
   syncGoogle,
   syncICloud,
+  timeSpots,
   type Writes,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
@@ -247,6 +252,7 @@ export function Connected({
         changes={changes}
         owned={owned}
       >
+        <AutoLocate client={client} flush={flush} />
         {children}
       </SyncProvider>
     </StoreProvider>
@@ -405,4 +411,105 @@ function SyncProvider({
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;
+}
+
+/** Answers that mean the server cannot time any address: the inbox asks instead. */
+const FINAL = new Set(["server_not_configured", "no_home", "home_not_located", "bad_request"]);
+/** After a passing failure (offline, geocoder busy), wait this long before trying again. */
+const LOOKUP_COOLDOWN_MS = 60_000;
+/** Passing failures before an address is given up and asked about instead. */
+const LOOKUP_TRIES = 3;
+
+/**
+ * Times upcoming events' addresses from home in the background, a few at a time, so
+ * the inbox only asks about the ones that cannot be found. Nothing becomes a place.
+ * An address with no answer yet is looked up again (after forgetting it, or with a new
+ * home); answers for a home that changed meanwhile are dropped.
+ */
+function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Promise<boolean> }) {
+  const { data, unlocated, dispatch } = useStore();
+  const at = home(data);
+  const homeKey = at ? `${at.id}|${at.address ?? ""}|${at.lat ?? ""},${at.lon ?? ""}` : "";
+  const currentHome = useRef(homeKey);
+  // Set on commit, so a lookup never compares with a render React threw away.
+  useLayoutEffect(() => {
+    currentHome.current = homeKey;
+  }, [homeKey]);
+  const inFlight = useRef(new Set<string>());
+  const coolUntil = useRef(new Map<string, number>());
+  const failures = useRef(new Map<string, number>());
+  // A new home starts every address afresh.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `homeKey` is the trigger.
+  useLayoutEffect(() => {
+    failures.current.clear();
+    coolUntil.current.clear();
+  }, [homeKey]);
+  const running = useRef(false);
+  // Bumped when a lookup ends, so the next batch starts even if nothing else changed.
+  const [round, setRound] = useState(0);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `round` only re-runs the effect.
+  useEffect(() => {
+    if (running.current) return;
+    const now = Date.now();
+    const batch = unlocated
+      .filter(
+        (u) =>
+          u.lookup && !inFlight.current.has(u.key) && (coolUntil.current.get(u.key) ?? 0) <= now,
+      )
+      .slice(0, SPOTS_PER_CALL);
+    if (batch.length === 0) return;
+    // The server refuses a whole call over one very long address: those are answered
+    // here as not found, and the rest still go.
+    const refused = batch.filter((u) => u.text.length > SPOT_TEXT_MAX);
+    if (refused.length)
+      return dispatch({
+        type: "spots",
+        results: refused.map((u) => ({ text: u.text, minutes: null })),
+      });
+    const asked = homeKey;
+    for (const u of batch) inFlight.current.add(u.key);
+    const texts = batch.map((u) => u.text);
+    running.current = true;
+    /** Waits a while before the next try; only failed lookups count towards giving up. */
+    const cool = (lookupFailed: boolean) => {
+      // After a few failed lookups the inbox asks instead of "calculating" for ever.
+      const exhausted = batch.filter((u) => {
+        if (!lookupFailed) return false;
+        const n = (failures.current.get(u.key) ?? 0) + 1;
+        failures.current.set(u.key, n);
+        return n >= LOOKUP_TRIES;
+      });
+      if (exhausted.length) {
+        // That episode is over: if the address is forgotten later, it gets fresh tries.
+        for (const u of exhausted) failures.current.delete(u.key);
+        dispatch({
+          type: "spots",
+          results: exhausted.map((u) => ({ text: u.text, minutes: null })),
+        });
+      }
+      for (const u of batch) coolUntil.current.set(u.key, Date.now() + LOOKUP_COOLDOWN_MS);
+      setTimeout(() => setRound((r) => r + 1), LOOKUP_COOLDOWN_MS);
+    };
+    void (async () => {
+      try {
+        // The server reads the home from the database: a home just saved must be there.
+        // A save that did not go through is not the address's fault.
+        if (!(await flush())) return cool(false);
+        const r = await timeSpots(client, texts);
+        // Timed from a home that is no longer this one: ask again for the current one.
+        if (currentHome.current !== asked) return;
+        if (r.ok && r.spots) {
+          for (const u of batch) failures.current.delete(u.key);
+          dispatch({ type: "spots", results: r.spots });
+        } else if (r.error && FINAL.has(r.error))
+          dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
+        else cool(true);
+      } finally {
+        for (const u of batch) inFlight.current.delete(u.key);
+        running.current = false;
+        setRound((n) => n + 1);
+      }
+    })();
+  }, [unlocated, client, dispatch, flush, homeKey, round]);
+  return null;
 }

@@ -12,6 +12,7 @@ import type {
   Place,
   Preferences,
   Proposal,
+  Spot,
   TravelTime,
 } from "./model.js";
 
@@ -25,6 +26,7 @@ interface State {
   freeTimeUntil?: number;
   relaxContextUntil?: number;
   noTravel?: string[];
+  spots?: Spot[];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -166,6 +168,7 @@ export function rowsToData(r: {
       }),
     ),
     noTravel: state.noTravel,
+    spots: state.spots,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -256,6 +259,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.applied,
       prev.pins,
       prev.noTravel,
+      prev.spots,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -266,6 +270,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.applied,
       next.pins,
       next.noTravel,
+      next.spots,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -281,6 +286,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             applied: next.applied,
             pins: next.pins,
             noTravel: next.noTravel,
+            spots: next.spots,
           },
         },
       ],

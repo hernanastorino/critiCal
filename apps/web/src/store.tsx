@@ -28,7 +28,7 @@ import type {
   Preferences,
 } from "./model.js";
 import { newId, pruneApplied, undoable } from "./model.js";
-import { unlocated } from "./places.js";
+import { home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   type Decisions,
@@ -86,7 +86,14 @@ export type Action =
   | { type: "deletePlace"; placeId: string; now: number }
   | { type: "travelTime"; from: string; to: string; minutes: number; now: number }
   /** An event's place: adds what the event says as an alias, or marks it as no trip. */
-  | { type: "locate"; text: string; placeId: string | null; now: number };
+  | { type: "locate"; text: string; placeId: string | null; now: number }
+  /** Driving times the server found for event addresses (null: not found or no route). */
+  | { type: "spots"; results: { text: string; minutes: number | null }[]; now: number }
+  /** Minutes from home typed for an event, without saving a place. */
+  | { type: "spotMinutes"; text: string; minutes: number; now: number }
+  /** Turns an event address into a saved place called `name`. */
+  | { type: "saveSpot"; key: string; name: string; now: number }
+  | { type: "forgetSpot"; key: string; now: number };
 
 /**
  * Every change, plus one rule for the undo history: a task whose status changed by
@@ -374,14 +381,24 @@ function apply(data: AppData, action: Action): AppData {
         places = places.map((p) =>
           p.id !== action.place.id && p.isHome ? { ...p, isHome: undefined } : p,
         );
-      return refresh({ ...data, places, travelTimes }, now);
+      // Spots are timed from home: a new home (or address) makes the computed ones stale.
+      const was = home(data);
+      const moved = action.place.isHome
+        ? was?.id !== action.place.id || (old?.address ?? "") !== (action.place.address ?? "")
+        : // Or the home stops being one.
+          was?.id === action.place.id;
+      const spots = moved ? (data.spots ?? []).filter((s) => s.manual) : data.spots;
+      return refresh({ ...data, places, travelTimes, spots }, now);
     }
     case "deletePlace": {
       const places = (data.places ?? []).filter((p) => p.id !== action.placeId);
       const travelTimes = (data.travelTimes ?? []).filter(
         (t) => t.from !== action.placeId && t.to !== action.placeId,
       );
-      return refresh({ ...data, places, travelTimes }, now);
+      // Without that home, minutes computed from it mean nothing; typed ones stay.
+      const spots =
+        home(data)?.id === action.placeId ? (data.spots ?? []).filter((s) => s.manual) : data.spots;
+      return refresh({ ...data, places, travelTimes, spots }, now);
     }
     case "travelTime": {
       const others = (data.travelTimes ?? []).filter(
@@ -390,7 +407,64 @@ function apply(data: AppData, action: Action): AppData {
       const time = { from: action.from, to: action.to, minutes: action.minutes, manual: true };
       return refresh({ ...data, travelTimes: [...others, time] }, now);
     }
+    case "spots": {
+      let spots = data.spots ?? [];
+      for (const r of action.results) {
+        const key = spotKey(r.text);
+        // What the user typed stays.
+        if (spots.some((s) => s.key === key && s.manual)) continue;
+        const spot =
+          r.minutes === null
+            ? { key, text: r.text, failed: true }
+            : { key, text: r.text, minutes: Math.min(1440, Math.max(0, Math.round(r.minutes))) };
+        spots = [...spots.filter((s) => s.key !== key), spot];
+      }
+      return refresh({ ...data, spots }, now);
+    }
+    case "spotMinutes": {
+      // Whole minutes within a day, like every other travel time.
+      if (!Number.isFinite(action.minutes) || action.minutes < 0 || !action.text.trim())
+        return data;
+      const key = spotKey(action.text);
+      const minutes = Math.min(1440, Math.round(action.minutes));
+      const spot = { key, text: action.text, minutes, manual: true };
+      return refresh(
+        { ...data, spots: [...(data.spots ?? []).filter((s) => s.key !== key), spot] },
+        now,
+      );
+    }
+    case "saveSpot": {
+      const spot = (data.spots ?? []).find((s) => s.key === action.key);
+      const at = home(data);
+      const name = action.name.trim();
+      if (!spot || !name) return data;
+      const place: Place = { id: newId(), name, aliases: [spot.text], address: spot.text };
+      const travelTimes = [...(data.travelTimes ?? [])];
+      if (at && spot.minutes !== undefined) {
+        const manual = !!spot.manual;
+        travelTimes.push(
+          { from: at.id, to: place.id, minutes: spot.minutes, manual },
+          { from: place.id, to: at.id, minutes: spot.minutes, manual },
+        );
+      }
+      return refresh(
+        {
+          ...data,
+          places: [...(data.places ?? []), place],
+          travelTimes,
+          spots: (data.spots ?? []).filter((s) => s.key !== action.key),
+        },
+        now,
+      );
+    }
+    case "forgetSpot":
+      return refresh(
+        { ...data, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
+        now,
+      );
     case "locate": {
+      // Answered: a failed lookup for this text is no longer needed.
+      data = { ...data, spots: (data.spots ?? []).filter((s) => s.key !== spotKey(action.text)) };
       if (!action.placeId) {
         const noTravel = [...new Set([...(data.noTravel ?? []), normalize(action.text)])];
         return refresh({ ...data, noTravel }, now);
@@ -536,7 +610,10 @@ export function StoreProvider({
     const r = refreshPlan(data, now);
     const pending = pendingConfirmations(data, now);
     const d = decisions(r.input, r.result);
-    const where = unlocated(data, visibleEvents(data), now);
+    // Signed in, the server times event addresses by itself; the demo has no server.
+    const where = unlocated(data, visibleEvents(data), now).map((u) =>
+      persist ? { ...u, lookup: false } : u,
+    );
     const pinShort = pinShortfall(data, now, r.result);
     return {
       data,
@@ -553,7 +630,8 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       inboxCount:
-        where.length +
+        // Addresses still being timed are not questions yet.
+        where.filter((u) => !u.lookup).length +
         (pinShort.short.length > 0 ? 1 : 0) +
         pending.length +
         data.proposals.length +
@@ -561,7 +639,7 @@ export function StoreProvider({
         d.recommendations.length +
         data.tasks.filter((t) => t.needsReview && t.status === "active").length,
     };
-  }, [data, now, fixedNow]);
+  }, [data, now, fixedNow, persist]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }

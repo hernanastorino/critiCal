@@ -202,6 +202,13 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     str(t.to) &&
     minute(t.minutes, 1440) &&
     typeof t.manual === "boolean";
+  const spot = (s: unknown) =>
+    isObject(s) &&
+    str(s.key) &&
+    str(s.text) &&
+    (s.minutes === undefined || minute(s.minutes, 1440)) &&
+    (s.manual === undefined || typeof s.manual === "boolean") &&
+    (s.failed === undefined || typeof s.failed === "boolean");
   const optionalList = (x: unknown, ok: (v: unknown) => boolean) =>
     x === undefined || (Array.isArray(x) && x.every(ok));
   // Called only once the lists are known to be arrays.
@@ -211,7 +218,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     (d.events as unknown[]).every(event) &&
     (d.proposals as unknown[]).every(proposal) &&
     optionalList(d.places, place) &&
-    optionalList(d.travelTimes, travel);
+    optionalList(d.travelTimes, travel) &&
+    optionalList(d.spots, spot);
   if (
     !validSettings ||
     !Array.isArray(week) ||

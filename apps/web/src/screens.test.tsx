@@ -301,7 +301,15 @@ describe("backup", () => {
       end: 3_600_000,
     };
     expect(parseBackup(exportJson({ ...data, plan: [block] }, 1))).toHaveProperty("data");
+    const spots = [
+      { key: "a", text: "A", minutes: 5, manual: true },
+      { key: "b", text: "B", failed: true },
+    ];
+    expect(parseBackup(exportJson({ ...data, spots }, 1))).toHaveProperty("data");
     for (const broken of [
+      { spots: [{ key: "a", text: "A", minutes: -3 }] },
+      { spots: [{ key: "", text: "A" }] },
+      { spots: [{ key: "a", text: "A", failed: "yes" }] },
       { plan: [{ ...block, end: 1e100 }] },
       { plan: [{ ...block, end: DAY + 1 }] },
       { plan: [{ ...block, end: 0 }] },
