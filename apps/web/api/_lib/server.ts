@@ -16,6 +16,9 @@ export interface Env {
   sentryDsn?: string;
   /** OpenRouteService key for driving times. */
   orsKey?: string;
+  /** Google AI Studio key for reading syllabus PDFs. */
+  geminiKey?: string;
+  geminiModel?: string;
 }
 
 export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
@@ -33,6 +36,8 @@ export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
     vapidPrivate: e.VAPID_PRIVATE_KEY,
     sentryDsn: e.SENTRY_DSN || e.VITE_SENTRY_DSN,
     orsKey: e.ORS_API_KEY,
+    geminiKey: e.GEMINI_API_KEY,
+    geminiModel: e.GEMINI_MODEL,
   };
 }
 
