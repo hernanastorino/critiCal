@@ -283,7 +283,7 @@ function SyncProvider({
   const { dispatch } = useStore();
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
-  const reloading = useRef<Promise<void> | null>(null);
+  const queue = useRef<Promise<void>>(Promise.resolve());
   const reloadOnce = useCallback(async () => {
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
@@ -321,14 +321,13 @@ function SyncProvider({
   }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
   /**
    * One reload at a time (mount, interval, foreground can overlap): an older merge's
-   * writes must never land after a newer one set the baseline. Callers share it.
+   * writes must never land after a newer one set the baseline. Each call waits for
+   * the one before and then runs, so it sees what its caller just changed; a failed
+   * one does not stop the next.
    */
   const reload = useCallback((): Promise<void> => {
-    if (reloading.current) return reloading.current;
-    const run = reloadOnce().finally(() => {
-      reloading.current = null;
-    });
-    reloading.current = run;
+    const run = queue.current.catch(() => undefined).then(reloadOnce);
+    queue.current = run;
     return run;
   }, [reloadOnce]);
 
