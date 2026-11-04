@@ -414,9 +414,11 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
     for (const u of batch) inFlight.current.add(u.key);
     const texts = batch.map((u) => u.text);
     running.current = true;
-    const cool = () => {
-      // After a few tries the inbox asks instead of "calculating" for ever.
+    /** Waits a while before the next try; only failed lookups count towards giving up. */
+    const cool = (lookupFailed: boolean) => {
+      // After a few failed lookups the inbox asks instead of "calculating" for ever.
       const exhausted = batch.filter((u) => {
+        if (!lookupFailed) return false;
         const n = (failures.current.get(u.key) ?? 0) + 1;
         failures.current.set(u.key, n);
         return n >= LOOKUP_TRIES;
@@ -432,14 +434,17 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
     void (async () => {
       try {
         // The server reads the home from the database: a home just saved must be there.
-        if (!(await flush())) return cool();
+        // A save that did not go through is not the address's fault.
+        if (!(await flush())) return cool(false);
         const r = await timeSpots(client, texts);
         // Timed from a home that is no longer this one: ask again for the current one.
         if (currentHome.current !== asked) return;
-        if (r.ok && r.spots) dispatch({ type: "spots", results: r.spots });
-        else if (r.error && FINAL.has(r.error))
+        if (r.ok && r.spots) {
+          for (const u of batch) failures.current.delete(u.key);
+          dispatch({ type: "spots", results: r.spots });
+        } else if (r.error && FINAL.has(r.error))
           dispatch({ type: "spots", results: texts.map((text) => ({ text, minutes: null })) });
-        else cool();
+        else cool(true);
       } finally {
         for (const u of batch) inFlight.current.delete(u.key);
         running.current = false;

@@ -151,3 +151,36 @@ it("asks instead after a few failed tries", async () => {
     vi.useRealTimers();
   }
 });
+
+it("does not give up on an address because saves fail", async () => {
+  vi.useFakeTimers({
+    toFake: ["setTimeout", "clearTimeout", "setInterval", "clearInterval", "Date"],
+  });
+  try {
+    let calls = 0;
+    stubApi(async (name) => {
+      if (name === "travel") calls++;
+      return { data: { connected: true }, error: null };
+    });
+    // Every write fails, so each try stops before asking the server.
+    const failing = client();
+    const from = (failing as unknown as { from: (t: string) => Record<string, unknown> }).from;
+    const broken = {
+      ...(failing as object),
+      from: (t: string) => ({
+        ...from(t),
+        upsert: () => Promise.resolve({ error: { message: "TypeError: Failed to fetch" } }),
+      }),
+    } as never;
+    render(
+      <Connected client={broken} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    for (let i = 0; i < 4; i++) await vi.advanceTimersByTimeAsync(61_000);
+    expect(calls).toBe(0);
+    expect((await readLocal("me"))?.data.spots ?? []).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
