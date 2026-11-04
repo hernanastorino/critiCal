@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
+import { subjectName } from "../calendars.js";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, hours, time } from "../format.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
 import { endOfDay, pinClashes } from "../planning.js";
 import { useStore } from "../store.js";
+import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { PlaceSearch } from "./PlaceSearch.js";
+import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
@@ -20,6 +23,9 @@ export function Inbox() {
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
   const clashes = pinClashes(data, now);
+  const classes = newClassTitles(data);
+  const unassigned = unassignedTasks(data);
+  const unsorted = unsortedActivities(data);
   // Only decisions something can still be undone in (free-time ones never had tasks).
   const applied = (data.applied ?? []).filter(
     (d) => d.before.length === 0 || undoable(data, d).length > 0,
@@ -32,7 +38,10 @@ export function Inbox() {
       data.proposals.length +
       decisions.options.length +
       decisions.recommendations.length +
-      review.length ===
+      review.length +
+      classes.length +
+      unassigned.length +
+      unsorted.length ===
     0;
 
   const quick = (b: PlanBlock, status: "done" | "missed") =>
@@ -67,6 +76,93 @@ export function Inbox() {
             <WhereCard key={u.key} item={u} later={u.lookup} />
           ),
         )}
+
+        {classes.length > 0 && <div className="section-title">Clases nuevas en tu calendario</div>}
+        {classes.map((c) => (
+          <div key={c.key} className="card">
+            <div className="title">{c.title}</div>
+            <p className="meta">
+              {dayAndTime(tz, c.event.start)} · ¿es una materia o un evento suelto (una charla, un
+              trámite)?
+            </p>
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "classTitle", title: c.title, as: "materia" })}
+              >
+                Es una materia
+              </button>
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "classTitle", title: c.title, as: "event" })}
+              >
+                Evento suelto
+              </button>
+            </div>
+            <SubjectSearch
+              label={`Otra clase de una materia: ${c.title}`}
+              onPick={(a) => dispatch({ type: "classOf", title: c.title, activityId: a.id })}
+            />
+          </div>
+        ))}
+
+        {unassigned.length > 0 && <div className="section-title">¿De qué materia es?</div>}
+        {unassigned.map((t) => (
+          <div key={t.id} className="card">
+            <div className="title">{t.title}</div>
+            <p className="meta">
+              {t.deadline ? `${dayAndTime(tz, t.deadline)} · ` : ""}se planifica igual mientras
+              tanto
+            </p>
+            <SubjectSearch
+              label={`Materia de ${t.title}`}
+              onPick={(a) => dispatch({ type: "assignSubject", taskId: t.id, activityId: a.id })}
+            />
+            <button
+              type="button"
+              className="btn small"
+              onClick={() =>
+                dispatch({ type: "newSubject", name: subjectName(t.title), taskId: t.id })
+              }
+            >
+              Nueva materia: {subjectName(t.title)}
+            </button>
+          </div>
+        ))}
+
+        {unsorted.length > 0 && <div className="section-title">Ordenar tus actividades</div>}
+        {unsorted.map((a) => (
+          <div key={a.id} className="card" style={{ ["--c" as string]: a.color }}>
+            <div className="title">{a.name}</div>
+            <p className="meta">
+              ¿Es una materia, una rutina (como el gimnasio) o parte de otra materia (una de sus
+              entregas)?
+            </p>
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "sortActivity", activityId: a.id, as: "materia" })}
+              >
+                Materia
+              </button>
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "sortActivity", activityId: a.id, as: "rutina" })}
+              >
+                Rutina
+              </button>
+            </div>
+            <SubjectSearch
+              label={`Juntar ${a.name} con una materia`}
+              exclude={a.id}
+              onPick={(m) => dispatch({ type: "mergeActivity", activityId: a.id, into: m.id })}
+            />
+          </div>
+        ))}
 
         {review.length > 0 && <div className="section-title">Detectado en tu calendario</div>}
         {review.map((t) => (

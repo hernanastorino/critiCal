@@ -27,7 +27,7 @@ import type {
   Place,
   Preferences,
 } from "./model.js";
-import { newId, pruneApplied, undoable } from "./model.js";
+import { newId, nextColor, pruneApplied, undoable } from "./model.js";
 import { home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
@@ -41,6 +41,17 @@ import {
   weekStart,
 } from "./planning.js";
 import { refresh } from "./refresh.js";
+import {
+  aliasFrom,
+  isNoSubject,
+  markLegacyStudy,
+  newClassTitles,
+  studyOf,
+  studyTitle,
+  unassignedTasks,
+  unsortedActivities,
+  validRoutine,
+} from "./subjects.js";
 import { hold } from "./updates.js";
 
 /**
@@ -93,7 +104,29 @@ export type Action =
   | { type: "spotMinutes"; text: string; minutes: number; now: number }
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
-  | { type: "forgetSpot"; key: string; now: number };
+  | { type: "forgetSpot"; key: string; now: number }
+  /** A title from the class calendar: a new materia, or just an event (a talk…). */
+  | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
+  /** A class-calendar title that is another name of an existing materia. */
+  | { type: "classOf"; title: string; activityId: string; now: number }
+  /** An activity from before the distinction is a materia or a routine. */
+  | { type: "sortActivity"; activityId: string; as: "materia" | "rutina"; now: number }
+  /** An activity that was really part of a materia (its evaluations): merged into it. */
+  | { type: "mergeActivity"; activityId: string; into: string; now: number }
+  /** An evaluation waiting under "Sin materia" belongs to this materia. */
+  | { type: "assignSubject"; taskId: string; activityId: string; now: number }
+  /** A new materia by name, taking the evaluation `taskId` if given. */
+  | { type: "newSubject"; name: string; taskId?: string; now: number }
+  /** Weekly study time for a materia beyond its evaluations (0 removes it). */
+  | { type: "weeklyStudy"; activityId: string; minutes: number; now: number }
+  /** A routine (gym…) the plan places `sessionsPerWeek` times a week. */
+  | {
+      type: "saveRoutine";
+      name: string;
+      sessionsPerWeek: number;
+      sessionMinutes: number;
+      now: number;
+    };
 
 /**
  * Every change, plus one rule for the undo history: a task whose status changed by
@@ -357,11 +390,18 @@ function apply(data: AppData, action: Action): AppData {
     case "preferences":
       return refresh({ ...data, preferences: action.preferences }, now);
     case "saveActivity": {
-      const exists = data.activities.some((a) => a.id === action.activity.id);
-      const activities = exists
+      const old = data.activities.find((a) => a.id === action.activity.id);
+      const activities = old
         ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
         : [...data.activities, action.activity];
-      return refresh({ ...data, activities }, now);
+      // A renamed materia keeps its weekly study: the silo is found by its title.
+      const study = old && old.name !== action.activity.name ? studyOf(data, old) : undefined;
+      const tasks = study
+        ? data.tasks.map((t) =>
+            t.id === study.id ? { ...t, title: studyTitle(action.activity) } : t,
+          )
+        : data.tasks;
+      return refresh({ ...data, activities, tasks }, now);
     }
     case "savePlace": {
       const old = (data.places ?? []).find((p) => p.id === action.place.id);
@@ -406,6 +446,147 @@ function apply(data: AppData, action: Action): AppData {
       );
       const time = { from: action.from, to: action.to, minutes: action.minutes, manual: true };
       return refresh({ ...data, travelTimes: [...others, time] }, now);
+    }
+    case "classTitle": {
+      const key = normalize(action.title);
+      if (action.as === "event")
+        return refresh(
+          { ...data, notSubjects: [...new Set([...(data.notSubjects ?? []), key])] },
+          now,
+        );
+      return refresh(
+        { ...data, activities: [...data.activities, materia(data, action.title)] },
+        now,
+      );
+    }
+    case "classOf":
+      return refresh(withAlias(data, action.activityId, normalize(action.title)), now);
+    case "sortActivity":
+      return refresh(
+        {
+          ...data,
+          activities: data.activities.map((a) =>
+            a.id === action.activityId
+              ? { ...a, kind: action.as, academic: action.as === "materia" }
+              : a,
+          ),
+        },
+        now,
+      );
+    case "mergeActivity": {
+      const from = data.activities.find((a) => a.id === action.activityId);
+      if (!from || !data.activities.some((a) => a.id === action.into) || from.id === action.into)
+        return data;
+      const move = <T extends { activityId: string }>(x: T): T =>
+        x.activityId === from.id ? { ...x, activityId: action.into } : x;
+      const merged = withAlias(data, action.into, aliasFrom(from.name));
+      const target = merged.activities.find((a) => a.id === action.into) as Activity;
+      // One weekly study per materia: the target's wins; the other one ends here (its
+      // history stays) along with its pins ahead.
+      const ending =
+        studyOf(merged, target) && studyOf(merged, from) ? studyOf(merged, from)?.id : undefined;
+      return refresh(
+        {
+          ...merged,
+          activities: merged.activities.filter((a) => a.id !== from.id),
+          tasks: merged.tasks.map((t) => {
+            const moved = move(t);
+            return t.id === ending
+              ? { ...moved, study: undefined, status: "dropped" as const, endedAt: now }
+              : moved;
+          }),
+          plan: merged.plan.map(move),
+          pins: merged.pins?.filter((p) => p.taskId !== ending || p.start <= now).map(move),
+        },
+        now,
+      );
+    }
+    case "assignSubject": {
+      const task = data.tasks.find((t) => t.id === action.taskId);
+      if (!task || !data.activities.some((a) => a.id === action.activityId)) return data;
+      const learned = withAlias(data, action.activityId, aliasFrom(task.title));
+      return refresh(dropEmptyNoSubject(reassign(learned, task.id, action.activityId)), now);
+    }
+    case "newSubject": {
+      const name = action.name.trim();
+      if (!name) return data;
+      const created = materia(data, name);
+      const added = { ...data, activities: [...data.activities, created] };
+      const task = action.taskId ? data.tasks.find((t) => t.id === action.taskId) : undefined;
+      return refresh(task ? dropEmptyNoSubject(reassign(added, task.id, created.id)) : added, now);
+    }
+    case "weeklyStudy": {
+      const subject = data.activities.find((a) => a.id === action.activityId);
+      // At most a full week of study.
+      if (!subject || !Number.isFinite(action.minutes) || action.minutes > 7 * 1440) return data;
+      const study = studyOf(data, subject);
+      if (action.minutes <= 0)
+        return study
+          ? refresh(
+              {
+                ...data,
+                tasks: data.tasks.map((t) =>
+                  t.id === study.id ? { ...t, status: "dropped" as const, endedAt: now } : t,
+                ),
+                // Its blocks pinned ahead go too; the past ones are history.
+                pins: data.pins?.filter((p) => p.taskId !== study.id || p.start <= now),
+              },
+              now,
+            )
+          : data;
+      // One-hour sessions, like the rest of the weekly silos.
+      const habit: AppTask = {
+        ...(study ?? {
+          id: newId(),
+          activityId: subject.id,
+          title: studyTitle(subject),
+          kind: "habit" as const,
+          estimateMinutes: 0,
+          priority: 2,
+          status: "active" as const,
+          units: [],
+          sessionMinutes: 60,
+          study: true,
+        }),
+        minMinutes: Math.round(action.minutes),
+        sessionsPerWeek: Math.ceil(action.minutes / (study?.sessionMinutes ?? 60)),
+      };
+      const tasks = study
+        ? data.tasks.map((t) => (t.id === study.id ? habit : t))
+        : [...data.tasks, habit];
+      return refresh({ ...data, tasks }, now);
+    }
+    case "saveRoutine": {
+      const name = action.name.trim();
+      if (!name || !validRoutine(action.sessionsPerWeek, action.sessionMinutes)) return data;
+      const times = Math.round(action.sessionsPerWeek);
+      const minutes = Math.round(action.sessionMinutes);
+      const routine: Activity = {
+        id: newId(),
+        name,
+        color: nextColor(data.activities),
+        academic: false,
+        kind: "rutina",
+        maxSessionMinutes: Math.max(minutes, 30),
+        minBlockMinutes: Math.min(minutes, 60),
+      };
+      const habit: AppTask = {
+        id: newId(),
+        activityId: routine.id,
+        title: name,
+        kind: "habit",
+        estimateMinutes: 0,
+        minMinutes: times * minutes,
+        sessionsPerWeek: times,
+        sessionMinutes: minutes,
+        priority: 2,
+        status: "active",
+        units: [],
+      };
+      return refresh(
+        { ...data, activities: [...data.activities, routine], tasks: [...data.tasks, habit] },
+        now,
+      );
     }
     case "spots": {
       let spots = data.spots ?? [];
@@ -487,12 +668,26 @@ function apply(data: AppData, action: Action): AppData {
   }
 }
 
-const STORAGE_KEY = "critical.demo.v1";
+const STORAGE_KEY = "critical.demo.v2";
+/** Demos saved before the study mark: migrated once, on the first load. */
+const LEGACY_STORAGE_KEY = "critical.demo.v1";
 
 export function loadDemo(now: number): AppData {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
     if (raw) return JSON.parse(raw) as AppData;
+    const legacy = globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
+    if (legacy) {
+      const data = markLegacyStudy(JSON.parse(legacy) as AppData);
+      try {
+        globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
+        // Only once the new copy is stored does the old one go.
+        globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+      } catch {
+        // Full storage: use the migrated data now and try again on the next load.
+      }
+      return data;
+    }
   } catch {
     // Storage blocked or corrupt: start fresh.
   }
@@ -524,9 +719,29 @@ export function seedHistory(data: AppData, now: number): AppData {
 /** Stores the demo; false if the browser refused (full or blocked storage). */
 function saveDemo(data: AppData): boolean {
   try {
-    if (!globalThis.localStorage) return false;
-    globalThis.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    return true;
+    // Reading `localStorage` itself throws where the browser blocks storage.
+    const storage = globalThis.localStorage;
+    if (!storage) return false;
+    const json = JSON.stringify(data);
+    try {
+      storage.setItem(STORAGE_KEY, json);
+      storage.removeItem(LEGACY_STORAGE_KEY);
+      return true;
+    } catch {
+      // A not-yet-migrated old copy may be what fills the storage. The data in hand is
+      // already migrated, so the old copy makes room; if even that is not enough, it
+      // goes back, so there is always one stored copy.
+      const old = storage.getItem(LEGACY_STORAGE_KEY);
+      if (old === null) return false;
+      storage.removeItem(LEGACY_STORAGE_KEY);
+      try {
+        storage.setItem(STORAGE_KEY, json);
+        return true;
+      } catch {
+        storage.setItem(LEGACY_STORAGE_KEY, old);
+        return false;
+      }
+    }
   } catch {
     return false;
   }
@@ -535,6 +750,7 @@ function saveDemo(data: AppData): boolean {
 export function resetDemo(): void {
   try {
     globalThis.localStorage?.removeItem(STORAGE_KEY);
+    globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
   } catch {
     // ignore
   }
@@ -632,6 +848,9 @@ export function StoreProvider({
       inboxCount:
         // Addresses still being timed are not questions yet.
         where.filter((u) => !u.lookup).length +
+        newClassTitles(data).length +
+        unassignedTasks(data).length +
+        unsortedActivities(data).length +
         (pinShort.short.length > 0 ? 1 : 0) +
         pending.length +
         data.proposals.length +
@@ -648,4 +867,49 @@ export function useStore(): Store {
   const s = useContext(StoreContext);
   if (!s) throw new Error("useStore outside StoreProvider");
   return s;
+}
+
+/** A new materia named `name`, with a free colour. */
+function materia(data: AppData, name: string): Activity {
+  return {
+    id: newId(),
+    name: name.trim(),
+    color: nextColor(data.activities),
+    academic: true,
+    kind: "materia",
+    maxSessionMinutes: 120,
+    minBlockMinutes: 60,
+  };
+}
+
+/** Teaches a materia another name it goes by (nothing if it already answers to it). */
+function withAlias(data: AppData, activityId: string, alias: string): AppData {
+  const key = normalize(alias);
+  return {
+    ...data,
+    activities: data.activities.map((a) =>
+      a.id !== activityId || !key || normalize(a.name) === key || (a.aliases ?? []).includes(key)
+        ? a
+        : { ...a, aliases: [...(a.aliases ?? []), key] },
+    ),
+  };
+}
+
+/** Moves a task, and the blocks planned or pinned for it, to another activity. */
+function reassign(data: AppData, taskId: string, activityId: string): AppData {
+  const move = <T extends { taskId: string; activityId: string }>(b: T): T =>
+    b.taskId === taskId ? { ...b, activityId } : b;
+  return {
+    ...data,
+    tasks: data.tasks.map((t) => (t.id === taskId ? { ...t, activityId } : t)),
+    plan: data.plan.map(move),
+    pins: data.pins?.map(move),
+  };
+}
+
+/** "Sin materia" only exists while something waits in it. */
+function dropEmptyNoSubject(data: AppData): AppData {
+  const waiting = data.activities.find(isNoSubject);
+  if (!waiting || data.tasks.some((t) => t.activityId === waiting.id)) return data;
+  return { ...data, activities: data.activities.filter((a) => a.id !== waiting.id) };
 }

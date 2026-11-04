@@ -230,7 +230,7 @@ describe("weekly silo controls", () => {
     fireEvent.click(screen.getByText("Eliminar…"));
     fireEvent.click(screen.getByText("Eliminar de hoy en adelante"));
     expect(screen.queryByLabelText(/^Gym/)).toBeNull();
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(gymOf(saved)).toMatchObject({ status: "dropped" });
   });
 
@@ -258,7 +258,7 @@ describe("weekly silo controls", () => {
     fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "1e9" } });
     fireEvent.change(screen.getByLabelText("Llevo hechos"), { target: { value: "1" } });
     fireEvent.click(screen.getByText("Guardar avance"));
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     const tp = saved.tasks.find((t) => t.title === "Entrega TP Programación");
     expect(tp?.units.length).toBe(200);
   });
@@ -267,7 +267,7 @@ describe("weekly silo controls", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(within(openGym()).getByText("Eliminar…"));
     fireEvent.click(screen.getByText("Eliminar todo"));
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(gymOf(saved)).toBeUndefined();
   });
 });

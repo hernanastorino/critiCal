@@ -39,6 +39,8 @@ export interface AppTask {
   priority: number;
   status: "active" | "done" | "dropped";
   units: Unit[];
+  /** A materia's weekly study silo (one per materia), whatever its title. */
+  study?: boolean;
   /** Calendar event this task was created from (`source:externalId`). */
   sourceEventId?: string;
   /** Created automatically; waits for a quick OK in the inbox. */
@@ -51,7 +53,7 @@ export interface AppTask {
   endedAt?: number;
 }
 
-export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion";
+export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion" | "clases";
 
 export interface AppCalendar {
   /** `source:externalId` */
@@ -158,6 +160,8 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** Normalized titles of class-calendar events that are not a materia (a talk…). */
+  notSubjects?: string[];
 }
 
 /**

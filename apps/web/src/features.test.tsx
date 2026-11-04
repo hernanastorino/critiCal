@@ -8,7 +8,7 @@ import { reducer } from "./store.js";
 import { held } from "./updates.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
-const stored = (): AppData => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");
+const stored = (): AppData => JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
 
 beforeEach(() => {
   localStorage.clear();

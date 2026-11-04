@@ -256,7 +256,7 @@ describe("edit mode", () => {
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 1 });
     fireEvent.pointerMove(pill, { clientX: 160, clientY: 400, pointerId: 1 });
     fireEvent.pointerUp(pill, { clientX: 160, clientY: 400, pointerId: 1 });
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins).toHaveLength(1);
     expect(document.querySelector(".pill.pinned")).toBeTruthy();
 
@@ -289,7 +289,7 @@ describe("edit mode", () => {
     expect(document.activeElement).toBe(moved);
     fireEvent.keyDown(moved, { key: "ArrowRight" });
     fireEvent.keyDown(moved, { key: "a" });
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins).toHaveLength(1);
   });
 
@@ -388,7 +388,7 @@ describe("edit mode", () => {
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: 160, clientY: y, pointerId: 4 });
     fireEvent.pointerUp(pill, { clientX: 160, clientY: y, pointerId: 4 });
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     const pin = saved.pins?.[0];
     expect(pin).toBeTruthy();
     expect((pin?.end ?? 0) <= clash.start || (pin?.start ?? 0) >= clash.end).toBe(true);
@@ -412,14 +412,14 @@ describe("edit mode", () => {
     expect(document.querySelector(".pill.displaced")).toBeTruthy();
     fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 3 });
     expect(document.querySelector(".pill.displaced")).toBeNull();
-    const pinned = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const pinned = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(pinned.pins?.[0]?.start).toBe(session?.start);
     expect(screen.getByText(/Con esto no llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
     // The inbox has it too, with the pin to let go.
     expect(screen.getByText("Bandeja").parentElement?.querySelector(".badge")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
-    const undone = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const undone = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(undone.pins).toEqual([]);
     expect(screen.queryByText(/Con esto no llegás/)).toBeNull();
   });
@@ -442,7 +442,7 @@ describe("edit mode", () => {
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 8 });
     fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 8 });
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins?.map((p) => p.start)).toEqual([pin.start]);
   });
 
@@ -462,7 +462,7 @@ describe("edit mode", () => {
     expect(screen.getByText(/faltan .* de Parcial Cálculo II/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Soltar" }));
     expect(screen.queryByText("Lo que fijaste no te deja llegar")).toBeNull();
-    const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins).toEqual([]);
   });
 
@@ -500,7 +500,7 @@ describe("edit mode", () => {
       fireEvent.pointerUp(pill, { clientX: 160, clientY: 600, pointerId: 5 });
       fireEvent.click(pill, { detail: 1 });
       expect(document.querySelector(".bubble")).toBeNull();
-      const saved = JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}") as AppData;
+      const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
       expect(saved.pins).toHaveLength(1);
       // Another block still opens right away.
       const other = document.querySelector<HTMLElement>(

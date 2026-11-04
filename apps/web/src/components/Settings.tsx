@@ -7,7 +7,13 @@ import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
-import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
+import {
+  ActivitySettings,
+  DetectedDefaults,
+  Routines,
+  RuleSettings,
+  WeekSettings,
+} from "./Preferences.js";
 import { Semester } from "./Semester.js";
 import { SyllabusImport } from "./SyllabusImport.js";
 import { WidgetSetup } from "./WidgetSetup.js";
@@ -90,6 +96,7 @@ export function Settings({
 
         <div className="section-title">Configuración fija</div>
         <Semester />
+        <Routines />
         <SyllabusImport />
         <WeekSettings />
         <RuleSettings />

@@ -6,7 +6,7 @@ import { demoData, emptyData } from "./demo.js";
 import { nextColor, PALETTE, uniqueColors } from "./model.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
-const stored = () => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");
+const stored = () => JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
 
 beforeEach(() => {
   localStorage.clear();

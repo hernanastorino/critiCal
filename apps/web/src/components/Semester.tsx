@@ -5,6 +5,7 @@ import { dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
+import { hasClasses, subjectsOf } from "../subjects.js";
 
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
@@ -20,6 +21,7 @@ export function Semester() {
   const [saved, setSaved] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const holidaysOn = data.preferences?.holidaysOff !== false;
+  const subjects = subjectsOf(data);
   // Both dates are needed: an empty start would mean "from year 0".
   const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
 
@@ -34,6 +36,7 @@ export function Semester() {
       name,
       color: nextColor(data.activities),
       academic: true,
+      kind: "materia" as const,
       maxSessionMinutes: 120,
       minBlockMinutes: 60,
     };
@@ -44,6 +47,7 @@ export function Semester() {
         id: newId(),
         activityId: activity.id,
         title: `Estudio ${name}`,
+        study: true,
         kind: "habit",
         estimateMinutes: 0,
         minMinutes: Math.round(hoursPerWeek * 60),
@@ -131,7 +135,10 @@ export function Semester() {
             Materias
           </div>
           <p className="meta">
-            {data.activities.map((a) => a.name).join(", ") || "Todavía ninguna."}
+            {subjects.map((a) => a.name).join(", ") || "Todavía ninguna."}
+            {hasClasses(data)
+              ? " Las clases nuevas de tu calendario de clases aparecen en la Bandeja."
+              : " Marcá tu calendario de clases como «Clases (materias)» en Calendarios para sumarlas solas."}
           </p>
           <div className="row fields">
             <label className="field" style={{ flex: 2 }}>
@@ -143,7 +150,7 @@ export function Semester() {
               />
             </label>
             <label className="field" style={{ flex: 1 }}>
-              <span>Mínimo semanal (h)</span>
+              <span>Estudio semanal (h)</span>
               <input
                 inputMode="decimal"
                 value={weekly}
@@ -161,7 +168,7 @@ export function Semester() {
             Agregar materia
           </button>
 
-          {data.activities.length > 0 && (
+          {subjects.length > 0 && (
             <>
               <div className="title" style={{ marginTop: 12 }}>
                 Parciales y entregas
@@ -174,7 +181,7 @@ export function Semester() {
                     onChange={(e) => setExam({ ...exam, activityId: e.target.value })}
                   >
                     <option value="">Elegí…</option>
-                    {data.activities.map((a) => (
+                    {subjects.map((a) => (
                       <option key={a.id} value={a.id}>
                         {a.name}
                       </option>

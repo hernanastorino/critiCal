@@ -4,6 +4,7 @@ import type { Activity, DaySettings } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { useStore } from "../store.js";
+import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
@@ -294,7 +295,7 @@ export function ActivitySettings() {
   const { data } = useStore();
   return (
     <details className="card prefs">
-      <summary className="title">Materias y actividades</summary>
+      <summary className="title">Materias y rutinas</summary>
       <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
       {data.activities.map((a) => (
         <ActivityRow key={a.id} activity={a} />
@@ -318,6 +319,15 @@ function ActivityRow({ activity }: { activity: Activity }) {
   const taken = new Set(
     data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
   );
+  // A materia's weekly study is its weekly silo, if it has one.
+  const study = studyOf(data, activity);
+  const studyHours = study ? toHours(study.minMinutes) : "";
+  const [weekly, setWeekly] = useState(studyHours);
+  const studies = subjectsOf(data).some((a) => a.id === activity.id);
+  const hours = Number(weekly.replace(",", "."));
+  // Blank means none; at most a whole week.
+  const hoursOk =
+    !studies || weekly.trim() === "" || (Number.isFinite(hours) && hours >= 0 && hours <= 168);
   return (
     <div className="activity-row">
       <button
@@ -328,6 +338,12 @@ function ActivityRow({ activity }: { activity: Activity }) {
       >
         <span className="swatch" style={{ background: activity.color }} />
         {activity.name}
+        {activity.kind && (
+          <span className="meta" style={{ margin: 0 }}>
+            {" "}
+            · {activity.kind}
+          </span>
+        )}
         <span className="meta" style={{ margin: 0, marginLeft: "auto" }}>
           {open ? "▲" : "▼"}
         </span>
@@ -381,6 +397,13 @@ function ActivityRow({ activity }: { activity: Activity }) {
               onChange={(e) => setForm({ ...form, to: e.target.value })}
             />
           </div>
+          {studies && (
+            <Field
+              label="Estudio semanal (h), además de las evaluaciones"
+              value={weekly}
+              onChange={(e) => setWeekly(e.target.value)}
+            />
+          )}
           <label className="check">
             <input
               type="checkbox"
@@ -393,6 +416,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
+            disabled={!hoursOk}
             onClick={() => {
               dispatch({
                 type: "saveActivity",
@@ -412,6 +436,12 @@ function ActivityRow({ activity }: { activity: Activity }) {
                       : undefined,
                 },
               });
+              if (studies && weekly !== studyHours)
+                dispatch({
+                  type: "weeklyStudy",
+                  activityId: activity.id,
+                  minutes: Math.round(hours * 60),
+                });
               setOpen(false);
             }}
           >
@@ -420,5 +450,70 @@ function ActivityRow({ activity }: { activity: Activity }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** Routines like the gym: the plan places them N times a week; never a materia. */
+export function Routines() {
+  const { data, dispatch } = useStore();
+  const routines = data.activities.filter((a) => a.kind === "rutina");
+  const [name, setName] = useState("");
+  const [times, setTimes] = useState("3");
+  const [minutes, setMinutes] = useState("60");
+  const habitOf = (id: string) =>
+    data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
+  return (
+    <details className="card prefs">
+      <summary className="title">Rutinas</summary>
+      <p className="meta">
+        Cosas como el gimnasio: sin parciales ni entregas, el plan les busca lugar las veces que
+        digas por semana.
+      </p>
+      {routines.map((r) => {
+        const h = habitOf(r.id);
+        return (
+          <div key={r.id} className="check">
+            <span className="swatch" style={{ background: r.color }} />
+            <span style={{ flex: 1 }}>{r.name}</span>
+            {h && (
+              <span className="meta" style={{ margin: 0 }}>
+                {h.sessionsPerWeek}× {h.sessionMinutes} min
+              </span>
+            )}
+          </div>
+        );
+      })}
+      <div className="row fields">
+        <label className="field" style={{ flex: 2 }}>
+          <span>Rutina</span>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Gimnasio" />
+        </label>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Veces/sem.</span>
+          <input inputMode="numeric" value={times} onChange={(e) => setTimes(e.target.value)} />
+        </label>
+        <label className="field" style={{ flex: 1 }}>
+          <span>Minutos</span>
+          <input inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+        </label>
+      </div>
+      <button
+        type="button"
+        className="btn"
+        style={{ width: "100%" }}
+        disabled={!name.trim() || !validRoutine(Number(times), Number(minutes))}
+        onClick={() => {
+          dispatch({
+            type: "saveRoutine",
+            name,
+            sessionsPerWeek: Math.round(Number(times)),
+            sessionMinutes: Math.round(Number(minutes)),
+          });
+          setName("");
+        }}
+      >
+        Agregar rutina
+      </button>
+    </details>
   );
 }
