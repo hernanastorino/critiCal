@@ -89,7 +89,7 @@ describe("travel", () => {
     });
     const pause = vi.fn(async () => {});
     const res = await handle(req(), env, pause);
-    expect(await res.json()).toEqual({ ok: true, geocoded: 1, pairs: 1 });
+    expect(await res.json()).toEqual({ ok: true, geocoded: 1, pairs: 1, unroutable: [] });
     expect(pause).toHaveBeenCalledTimes(1);
     expect(writes).toEqual([
       { table: "places", op: "update", payload: { lat: -34.8, lon: -56.2 } },
@@ -136,7 +136,12 @@ describe("travel", () => {
         ],
       }),
     );
-    expect(await (await handle(req(), env)).json()).toEqual({ ok: true, geocoded: 0, pairs: 0 });
+    expect(await (await handle(req(), env)).json()).toEqual({
+      ok: true,
+      geocoded: 0,
+      pairs: 0,
+      unroutable: [{ from: "casa", to: "isla" }],
+    });
     expect(writes).toEqual([
       { table: "travel_times", op: "delete", payload: ["casa", "isla", false] },
     ]);

@@ -30,7 +30,13 @@ export function Places() {
       );
       return;
     }
-    setNote(`Listo: ${r.pairs ?? 0} tiempos calculados.`);
+    const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+    const missing = (r.unroutable ?? []).map((u) => `${name(u.from)} → ${name(u.to)}`);
+    setNote(
+      missing.length
+        ? `Sin ruta en auto para ${missing.join(", ")}: cargá esos minutos a mano.`
+        : `Listo: ${r.pairs ?? 0} tiempos calculados.`,
+    );
     await sync.syncNow();
   };
 

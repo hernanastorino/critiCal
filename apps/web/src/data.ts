@@ -350,6 +350,10 @@ export function diffData(prev: AppData, next: AppData): Writes {
   const keptTasks = new Set(next.tasks.map((t) => t.id));
   const goneTasks = prev.tasks.map((t) => t.id).filter((id) => !keptTasks.has(id));
   if (goneTasks.length) deletes.push({ table: "tasks", ids: goneTasks });
+  // A subject no longer there (restoring a backup) takes its tasks along (FK cascade).
+  const keptActivities = new Set(next.activities.map((a) => a.id));
+  const goneActivities = prev.activities.map((a) => a.id).filter((id) => !keptActivities.has(id));
+  if (goneActivities.length) deletes.push({ table: "activities", ids: goneActivities });
 
   const roles = changed(prev.calendars ?? [], next.calendars ?? []);
   if (roles.length) {
@@ -391,6 +395,9 @@ export function diffData(prev: AppData, next: AppData): Writes {
       rows: overrides.map((o) => ({ date: o.date, wake: o.wake ?? null, bed: o.bed ?? null })),
     });
   }
+  const keptDays = new Set(next.overrides.map((o) => o.date));
+  const goneDays = prev.overrides.map((o) => o.date).filter((d) => !keptDays.has(d));
+  if (goneDays.length) deletes.push({ table: "day_overrides", ids: goneDays });
 
   const places = changed(prev.places ?? [], next.places ?? []);
   if (places.length) {
@@ -486,6 +493,12 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     if (error) throw error;
   }
   for (const d of w.deletes) {
+    if (d.table === "day_overrides") {
+      // Keyed by date, not id.
+      const { error } = await client.from(d.table).delete().in("date", d.ids);
+      if (error) throw error;
+      continue;
+    }
     if (d.table === "travel_times") {
       for (const id of d.ids) {
         const [from, to] = id.split(">");

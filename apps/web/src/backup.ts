@@ -34,7 +34,15 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     "plan",
     "proposals",
   ] as const;
-  if (!d.settings || lists.some((k) => !Array.isArray(d[k]))) {
+  const week = (d.settings as { week?: unknown } | undefined)?.week;
+  const isObject = (x: unknown) => !!x && typeof x === "object";
+  if (
+    !d.settings ||
+    !Array.isArray(week) ||
+    week.length !== 7 ||
+    !week.every(isObject) ||
+    lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject))
+  ) {
     return { error: "Al respaldo le faltan datos." };
   }
   const activities = new Set(d.activities?.map((a) => a.id));

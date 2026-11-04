@@ -54,6 +54,8 @@ export interface TravelResult {
   ok: boolean;
   geocoded?: number;
   pairs?: number;
+  /** Place pairs with no driving route: their time must be entered by hand. */
+  unroutable?: { from: string; to: string }[];
   error?: string;
 }
 

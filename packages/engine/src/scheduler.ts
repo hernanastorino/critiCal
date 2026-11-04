@@ -316,7 +316,9 @@ function logicalDate(
   instant: number,
 ): string {
   const p = localParts(settings.timezone, instant);
-  const wake = overrides.get(p.date)?.wake ?? settings.week[p.weekday]?.wake ?? 0;
+  const override = overrides.get(p.date);
+  // A holiday planned as a Sunday also wakes up on Sunday's time.
+  const wake = override?.wake ?? settings.week[override?.asWeekday ?? p.weekday]?.wake ?? 0;
   return p.minuteOfDay < wake ? addDays(p.date, -1) : p.date;
 }
 

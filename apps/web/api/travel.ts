@@ -92,10 +92,13 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
         return [{ from_place: from.id, to_place: to.id, minutes, manual: false }];
       }),
     );
-    // No route any more: an old computed time would still be planned around.
+    // No route any more: an old computed time would still be planned around. The app
+    // asks for these by hand (an unknown time counts as zero minutes).
+    const unroutable: { from: string; to: string }[] = [];
     for (const [i, from] of located.entries()) {
       for (const [j, to] of located.entries()) {
         if (i === j || matrix[i]?.[j] != null || manual.has(`${from.id}>${to.id}`)) continue;
+        unroutable.push({ from: from.id, to: to.id });
         const { error: deleteError } = await user
           .from("travel_times")
           .delete()
@@ -109,7 +112,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       const { error: writeError } = await user.from("travel_times").upsert(rows);
       if (writeError) throw writeError;
     }
-    return json({ ok: true, geocoded, pairs: rows.length });
+    return json({ ok: true, geocoded, pairs: rows.length, unroutable });
   } catch (e) {
     console.error(e);
     await report(env, e, "travel");

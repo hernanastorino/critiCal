@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { holidaysBetween } from "../holidays.js";
 import { useStore } from "../store.js";
 import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
@@ -24,7 +25,11 @@ export function Settings({
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const override = data.overrides.find((o) => o.date === today);
-  const base = data.settings.week[localParts(tz, now).weekday];
+  // Same routine the planner uses: holidays are Sundays unless turned off.
+  const holiday =
+    data.preferences?.holidaysOff !== false && holidaysBetween(today, today).length > 0;
+  const base =
+    data.settings.week[override?.asWeekday ?? (holiday ? 0 : localParts(tz, now).weekday)];
   const [wake, setWake] = useState(minutesToHhmm(override?.wake ?? base?.wake ?? 480));
   const [bed, setBed] = useState(minutesToHhmm(override?.bed ?? base?.bed ?? 0));
 

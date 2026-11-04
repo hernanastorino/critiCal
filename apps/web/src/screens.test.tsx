@@ -4,6 +4,7 @@ import { App } from "./App.js";
 import { exportJson, parseBackup } from "./backup.js";
 import { Backup } from "./components/Backup.js";
 import { Semester } from "./components/Semester.js";
+import { diffData } from "./data.js";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import { easter, holidaysBetween, uruguayHolidays, withHolidays } from "./holidays.js";
@@ -203,6 +204,17 @@ describe("semester start", () => {
   });
 });
 
+describe("restoring into the database", () => {
+  it("deletes subjects and day changes the backup does not have", () => {
+    const now = at("2026-11-04", 600);
+    const before = { ...demoData(now), overrides: [{ date: "2026-11-05", wake: 600 }] };
+    const restored = { ...before, activities: before.activities.slice(1), overrides: [] };
+    const w = diffData(before, restored);
+    expect(w.deletes).toContainEqual({ table: "activities", ids: [before.activities[0]?.id] });
+    expect(w.deletes).toContainEqual({ table: "day_overrides", ids: ["2026-11-05"] });
+  });
+});
+
 describe("backup", () => {
   it("round-trips and rejects foreign or broken files", () => {
     const data = demoData(at("2026-11-04", 600));
@@ -213,6 +225,14 @@ describe("backup", () => {
       error: "El respaldo es de una versión más nueva.",
     });
     expect(parseBackup('{"app":"critiCal","version":1,"data":{"settings":{}}}')).toEqual({
+      error: "Al respaldo le faltan datos.",
+    });
+    expect(
+      parseBackup(exportJson({ ...data, settings: { ...data.settings, week: [] } }, 1)),
+    ).toEqual({
+      error: "Al respaldo le faltan datos.",
+    });
+    expect(parseBackup(exportJson({ ...data, tasks: [null as never] }, 1))).toEqual({
       error: "Al respaldo le faltan datos.",
     });
     expect(parseBackup(exportJson({ ...data, activities: [] }, 1))).toEqual({
