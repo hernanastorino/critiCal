@@ -532,6 +532,41 @@ it("migrates a demo saved before the study mark, once", () => {
   quota.mockRestore();
   remove.mockRestore();
   expect(room).toBe(true);
+  // Not even that fits: the old copy is put back, never neither.
+  localStorage.clear();
+  localStorage.setItem("critical.demo.v1", JSON.stringify(old));
+  const full2 = vi.spyOn(Storage.prototype, "setItem").mockImplementation(function (
+    this: Storage,
+    key: string,
+    value: string,
+  ) {
+    if (key === "critical.demo.v2") throw new DOMException("full", "QuotaExceededError");
+    Object.defineProperty(this, key, {
+      value,
+      configurable: true,
+      enumerable: true,
+      writable: true,
+    });
+  });
+  render(
+    <StoreProvider initial={loadDemo} persist fixedNow={NOW}>
+      {null}
+    </StoreProvider>,
+  );
+  full2.mockRestore();
+  expect(localStorage.getItem("critical.demo.v1")).not.toBeNull();
+  // Blocked storage: the demo keeps working in memory.
+  const blocked = vi.spyOn(globalThis, "localStorage", "get").mockImplementation(() => {
+    throw new DOMException("blocked", "SecurityError");
+  });
+  expect(() =>
+    render(
+      <StoreProvider initial={() => data()} persist fixedNow={NOW}>
+        {null}
+      </StoreProvider>,
+    ),
+  ).not.toThrow();
+  blocked.mockRestore();
   localStorage.setItem("critical.demo.v1", "{}");
   resetDemo();
   expect(localStorage.getItem("critical.demo.v1")).toBeNull();

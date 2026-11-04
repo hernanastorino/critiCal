@@ -718,24 +718,32 @@ export function seedHistory(data: AppData, now: number): AppData {
 
 /** Stores the demo; false if the browser refused (full or blocked storage). */
 function saveDemo(data: AppData): boolean {
-  const storage = globalThis.localStorage;
-  if (!storage) return false;
-  const json = JSON.stringify(data);
   try {
-    storage.setItem(STORAGE_KEY, json);
-    storage.removeItem(LEGACY_STORAGE_KEY);
-    return true;
-  } catch {
-    // A not-yet-migrated old copy may be what fills the storage: the data in hand is
-    // already migrated, so the old copy can go to make room.
+    // Reading `localStorage` itself throws where the browser blocks storage.
+    const storage = globalThis.localStorage;
+    if (!storage) return false;
+    const json = JSON.stringify(data);
     try {
-      if (storage.getItem(LEGACY_STORAGE_KEY) === null) return false;
-      storage.removeItem(LEGACY_STORAGE_KEY);
       storage.setItem(STORAGE_KEY, json);
+      storage.removeItem(LEGACY_STORAGE_KEY);
       return true;
     } catch {
-      return false;
+      // A not-yet-migrated old copy may be what fills the storage. The data in hand is
+      // already migrated, so the old copy makes room; if even that is not enough, it
+      // goes back, so there is always one stored copy.
+      const old = storage.getItem(LEGACY_STORAGE_KEY);
+      if (old === null) return false;
+      storage.removeItem(LEGACY_STORAGE_KEY);
+      try {
+        storage.setItem(STORAGE_KEY, json);
+        return true;
+      } catch {
+        storage.setItem(LEGACY_STORAGE_KEY, old);
+        return false;
+      }
     }
+  } catch {
+    return false;
   }
 }
 
