@@ -2,19 +2,23 @@ import { useState } from "react";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { useStore } from "../store.js";
+import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
 import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
+import { Semester } from "./Semester.js";
 
 export function Settings({
   onClose,
   onReset,
   onSignOut,
+  onWeeklyPlan,
 }: {
   onClose: () => void;
   onReset?: () => void;
   onSignOut?: () => void;
+  onWeeklyPlan?: () => void;
 }) {
   const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
@@ -60,7 +64,14 @@ export function Settings({
           Reacomodar hoy
         </button>
 
+        {onWeeklyPlan && (
+          <button type="button" className="btn" style={{ width: "100%" }} onClick={onWeeklyPlan}>
+            Planificación semanal
+          </button>
+        )}
+
         <div className="section-title">Configuración fija</div>
+        <Semester />
         <WeekSettings />
         <RuleSettings />
         <ActivitySettings />
@@ -71,6 +82,7 @@ export function Settings({
         <Notifications />
 
         <div className="section-title">Cuenta</div>
+        <Backup />
         <div className="row">
           {onReset && (
             <button type="button" className="btn" onClick={onReset}>

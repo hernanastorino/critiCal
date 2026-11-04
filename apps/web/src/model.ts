@@ -124,6 +124,10 @@ export interface Preferences {
   /** Effort given to tasks created from calendar events, per kind. */
   importDefaults?: Partial<Record<DetectedKind, Effort>>;
   notifications?: NotificationPrefs;
+  /** Plan Uruguay's holidays with Sunday's routine (default on). */
+  holidaysOff?: boolean;
+  /** Current semester (inicio de cuatrimestre), local dates. */
+  semester?: { start: string; end: string };
 }
 
 export interface AppData {

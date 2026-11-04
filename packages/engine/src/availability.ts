@@ -26,7 +26,7 @@ interface DayWindow {
 
 function dayWindow(settings: Settings, date: string, override?: DayOverride): DayWindow {
   const tz = settings.timezone;
-  const base = settings.week[weekdayOf(date)];
+  const base = settings.week[override?.asWeekday ?? weekdayOf(date)];
   if (!base) throw new Error(`No settings for weekday of ${date}`);
   const wake = override?.wake ?? base.wake;
   const rawBed = override?.bed ?? base.bed;

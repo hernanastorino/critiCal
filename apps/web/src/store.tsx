@@ -311,9 +311,10 @@ export function reducer(data: AppData, action: Action): AppData {
     case "preferences":
       return refresh({ ...data, preferences: action.preferences }, now);
     case "saveActivity": {
-      const activities = data.activities.map((a) =>
-        a.id === action.activity.id ? action.activity : a,
-      );
+      const exists = data.activities.some((a) => a.id === action.activity.id);
+      const activities = exists
+        ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
+        : [...data.activities, action.activity];
       return refresh({ ...data, activities }, now);
     }
     case "savePlace": {

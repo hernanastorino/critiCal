@@ -3,6 +3,7 @@ import { dayAndTime, dayDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { isRunning, progress, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
+import { plannedVsDone } from "../week-review.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 
@@ -15,6 +16,7 @@ export function Silos() {
   const items = progress(data, now).sort((a, b) => a.deadline - b.deadline);
   // Weekly silos switched off (this week or until resumed), shown faded.
   const off = data.tasks.filter((t) => t.status === "active" && !isRunning(t, now));
+  const week = plannedVsDone(data, now).filter((r) => r.planned > 0 || r.done > 0);
 
   return (
     <div className="screen">
@@ -82,6 +84,28 @@ export function Silos() {
             <span className="name">Nueva</span>
           </button>
         </div>
+        {week.length > 0 && (
+          <div className="card">
+            <div className="title">Esta semana: planificado vs. hecho</div>
+            <div className="pvd">
+              {week.map((r) => (
+                <div key={r.taskId} style={{ display: "contents" }}>
+                  <span>{r.title}</span>
+                  <span className="meta" style={{ margin: 0 }}>
+                    {hours(r.done)} de {hours(r.planned)}
+                  </span>
+                  <div className="track" style={{ ["--c" as string]: r.color }}>
+                    <div
+                      style={{
+                        width: `${r.planned > 0 ? Math.min(100, (r.done / r.planned) * 100) : 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
       {detail && (
         <TaskDetail

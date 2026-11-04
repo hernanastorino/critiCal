@@ -56,7 +56,7 @@ export function dueNotes(input: {
         key: `sunday:${date}`,
         title: "Planificación semanal",
         body: "5 minutos para mirar la semana, los críticos y las decisiones.",
-        url: "/?tab=week",
+        url: "/?plan=week",
       });
     }
   }

@@ -6,6 +6,7 @@ import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
 import { Week } from "./components/Week.js";
+import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { disablePush } from "./push.js";
@@ -22,15 +23,21 @@ function tabFrom(search: string): Tab | null {
   return TABS.includes(t as Tab) ? (t as Tab) : null;
 }
 
+const wantsWeeklyPlan = (search: string) => new URLSearchParams(search).get("plan") === "week";
+
 export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?: () => void }) {
   const { inboxCount } = useStore();
   const [tab, setTab] = useState<Tab>(() => tabFrom(globalThis.location?.search ?? "") ?? "week");
+  const [weekly, setWeekly] = useState(() => wantsWeeklyPlan(globalThis.location?.search ?? ""));
   useEffect(() => {
     // A notification tapped while the app is open: the service worker says where to go.
     const onMessage = (e: MessageEvent) => {
       const url = (e.data as { type?: string; url?: string })?.type === "open" ? e.data.url : null;
-      const next = url ? tabFrom(new URL(url, "https://x").search) : null;
+      if (!url) return;
+      const search = new URL(url, "https://x").search;
+      const next = tabFrom(search);
       if (next) setTab(next);
+      if (wantsWeeklyPlan(search)) setWeekly(true);
     };
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
@@ -61,7 +68,24 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
         ))}
       </nav>
       {settings && (
-        <Settings onClose={() => setSettings(false)} onReset={onReset} onSignOut={onSignOut} />
+        <Settings
+          onClose={() => setSettings(false)}
+          onReset={onReset}
+          onSignOut={onSignOut}
+          onWeeklyPlan={() => {
+            setSettings(false);
+            setWeekly(true);
+          }}
+        />
+      )}
+      {weekly && (
+        <WeeklyPlan
+          onClose={() => setWeekly(false)}
+          onInbox={() => {
+            setWeekly(false);
+            setTab("inbox");
+          }}
+        />
       )}
     </div>
   );

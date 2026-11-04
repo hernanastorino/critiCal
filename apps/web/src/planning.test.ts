@@ -46,8 +46,10 @@ const calc: AppTask = {
   ],
 };
 
+// 2026-11-02 is a holiday (Difuntos); these tests are about an ordinary Monday.
 const base = (over: Partial<AppData> = {}): AppData => ({
   ...emptyData(),
+  preferences: { holidaysOff: false },
   activities: [
     {
       id: "calc",
