@@ -28,6 +28,7 @@ interface State {
   noTravel?: string[];
   spots?: Spot[];
   notSubjects?: string[];
+  tentativeSeen?: AppData["tentativeSeen"];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -118,6 +119,7 @@ export function rowsToData(r: {
         end: ms(e.end_at as string),
         location: (e.location as string) ?? undefined,
         busy: e.busy as boolean,
+        tentative: (e.tentative as boolean) || undefined,
         allDay: e.all_day as boolean,
         source: e.source as AppEvent["source"],
         link: (e.link as string) ?? undefined,
@@ -174,6 +176,7 @@ export function rowsToData(r: {
     noTravel: state.noTravel,
     spots: state.spots,
     notSubjects: state.notSubjects,
+    tentativeSeen: state.tentativeSeen,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -266,6 +269,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.noTravel,
       prev.spots,
       prev.notSubjects,
+      prev.tentativeSeen,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -278,6 +282,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.noTravel,
       next.spots,
       next.notSubjects,
+      next.tentativeSeen,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -295,6 +300,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             noTravel: next.noTravel,
             spots: next.spots,
             notSubjects: next.notSubjects,
+            tentativeSeen: next.tentativeSeen,
           },
         },
       ],

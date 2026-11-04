@@ -28,6 +28,7 @@ describe("google helpers", () => {
       external_id: "cal|e1",
       start_at: "2026-11-03T12:00:00.000Z",
       busy: true,
+      tentative: false,
       all_day: false,
       location: "Facultad",
     });
@@ -49,6 +50,19 @@ describe("google helpers", () => {
       start_at: "2026-11-04T03:00:00.000Z",
     });
     expect(toRow("u", "cal", { id: "x", status: "cancelled" }, "UTC")).toBeNull();
+    expect(
+      toRow(
+        "u",
+        "cal",
+        {
+          id: "t",
+          status: "tentative",
+          start: { dateTime: "2026-11-03T09:00:00-03:00" },
+          end: { dateTime: "2026-11-03T10:00:00-03:00" },
+        },
+        "UTC",
+      )?.tentative,
+    ).toBe(true);
     expect(toRow("u", "cal", { id: "x" }, "UTC")).toBeNull();
     expect(midnight("2026-11-04", "UTC")).toBe("2026-11-04T00:00:00.000Z");
   });

@@ -25,6 +25,7 @@ export interface EventRow {
   end_at: string;
   location: string | null;
   busy: boolean;
+  tentative: boolean;
   all_day: boolean;
   link: string | null;
 }
@@ -51,6 +52,7 @@ export function toRow(
     end_at: new Date(end).toISOString(),
     location: e.location ?? null,
     busy: e.transparency !== "transparent",
+    tentative: e.status === "tentative",
     all_day: allDay,
     link: e.htmlLink ?? null,
   };

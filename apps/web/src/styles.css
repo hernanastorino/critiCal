@@ -1364,3 +1364,8 @@ input[type="datetime-local"] {
   border-radius: 0;
   border-top: 1px solid var(--line);
 }
+
+/* A tentative event: counted on, but it may fall through. */
+.pill.fixed.tentative {
+  border-style: dashed;
+}

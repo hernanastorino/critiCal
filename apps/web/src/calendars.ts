@@ -76,6 +76,9 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
   return c ? roleOf(c) : "busy";
 }
 
+/** An event that may not happen: so marked by its calendar, or a title ending in «?». */
+export const isTentative = (e: AppEvent) => !!e.tentative || /\?\s*$/.test(e.title);
+
 /** Events the planner and the week view use: ignored calendars out, deadlines of "entrega" do not block time. */
 export function visibleEvents(data: AppData): AppEvent[] {
   return data.events.flatMap((e) => {

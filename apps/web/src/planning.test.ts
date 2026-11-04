@@ -345,3 +345,41 @@ describe("reducer", () => {
     expect(seedHistory(demoData(early), early).checkIns).toEqual([]);
   });
 });
+
+describe("tentative events", () => {
+  it("propose a plan B when one of today falls through", async () => {
+    const { refresh } = await import("./refresh.js");
+    const { isTentative } = await import("./calendars.js");
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);
+    const ev = (id: string, title: string, day: string, from: number, extra = {}) => ({
+      id,
+      title,
+      start: zonedInstant(TIMEZONE, day, from * 60),
+      end: zonedInstant(TIMEZONE, day, (from + 2) * 60),
+      busy: true,
+      source: "google" as const,
+      ...extra,
+    });
+    const today = ev("a", "Juntada?", "2026-11-03", 15);
+    const later = ev("b", "Cine", "2026-11-05", 20, { tentative: true });
+    expect(isTentative(today)).toBe(true);
+    expect(isTentative(later)).toBe(true);
+    expect(isTentative(ev("c", "Clase", "2026-11-03", 10))).toBe(false);
+
+    const base = { ...demoData(now), preferences: { holidaysOff: false } };
+    let d = refresh({ ...base, events: [...base.events, today, later] }, now);
+    expect(d.tentativeSeen?.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(d.proposals.filter((p) => p.id.startsWith("tentative@"))).toEqual([]);
+
+    // Both fall through: only today's asks (later days are planned again on their own).
+    d = refresh({ ...d, events: base.events }, now + 60_000);
+    const asks = d.proposals.filter((p) => p.id.startsWith("tentative@"));
+    expect(asks.map((p) => p.id)).toEqual(["tentative@a"]);
+    expect(asks[0]?.message).toContain("«Juntada»");
+    expect(asks[0]?.plan.length).toBeGreaterThan(0);
+    expect(d.tentativeSeen).toEqual([]);
+    // Not asked again; the waiting one gets a fresh plan B.
+    const again = refresh(d, now + 120_000);
+    expect(again.proposals.filter((p) => p.id.startsWith("tentative@"))).toHaveLength(1);
+  });
+});

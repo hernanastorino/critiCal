@@ -1,5 +1,5 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { visibleEvents } from "../calendars.js";
+import { isTentative, visibleEvents } from "../calendars.js";
 import { dropTarget, nearestFree } from "../drag.js";
 import { localParts, MINUTE, type PlanBlock, zonedInstant } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
@@ -367,8 +367,8 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                   <button
                     key={`${d}-${item.id}`}
                     type="button"
-                    aria-label={`${item.event.title}, ${time(tz, item.start)}`}
-                    className={`pill fixed${item.event.busy ? "" : " free"}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                    aria-label={`${item.event.title}, ${time(tz, item.start)}${isTentative(item.event) ? ", tentativo" : ""}`}
+                    className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                     style={style}
                     onClick={(e) => setBubble({ item, x: e.clientX, y: e.clientY })}
                   />
