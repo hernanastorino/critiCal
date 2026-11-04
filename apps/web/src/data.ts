@@ -42,6 +42,7 @@ export function rowsToData(r: {
 }): AppData {
   const state = (r.settings?.state ?? {}) as State;
   return {
+    owner: (r.settings?.user_id as string) ?? undefined,
     settings: { ...defaultSettings, ...((r.settings?.data as Partial<Settings>) ?? {}) },
     activities: r.activities.map(
       (a): Activity => ({

@@ -105,6 +105,8 @@ export interface Preferences {
 }
 
 export interface AppData {
+  /** The signed-in user's id (from the database); absent in demo mode. */
+  owner?: string;
   settings: Settings;
   activities: Activity[];
   tasks: AppTask[];

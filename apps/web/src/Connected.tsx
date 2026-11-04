@@ -193,8 +193,9 @@ function SyncProvider({
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
   const reload = useCallback(async () => {
-    await writes.current;
+    // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
+    await writes.current;
     const fresh = await loadData(client);
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;

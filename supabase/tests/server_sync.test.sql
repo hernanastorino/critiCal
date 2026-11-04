@@ -40,10 +40,11 @@ select ok(
   'a deferred sync is claimed once the running one finished'
 );
 reset role;
-update private.sync_state set running_until = now() - interval '1 second';
+-- A sync that crashed: its lease ran out with a request still pending.
+update private.sync_state set running_until = now() - interval '1 second', pending = true;
 set local role service_role;
 select ok(
-  public.claim_sync('00000000-0000-0000-0000-00000000000d', interval '1 hour') is not null,
+  public.claim_sync('00000000-0000-0000-0000-00000000000d', interval '1 hour'),
   'an expired lease does not block forever'
 );
 
