@@ -1,5 +1,7 @@
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
+import type { Syllabus } from "./syllabus.js";
+
 export { applyWrites, diffData, loadData, rowsToData, type Writes } from "./data.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
@@ -76,6 +78,50 @@ export async function computeTravel(client: SupabaseClient): Promise<TravelResul
     });
     const body = (await res.json().catch(() => null)) as TravelResult | { error?: string } | null;
     return body && "ok" in body ? body : { ok: false, error: body?.error ?? "travel_failed" };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
+/** Creates (or revokes) the personal token the Scriptable widget uses. */
+export async function widgetToken(
+  client: SupabaseClient,
+  action: "create" | "revoke",
+): Promise<{ ok: boolean; token?: string }> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false };
+    const res = await fetch("/api/widget", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action }),
+    });
+    return (
+      ((await res.json().catch(() => null)) as { ok: boolean; token?: string }) ?? { ok: false }
+    );
+  } catch {
+    return { ok: false };
+  }
+}
+
+export type SyllabusResult =
+  | { ok: true; syllabus: Syllabus; model?: string }
+  | { ok: false; error: string };
+
+/** Reads a syllabus PDF (base64) with Gemini on the server. */
+export async function readSyllabus(client: SupabaseClient, pdf: string): Promise<SyllabusResult> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "unauthorized" };
+    const res = await fetch("/api/syllabus", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ pdf }),
+    });
+    const body = (await res.json().catch(() => null)) as SyllabusResult | { error?: string } | null;
+    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "syllabus_failed" };
   } catch {
     return { ok: false, error: "unreachable" };
   }

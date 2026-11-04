@@ -22,19 +22,21 @@ Pipeline: PR → CI (Biome, tsc, Vitest con cobertura, E2E iPhone/Safari, gitlea
 
 Nunca en el repo. Dónde vive cada uno:
 
-| Secreto                                    | Dónde                                       | Para qué                                          |
-| ------------------------------------------ | ------------------------------------------- | ------------------------------------------------- |
-| `SUPABASE_ACCESS_TOKEN`                    | GitHub (repo)                               | migraciones y funciones desde CI                  |
-| `VERCEL_TOKEN`                             | GitHub (repo)                               | deploys                                           |
-| `SUPABASE_DB_PASSWORD`                     | GitHub (staging / production) + Llavero     | `supabase link`                                   |
-| `VERCEL_AUTOMATION_BYPASS_SECRET`          | GitHub (staging)                            | E2E contra la preview protegida                   |
-| `BACKUP_PASSPHRASE`                        | GitHub (production) + Llavero               | cifrar backups                                    |
-| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel (Production y Preview)               | refrescar tokens de Google                        |
-| `SUPABASE_SECRET_KEY`                      | Vercel (Production: prod, Preview: staging) | funciones de sincronización (`apps/web/api`)      |
-| `VITE_VAPID_PUBLIC_KEY`                    | Vercel (Production y Preview)               | suscribir el dispositivo a Web Push (pública)     |
-| `VAPID_PRIVATE_KEY`                        | Vercel (Production y Preview, Sensitive)    | firmar las notificaciones push                    |
-| `ORS_API_KEY`                              | Vercel (Production y Preview, Sensitive)    | tiempos en auto entre lugares (OpenRouteService)  |
-| `VITE_SENTRY_DSN`                          | Vercel (Production y Preview)               | errores a Sentry (app y funciones; no es secreto) |
+| Secreto                                    | Dónde                                       | Para qué                                              |
+| ------------------------------------------ | ------------------------------------------- | ----------------------------------------------------- |
+| `SUPABASE_ACCESS_TOKEN`                    | GitHub (repo)                               | migraciones y funciones desde CI                      |
+| `VERCEL_TOKEN`                             | GitHub (repo)                               | deploys                                               |
+| `SUPABASE_DB_PASSWORD`                     | GitHub (staging / production) + Llavero     | `supabase link`                                       |
+| `VERCEL_AUTOMATION_BYPASS_SECRET`          | GitHub (staging)                            | E2E contra la preview protegida                       |
+| `BACKUP_PASSPHRASE`                        | GitHub (production) + Llavero               | cifrar backups                                        |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Vercel (Production y Preview)               | refrescar tokens de Google                            |
+| `SUPABASE_SECRET_KEY`                      | Vercel (Production: prod, Preview: staging) | funciones de sincronización (`apps/web/api`)          |
+| `VITE_VAPID_PUBLIC_KEY`                    | Vercel (Production y Preview)               | suscribir el dispositivo a Web Push (pública)         |
+| `VAPID_PRIVATE_KEY`                        | Vercel (Production y Preview, Sensitive)    | firmar las notificaciones push                        |
+| `ORS_API_KEY`                              | Vercel (Production y Preview, Sensitive)    | tiempos en auto entre lugares (OpenRouteService)      |
+| `GEMINI_API_KEY`                           | Vercel (Production y Preview, Sensitive)    | leer programas en PDF (Google AI Studio, plan gratis) |
+| `GEMINI_MODEL` (opcional)                  | Vercel                                      | forzar otro modelo de Gemini                          |
+| `VITE_SENTRY_DSN`                          | Vercel (Production y Preview)               | errores a Sentry (app y funciones; no es secreto)     |
 
 La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; la seguridad la dan las políticas RLS (testeadas en `supabase/tests`).
 
@@ -66,6 +68,11 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - **Feriados de Uruguay**: calculados (fijos, Carnaval y Turismo según Pascua, y los trasladables al lunes). Se planifican con la rutina del domingo; se puede apagar.
 - **Planificado vs. hecho**: en Silos, lo planificado en bloques ya terminados esta semana contra lo registrado.
 - **Respaldo**: Ajustes → Cuenta → Exportar / Importar JSON (importar reemplaza todo, con confirmación).
+
+## Widget y programas
+
+- **Widget de silos (Scriptable)**: Ajustes → «Widget de silos» → «Generar script» → copiarlo en un script nuevo de Scriptable → agregar el widget de Scriptable en la pantalla de inicio. Usa un token personal (en la base solo queda su hash); generar otro invalida el anterior y «Desactivar» lo revoca.
+- **Cargar programa (PDF) con IA**: Ajustes → elegir el PDF (hasta 3 MB). Gemini (`gemini-3.6-flash`, si está saturado `gemini-3.5-flash-lite`) propone unidades con horas y evaluaciones con fecha; se revisa y edita todo antes de crear. En el plan gratis Google puede usar el contenido para mejorar sus modelos.
 
 ## Backups
 

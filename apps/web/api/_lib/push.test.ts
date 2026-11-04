@@ -158,5 +158,29 @@ describe("error reports", () => {
       report({ sentryDsn: "https://abc@o1.ingest.sentry.io/42" }, "x", "y"),
     ).resolves.toBeUndefined();
     await expect(report({}, new Error("ignored"), "y")).resolves.toBeUndefined();
+    const sent = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", sent);
+    await report(
+      { sentryDsn: "https://abc@o1.ingest.sentry.io/42" },
+      { message: "permission denied", code: "42501" },
+      "widget",
+    );
+    const [, init2] = sent.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init2.body).split("\n")[2] ?? "{}").exception.values[0]).toMatchObject(
+      {
+        type: "42501",
+        value: "permission denied",
+      },
+    );
+    // An Error subclass with a code (like PostgrestError) is filed under its code too.
+    const coded = Object.assign(new Error("rls"), { name: "PostgrestError", code: "42501" });
+    await report({ sentryDsn: "https://abc@o1.ingest.sentry.io/42" }, coded, "widget");
+    const [, init3] = sent.mock.calls[1] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init3.body).split("\n")[2] ?? "{}").exception.values[0]).toMatchObject(
+      {
+        type: "42501",
+        value: "rls",
+      },
+    );
   });
 });

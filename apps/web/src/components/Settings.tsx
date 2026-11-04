@@ -9,6 +9,8 @@ import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
 import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
 import { Semester } from "./Semester.js";
+import { SyllabusImport } from "./SyllabusImport.js";
+import { WidgetSetup } from "./WidgetSetup.js";
 
 export function Settings({
   onClose,
@@ -88,6 +90,7 @@ export function Settings({
 
         <div className="section-title">Configuración fija</div>
         <Semester />
+        <SyllabusImport />
         <WeekSettings />
         <RuleSettings />
         <ActivitySettings />
@@ -96,6 +99,7 @@ export function Settings({
 
         <Calendars />
         <Notifications />
+        <WidgetSetup />
 
         <div className="section-title">Cuenta</div>
         <Backup />
