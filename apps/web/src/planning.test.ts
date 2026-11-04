@@ -1,6 +1,6 @@
-import { zonedInstant } from "@critical/engine";
 import { describe, expect, it } from "vitest";
-import { demoData, emptyData, TIMEZONE } from "./demo";
+import { demoData, emptyData, TIMEZONE } from "./demo.js";
+import { zonedInstant } from "./engine.js";
 import {
   dayAndTime,
   dayMonth,
@@ -9,8 +9,8 @@ import {
   minutesToHhmm,
   time,
   weekdayShort,
-} from "./format";
-import type { AppData, AppTask } from "./model";
+} from "./format.js";
+import type { AppData, AppTask } from "./model.js";
 import {
   applyOption,
   decisions,
@@ -21,8 +21,8 @@ import {
   refreshPlan,
   toEngineTasks,
   weekDates,
-} from "./planning";
-import { reducer, seedHistory } from "./store";
+} from "./planning.js";
+import { reducer, seedHistory } from "./store.js";
 
 const at = (date: string, hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];

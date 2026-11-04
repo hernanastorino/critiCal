@@ -1,11 +1,4 @@
 import {
-  type Activity,
-  type DayOverride,
-  type ScheduleResult,
-  type Settings,
-  zonedInstant,
-} from "@critical/engine";
-import {
   createContext,
   type ReactNode,
   useContext,
@@ -15,8 +8,15 @@ import {
   useRef,
   useState,
 } from "react";
-import { DEFAULTS, eventRole, importFromCalendars } from "./calendars";
-import { demoData } from "./demo";
+import { DEFAULTS, eventRole } from "./calendars.js";
+import { demoData } from "./demo.js";
+import {
+  type Activity,
+  type DayOverride,
+  type ScheduleResult,
+  type Settings,
+  zonedInstant,
+} from "./engine.js";
 import type {
   AppData,
   AppliedDecision,
@@ -24,8 +24,8 @@ import type {
   CalendarRole,
   CheckIn,
   Preferences,
-} from "./model";
-import { newId, uniqueColors } from "./model";
+} from "./model.js";
+import { newId } from "./model.js";
 import {
   applyOption,
   type Decisions,
@@ -35,7 +35,8 @@ import {
   pinBlock,
   refreshPlan,
   weekStart,
-} from "./planning";
+} from "./planning.js";
+import { refresh } from "./refresh.js";
 
 /**
  * What to do with a weekly silo, like a repeating calendar event: skip only
@@ -76,21 +77,6 @@ export type Action =
   | { type: "settings"; settings: Settings; now: number }
   | { type: "preferences"; preferences: Preferences; now: number }
   | { type: "saveActivity"; activity: Activity; now: number };
-
-function refresh(raw: AppData, now: number): AppData {
-  // Pins that already happened live on as plan history.
-  const input = raw.pins?.some((p) => p.end <= now)
-    ? { ...raw, pins: raw.pins.filter((p) => p.end > now) }
-    : raw;
-  const imported = importFromCalendars(input, now, newId);
-  const activities = uniqueColors(imported.activities);
-  const data = activities === imported.activities ? imported : { ...imported, activities };
-  const r = refreshPlan(data, now);
-  const proposals = r.proposal
-    ? [...data.proposals.filter((p) => !p.id.startsWith("conflict@")), r.proposal]
-    : data.proposals.filter((p) => !p.id.startsWith("conflict@"));
-  return { ...data, plan: r.plan, proposals };
-}
 
 export function reducer(data: AppData, action: Action): AppData {
   const now = action.now;

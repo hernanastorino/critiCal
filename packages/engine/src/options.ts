@@ -1,5 +1,5 @@
-import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler";
-import type { Task } from "./types";
+import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import type { Task } from "./types.js";
 
 export type OptionKind =
   | "drop"

@@ -7,9 +7,39 @@
       "!**/coverage",
       "!**/playwright-report",
       "!**/test-results",
-      "!supabase/.temp"
+      "!supabase/.temp",
+      "!**/.vercel"
     ]
   },
-  "formatter": { "indentStyle": "space", "lineWidth": 100 },
-  "linter": { "rules": { "preset": "recommended" } }
+  "formatter": {
+    "indentStyle": "space",
+    "lineWidth": 100
+  },
+  "linter": {
+    "rules": {
+      "preset": "recommended"
+    }
+  },
+  "overrides": [
+    {
+      "includes": [
+        "packages/engine/src/**",
+        "apps/web/src/**",
+        "apps/web/api/**",
+        "!apps/web/src/main.tsx"
+      ],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "useImportExtensions": {
+              "level": "error",
+              "options": {
+                "forceJsExtensions": true
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
 }

@@ -34,6 +34,14 @@ Nunca en el repo. Dónde vive cada uno:
 
 La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; la seguridad la dan las políticas RLS (testeadas en `supabase/tests`).
 
+## Sincronización en el servidor
+
+- **Google → webhook**: cada sync abre un canal de push por calendario (`google_channels`, se renuevan solos antes de vencer). Un cambio en Google llama a `/api/google-webhook`, que importa, replanifica y actualiza 📚 Plan aunque la app esté cerrada. Las ráfagas se agrupan (20 s).
+- **Cron (pg_cron + pg_net)**: cada 5 min la base llama a `/api/cron` con una clave que se genera dentro de Postgres (`private.app_config`). Sincroniza Google e iCloud de cada usuario conectado si pasaron 9 min o quedó un webhook pendiente, replanifica y espeja el Plan.
+- Solo en **producción**: la primera sync desde la app registra el origen (`register_app_url`). Staging no recibe webhooks ni cron.
+- Si un cambio pisa un bloque de hoy, queda como propuesta en la Bandeja (no se aplica solo).
+- Para ver el cron: Supabase → Integrations → Cron → `critical-tick` (historial en `cron.job_run_details`, respuestas en `net._http_response`).
+
 ## Backups
 
 - Nocturno: workflow **Backup** → artefacto `backup-AAAA-MM-DD.tgz.gpg` (90 días).

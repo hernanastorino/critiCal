@@ -7,10 +7,10 @@ import {
   subjectName,
   subjectOf,
   visibleEvents,
-} from "./calendars";
-import { emptyData } from "./demo";
-import type { AppData, AppEvent } from "./model";
-import { reducer } from "./store";
+} from "./calendars.js";
+import { emptyData } from "./demo.js";
+import type { AppData, AppEvent } from "./model.js";
+import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 let n = 0;

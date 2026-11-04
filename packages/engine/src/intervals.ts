@@ -1,4 +1,4 @@
-import { type Interval, MINUTE } from "./types";
+import { type Interval, MINUTE } from "./types.js";
 
 /** Sorted, non-overlapping union. */
 export function merge(intervals: readonly Interval[]): Interval[] {

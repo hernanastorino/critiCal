@@ -7,6 +7,7 @@ import { basicAuth, DavError, discover, fetchEvents } from "./_lib/caldav.js";
 import { parseIcs } from "./_lib/ics.js";
 import {
   authenticate,
+  type Caller,
   deleteByExternalId,
   type Env,
   json,
@@ -31,10 +32,16 @@ export function POST(req: Request): Promise<Response> {
 export async function handle(req: Request, env: Env): Promise<Response> {
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
+  return syncICloudFor(caller, await readBody(req));
+}
+
+/** The sync itself, for the app's call and for the cron. */
+export async function syncICloudFor(
+  caller: Caller,
+  body: Record<string, unknown> = {},
+): Promise<Response> {
   const { uid, user, admin } = caller;
   try {
-    const body = await readBody(req);
-
     if (body.action === "disconnect") {
       const { error } = await admin.rpc("delete_oauth_token", {
         p_user: uid,

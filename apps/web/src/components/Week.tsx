@@ -1,14 +1,21 @@
-import { localParts, MINUTE, type PlanBlock, zonedInstant } from "@critical/engine";
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { visibleEvents } from "../calendars";
-import { dropTarget, nearestFree } from "../drag";
-import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format";
-import type { AppEvent } from "../model";
-import { isPinned, pinId, progress, weekDates } from "../planning";
-import { useStore } from "../store";
-import { BlockSheet } from "./BlockSheet";
-import { SyncDot } from "./Calendars";
-import { ChevronLeft, ChevronRight, CriticalIcon, EditIcon, GearIcon, ReplanIcon } from "./icons";
+import { visibleEvents } from "../calendars.js";
+import { dropTarget, nearestFree } from "../drag.js";
+import { localParts, MINUTE, type PlanBlock, zonedInstant } from "../engine.js";
+import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
+import type { AppEvent } from "../model.js";
+import { isPinned, pinId, progress, weekDates } from "../planning.js";
+import { useStore } from "../store.js";
+import { BlockSheet } from "./BlockSheet.js";
+import { SyncDot } from "./Calendars.js";
+import {
+  ChevronLeft,
+  ChevronRight,
+  CriticalIcon,
+  EditIcon,
+  GearIcon,
+  ReplanIcon,
+} from "./icons.js";
 
 export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }

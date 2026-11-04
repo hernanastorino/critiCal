@@ -1,13 +1,7 @@
-import {
-  addDays,
-  type DaySettings,
-  localParts,
-  type Settings,
-  zonedInstant,
-} from "@critical/engine";
-import type { AppData, AppEvent } from "./model";
-import { PALETTE } from "./model";
-import { weekStart } from "./planning";
+import { addDays, type DaySettings, localParts, type Settings, zonedInstant } from "./engine.js";
+import type { AppData, AppEvent } from "./model.js";
+import { PALETTE } from "./model.js";
+import { weekStart } from "./planning.js";
 
 export const TIMEZONE = "America/Montevideo";
 

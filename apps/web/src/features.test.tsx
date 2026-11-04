@@ -1,10 +1,10 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "./App";
-import { isPlanCalendar, visibleEvents } from "./calendars";
-import { demoData, emptyData } from "./demo";
-import type { AppData } from "./model";
-import { reducer } from "./store";
+import { App } from "./App.js";
+import { isPlanCalendar, visibleEvents } from "./calendars.js";
+import { demoData, emptyData } from "./demo.js";
+import type { AppData } from "./model.js";
+import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 const stored = (): AppData => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");

@@ -1,8 +1,8 @@
-import { type Activity, localParts, zonedInstant } from "@critical/engine";
 import { useState } from "react";
-import { minutesToHhmm } from "../format";
-import { type AppTask, newId, nextColor, type Unit } from "../model";
-import { useStore } from "../store";
+import { type Activity, localParts, zonedInstant } from "../engine.js";
+import { minutesToHhmm } from "../format.js";
+import { type AppTask, newId, nextColor, type Unit } from "../model.js";
+import { useStore } from "../store.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);

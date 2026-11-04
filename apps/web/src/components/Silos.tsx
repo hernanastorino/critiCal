@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { dayAndTime, dayDate, hours } from "../format";
-import type { AppTask } from "../model";
-import { isRunning, progress, refreshPlan } from "../planning";
-import { useStore } from "../store";
-import { TaskDetail } from "./TaskDetail";
-import { TaskEditor } from "./TaskEditor";
+import { dayAndTime, dayDate, hours } from "../format.js";
+import type { AppTask } from "../model.js";
+import { isRunning, progress, refreshPlan } from "../planning.js";
+import { useStore } from "../store.js";
+import { TaskDetail } from "./TaskDetail.js";
+import { TaskEditor } from "./TaskEditor.js";
 
 export function Silos() {
   const { data, now } = useStore();

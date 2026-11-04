@@ -1,8 +1,8 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, describe as group, it } from "vitest";
-import { App } from "./App";
-import { describe } from "./components/Calendars";
-import { demoData } from "./demo";
+import { App } from "./App.js";
+import { describe } from "./components/Calendars.js";
+import { demoData } from "./demo.js";
 
 afterEach(cleanup);
 

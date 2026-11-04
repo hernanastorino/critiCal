@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useSync } from "../Connected";
-import { isPlanCalendar, ROLE_LABEL, roleOf } from "../calendars";
-import { time } from "../format";
-import type { CalendarRole } from "../model";
-import type { SyncResult } from "../remote";
-import { useStore } from "../store";
+import { useSync } from "../Connected.js";
+import { isPlanCalendar, ROLE_LABEL, roleOf } from "../calendars.js";
+import { time } from "../format.js";
+import type { CalendarRole } from "../model.js";
+import type { SyncResult } from "../remote.js";
+import { useStore } from "../store.js";
 
 const MESSAGES: Record<string, string> = {
   no_refresh_token: "Falta el permiso de Google Calendar. Tocá «Reconectar Google».",

@@ -1,11 +1,11 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildSlots } from "./availability";
-import { overlaps } from "./intervals";
-import { infeasibilityOptions, recommendations, targetOptions } from "./options";
-import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler";
-import { activity, at, settings, task } from "./testing";
-import { type CalendarEvent, MINUTE, type PlanBlock } from "./types";
+import { buildSlots } from "./availability.js";
+import { overlaps } from "./intervals.js";
+import { infeasibilityOptions, recommendations, targetOptions } from "./options.js";
+import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import { activity, at, settings, task } from "./testing.js";
+import { type CalendarEvent, MINUTE, type PlanBlock } from "./types.js";
 
 const now = at("2026-11-02", "08:00");
 const horizonEnd = at("2026-11-09", "08:00");

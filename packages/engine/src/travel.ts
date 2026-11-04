@@ -1,4 +1,4 @@
-import { type CalendarEvent, type Interval, MINUTE } from "./types";
+import { type CalendarEvent, type Interval, MINUTE } from "./types.js";
 
 export interface TravelOptions {
   home: string;

@@ -1,9 +1,9 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "./App";
-import { importFromCalendars } from "./calendars";
-import { demoData, emptyData } from "./demo";
-import { nextColor, PALETTE, uniqueColors } from "./model";
+import { App } from "./App.js";
+import { importFromCalendars } from "./calendars.js";
+import { demoData, emptyData } from "./demo.js";
+import { nextColor, PALETTE, uniqueColors } from "./model.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 const stored = () => JSON.parse(localStorage.getItem("critical.demo.v1") ?? "{}");

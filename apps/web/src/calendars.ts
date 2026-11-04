@@ -1,4 +1,4 @@
-import type { Activity } from "@critical/engine";
+import type { Activity } from "./engine.js";
 import {
   type AppCalendar,
   type AppData,
@@ -8,7 +8,7 @@ import {
   type DetectedKind,
   type Effort,
   nextColor,
-} from "./model";
+} from "./model.js";
 
 const normalize = (s: string) =>
   s

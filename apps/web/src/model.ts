@@ -1,4 +1,4 @@
-import type { Activity, CalendarEvent, DayOverride, PlanBlock, Settings } from "@critical/engine";
+import type { Activity, CalendarEvent, DayOverride, PlanBlock, Settings } from "./engine.js";
 
 /** Activity colours, taken from the thick-line references. Red is reserved for critical. */
 export const PALETTE = [

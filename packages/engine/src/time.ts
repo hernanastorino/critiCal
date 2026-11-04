@@ -1,4 +1,4 @@
-import { MINUTE } from "./types";
+import { MINUTE } from "./types.js";
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 

@@ -1,11 +1,11 @@
-import { MINUTE, type PlanBlock } from "@critical/engine";
 import { useState } from "react";
-import { dayAndTime, hours, time } from "../format";
-import type { AppTask } from "../model";
-import { endOfDay, pinClashes } from "../planning";
-import { useStore } from "../store";
-import { BlockSheet } from "./BlockSheet";
-import { TaskEditor } from "./TaskEditor";
+import { MINUTE, type PlanBlock } from "../engine.js";
+import { dayAndTime, hours, time } from "../format.js";
+import type { AppTask } from "../model.js";
+import { endOfDay, pinClashes } from "../planning.js";
+import { useStore } from "../store.js";
+import { BlockSheet } from "./BlockSheet.js";
+import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
   const { data, now, pending, decisions, dispatch } = useStore();

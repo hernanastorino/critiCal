@@ -1,0 +1,3 @@
+# Every file under apps/web/api becomes a function; tests and their config are not ones.
+apps/web/api/**/*.test.ts
+apps/web/api/vitest.config.ts

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { demoData } from "./demo";
-import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote";
-import { session, stubApi } from "./testing";
+import { demoData } from "./demo.js";
+import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote.js";
+import { session, stubApi } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20, 50);
 

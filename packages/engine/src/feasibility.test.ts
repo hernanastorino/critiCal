@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { checkFeasibility, type Demand } from "./feasibility";
+import { checkFeasibility, type Demand } from "./feasibility.js";
 
 const linear = (rate: number) => (t: number) => Math.max(0, t) * rate;
 
