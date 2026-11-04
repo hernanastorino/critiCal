@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import { demoData } from "./demo";
-import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote";
-import { session, stubApi } from "./testing";
+import { demoData } from "./demo.js";
+import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote.js";
+import { session, stubApi } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20, 50);
 
@@ -238,5 +238,18 @@ describe("remote", () => {
     expect(invoke).toHaveBeenCalledWith("google-sync", { body: { refreshToken: "r" } });
     await syncGoogle(client, session);
     expect(invoke).toHaveBeenCalledTimes(2);
+  });
+
+  it("fails rather than falling back to default settings", async () => {
+    const boom = new Error("settings unreadable");
+    const client = {
+      from: () => ({
+        select: () =>
+          Object.assign(Promise.resolve({ data: [], error: null }), {
+            maybeSingle: () => Promise.resolve({ data: null, error: boom }),
+          }),
+      }),
+    };
+    await expect(loadData(client as never)).rejects.toBe(boom);
   });
 });

@@ -9,6 +9,8 @@ export interface Env {
   secret?: string;
   googleClientId?: string;
   googleClientSecret?: string;
+  /** Public origin of the production deployment; webhooks and cron only run there. */
+  appUrl?: string;
 }
 
 export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
@@ -18,6 +20,10 @@ export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
     secret: e.SUPABASE_SECRET_KEY,
     googleClientId: e.GOOGLE_CLIENT_ID,
     googleClientSecret: e.GOOGLE_CLIENT_SECRET,
+    appUrl:
+      e.VERCEL_ENV === "production" && e.VERCEL_PROJECT_PRODUCTION_URL
+        ? `https://${e.VERCEL_PROJECT_PRODUCTION_URL}`
+        : undefined,
   };
 }
 
@@ -27,6 +33,8 @@ export interface Caller {
   user: SupabaseClient;
   /** Service role: only for the token functions. */
   admin: SupabaseClient;
+  /** Ends a session opened by `actAs`. */
+  release?: () => Promise<void>;
 }
 
 /**
@@ -39,25 +47,69 @@ export async function authenticate(
   env: Env,
   needs: (keyof Env)[],
 ): Promise<Caller | Response> {
-  const missing = (["url", "publishable", "secret", ...needs] as (keyof Env)[]).filter(
-    (k) => !env[k],
-  );
-  if (missing.length) {
+  const unset = missing(env, needs);
+  if (unset.length) {
     // Names only, never values: tells the operator which variable to set.
-    return json({ error: "server_not_configured", missing }, 503);
+    return json({ error: "server_not_configured", missing: unset }, 503);
   }
-  const url = env.url as string;
   const token = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "");
   if (!token) return json({ error: "unauthorized" }, 401);
-  const options = { auth: { persistSession: false, autoRefreshToken: false } };
-  const admin = createClient(url, env.secret as string, options);
+  const admin = adminClient(env);
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return json({ error: "unauthorized" }, 401);
-  const user = createClient(url, env.publishable as string, {
+  return { uid: data.user.id, user: userClient(env, token), admin };
+}
+
+const options = { auth: { persistSession: false, autoRefreshToken: false } };
+
+/** Service role; callers must check `missing(env)` first. */
+export function adminClient(env: Env): SupabaseClient {
+  return createClient(env.url as string, env.secret as string, options);
+}
+
+function userClient(env: Env, token: string): SupabaseClient {
+  return createClient(env.url as string, env.publishable as string, {
     ...options,
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
-  return { uid: data.user.id, user, admin };
+}
+
+/** Names of the variables still to set for these features. */
+export function missing(env: Env, needs: (keyof Env)[] = []): (keyof Env)[] {
+  return (["url", "publishable", "secret", ...needs] as (keyof Env)[]).filter((k) => !env[k]);
+}
+
+/**
+ * Acts as a user without their request (webhooks, cron), so RLS and column defaults
+ * (`user_id = auth.uid()`) apply exactly as when the app calls: a one-time sign-in
+ * link is minted and redeemed server-side for a short-lived session.
+ */
+export async function actAs(env: Env, uid: string): Promise<Caller> {
+  const admin = adminClient(env);
+  const { data: found, error: lookup } = await admin.auth.admin.getUserById(uid);
+  const email = found?.user?.email;
+  if (lookup || !email) throw lookup ?? new Error("user_without_email");
+  const { data: link, error: linkError } = await admin.auth.admin.generateLink({
+    type: "magiclink",
+    email,
+  });
+  if (linkError) throw linkError;
+  const anon = createClient(env.url as string, env.publishable as string, options);
+  const { data, error } = await anon.auth.verifyOtp({
+    type: "email",
+    token_hash: link.properties.hashed_token,
+  });
+  if (error || !data.session) throw error ?? new Error("no_session");
+  const jwt = data.session.access_token;
+  return {
+    uid,
+    user: userClient(env, jwt),
+    admin,
+    // Revoke this one session so server syncs do not pile up refresh tokens.
+    release: async () => {
+      await admin.auth.admin.signOut(jwt, "local");
+    },
+  };
 }
 
 export async function readBody(req: Request): Promise<Record<string, unknown>> {

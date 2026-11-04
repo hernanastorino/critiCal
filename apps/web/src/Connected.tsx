@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import type { AppData } from "./model";
+import type { AppData } from "./model.js";
 import {
   applyWrites,
   diffData,
@@ -17,8 +17,8 @@ import {
   signInWithGoogle,
   syncGoogle,
   syncICloud,
-} from "./remote";
-import { StoreProvider, useStore } from "./store";
+} from "./remote.js";
+import { StoreProvider, useStore } from "./store.js";
 
 const SYNC_EVERY_MS = 5 * 60_000;
 
@@ -71,7 +71,16 @@ export function Connected({
   session: Session;
   children: React.ReactNode;
 }) {
-  const [cached] = useState(() => readCache(session));
+  // The owner seeds the ids of imported tasks; the session always knows it, even for
+  // an old cached copy or before the user has a settings row.
+  const owned = useCallback(
+    (d: AppData): AppData => (session.user?.id && !d.owner ? { ...d, owner: session.user.id } : d),
+    [session],
+  );
+  const [cached] = useState(() => {
+    const d = readCache(session);
+    return d && owned(d);
+  });
   const [data, setData] = useState<AppData | null>(cached);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<SyncStatus>({ busy: !!cached });
@@ -91,7 +100,8 @@ export function Connected({
       try {
         // First sync stores the Google refresh token and imports events.
         await pullCalendars();
-        const loaded = await loadData(client);
+        const loaded = owned(await loadData(client));
+        stored.current = loaded;
         if (!cancelled) setData(loaded);
       } catch (e) {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
@@ -100,15 +110,22 @@ export function Connected({
     return () => {
       cancelled = true;
     };
-  }, [client, pullCalendars, cached]);
+  }, [client, pullCalendars, cached, owned]);
 
   // Writes run one at a time so parents always land before children.
   const queue = useRef(Promise.resolve());
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // What the database holds as far as this device knows. Diffing against it (not the
+  // previous screen state) also removes blocks the server re-planned meanwhile.
+  const stored = useRef<AppData | null>(cached);
+  // Counts local changes, so a server copy loaded meanwhile is known to be stale.
+  const changes = useRef(0);
   const onChange = useCallback(
     (prev: AppData, next: AppData) => {
+      changes.current++;
       writeCache(session, next);
-      const writes = diffData(prev, next);
+      const writes = diffData(stored.current ?? prev, next);
+      stored.current = next;
       if (!writes.upserts.length && !writes.inserts.length && !writes.deletes.length) return;
       queue.current = queue.current
         .then(() => applyWrites(client, writes))
@@ -149,6 +166,9 @@ export function Connected({
         setStatus={setStatus}
         refreshOnMount={!!cached}
         writes={queue}
+        stored={stored}
+        changes={changes}
+        owned={owned}
       >
         {children}
       </SyncProvider>
@@ -164,6 +184,9 @@ function SyncProvider({
   setStatus,
   refreshOnMount,
   writes,
+  stored,
+  changes,
+  owned,
   children,
 }: {
   client: SupabaseClient;
@@ -173,19 +196,24 @@ function SyncProvider({
   /** Opened from the device cache: pull everything fresh right away. */
   refreshOnMount: boolean;
   writes: React.MutableRefObject<Promise<void>>;
+  stored: React.MutableRefObject<AppData | null>;
+  changes: React.MutableRefObject<number>;
+  owned: (d: AppData) => AppData;
   children: React.ReactNode;
 }) {
-  const { data, dispatch } = useStore();
-  const latest = useRef(data);
-  latest.current = data;
+  const { dispatch } = useStore();
 
+  /** Everything from the server replaces this device's copy (the server re-plans too). */
   const reload = useCallback(async () => {
-    const fresh = await loadData(client);
-    dispatch({
-      type: "replace",
-      data: { ...latest.current, events: fresh.events, calendars: fresh.calendars },
-    });
-  }, [client, dispatch]);
+    // Read before waiting: an edit made while queued writes finish must count too.
+    const before = changes.current;
+    await writes.current;
+    const fresh = owned(await loadData(client));
+    // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
+    if (changes.current !== before) return;
+    stored.current = fresh;
+    dispatch({ type: "replace", data: fresh });
+  }, [client, dispatch, writes, stored, changes, owned]);
 
   const syncNow = useCallback(async () => {
     try {
@@ -203,15 +231,14 @@ function SyncProvider({
     (async () => {
       try {
         await pullCalendars();
-        await writes.current;
-        // Everything from the server replaces the cached copy (other devices may have changed it).
-        dispatch({ type: "replace", data: await loadData(client) });
+        // Other devices and the server may have changed it.
+        await reload();
       } catch (e) {
         console.warn("refresh", e);
         setStatus((s) => ({ ...s, busy: false }));
       }
     })();
-  }, [refreshOnMount, pullCalendars, writes, client, dispatch, setStatus]);
+  }, [refreshOnMount, pullCalendars, reload, setStatus]);
 
   useEffect(() => {
     const id = setInterval(syncNow, SYNC_EVERY_MS);

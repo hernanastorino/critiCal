@@ -1,9 +1,9 @@
-import { zonedInstant } from "@critical/engine";
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "./App";
-import { demoData, TIMEZONE } from "./demo";
-import { loadDemo, resetDemo, seedHistory } from "./store";
+import { App } from "./App.js";
+import { demoData, TIMEZONE } from "./demo.js";
+import { zonedInstant } from "./engine.js";
+import { loadDemo, resetDemo, seedHistory } from "./store.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 const seeded = (now: number) => seedHistory(demoData(now), now);

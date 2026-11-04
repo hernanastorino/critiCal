@@ -1,6 +1,6 @@
-import { buildSlots, type Slot } from "./availability";
-import { addDays, localParts } from "./time";
-import { type TravelOptions, travelBuffers } from "./travel";
+import { buildSlots, type Slot } from "./availability.js";
+import { addDays, localParts } from "./time.js";
+import { type TravelOptions, travelBuffers } from "./travel.js";
 import {
   type Activity,
   type CalendarEvent,
@@ -12,7 +12,7 @@ import {
   type Settings,
   type Task,
   type TaskStatus,
-} from "./types";
+} from "./types.js";
 
 export interface ScheduleInput {
   now: number;

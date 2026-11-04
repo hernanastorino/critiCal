@@ -1,14 +1,14 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { type ReactNode, useEffect, useState } from "react";
-import { Connected } from "./Connected";
-import { Inbox } from "./components/Inbox";
-import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons";
-import { Settings } from "./components/Settings";
-import { Silos } from "./components/Silos";
-import { Week } from "./components/Week";
-import type { AppData } from "./model";
-import { signInWithGoogle, supabase } from "./remote";
-import { loadDemo, resetDemo, StoreProvider, useStore } from "./store";
+import { Connected } from "./Connected.js";
+import { Inbox } from "./components/Inbox.js";
+import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
+import { Settings } from "./components/Settings.js";
+import { Silos } from "./components/Silos.js";
+import { Week } from "./components/Week.js";
+import type { AppData } from "./model.js";
+import { signInWithGoogle, supabase } from "./remote.js";
+import { loadDemo, resetDemo, StoreProvider, useStore } from "./store.js";
 
 type Tab = "week" | "silos" | "inbox";
 

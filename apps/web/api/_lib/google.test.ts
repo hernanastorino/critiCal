@@ -7,7 +7,7 @@ import {
   PLAN_COLOR_ID,
   planEvent,
   toRow,
-} from "./google";
+} from "./google.js";
 
 describe("google helpers", () => {
   it("maps timed, all-day, free and cancelled events", () => {

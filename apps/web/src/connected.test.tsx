@@ -1,8 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { Shell } from "./App";
-import { Connected } from "./Connected";
-import { session, stubApi } from "./testing";
+import { Shell } from "./App.js";
+import { Connected } from "./Connected.js";
+import { session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();

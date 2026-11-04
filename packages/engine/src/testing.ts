@@ -1,5 +1,5 @@
-import { zonedInstant } from "./time";
-import type { Activity, DaySettings, Settings, Task } from "./types";
+import { zonedInstant } from "./time.js";
+import type { Activity, DaySettings, Settings, Task } from "./types.js";
 
 export const TZ = "America/Montevideo";
 

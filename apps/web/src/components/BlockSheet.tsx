@@ -1,9 +1,9 @@
-import { MINUTE, type PlanBlock } from "@critical/engine";
 import { useState } from "react";
-import { dayAndTime, dayMonth, hours, time } from "../format";
-import { isPinned, progress } from "../planning";
-import { useStore } from "../store";
-import type { Item } from "./Week";
+import { MINUTE, type PlanBlock } from "../engine.js";
+import { dayAndTime, dayMonth, hours, time } from "../format.js";
+import { isPinned, progress } from "../planning.js";
+import { useStore } from "../store.js";
+import type { Item } from "./Week.js";
 
 export function BlockSheet({ item, onClose }: { item: Item; onClose: () => void }) {
   return (

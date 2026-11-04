@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { dayAndTime, dayDate, hours } from "../format";
-import type { AppTask } from "../model";
-import { endOfWeek, progress } from "../planning";
-import { type RecurrenceChange, useStore } from "../store";
-import { ActionSheet } from "./ActionSheet";
+import { dayAndTime, dayDate, hours } from "../format.js";
+import type { AppTask } from "../model.js";
+import { endOfWeek, progress } from "../planning.js";
+import { type RecurrenceChange, useStore } from "../store.js";
+import { ActionSheet } from "./ActionSheet.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 const MAX_TOPICS = 200;

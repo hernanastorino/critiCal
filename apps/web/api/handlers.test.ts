@@ -39,9 +39,9 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-const { handle: google, POST: googlePost } = await import("./google-sync");
-const { handle: icloud } = await import("./icloud-sync");
-const { readEnv } = await import("./_lib/server");
+const { handle: google, POST: googlePost } = await import("./google-sync.js");
+const { handle: icloud } = await import("./icloud-sync.js");
+const { readEnv } = await import("./_lib/server.js");
 
 const env = {
   url: "https://x.supabase.co",
@@ -337,7 +337,7 @@ describe("icloud-sync incomplete listing (Node)", () => {
 
 describe("pruneCalendars", () => {
   it("escapes backslashes and quotes in calendar ids", async () => {
-    const { pruneCalendars } = await import("./_lib/server");
+    const { pruneCalendars } = await import("./_lib/server.js");
     const seen: string[] = [];
     const chain = {
       delete: () => chain,

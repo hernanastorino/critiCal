@@ -1,6 +1,6 @@
-import { merge, subtract } from "./intervals";
-import { addDays, localDates, weekdayOf, zonedInstant } from "./time";
-import { type DayOverride, type Interval, MINUTE, type Settings } from "./types";
+import { merge, subtract } from "./intervals.js";
+import { addDays, localDates, weekdayOf, zonedInstant } from "./time.js";
+import { type DayOverride, type Interval, MINUTE, type Settings } from "./types.js";
 
 export interface Slot {
   start: number;

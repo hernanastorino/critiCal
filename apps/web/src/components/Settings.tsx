@@ -1,9 +1,9 @@
-import { localParts } from "@critical/engine";
 import { useState } from "react";
-import { hhmmToMinutes, minutesToHhmm } from "../format";
-import { useStore } from "../store";
-import { Calendars } from "./Calendars";
-import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences";
+import { localParts } from "../engine.js";
+import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { useStore } from "../store.js";
+import { Calendars } from "./Calendars.js";
+import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
 
 export function Settings({
   onClose,

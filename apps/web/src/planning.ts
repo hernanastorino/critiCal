@@ -1,3 +1,4 @@
+import { visibleEvents } from "./calendars.js";
 import {
   addDays,
   effortRatio,
@@ -16,9 +17,8 @@ import {
   type Task,
   targetOptions,
   zonedInstant,
-} from "@critical/engine";
-import { visibleEvents } from "./calendars";
-import type { AppData, AppTask, Proposal } from "./model";
+} from "./engine.js";
+import type { AppData, AppTask, Proposal } from "./model.js";
 
 const HORIZON_DAYS = 14;
 /** Never plan further than this, even for far deadlines. */

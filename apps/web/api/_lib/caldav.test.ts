@@ -10,7 +10,7 @@ import {
   listingComplete,
   parseCalendars,
   tag,
-} from "./caldav";
+} from "./caldav.js";
 
 const multistatus = (body: string) =>
   `<?xml version="1.0"?><multistatus xmlns="DAV:">${body}</multistatus>`;

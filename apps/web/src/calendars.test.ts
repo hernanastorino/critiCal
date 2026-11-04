@@ -7,10 +7,11 @@ import {
   subjectName,
   subjectOf,
   visibleEvents,
-} from "./calendars";
-import { emptyData } from "./demo";
-import type { AppData, AppEvent } from "./model";
-import { reducer } from "./store";
+} from "./calendars.js";
+import { emptyData } from "./demo.js";
+import { type AppData, type AppEvent, stableId } from "./model.js";
+import { refresh } from "./refresh.js";
+import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 let n = 0;
@@ -121,6 +122,27 @@ describe("importFromCalendars", () => {
     expect(entrega?.deadline).toBe(NOW + 5 * day + 60_000);
     expect(out.activities.map((a) => a.name)).toEqual(["Física I", "Programación", "Presentación"]);
     expect(pres?.minMinutes).toBe(DEFAULTS.presentacion.min);
+  });
+
+  it("gives the same ids to the same event wherever it is imported", () => {
+    const d = data({ events: [ev("x9", "icloud:p", "Parcial Química", NOW + 3 * day)] });
+    const onPhone = importFromCalendars(d, NOW, stableId);
+    const onServer = importFromCalendars(d, NOW, stableId);
+    expect(onServer.tasks.map((t) => t.id)).toEqual(onPhone.tasks.map((t) => t.id));
+    expect(onServer.activities.map((a) => a.id)).toEqual(onPhone.activities.map((a) => a.id));
+    expect(stableId("task:x9")).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    expect(stableId("task:x9")).not.toBe(stableId("task:x10"));
+  });
+
+  it("never gives two users the same ids", () => {
+    const d = data({ events: [ev("x9", "icloud:p", "Parcial Química", NOW + 3 * day)] });
+    const ana = refresh({ ...d, owner: "ana" }, NOW);
+    const beto = refresh({ ...d, owner: "beto" }, NOW);
+    expect(refresh({ ...d, owner: "ana" }, NOW).tasks[0]?.id).toBe(ana.tasks[0]?.id);
+    expect(beto.tasks[0]?.id).not.toBe(ana.tasks[0]?.id);
+    expect(beto.activities.at(-1)?.id).not.toBe(ana.activities.at(-1)?.id);
   });
 
   it("follows moved events, does not recreate ignored tasks, and is a no-op otherwise", () => {

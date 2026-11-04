@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildSlots, placeMeal } from "./availability";
-import { merge, minutes, overlaps, subtract } from "./intervals";
-import { effortRatio, remainingFromUnits } from "./learning";
-import { at, settings, TZ } from "./testing";
-import { addDays, localDates, localParts, offsetAt, weekdayOf, zonedInstant } from "./time";
-import { travelBuffers } from "./travel";
+import { buildSlots, placeMeal } from "./availability.js";
+import { merge, minutes, overlaps, subtract } from "./intervals.js";
+import { effortRatio, remainingFromUnits } from "./learning.js";
+import { at, settings, TZ } from "./testing.js";
+import { addDays, localDates, localParts, offsetAt, weekdayOf, zonedInstant } from "./time.js";
+import { travelBuffers } from "./travel.js";
 
 const H = 3_600_000;
 

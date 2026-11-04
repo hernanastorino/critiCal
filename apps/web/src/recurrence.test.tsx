@@ -1,11 +1,11 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { App } from "./App";
-import { demoData } from "./demo";
-import type { AppData } from "./model";
-import { endOfWeek, isRunning, pinClashes, progress } from "./planning";
-import { diffData, rowsToData } from "./remote";
-import { reducer } from "./store";
+import { App } from "./App.js";
+import { demoData } from "./demo.js";
+import type { AppData } from "./model.js";
+import { endOfWeek, isRunning, pinClashes, progress } from "./planning.js";
+import { diffData, rowsToData } from "./remote.js";
+import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20); // Monday 17:00 in Montevideo
 

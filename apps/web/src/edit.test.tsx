@@ -1,13 +1,13 @@
-import { zonedInstant } from "@critical/engine";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { App } from "./App";
-import { demoData } from "./demo";
-import { dropTarget, nearestFree } from "./drag";
-import { time } from "./format";
-import type { AppData } from "./model";
-import { isPinned, pinClashes, refreshPlan } from "./planning";
-import { reducer } from "./store";
+import { App } from "./App.js";
+import { demoData } from "./demo.js";
+import { dropTarget, nearestFree } from "./drag.js";
+import { zonedInstant } from "./engine.js";
+import { time } from "./format.js";
+import type { AppData } from "./model.js";
+import { isPinned, pinClashes, refreshPlan } from "./planning.js";
+import { reducer } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 

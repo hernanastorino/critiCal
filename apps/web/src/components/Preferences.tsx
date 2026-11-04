@@ -1,9 +1,9 @@
-import type { Activity, DaySettings } from "@critical/engine";
 import { useState } from "react";
-import { DEFAULTS } from "../calendars";
-import { hhmmToMinutes, minutesToHhmm } from "../format";
-import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model";
-import { useStore } from "../store";
+import { DEFAULTS } from "../calendars.js";
+import type { Activity, DaySettings } from "../engine.js";
+import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
+import { useStore } from "../store.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
