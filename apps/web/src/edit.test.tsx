@@ -36,6 +36,8 @@ function tight(now: number): AppData {
     const d = demoData(now);
     return {
       ...d,
+      // No breaks: the squeeze is about the parcial's hours, not about rest.
+      activities: d.activities.map((a) => ({ ...a, breakMinutes: 0 })),
       tasks: d.tasks.map((t) =>
         t.id === "parcial-calc" ? { ...t, minMinutes: min, estimateMinutes: min, units: [] } : t,
       ),

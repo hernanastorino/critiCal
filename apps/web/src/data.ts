@@ -66,6 +66,8 @@ export function rowsToData(r: {
             : undefined,
         kind: (a.kind as Activity["kind"]) ?? undefined,
         aliases: (a.aliases as string[] | null)?.length ? (a.aliases as string[]) : undefined,
+        studyMinutes: (a.study_minutes as number | null) ?? undefined,
+        breakMinutes: (a.break_minutes as number | null) ?? undefined,
       }),
     ),
     tasks: r.tasks.map(
@@ -316,6 +318,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         preferred_end: a.preferred?.end ?? null,
         kind: a.kind ?? null,
         aliases: a.aliases ?? [],
+        study_minutes: a.studyMinutes ?? null,
+        break_minutes: a.breakMinutes ?? null,
       })),
     });
   }

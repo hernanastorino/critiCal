@@ -1,5 +1,6 @@
 import { visibleEvents } from "./calendars.js";
 import {
+  type Activity,
   addDays,
   effortRatio,
   infeasibilityOptions,
@@ -44,6 +45,21 @@ export function endOfWeek(tz: string, instant: number): number {
   return zonedInstant(tz, addDays(weekStart(tz, instant), 7), 0);
 }
 
+/** Study minutes and break after them, by default, for materias (academic activities). */
+export const DEFAULT_STUDY_MINUTES = 50;
+export const DEFAULT_BREAK_MINUTES = 10;
+
+/**
+ * Block time per study minute of an activity: 60/50 with the default 50 + 10 breaks.
+ * Breaks are not drawn; a planned block includes them. Routines have none.
+ */
+export function blockFactor(activity: Activity | undefined): number {
+  if (!activity) return 1;
+  const study = activity.studyMinutes ?? (activity.academic ? DEFAULT_STUDY_MINUTES : 0);
+  const rest = activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0);
+  return study > 0 && rest > 0 ? (study + rest) / study : 1;
+}
+
 /** Minutes really worked on a task, from check-ins. */
 export function doneMinutes(data: AppData, taskId: string, since = 0): number {
   return data.checkIns
@@ -60,8 +76,14 @@ function samples(data: AppData) {
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
+      // Check-ins count block time, breaks included; estimates are study time.
+      const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
       return [
-        { activityId: task.activityId, estimatedMinutes: estimated, actualMinutes: c.minutesDone },
+        {
+          activityId: task.activityId,
+          estimatedMinutes: estimated,
+          actualMinutes: c.minutesDone / k,
+        },
       ];
     });
 }
@@ -97,7 +119,9 @@ export function progress(data: AppData, now: number): TaskProgress[] {
           deadline: endOfWeek(tz, now),
         };
       }
-      const done = doneMinutes(data, task.id);
+      // Estimates are study time and check-ins block time (breaks included).
+      const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
+      const done = doneMinutes(data, task.id) / k;
       const capLeft = Math.max(0, task.estimateMinutes - done);
       const fromUnits =
         task.units.length > 0
@@ -120,13 +144,22 @@ export function progress(data: AppData, now: number): TaskProgress[] {
 export function toEngineTasks(data: AppData, now: number): Task[] {
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
-    .map((p) => ({
+    .map((p) => {
+      // The planner places block time: study plus its breaks. Weekly silos are already
+      // counted in blocks (a 60-minute session includes its rest).
+      const k =
+        p.task.kind === "habit"
+          ? 1
+          : blockFactor(data.activities.find((a) => a.id === p.task.activityId));
+      return { p, k };
+    })
+    .map(({ p, k }) => ({
       id: p.task.id,
       activityId: p.task.activityId,
       title: p.task.title,
       deadline: p.deadline,
-      remainingMinutes: p.remainingMinutes,
-      minRemainingMinutes: p.minRemainingMinutes,
+      remainingMinutes: Math.ceil(p.remainingMinutes * k),
+      minRemainingMinutes: Math.ceil(p.minRemainingMinutes * k),
       sessionMinutes: p.task.sessionMinutes,
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
