@@ -69,6 +69,9 @@ describe("event addresses and search", () => {
     expect(searchPlaces(d, "futbol").map((p) => p.id)).toEqual(["c3"]);
     expect(searchPlaces(d, "casa clara").map((p) => p.id)).toEqual(["c1"]);
     expect(searchPlaces(d, "  ")).toEqual([]);
+    // An event with a blank address is held at the place its title names.
+    const yoga = { ...d, events: [{ ...event("y", "Yoga Gym", 9), location: " " }], places: [gym] };
+    expect(searchPlaces(yoga, "yoga").map((p) => p.id)).toEqual(["gym"]);
   });
 
   it("plans the trip to a timed address without it being a place", () => {

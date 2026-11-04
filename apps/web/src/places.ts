@@ -54,6 +54,9 @@ const timed = (data: AppData, text: string | undefined) =>
 
 const SPOT = "spot:";
 
+/** What an event gives as its address; one of blanks is none. */
+const addressOf = (e: { location?: string }) => (e.location?.trim() ? e.location : undefined);
+
 /**
  * Events as the engine should see them for travel: an event without a location
  * takes the place its title names; events marked "no trip" have none.
@@ -65,8 +68,8 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   const places = data.places ?? [];
   if (!home(data)) return events;
   return events.map((raw) => {
-    // An address of blanks is no address, here and in the inbox.
-    const e = raw.location && !raw.location.trim() ? { ...raw, location: undefined } : raw;
+    // An address of blanks is no address, here, in the inbox and in search.
+    const e = raw.location && !addressOf(raw) ? { ...raw, location: undefined } : raw;
     // A title answer only counts for events without a location of their own.
     if (skipped(data, e.location || e.title)) return { ...e, location: undefined };
     if (e.location) return e;
@@ -111,7 +114,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
     // An address of blanks is no address.
-    const location = e.location?.trim() ? e.location : undefined;
+    const location = addressOf(e);
     const text = location?.trim() || e.title;
     if (!text || skipped(data, text)) continue;
     if (placeFor(places, location) || (!location && placeFor(places, e.title))) continue;
@@ -144,7 +147,7 @@ export function searchPlaces(data: AppData, query: string, limit = 6): Place[] {
   const titles = new Map<string, string[]>();
   for (const e of data.events) {
     const place =
-      placeFor(places, e.location) ?? (!e.location ? placeFor(places, e.title) : undefined);
+      placeFor(places, addressOf(e)) ?? (!addressOf(e) ? placeFor(places, e.title) : undefined);
     if (place) titles.set(place.id, [...(titles.get(place.id) ?? []), e.title]);
   }
   const hits = (texts: (string | undefined)[]) => {
