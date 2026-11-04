@@ -207,6 +207,7 @@ describe("syllabus", () => {
       error: "gemini_busy",
     });
     vi.stubGlobal("fetch", async () => new Response("bad key", { status: 400 }));
+    expect((await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).status).toBe(502);
     expect(await (await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).json()).toEqual({
       ok: false,
       error: "gemini_error",

@@ -53,7 +53,8 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       if (res.status === 404 && env.geminiModel)
         return json({ ok: false, error: "model_unavailable" }, 503);
       if ([404, 429, 500, 503].includes(res.status)) continue;
-      if (!res.ok) return json({ ok: false, error: "gemini_error", status: res.status });
+      // Upstream failure: a bad gateway for the app, with Gemini's own status in the body.
+      if (!res.ok) return json({ ok: false, error: "gemini_error", status: res.status }, 502);
       const out = (await res.json()) as {
         candidates?: { content?: { parts?: { text?: string }[] } }[];
       };
