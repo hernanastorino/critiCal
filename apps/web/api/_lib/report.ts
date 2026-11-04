@@ -8,11 +8,20 @@ export function parseDsn(dsn: string): { url: string; key: string } | null {
   return { url: `https://${m[2]}/api/${m[3]}/envelope/`, key: m[1] as string };
 }
 
+/** Supabase and fetch errors are plain objects: keep their message and code. */
+function toError(error: unknown): Error {
+  if (error instanceof Error) return error;
+  const e = error as { message?: unknown; code?: unknown } | null;
+  const err = new Error(typeof e?.message === "string" ? e.message : String(error));
+  if (typeof e?.code === "string" && e.code) err.name = e.code;
+  return err;
+}
+
 /** Reports an error; never throws, so it is safe inside catch blocks. */
 export async function report(env: Env, error: unknown, where: string): Promise<void> {
   const dsn = env.sentryDsn ? parseDsn(env.sentryDsn) : null;
   if (!dsn) return;
-  const err = error instanceof Error ? error : new Error(String(error));
+  const err = toError(error);
   const eventId = crypto.randomUUID().replace(/-/g, "");
   const event = {
     event_id: eventId,

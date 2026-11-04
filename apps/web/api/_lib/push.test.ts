@@ -158,5 +158,19 @@ describe("error reports", () => {
       report({ sentryDsn: "https://abc@o1.ingest.sentry.io/42" }, "x", "y"),
     ).resolves.toBeUndefined();
     await expect(report({}, new Error("ignored"), "y")).resolves.toBeUndefined();
+    const sent = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", sent);
+    await report(
+      { sentryDsn: "https://abc@o1.ingest.sentry.io/42" },
+      { message: "permission denied", code: "42501" },
+      "widget",
+    );
+    const [, init2] = sent.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(String(init2.body).split("\n")[2] ?? "{}").exception.values[0]).toMatchObject(
+      {
+        type: "42501",
+        value: "permission denied",
+      },
+    );
   });
 });
