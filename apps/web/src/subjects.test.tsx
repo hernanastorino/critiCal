@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest";
 import { importFromCalendars } from "./calendars.js";
 import { Inbox } from "./components/Inbox.js";
+import { ActivitySettings } from "./components/Preferences.js";
 import { diffData } from "./data.js";
 import { emptyData } from "./demo.js";
 import { type Activity, zonedInstant } from "./engine.js";
@@ -289,6 +290,15 @@ describe("materias", () => {
     expect(dropped.pins?.map((p) => p.start)).toEqual([NOW - 1_800_000]);
   });
 
+  it("keeps the weekly study of a renamed materia", () => {
+    let d = reducer(data(), { type: "weeklyStudy", activityId: "add", minutes: 120, now: NOW });
+    d = reducer(d, { type: "saveActivity", activity: { ...add, name: "ADD" }, now: NOW });
+    expect(d.tasks.filter((t) => t.kind === "habit").map((t) => t.title)).toEqual(["Estudio ADD"]);
+    d = reducer(d, { type: "weeklyStudy", activityId: "add", minutes: 180, now: NOW });
+    expect(d.tasks.filter((t) => t.kind === "habit" && t.status === "active")).toHaveLength(1);
+    expect(d.tasks.find((t) => t.kind === "habit")?.minMinutes).toBe(180);
+  });
+
   it("stores kinds, aliases and the titles that are not materias", () => {
     const before = data();
     const after = {
@@ -366,4 +376,21 @@ describe("inbox", () => {
     expect(screen.queryByText("Ordenar tus actividades")).toBeNull();
     expect(screen.getByTestId("subjects").textContent).toContain('"kind":"rutina"');
   });
+});
+
+it("does not save a weekly study longer than a week", () => {
+  render(
+    <StoreProvider initial={() => data()} persist={false} fixedNow={NOW}>
+      <ActivitySettings />
+    </StoreProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Análisis y Diseño/ }));
+  const field = screen.getByLabelText(/Estudio semanal/);
+  const save = screen.getByRole("button", {
+    name: /Guardar Análisis y Diseño/,
+  }) as HTMLButtonElement;
+  fireEvent.change(field, { target: { value: "169" } });
+  expect(save.disabled).toBe(true);
+  fireEvent.change(field, { target: { value: "3" } });
+  expect(save.disabled).toBe(false);
 });

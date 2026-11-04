@@ -324,6 +324,10 @@ function ActivityRow({ activity }: { activity: Activity }) {
   const studyHours = study ? toHours(study.minMinutes) : "";
   const [weekly, setWeekly] = useState(studyHours);
   const studies = subjectsOf(data).some((a) => a.id === activity.id);
+  const hours = Number(weekly.replace(",", "."));
+  // Blank means none; at most a whole week.
+  const hoursOk =
+    !studies || weekly.trim() === "" || (Number.isFinite(hours) && hours >= 0 && hours <= 168);
   return (
     <div className="activity-row">
       <button
@@ -412,6 +416,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
+            disabled={!hoursOk}
             onClick={() => {
               dispatch({
                 type: "saveActivity",
@@ -431,8 +436,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
                       : undefined,
                 },
               });
-              const hours = Number(weekly.replace(",", "."));
-              if (studies && weekly !== studyHours && Number.isFinite(hours) && hours >= 0)
+              if (studies && weekly !== studyHours)
                 dispatch({
                   type: "weeklyStudy",
                   activityId: activity.id,

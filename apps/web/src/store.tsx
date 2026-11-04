@@ -389,11 +389,18 @@ function apply(data: AppData, action: Action): AppData {
     case "preferences":
       return refresh({ ...data, preferences: action.preferences }, now);
     case "saveActivity": {
-      const exists = data.activities.some((a) => a.id === action.activity.id);
-      const activities = exists
+      const old = data.activities.find((a) => a.id === action.activity.id);
+      const activities = old
         ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
         : [...data.activities, action.activity];
-      return refresh({ ...data, activities }, now);
+      // A renamed materia keeps its weekly study: the silo is found by its title.
+      const study = old && old.name !== action.activity.name ? studyOf(data, old) : undefined;
+      const tasks = study
+        ? data.tasks.map((t) =>
+            t.id === study.id ? { ...t, title: studyTitle(action.activity) } : t,
+          )
+        : data.tasks;
+      return refresh({ ...data, activities, tasks }, now);
     }
     case "savePlace": {
       const old = (data.places ?? []).find((p) => p.id === action.place.id);
