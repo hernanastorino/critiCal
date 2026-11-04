@@ -135,4 +135,33 @@ describe("offline", () => {
     await waitFor(() => expect(writes).toContain("day_overrides"));
     await waitFor(async () => expect((await readLocal("me"))?.stored?.overrides.length).toBe(1));
   });
+
+  it("adopts the database as baseline for a copy without one, keeping its changes", async () => {
+    const mine = { ...demoData(Date.now()), owner: undefined };
+    await writeLocal("me", { data: mine, stored: null });
+    const writes: string[] = [];
+    const ok = Promise.resolve({ data: [], error: null });
+    const from = (table: string) => ({
+      select: () =>
+        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+      upsert: () => {
+        writes.push(table);
+        return Promise.resolve({ error: null });
+      },
+      insert: () => Promise.resolve({ error: null }),
+      delete: () => ({ in: () => Promise.resolve({ error: null }) }),
+    });
+    stubApi(async () => ({ data: { connected: true }, error: null }));
+    render(
+      <Connected client={{ from, auth: session } as never} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    await waitFor(() => expect(screen.getByTestId("week")).toBeTruthy());
+    // The device's activities reach the (empty) database instead of being replaced by it.
+    await waitFor(() => expect(writes).toContain("activities"));
+    const kept = await readLocal("me");
+    expect(kept?.stored).not.toBeNull();
+    expect(kept?.data.activities.length).toBe(mine.activities.length);
+  });
 });

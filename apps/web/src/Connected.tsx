@@ -287,9 +287,16 @@ function SyncProvider({
     // Read before waiting: an edit made while queued writes finish must count too.
     const before = changes.current;
     await flush();
-    // Changes still waiting (offline) must not be overwritten by the server's copy.
-    if (!latest.current || !stored.current || !nothing(diffData(stored.current, latest.current)))
+    if (!latest.current) return;
+    // A device copy without its baseline (a damaged cache): the database becomes the
+    // baseline and this device's changes are written over it, like offline edits.
+    if (stored.current === null) {
+      stored.current = owned(await loadData(client));
+      await flush();
       return;
+    }
+    // Changes still waiting (offline) must not be overwritten by the server's copy.
+    if (!nothing(diffData(stored.current, latest.current))) return;
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
