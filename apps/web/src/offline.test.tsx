@@ -185,4 +185,34 @@ describe("offline", () => {
     expect(names).toContain("Added elsewhere");
     for (const x of mine.activities) expect(names).toContain(x.name);
   });
+
+  it("retries a merge without baseline that failed offline", async () => {
+    const mine = { ...demoData(Date.now()), owner: undefined };
+    await writeLocal("me", { data: mine, stored: null });
+    let online = false;
+    const ok = Promise.resolve({ data: [], error: null });
+    const from = () => ({
+      select: () =>
+        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+      upsert: () =>
+        Promise.resolve({ error: online ? null : { message: "TypeError: Failed to fetch" } }),
+      insert: () => Promise.resolve({ error: null }),
+      delete: () => ({ in: () => Promise.resolve({ error: null }) }),
+    });
+    stubApi(async () => ({ data: { connected: true }, error: null }));
+    render(
+      <Connected client={{ from, auth: session } as never} session={{} as never}>
+        <Shell />
+      </Connected>,
+    );
+    await waitFor(() =>
+      expect(screen.getByLabelText(/Sin conexión: los cambios se guardan/)).toBeTruthy(),
+    );
+    expect((await readLocal("me"))?.stored).toBeNull();
+    online = true;
+    await act(async () => {
+      window.dispatchEvent(new Event("online"));
+    });
+    await waitFor(async () => expect((await readLocal("me"))?.stored).not.toBeNull());
+  });
 });

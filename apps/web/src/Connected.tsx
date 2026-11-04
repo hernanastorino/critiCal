@@ -292,14 +292,22 @@ function SyncProvider({
     // added elsewhere, so nothing is deleted. Its own records are written over the
     // database, and the merged result becomes both the copy and its baseline.
     if (stored.current === null) {
-      const server = owned(await loadData(client));
-      await applyWrites(client, { ...diffData(server, latest.current), deletes: [] });
-      const merged = owned(await loadData(client));
-      // An edit made meanwhile is not in `merged`: try again on the next sync.
-      if (changes.current !== before) return;
-      stored.current = merged;
-      latest.current = merged;
-      dispatch({ type: "replace", data: merged });
+      try {
+        const server = owned(await loadData(client));
+        await applyWrites(client, { ...diffData(server, latest.current), deletes: [] });
+        const merged = owned(await loadData(client));
+        // An edit made meanwhile is not in `merged`: try again on the next sync.
+        if (changes.current !== before) return;
+        stored.current = merged;
+        latest.current = merged;
+        dispatch({ type: "replace", data: merged });
+        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+        hold("unsaved", false);
+      } catch (e) {
+        // Offline: the retry below tries the merge again; anything else is reported.
+        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+        else reportError(e);
+      }
       return;
     }
     // Changes still waiting (offline) must not be overwritten by the server's copy.
@@ -309,7 +317,20 @@ function SyncProvider({
     if (changes.current !== before) return;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, flush, stored, latest, changes, owned]);
+  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
+
+  // A merge without baseline that failed offline is retried here: `flush` cannot do
+  // it (it never writes without a baseline).
+  useEffect(() => {
+    if (!status.offline || stored.current !== null) return;
+    const retry = () => void reload().catch(reportError);
+    const id = setInterval(retry, RETRY_MS);
+    window.addEventListener("online", retry);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener("online", retry);
+    };
+  }, [status.offline, reload, stored]);
 
   const syncNow = useCallback(async () => {
     try {
