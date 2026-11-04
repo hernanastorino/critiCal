@@ -1,6 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 import { demoData } from "./demo.js";
-import { applyWrites, diffData, loadData, rowsToData, syncGoogle, syncICloud } from "./remote.js";
+import {
+  applyWrites,
+  diffData,
+  loadData,
+  rowsToData,
+  syncGoogle,
+  syncICloud,
+  timeSpots,
+} from "./remote.js";
 import { session, stubApi } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20, 50);
@@ -65,6 +73,21 @@ describe("sync calls", () => {
     expect(await syncICloud(client)).toEqual({ connected: false, error: "unreachable" });
     const signedOut = { auth: { getSession: async () => ({ data: { session: null } }) } } as never;
     expect(await syncICloud(signedOut)).toEqual({ connected: false, error: "unauthorized" });
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("event addresses", () => {
+  it("gives up on a stalled answer instead of waiting for ever", async () => {
+    let signal: AbortSignal | undefined;
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      signal = init.signal ?? undefined;
+      throw new DOMException("timed out", "TimeoutError");
+    });
+    const r = await timeSpots({ auth: session } as never, ["Instituto Anglo"]);
+    expect(signal).toBeInstanceOf(AbortSignal);
+    // A passing failure: AutoLocate tries again after its cool-down.
+    expect(r).toEqual({ ok: false, error: "unreachable" });
     vi.unstubAllGlobals();
   });
 });

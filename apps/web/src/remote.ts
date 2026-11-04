@@ -85,6 +85,8 @@ export async function computeTravel(client: SupabaseClient): Promise<TravelResul
 
 /** At most this many event addresses per call (the geocoder allows one per second). */
 export const SPOTS_PER_CALL = 4;
+/** Longest wait for the server's answer about event addresses. */
+export const SPOTS_TIMEOUT_MS = 30_000;
 
 /** Driving minutes from home to event addresses; null where not found or reachable. */
 export async function timeSpots(
@@ -99,6 +101,9 @@ export async function timeSpots(
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ spots: texts.slice(0, SPOTS_PER_CALL) }),
+      // The server needs at most ~15 s (four lookups a second apart, then the
+      // routes); a stalled answer must not keep the inbox "calculating" for ever.
+      signal: AbortSignal.timeout(SPOTS_TIMEOUT_MS),
     });
     const body = (await res.json().catch(() => null)) as {
       ok?: boolean;
