@@ -142,8 +142,26 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
       return false;
     return optional(p.holidaysOff, bool);
   };
+  const zone = (z: unknown) => {
+    if (typeof z !== "string" || !z) return false;
+    try {
+      new Intl.DateTimeFormat("es-UY", { timeZone: z });
+      return true;
+    } catch {
+      return false;
+    }
+  };
+  const settings = d.settings as unknown as Record<string, unknown> | undefined;
+  const validSettings =
+    isObject(settings) &&
+    zone(settings.timezone) &&
+    [15, 30, 60].includes(settings.slotMinutes as number) &&
+    minute(settings.travelMarginMinutes) &&
+    Number.isInteger(settings.maxActivitiesPerDay) &&
+    (settings.maxActivitiesPerDay as number) >= 1 &&
+    minute(settings.warnSlackMinutes, 100_000);
   if (
-    !isObject(d.settings) ||
+    !validSettings ||
     !Array.isArray(week) ||
     week.length !== 7 ||
     !week.every(validDay) ||

@@ -286,6 +286,14 @@ describe("backup", () => {
         ),
       ),
     ).toHaveProperty("data");
+    for (const settings of [
+      { ...data.settings, timezone: "Mars/Olympus" },
+      { ...data.settings, slotMinutes: 7 },
+      { ...data.settings, maxActivitiesPerDay: 0 },
+    ])
+      expect(parseBackup(exportJson({ ...data, settings }, 1))).toEqual({
+        error: "Al respaldo le faltan datos.",
+      });
     for (const preferences of [
       { semester: { start: 1, end: 2 } as never },
       { semester: { start: "2026-08-01", end: "2026-02-30" } },

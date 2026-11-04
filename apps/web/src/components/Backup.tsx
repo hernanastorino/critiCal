@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
 import { CRITICAL } from "../model.js";
+import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
 
 /** Download everything as JSON, or replace everything with a downloaded file. */
@@ -24,6 +25,13 @@ export function Backup() {
     const parsed = parseBackup(await f.text());
     if ("error" in parsed) {
       setMessage({ text: parsed.error, error: true });
+      return;
+    }
+    try {
+      // A dry run: anything the checks missed fails here, not in the app.
+      refresh(parsed.data, now);
+    } catch {
+      setMessage({ text: "El respaldo tiene datos que la app no puede usar.", error: true });
       return;
     }
     if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
