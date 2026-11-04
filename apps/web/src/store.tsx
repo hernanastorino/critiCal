@@ -92,22 +92,16 @@ export type Action =
  */
 export function reducer(data: AppData, action: Action): AppData {
   const next = apply(data, action);
-  if (action.type === "applyOption" || action.type === "undoDecision" || !next.applied?.length)
-    return next;
+  // Decisions themselves, and data that arrives whole (loaded, re-planned), already
+  // carry their own history.
+  const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
+  if (exempt || !next.applied?.length) return next;
   const before = new Map(data.tasks.map((t) => [t.id, t.status]));
   const moved = new Set(
     next.tasks.filter((t) => before.has(t.id) && before.get(t.id) !== t.status).map((t) => t.id),
   );
   if (moved.size === 0) return next;
-  const applied = next.applied.map((d) =>
-    d.after && Object.keys(d.after).some((id) => moved.has(id))
-      ? {
-          ...d,
-          after: Object.fromEntries(Object.entries(d.after).filter(([id]) => !moved.has(id))),
-        }
-      : d,
-  );
-  return { ...next, applied };
+  return { ...next, applied: pruneApplied(next.applied, (id) => moved.has(id)) };
 }
 
 function apply(data: AppData, action: Action): AppData {

@@ -161,6 +161,31 @@ describe("decisions and defaults", () => {
     const undoneAgain = reducer(again, { type: "undoDecision", id: "cut@1", now: NOW });
     expect(undoneAgain.tasks.find((t) => t.id === c.id)?.status).toBe("dropped");
 
+    // The same with an old record (no `after`): the later change takes it out.
+    const legacyBack = reducer(start, {
+      type: "saveTask",
+      task: { ...(start.tasks.find((t) => t.id === c.id) as AppTask), status: "active" },
+      now: NOW,
+    });
+    const legacyAgain = reducer(legacyBack, {
+      type: "saveTask",
+      task: { ...(legacyBack.tasks.find((t) => t.id === c.id) as AppTask), status: "dropped" },
+      now: NOW,
+    });
+    expect(legacyAgain.applied?.[0]?.before.map((t) => t.id)).not.toContain(c.id);
+    // Data loaded from elsewhere keeps its decision history as it comes.
+    const loaded = reducer(fromDecision, {
+      type: "replace",
+      data: {
+        ...fromDecision,
+        tasks: fromDecision.tasks.map((t) =>
+          t.id === c.id ? { ...t, status: "active" as const } : t,
+        ),
+      },
+      now: NOW,
+    });
+    expect(loaded.applied?.[0]?.after?.[c.id]).toBe("dropped");
+
     // Every silo it touched deleted: the decision is gone.
     let gone = start;
     for (const t of [a, b, c])
