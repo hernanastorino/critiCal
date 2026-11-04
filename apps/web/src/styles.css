@@ -1354,6 +1354,8 @@ input[type="datetime-local"] {
 .suggestions > .meta {
   margin: 0;
   padding: 10px 12px;
+}
+
 /* Google and iCloud inside the collapsible Calendarios card: sections, not cards. */
 .calendars .card {
   padding: 10px 0;
