@@ -29,7 +29,21 @@ export function Backup() {
     }
     try {
       // A dry run: anything the checks missed fails here, not in the app.
-      refresh(parsed.data, now);
+      const tried = refresh(parsed.data, now);
+      // Against the refreshed tasks: refresh may create some from calendar events.
+      const tasks = new Set(tried.tasks.map((t) => t.id));
+      const blocks = [
+        ...tried.plan,
+        ...(tried.pins ?? []),
+        ...tried.proposals.flatMap((p) => p.plan),
+      ];
+      if (blocks.some((b) => !tasks.has(b.taskId))) {
+        setMessage({
+          text: "El respaldo está incompleto: hay bloques de tareas que no están.",
+          error: true,
+        });
+        return;
+      }
     } catch {
       setMessage({ text: "El respaldo tiene datos que la app no puede usar.", error: true });
       return;

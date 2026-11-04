@@ -176,6 +176,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     isObject(e) &&
     str(e.id) &&
     typeof e.title === "string" &&
+    // Without it the planner would silently treat busy time as free.
+    typeof e.busy === "boolean" &&
     instant(e.start) &&
     instant(e.end) &&
     (e.end as number) >= (e.start as number) &&

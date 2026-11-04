@@ -292,9 +292,20 @@ describe("backup", () => {
         exportJson({ ...data, settings: { ...data.settings, travelMarginMinutes: 7.5 } }, 1),
       ),
     ).toHaveProperty("data");
-    const [firstBlock] = data.plan;
+    const DAY = 86_400_000;
+    const block = {
+      id: "b",
+      taskId: data.tasks[0]?.id as string,
+      activityId: "a",
+      start: 0,
+      end: 3_600_000,
+    };
+    expect(parseBackup(exportJson({ ...data, plan: [block] }, 1))).toHaveProperty("data");
     for (const broken of [
-      { plan: [{ ...(firstBlock as object), start: 0, end: 1e100 }] },
+      { plan: [{ ...block, end: 1e100 }] },
+      { plan: [{ ...block, end: DAY + 1 }] },
+      { plan: [{ ...block, end: 0 }] },
+      { events: [{ id: "e", title: "x", start: 0, end: 10 }] },
       { places: [{ id: "p", name: "X" }] },
       { travelTimes: [{ from: "a", to: "b", minutes: -1, manual: false }] },
       { events: [{ id: "e", title: "x", start: 10, end: 5 }] },
