@@ -186,6 +186,12 @@ describe("syllabus", () => {
     });
     expect(await res.json()).toEqual({ ok: false, error: "gemini_busy" });
     expect(calls).toEqual(["gemini-x:generateContent"]);
+    vi.stubGlobal("fetch", async () => new Response("not found", { status: 404 }));
+    const gone = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+      ...env,
+      geminiModel: "gemini-old",
+    });
+    expect(await gone.json()).toEqual({ ok: false, error: "model_unavailable" });
   });
 
   it("refuses big or missing files and reports Gemini failures", async () => {

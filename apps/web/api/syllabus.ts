@@ -49,6 +49,9 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
         body: request,
       });
       // Retired model, quota or overload: try the next one.
+      // A forced model that does not exist will not start working by retrying.
+      if (res.status === 404 && env.geminiModel)
+        return json({ ok: false, error: "model_unavailable" }, 503);
       if ([404, 429, 500, 503].includes(res.status)) continue;
       if (!res.ok) return json({ ok: false, error: "gemini_error", status: res.status });
       const out = (await res.json()) as {

@@ -11,6 +11,8 @@ const ERRORS: Record<string, string> = {
   server_not_configured: "Falta la clave de Gemini en el servidor.",
   too_large: "El PDF es muy grande (máximo 3 MB).",
   gemini_busy: "Gemini está saturado o sin cuota gratis por hoy. Probá más tarde.",
+  model_unavailable:
+    "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel.",
   unreadable: "No pude entender el programa. ¿Es el PDF correcto?",
 };
 
