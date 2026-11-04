@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { exportJson, parseBackup } from "./backup.js";
 import { importFromCalendars } from "./calendars.js";
 import { Inbox } from "./components/Inbox.js";
@@ -493,6 +493,15 @@ it("migrates a demo saved before the study mark, once", () => {
   expect(loadDemo(NOW).tasks[0]?.study).toBe(true);
   expect(localStorage.getItem("critical.demo.v1")).toBeNull();
   expect(JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}").tasks[0].study).toBe(true);
+  // If the migrated copy cannot be stored, the old one stays and the data is still used.
+  localStorage.clear();
+  localStorage.setItem("critical.demo.v1", JSON.stringify(old));
+  const full = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("full", "QuotaExceededError");
+  });
+  expect(loadDemo(NOW).tasks[0]?.study).toBe(true);
+  full.mockRestore();
+  expect(localStorage.getItem("critical.demo.v1")).not.toBeNull();
   localStorage.setItem("critical.demo.v1", "{}");
   resetDemo();
   expect(localStorage.getItem("critical.demo.v1")).toBeNull();

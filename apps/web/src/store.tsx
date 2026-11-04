@@ -675,8 +675,13 @@ export function loadDemo(now: number): AppData {
     const legacy = globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
     if (legacy) {
       const data = markLegacyStudy(JSON.parse(legacy) as AppData);
-      globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
-      globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+      try {
+        globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
+        // Only once the new copy is stored does the old one go.
+        globalThis.localStorage?.removeItem(LEGACY_STORAGE_KEY);
+      } catch {
+        // Full storage: use the migrated data now and try again on the next load.
+      }
       return data;
     }
   } catch {
