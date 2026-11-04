@@ -33,6 +33,7 @@ Nunca en el repo. Dónde vive cada uno:
 | `SUPABASE_SECRET_KEY`                      | Vercel (Production: prod, Preview: staging) | funciones de sincronización (`apps/web/api`)      |
 | `VITE_VAPID_PUBLIC_KEY`                    | Vercel (Production y Preview)               | suscribir el dispositivo a Web Push (pública)     |
 | `VAPID_PRIVATE_KEY`                        | Vercel (Production y Preview, Sensitive)    | firmar las notificaciones push                    |
+| `ORS_API_KEY`                              | Vercel (Production y Preview, Sensitive)    | tiempos en auto entre lugares (OpenRouteService)  |
 | `VITE_SENTRY_DSN`                          | Vercel (Production y Preview)               | errores a Sentry (app y funciones; no es secreto) |
 
 La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; la seguridad la dan las políticas RLS (testeadas en `supabase/tests`).
@@ -51,6 +52,12 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - Claves VAPID nuevas: `npx web-push generate-vapid-keys` (cambiarlas obliga a reactivar en cada dispositivo).
 - Offline: el estado vive en IndexedDB. Sin conexión se puede seguir usando; el punto de estado queda hueco y los cambios se escriben solos al volver la conexión. Salir de la cuenta borra la copia local.
 - Sentry: con `VITE_SENTRY_DSN` cargado, la app y las funciones reportan errores (sin datos personales ni contenido del calendario).
+
+## Traslados
+
+- Ajustes → Lugares y traslados: guardá tu casa y los lugares frecuentes (nombre, alias, dirección). Con casa guardada, el plan reserva el viaje + el margen antes y después de cada evento con ubicación (o cuyo título nombra un lugar). Si el evento anterior terminó hace menos de 2 h, se sale desde ahí.
+- «Calcular con las direcciones»: geocodifica con OpenStreetMap (una vez por lugar) y pide los tiempos en auto a OpenRouteService. Los tiempos cargados a mano nunca se pisan.
+- La Bandeja pregunta «¿Dónde es?» por los eventos de los próximos 7 días sin lugar conocido; la respuesta queda como alias (o «no hace falta traslado»), así que no vuelve a preguntar.
 
 ## Backups
 

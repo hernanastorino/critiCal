@@ -4,6 +4,7 @@ import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { useStore } from "../store.js";
 import { Calendars } from "./Calendars.js";
 import { Notifications } from "./Notifications.js";
+import { Places } from "./Places.js";
 import { ActivitySettings, DetectedDefaults, RuleSettings, WeekSettings } from "./Preferences.js";
 
 export function Settings({
@@ -63,6 +64,7 @@ export function Settings({
         <WeekSettings />
         <RuleSettings />
         <ActivitySettings />
+        <Places />
         <DetectedDefaults />
 
         <Calendars />

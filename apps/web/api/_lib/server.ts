@@ -14,6 +14,8 @@ export interface Env {
   vapidPublic?: string;
   vapidPrivate?: string;
   sentryDsn?: string;
+  /** OpenRouteService key for driving times. */
+  orsKey?: string;
 }
 
 export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
@@ -30,6 +32,7 @@ export function readEnv(e: NodeJS.ProcessEnv = process.env): Env {
     vapidPublic: e.VITE_VAPID_PUBLIC_KEY,
     vapidPrivate: e.VAPID_PRIVATE_KEY,
     sentryDsn: e.SENTRY_DSN || e.VITE_SENTRY_DSN,
+    orsKey: e.ORS_API_KEY,
   };
 }
 

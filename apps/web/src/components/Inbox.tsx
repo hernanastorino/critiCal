@@ -8,7 +8,7 @@ import { BlockSheet } from "./BlockSheet.js";
 import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
-  const { data, now, pending, decisions, dispatch } = useStore();
+  const { data, now, pending, decisions, unlocated, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   const [editing, setEditing] = useState<AppTask | null>(null);
@@ -17,7 +17,8 @@ export function Inbox() {
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
   const clashes = pinClashes(data, now);
   const empty =
-    pending.length +
+    unlocated.length +
+      pending.length +
       clashes.length +
       data.proposals.length +
       decisions.options.length +
@@ -44,6 +45,38 @@ export function Inbox() {
       </div>
       <div className="scroll">
         {empty && <p className="empty">Todo al día ✓</p>}
+
+        {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
+        {unlocated.map((u) => (
+          <div key={u.key} className="card">
+            <div className="title">{u.event.title}</div>
+            <p className="meta">
+              {dayAndTime(tz, u.event.start)}
+              {u.event.location ? ` · ${u.event.location}` : " · sin ubicación"}
+            </p>
+            <select
+              aria-label={`Lugar de ${u.event.title}`}
+              value=""
+              onChange={(e) =>
+                dispatch({
+                  type: "locate",
+                  text: u.text,
+                  placeId: e.target.value === "none" ? null : e.target.value,
+                })
+              }
+            >
+              <option value="" disabled>
+                Elegí el lugar…
+              </option>
+              {(data.places ?? []).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+              <option value="none">No hace falta traslado</option>
+            </select>
+          </div>
+        ))}
 
         {review.length > 0 && <div className="section-title">Detectado en tu calendario</div>}
         {review.map((t) => (

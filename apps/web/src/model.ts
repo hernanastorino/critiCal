@@ -148,6 +148,31 @@ export interface AppData {
   applied?: AppliedDecision[];
   /** Blocks the user moved by hand; the planner works around them. */
   pins?: PlanBlock[];
+  places?: Place[];
+  travelTimes?: TravelTime[];
+  /** Normalized locations/titles of events that need no trip (online, at home…). */
+  noTravel?: string[];
+}
+
+/** A saved place (home, facu, gym…), matched against event locations and titles. */
+export interface Place {
+  id: string;
+  name: string;
+  /** Other ways it shows up in events ("Facultad de Ingeniería", "FING"). */
+  aliases: string[];
+  /** For geocoding (OpenStreetMap) and automatic driving times. */
+  address?: string;
+  lat?: number;
+  lon?: number;
+  isHome?: boolean;
+}
+
+/** Driving minutes between two places; manual times win over computed ones. */
+export interface TravelTime {
+  from: string;
+  to: string;
+  minutes: number;
+  manual: boolean;
 }
 
 export interface AppliedDecision {

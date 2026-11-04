@@ -19,6 +19,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import type { AppData, AppTask, Proposal } from "./model.js";
+import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
 /** Never plan further than this, even for far deadlines. */
@@ -144,7 +145,8 @@ export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): 
     settings: data.settings,
     activities: data.activities,
     tasks,
-    events: visibleEvents(data),
+    events: withPlaces(data, visibleEvents(data)),
+    travel: travelOptions(data),
     frozen,
     overrides: data.overrides,
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,

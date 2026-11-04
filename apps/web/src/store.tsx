@@ -8,7 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { DEFAULTS, eventRole } from "./calendars.js";
+import { DEFAULTS, eventRole, normalize, visibleEvents } from "./calendars.js";
 import { demoData } from "./demo.js";
 import {
   type Activity,
@@ -23,9 +23,11 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  Place,
   Preferences,
 } from "./model.js";
 import { newId } from "./model.js";
+import { unlocated } from "./places.js";
 import {
   applyOption,
   type Decisions,
@@ -76,7 +78,12 @@ export type Action =
   | { type: "resetDetected"; taskId?: string; now: number }
   | { type: "settings"; settings: Settings; now: number }
   | { type: "preferences"; preferences: Preferences; now: number }
-  | { type: "saveActivity"; activity: Activity; now: number };
+  | { type: "saveActivity"; activity: Activity; now: number }
+  | { type: "savePlace"; place: Place; now: number }
+  | { type: "deletePlace"; placeId: string; now: number }
+  | { type: "travelTime"; from: string; to: string; minutes: number; now: number }
+  /** An event's place: adds what the event says as an alias, or marks it as no trip. */
+  | { type: "locate"; text: string; placeId: string | null; now: number };
 
 export function reducer(data: AppData, action: Action): AppData {
   const now = action.now;
@@ -309,6 +316,44 @@ export function reducer(data: AppData, action: Action): AppData {
       );
       return refresh({ ...data, activities }, now);
     }
+    case "savePlace": {
+      const exists = (data.places ?? []).some((p) => p.id === action.place.id);
+      let places = exists
+        ? (data.places ?? []).map((p) => (p.id === action.place.id ? action.place : p))
+        : [...(data.places ?? []), action.place];
+      // Only one home.
+      if (action.place.isHome)
+        places = places.map((p) =>
+          p.id !== action.place.id && p.isHome ? { ...p, isHome: undefined } : p,
+        );
+      return refresh({ ...data, places }, now);
+    }
+    case "deletePlace": {
+      const places = (data.places ?? []).filter((p) => p.id !== action.placeId);
+      const travelTimes = (data.travelTimes ?? []).filter(
+        (t) => t.from !== action.placeId && t.to !== action.placeId,
+      );
+      return refresh({ ...data, places, travelTimes }, now);
+    }
+    case "travelTime": {
+      const others = (data.travelTimes ?? []).filter(
+        (t) => !(t.from === action.from && t.to === action.to),
+      );
+      const time = { from: action.from, to: action.to, minutes: action.minutes, manual: true };
+      return refresh({ ...data, travelTimes: [...others, time] }, now);
+    }
+    case "locate": {
+      if (!action.placeId) {
+        const noTravel = [...new Set([...(data.noTravel ?? []), normalize(action.text)])];
+        return refresh({ ...data, noTravel }, now);
+      }
+      const places = (data.places ?? []).map((p) =>
+        p.id === action.placeId && !p.aliases.includes(action.text)
+          ? { ...p, aliases: [...p.aliases, action.text] }
+          : p,
+      );
+      return refresh({ ...data, places }, now);
+    }
     case "review": {
       const tasks = data.tasks.map((t) =>
         t.id === action.taskId
@@ -378,6 +423,8 @@ interface Store {
   decisions: Decisions;
   /** The current plan's verdict (feasibility, per-task deficits). */
   result: ScheduleResult;
+  /** Upcoming events whose place is unknown (only once a home is saved). */
+  unlocated: ReturnType<typeof unlocated>;
   inboxCount: number;
 }
 
@@ -429,6 +476,7 @@ export function StoreProvider({
     const r = refreshPlan(data, now);
     const pending = pendingConfirmations(data, now);
     const d = decisions(r.input, r.result);
+    const where = unlocated(data, visibleEvents(data), now);
     return {
       data,
       now,
@@ -436,7 +484,9 @@ export function StoreProvider({
       pending,
       decisions: d,
       result: r.result,
+      unlocated: where,
       inboxCount:
+        where.length +
         pending.length +
         data.proposals.length +
         d.options.length +

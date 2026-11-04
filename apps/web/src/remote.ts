@@ -50,6 +50,31 @@ async function callSync(client: SupabaseClient, name: string, body: object): Pro
   }
 }
 
+export interface TravelResult {
+  ok: boolean;
+  geocoded?: number;
+  pairs?: number;
+  error?: string;
+}
+
+/** Geocodes saved places and computes driving times between them (OpenRouteService). */
+export async function computeTravel(client: SupabaseClient): Promise<TravelResult> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "unauthorized" };
+    const res = await fetch("/api/travel", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const body = (await res.json().catch(() => null)) as TravelResult | { error?: string } | null;
+    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "travel_failed" };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
 export function syncICloud(
   client: SupabaseClient,
   body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},

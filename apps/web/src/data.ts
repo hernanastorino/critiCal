@@ -9,8 +9,10 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  Place,
   Preferences,
   Proposal,
+  TravelTime,
 } from "./model.js";
 
 // Database rows <-> AppData. No browser globals: the server functions use it too.
@@ -22,6 +24,7 @@ interface State {
   proposals?: Proposal[];
   freeTimeUntil?: number;
   relaxContextUntil?: number;
+  noTravel?: string[];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -39,6 +42,8 @@ export function rowsToData(r: {
   overrides: Row[];
   blocks: Row[];
   calendars?: Row[];
+  places?: Row[];
+  travelTimes?: Row[];
 }): AppData {
   const state = (r.settings?.state ?? {}) as State;
   return {
@@ -141,6 +146,26 @@ export function rowsToData(r: {
         role: (c.role as CalendarRole) ?? undefined,
       }),
     ),
+    places: (r.places ?? []).map(
+      (p): Place => ({
+        id: p.id as string,
+        name: p.name as string,
+        aliases: (p.aliases as string[]) ?? [],
+        address: (p.address as string) ?? undefined,
+        lat: (p.lat as number) ?? undefined,
+        lon: (p.lon as number) ?? undefined,
+        isHome: (p.is_home as boolean) || undefined,
+      }),
+    ),
+    travelTimes: (r.travelTimes ?? []).map(
+      (t): TravelTime => ({
+        from: t.from_place as string,
+        to: t.to_place as string,
+        minutes: t.minutes as number,
+        manual: t.manual as boolean,
+      }),
+    ),
+    noTravel: state.noTravel,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -156,26 +181,39 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     if (error) throw error;
     return (data ?? []) as Row[];
   };
-  const [settings, activities, tasks, units, checkIns, events, overrides, blocks, calendars] =
-    await Promise.all([
-      client
-        .from("settings")
-        .select("*")
-        .maybeSingle()
-        .then((r) => {
-          // Defaults here would be written back over the real settings.
-          if (r.error) throw r.error;
-          return r.data as Row | null;
-        }),
-      all("activities"),
-      all("tasks"),
-      all("task_units"),
-      all("check_ins"),
-      all("calendar_events"),
-      all("day_overrides"),
-      all("plan_blocks"),
-      all("calendars"),
-    ]);
+  const [
+    settings,
+    activities,
+    tasks,
+    units,
+    checkIns,
+    events,
+    overrides,
+    blocks,
+    calendars,
+    places,
+    travelTimes,
+  ] = await Promise.all([
+    client
+      .from("settings")
+      .select("*")
+      .maybeSingle()
+      .then((r) => {
+        // Defaults here would be written back over the real settings.
+        if (r.error) throw r.error;
+        return r.data as Row | null;
+      }),
+    all("activities"),
+    all("tasks"),
+    all("task_units"),
+    all("check_ins"),
+    all("calendar_events"),
+    all("day_overrides"),
+    all("plan_blocks"),
+    all("calendars"),
+    all("places"),
+    all("travel_times"),
+  ]);
   return rowsToData({
     settings,
     activities,
@@ -186,6 +224,8 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     overrides,
     blocks,
     calendars,
+    places,
+    travelTimes,
   });
 }
 
@@ -215,6 +255,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.preferences,
       prev.applied,
       prev.pins,
+      prev.noTravel,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -224,6 +265,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.preferences,
       next.applied,
       next.pins,
+      next.noTravel,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -238,6 +280,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             preferences: next.preferences,
             applied: next.applied,
             pins: next.pins,
+            noTravel: next.noTravel,
           },
         },
       ],
@@ -349,6 +392,44 @@ export function diffData(prev: AppData, next: AppData): Writes {
     });
   }
 
+  const places = changed(prev.places ?? [], next.places ?? []);
+  if (places.length) {
+    upserts.push({
+      table: "places",
+      rows: places.map((p) => ({
+        id: p.id,
+        name: p.name,
+        aliases: p.aliases,
+        address: p.address ?? null,
+        lat: p.lat ?? null,
+        lon: p.lon ?? null,
+        is_home: !!p.isHome,
+      })),
+    });
+  }
+  // Removing a place removes its travel times too (FK cascade).
+  const keptPlaces = new Set((next.places ?? []).map((p) => p.id));
+  const gonePlaces = (prev.places ?? []).map((p) => p.id).filter((id) => !keptPlaces.has(id));
+  if (gonePlaces.length) deletes.push({ table: "places", ids: gonePlaces });
+
+  const pair = (t: TravelTime) => `${t.from}>${t.to}`;
+  const oldTimes = new Map((prev.travelTimes ?? []).map((t) => [pair(t), JSON.stringify(t)]));
+  const times = (next.travelTimes ?? []).filter(
+    (t) =>
+      keptPlaces.has(t.from) && keptPlaces.has(t.to) && oldTimes.get(pair(t)) !== JSON.stringify(t),
+  );
+  if (times.length) {
+    upserts.push({
+      table: "travel_times",
+      rows: times.map((t) => ({
+        from_place: t.from,
+        to_place: t.to,
+        minutes: t.minutes,
+        manual: t.manual,
+      })),
+    });
+  }
+
   const blocks = changed(prev.plan, next.plan);
   if (blocks.length) {
     upserts.push({
@@ -379,6 +460,8 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     "tasks",
     "task_units",
     "day_overrides",
+    "places",
+    "travel_times",
     "plan_blocks",
   ];
   for (const table of order) {
