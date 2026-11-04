@@ -185,8 +185,10 @@ export interface AppliedDecision {
   at: number;
   /** Tasks as they were before the decision. */
   before: AppTask[];
-  /** Tasks the decision itself dropped: undo brings these back, never ones dropped later. */
+  /** Tasks the decision itself dropped (records from before `after` existed). */
   dropped?: string[];
+  /** Each task's status right after the decision: undo touches only tasks still there. */
+  after?: Record<string, AppTask["status"]>;
   freeTimeUntil?: number;
 }
 
@@ -197,7 +199,12 @@ export interface AppliedDecision {
 export function undoable(data: AppData, d: AppliedDecision): AppTask[] {
   return d.before.filter((b) => {
     const now = data.tasks.find((t) => t.id === b.id);
-    return !!now && (now.status !== "dropped" || !!d.dropped?.includes(b.id));
+    if (!now) return false;
+    // Anything that happened to the task since (finished, dropped, brought back) wins.
+    if (d.after) return d.after[b.id] === now.status;
+    // Older records: never finished work, and only drops the decision made itself.
+    if (now.status === "done") return false;
+    return now.status !== "dropped" || !!d.dropped?.includes(b.id);
   });
 }
 
@@ -210,7 +217,11 @@ export function pruneApplied(
     const before = d.before.filter((t) => !gone(t.id));
     // A decision about free time never had tasks: it stays.
     if (d.before.length > 0 && before.length === 0) return [];
-    return [{ ...d, before, dropped: d.dropped?.filter((id) => !gone(id)) }];
+    const after =
+      d.after && Object.fromEntries(Object.entries(d.after).filter(([id]) => !gone(id)));
+    return [
+      { ...d, before, dropped: d.dropped?.filter((id) => !gone(id)), ...(after ? { after } : {}) },
+    ];
   });
 }
 

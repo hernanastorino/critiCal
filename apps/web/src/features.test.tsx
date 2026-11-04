@@ -130,6 +130,18 @@ describe("decisions and defaults", () => {
     const kept = reducer(later, { type: "undoDecision", id: "cut@1", now: NOW });
     expect(kept.tasks.find((t) => t.id === a.id)?.status).toBe("dropped");
 
+    // With the statuses it left recorded, any later change wins: finished, or dropped
+    // and brought back and dropped again.
+    const recorded: AppData = {
+      ...start,
+      applied: [{ ...decision, after: { [a.id]: "active", [b.id]: "active", [c.id]: "dropped" } }],
+      tasks: start.tasks.map((t) => (t.id === a.id ? { ...t, status: "done" as const } : t)),
+    };
+    const kept2 = reducer(recorded, { type: "undoDecision", id: "cut@1", now: NOW });
+    expect(kept2.tasks.find((t) => t.id === a.id)?.status).toBe("done");
+    expect(kept2.tasks.find((t) => t.id === b.id)?.minMinutes).toBe(b.minMinutes + 60);
+    expect(kept2.tasks.find((t) => t.id === c.id)?.status).toBe("active");
+
     // Every silo it touched deleted: the decision is gone.
     let gone = start;
     for (const t of [a, b, c])

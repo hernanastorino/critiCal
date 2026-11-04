@@ -162,6 +162,9 @@ export function reducer(data: AppData, action: Action): AppData {
         at: now,
         before: changed,
         ...(dropped.length ? { dropped } : {}),
+        after: Object.fromEntries(
+          changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
+        ),
         freeTimeUntil: data.freeTimeUntil,
       };
       return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
