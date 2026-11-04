@@ -35,6 +35,7 @@ import {
   endOfWeek,
   pendingConfirmations,
   pinBlock,
+  pinShortfall,
   refreshPlan,
   weekStart,
 } from "./planning.js";
@@ -470,6 +471,8 @@ interface Store {
   result: ScheduleResult;
   /** Upcoming events whose place is unknown (only once a home is saved). */
   unlocated: ReturnType<typeof unlocated>;
+  /** Minimums the upcoming pins put out of reach, and those pins. */
+  pinShort: ReturnType<typeof pinShortfall>;
   inboxCount: number;
 }
 
@@ -522,6 +525,7 @@ export function StoreProvider({
     const pending = pendingConfirmations(data, now);
     const d = decisions(r.input, r.result);
     const where = unlocated(data, visibleEvents(data), now);
+    const pinShort = pinShortfall(data, now, r.result);
     return {
       data,
       now,
@@ -530,8 +534,10 @@ export function StoreProvider({
       decisions: d,
       result: r.result,
       unlocated: where,
+      pinShort,
       inboxCount:
         where.length +
+        (pinShort.short.length > 0 ? 1 : 0) +
         pending.length +
         data.proposals.length +
         d.options.length +

@@ -9,6 +9,7 @@ import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
 import {
+  CheckIcon,
   ChevronLeft,
   ChevronRight,
   CriticalIcon,
@@ -21,6 +22,12 @@ export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
   | { kind: "event"; id: string; start: number; end: number; event: AppEvent };
 
+interface Toast {
+  message: string;
+  /** Puts things back as they were; shown as a button. */
+  undo?: () => void;
+}
+
 interface Bubble {
   item: Item;
   x: number;
@@ -30,6 +37,8 @@ interface Bubble {
 const DAY_MS = 86_400_000;
 /** Hold this long on a block to start dragging it outside edit mode. */
 const LONG_PRESS_MS = 400;
+/** How long the replan button shows its tick. */
+const DONE_MS = 1500;
 
 interface Drag {
   id: string;
@@ -53,10 +62,11 @@ const clock = (m: number) => {
 };
 
 export function Week({ onSettings }: { onSettings: () => void }) {
-  const { data, now, result, dispatch } = useStore();
+  const { data, now, result, pinShort, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [offset, setOffset] = useState(0);
   const [replanning, setReplanning] = useState(false);
+  const [replanned, setReplanned] = useState(false);
   const [editing, setEditing] = useState(false);
   const [focusId, setFocusId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
@@ -83,17 +93,49 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       clearTimeout(replanTimer.current);
     };
   }, []);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<Toast | null>(null);
+  /** Said only to screen readers: the replan button shows its result itself. */
+  const [spoken, setSpoken] = useState("");
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const flash = (message: string) => {
+  const flash = (message: string, undo?: () => void) => {
     clearTimeout(toastTimer.current);
-    setToast(message);
-    toastTimer.current = setTimeout(() => setToast(null), 2500);
+    setToast({ message, undo });
+    toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 2500);
+  };
+
+  /** A pin just made, to tell right away if it puts a minimum out of reach. */
+  const watch = useRef<{ before: Map<string, number>; undo: () => void } | null>(null);
+  useEffect(() => {
+    const w = watch.current;
+    if (!w) return;
+    watch.current = null;
+    const worse = pinShort.short.filter((s) => s.minutes > (w.before.get(s.taskId) ?? 0));
+    if (worse.length === 0) return;
+    flash(
+      `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
+      w.undo,
+    );
+  });
+
+  /** Pins `block` at `start`, offering to put it back if that breaks a minimum. */
+  const pinAt = (block: PlanBlock, start: number) => {
+    const moved = pinId(block.taskId, start);
+    watch.current = {
+      before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
+      undo: () => {
+        setToast(null);
+        // A block placed by the plan goes back to the plan; a pinned one to its old spot.
+        if (isPinned(block)) dispatch({ type: "pin", blockId: moved, start: block.start });
+        else dispatch({ type: "unpin", blockId: moved });
+      },
+    };
+    dispatch({ type: "pin", blockId: block.id, start });
+    return moved;
   };
 
   const ref = now + offset * 7 * DAY_MS;
@@ -187,10 +229,20 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const drop = (block: PlanBlock, d: Drag, x: number, y: number) => {
     const target = landing(x, y - d.grab, d.minutes, block.id);
     if (!target) return null;
-    const start = zonedInstant(tz, target.date, target.minute);
-    dispatch({ type: "pin", blockId: block.id, start });
-    return pinId(block.taskId, start);
+    return pinAt(block, zonedInstant(tz, target.date, target.minute));
   };
+
+  // While dragging: the plan's blocks under the landing spot, which it will move.
+  const ghostStart =
+    drag?.active && drag.target ? zonedInstant(tz, drag.target.date, drag.target.minute) : 0;
+  const displaced = (b: PlanBlock) =>
+    !!drag?.active &&
+    !!drag.target &&
+    b.id !== drag.id &&
+    !isPinned(b) &&
+    b.start > now &&
+    b.start < ghostStart + drag.minutes * MINUTE &&
+    b.end > ghostStart;
 
   return (
     <div className="week-wrap">
@@ -229,21 +281,30 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         </button>
         <button
           type="button"
-          className={`icon-btn replan${replanning ? " spinning" : ""}`}
+          className={`icon-btn replan${replanning ? " spinning" : ""}${replanned ? " done" : ""}`}
           aria-label="Reacomodar semana"
           disabled={replanning}
           onClick={() => {
+            clearTimeout(replanTimer.current);
+            setReplanned(false);
+            // Emptied first, so a second replan in the same minute is announced again.
+            setSpoken("");
             setReplanning(true);
             dispatch({ type: "replanWeek" });
             const at = now;
             replanTimer.current = setTimeout(() => {
               setReplanning(false);
-              flash(`Semana reacomodada · ${time(tz, at)}`);
+              setReplanned(true);
+              setSpoken(`Semana reacomodada · ${time(tz, at)}`);
+              replanTimer.current = setTimeout(() => setReplanned(false), DONE_MS);
             }, 600);
           }}
         >
-          <ReplanIcon />
+          {replanned ? <CheckIcon /> : <ReplanIcon />}
         </button>
+        <span className="sr-only" role="status">
+          {spoken}
+        </span>
         <SyncDot onClick={onSettings} />
         <button type="button" className="icon-btn" aria-label="Ajustes" onClick={onSettings}>
           <GearIcon />
@@ -324,7 +385,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                   type="button"
                   data-level={b.level}
                   aria-label={`${titleOf(b)}, ${time(tz, item.start)}${isPinned(b) ? ", fijado" : ""}`}
-                  className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                  className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                   style={{ ...style, ["--c" as string]: colorOf(b) }}
                   onPointerDown={
                     future
@@ -393,8 +454,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
                           e.preventDefault();
                           const start = b.start + step;
                           if (start <= now) return;
-                          dispatch({ type: "pin", blockId: b.id, start });
-                          setFocusId(pinId(b.taskId, start));
+                          setFocusId(pinAt(b, start));
                         }
                       : undefined
                   }
@@ -485,28 +545,38 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       <button
         type="button"
         className={`fab${critical ? " on" : ""}`}
+        aria-label="Camino crítico"
+        title="Camino crítico"
         aria-pressed={critical}
         onClick={() => {
           setCritical(!critical);
           setBubble(null);
         }}
       >
-        <CriticalIcon /> Camino crítico
+        <CriticalIcon />
       </button>
-      {toast && (
-        <div className="calm" role="status">
-          {toast}
-        </div>
-      )}
-      {critical && short.length > 0 && (
-        <div className="calm short" role="status">
-          No llegás: faltan{" "}
-          {short.map((s) => `${hours(s.minDeficit)} de ${titleOfTask(s.taskId)}`).join(", ")}
-        </div>
-      )}
-      {critical && short.length === 0 && !anyCritical && (
-        <div className="calm">Semana tranquila ✓</div>
-      )}
+      {/* Notices sit above the tab bar, beside the button; touches pass through them. */}
+      <div className="snacks" role="status">
+        {critical && short.length > 0 && (
+          <div className="snack short">
+            No llegás: faltan{" "}
+            {short.map((s) => `${hours(s.minDeficit)} de ${titleOfTask(s.taskId)}`).join(", ")}
+          </div>
+        )}
+        {critical && short.length === 0 && !anyCritical && (
+          <div className="snack">Semana tranquila ✓</div>
+        )}
+        {toast && (
+          <div className={`snack${toast.undo ? " short" : ""}`}>
+            <span>{toast.message}</span>
+            {toast.undo && (
+              <button type="button" className="btn small snack-btn" onClick={toast.undo}>
+                Deshacer
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       {bubble && (
         <>
@@ -526,6 +596,11 @@ export function Week({ onSettings }: { onSettings: () => void }) {
               dispatch({ type: "unpin", blockId });
               setBubble(null);
               flash("Soltado · el plan lo reacomodó");
+            }}
+            onPin={(block) => {
+              setBubble(null);
+              pinAt(block, block.start);
+              flash("Fijado acá · el resto se acomoda alrededor");
             }}
           />
         </>
@@ -622,10 +697,12 @@ function BubbleCard({
   bubble,
   onOpen,
   onRelease,
+  onPin,
 }: {
   bubble: Bubble;
   onOpen: () => void;
   onRelease: (blockId: string) => void;
+  onPin: (block: PlanBlock) => void;
 }) {
   const { data, now } = useStore();
   const tz = data.settings.timezone;
@@ -673,6 +750,14 @@ function BubbleCard({
           <span>📌 Fijado por vos</span>
           <button type="button" className="btn small" onClick={() => onRelease(b.id)}>
             Soltar
+          </button>
+        </div>
+      )}
+      {!isPinned(b) && item.start > now && (
+        <div className="bubble-pin">
+          <span>Lo puso el plan</span>
+          <button type="button" className="btn small" onClick={() => onPin(b)}>
+            Fijar acá
           </button>
         </div>
       )}
