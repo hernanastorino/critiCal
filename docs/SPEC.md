@@ -24,7 +24,9 @@ Calendario personal que planifica automáticamente el tiempo de estudio y hábit
 
 - Recomendación: Google como calendario por defecto en el iPhone, para que los eventos nuevos impacten al instante.
 - **"Mostrar como: Disponible"** → el evento es compatible con bloques planificados (paralelo). "Ocupado" → bloquea.
-- **Detección de entregas**: eventos con emoji/tag (`📝`, `#entrega`, `#parcial`) se proponen como Entrega en la bandeja para estimar.
+- **Detección de entregas**: eventos con emoji/tag (`📝`, `#entrega`, `#parcial`, `#presentación`) en cualquier calendario (salvo los marcados «Ignorar») se proponen en la bandeja para estimar. Si el evento pierde la etiqueta, su tarea sale del plan; si la recupera, vuelve.
+- **Eventos flexibles**: `#flex` en el título o un calendario marcado «Flexible». Un parcial o presentación nunca se ofrece mover.
+- **Eventos tentativos**: estado *tentative* de Google / `STATUS:TENTATIVE` de iCloud, o un título que termina en «?».
 - OAuth de Google en modo **Production** (no verificado) para que los refresh tokens no venzan a los 7 días.
 
 ## 3. Modelo de datos (fuente de verdad)
@@ -104,7 +106,8 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 - Playwright E2E contra la preview, con emulación iPhone (WebKit) y desktop.
 - Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod con **aprobación manual** (GitHub Environment).
 - Migraciones versionadas (Supabase CLI), Dependabot, CodeQL, rollback a un clic en Vercel.
-- Revisor IA: prueba controlada CodeRabbit vs. Macroscope (PR con bugs plantados); queda el ganador, empate → CodeRabbit.
+- Revisor IA: CodeRabbit en cada PR; se mergea solo con CI verde, CodeRabbit terminado sobre el último commit y 0 hilos abiertos. (La prueba contra Macroscope se descartó.)
+- Sentry en cliente y funciones; los cortes de red no se reportan como errores.
 
 ## 11. Seguridad
 
@@ -123,3 +126,27 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 3. UI con los diseños (bandeja, calendario, silos)
 4. iCloud, traslados, notificaciones push
 5. Widget Scriptable · v2: IA para carga de programas
+
+## 13. Estado (noviembre 2026)
+
+Hecho y en producción, además de las fases 0–4:
+
+- **Descansos por materia**: estudio + descanso (50/10 por defecto, editable). El plan reserva bloques con el descanso incluido; los registros guardan el factor con que se hicieron.
+- **Repaso espaciado** antes de parciales (7, 3 y 1 días antes) y opción «día anterior solo para esta materia»; un bloque de otra materia en ese día pasa a propuesta.
+- **Eventos tentativos**: el plan cuenta con ellos; si uno de hoy se cae, el plan B llega como propuesta (no se aplica solo) y vence con el día.
+- **Desvelo**: si un evento terminó pasada la hora de dormir, la bandeja pregunta a qué hora me levanté; mientras tanto se asumen las horas de sueño habituales desde que terminó.
+- **Opciones de infactibilidad completas**: mover un evento flexible (se muestra en la bandeja para moverlo en el calendario), versión mínima de una entrega (la mitad del mínimo) y priorizar temas por peso (% del parcial, propuesto por la IA del programa).
+- **Deshacer**: últimas 20 versiones del plan, botón en Semana; las decisiones aplicadas se deshacen en cualquier orden.
+- **«📚 Plan»**: todos los bloques planificados; los críticos en rojo (Tomato), el resto neutros.
+- **/api/travel**: hasta 60 s para buscar lugares.
+- **Errores de Sentry corregidos**: el cron ya no reescribe eventos del Plan sin cambios (cuota de Google) y reintenta los límites; los cortes de red del celular no se reportan.
+
+## 14. Futuro
+
+### Traslados en ómnibus (Montevideo y Canelones)
+
+- Elegir por traslado (o por par de lugares) entre **auto** y **ómnibus**.
+- Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas reales por parada, **esperas** y **transbordos**.
+- Sugerir qué ómnibus tomar para minimizar el tiempo puerta a puerta.
+- **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
+- Antes de implementarlo: definir fuentes de datos (datos abiertos de la IM / GTFS del STM, líneas de Canelones), cada cuánto refrescar el caché y cómo se elige el modo en la interfaz.
