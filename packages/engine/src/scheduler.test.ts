@@ -663,6 +663,31 @@ describe("exam review", () => {
     expect(minutesOf(r, "b")).toBe(60);
   });
 
+  it("does not count the slots of a task already covered", () => {
+    // A: Monday 08 or 09; B and C: Monday 08 or Tuesday 08. Only A at 09 fits all three.
+    const hour = { remainingMinutes: 60, minRemainingMinutes: 60, sessionMinutes: 60 };
+    const r = schedule(
+      base({
+        tasks: [
+          task("a", "mate", at("2026-11-02", "10:00"), hour),
+          task("b", "fisica", at("2026-11-04", "08:00"), {
+            ...hour,
+            avoid: [{ start: at("2026-11-02", "09:00"), end: at("2026-11-02", "10:00") }],
+          }),
+          task("c", "gym", at("2026-11-04", "08:00"), {
+            ...hour,
+            avoid: [{ start: at("2026-11-02", "09:00"), end: at("2026-11-02", "10:00") }],
+          }),
+        ],
+        events: [
+          ev("x", at("2026-11-02", "10:00"), at("2026-11-03", "08:00")),
+          ev("y", at("2026-11-03", "09:00"), at("2026-11-04", "08:00")),
+        ],
+      }),
+    );
+    expect(["a", "b", "c"].map((id) => minutesOf(r, id))).toEqual([60, 60, 60]);
+  });
+
   it("never uses times a task must avoid", () => {
     const keep = { start: at("2026-11-03", "00:00"), end: at("2026-11-04", "00:00") };
     const r = schedule(

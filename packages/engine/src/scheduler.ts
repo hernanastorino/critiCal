@@ -181,6 +181,8 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     const counted = board.slots.map(() => false);
     for (const p of prepared) {
       const need = Math.max(0, p.min - (placed.get(p.task.id) ?? 0));
+      // A task with its minimum placed adds no demand, so its slots add no capacity.
+      if (need === 0) continue;
       demand += need;
       let own = 0;
       board.slots.forEach((s, i) => {
