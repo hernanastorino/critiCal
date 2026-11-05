@@ -3,6 +3,7 @@ import { DEFAULTS } from "../calendars.js";
 import type { Activity, DaySettings } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
+import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { useStore } from "../store.js";
 import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 
@@ -10,6 +11,12 @@ const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
+/** A whole number of minutes within [min, max] from a field, or undefined if not one. */
+const clampMinutes = (v: string, min: number, max: number) => {
+  const n = Math.round(Number(v));
+  return v.trim() !== "" && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : undefined;
+};
+
 const toHours = (m: number) => String(Math.round((m / 60) * 100) / 100);
 const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
 
@@ -315,6 +322,8 @@ function ActivityRow({ activity }: { activity: Activity }) {
     min: String(activity.minBlockMinutes),
     from: activity.preferred ? minutesToHhmm(activity.preferred.start) : "",
     to: activity.preferred ? minutesToHhmm(activity.preferred.end) : "",
+    study: String(activity.studyMinutes ?? DEFAULT_STUDY_MINUTES),
+    rest: String(activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0)),
   });
   const taken = new Set(
     data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
@@ -385,6 +394,16 @@ function ActivityRow({ activity }: { activity: Activity }) {
               onChange={(e) => setForm({ ...form, min: e.target.value })}
             />
             <Field
+              label="Estudio antes del descanso (min)"
+              value={form.study}
+              onChange={(e) => setForm({ ...form, study: e.target.value })}
+            />
+            <Field
+              label="Descanso (min, 0 = sin)"
+              value={form.rest}
+              onChange={(e) => setForm({ ...form, rest: e.target.value })}
+            />
+            <Field
               label="Prefiero desde"
               type="time"
               value={form.from}
@@ -430,6 +449,9 @@ function ActivityRow({ activity }: { activity: Activity }) {
                   academic: form.academic,
                   maxSessionMinutes: Math.max(30, Number(form.max) || activity.maxSessionMinutes),
                   minBlockMinutes: Math.max(30, Number(form.min) || activity.minBlockMinutes),
+                  // Breaks live inside the block: a 50 + 10 hour plans 50 minutes of study.
+                  studyMinutes: clampMinutes(form.study, 5, 240) ?? activity.studyMinutes,
+                  breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
                   preferred:
                     form.from && form.to
                       ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }

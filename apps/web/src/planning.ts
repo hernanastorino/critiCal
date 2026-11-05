@@ -1,5 +1,6 @@
 import { eventRole, visibleEvents } from "./calendars.js";
 import {
+  type Activity,
   addDays,
   effortRatio,
   infeasibilityOptions,
@@ -19,7 +20,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
-import type { AppData, AppTask, Proposal } from "./model.js";
+import type { AppData, AppTask, CheckIn, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -44,11 +45,37 @@ export function endOfWeek(tz: string, instant: number): number {
   return zonedInstant(tz, addDays(weekStart(tz, instant), 7), 0);
 }
 
+/** Study minutes and break after them, by default, for materias (academic activities). */
+export const DEFAULT_STUDY_MINUTES = 50;
+export const DEFAULT_BREAK_MINUTES = 10;
+
+/**
+ * Block time per study minute of an activity: 60/50 with the default 50 + 10 breaks.
+ * Breaks are not drawn; a planned block includes them. Routines have none.
+ */
+export function blockFactor(activity: Activity | undefined): number {
+  if (!activity) return 1;
+  const study = activity.studyMinutes ?? (activity.academic ? DEFAULT_STUDY_MINUTES : 0);
+  const rest = activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0);
+  return study > 0 && rest > 0 ? (study + rest) / study : 1;
+}
+
 /** Minutes really worked on a task, from check-ins. */
 export function doneMinutes(data: AppData, taskId: string, since = 0): number {
   return data.checkIns
     .filter((c) => c.taskId === taskId && c.createdAt >= since)
     .reduce((sum, c) => sum + c.minutesDone, 0);
+}
+
+/** Study minutes of a check-in: its block time without the breaks it had then. */
+export const studyMinutes = (c: CheckIn) => c.minutesDone / (c.factor ?? 1);
+
+/** The block factor to record on a new check-in of a task. */
+export function checkInFactor(data: AppData, taskId: string): number | undefined {
+  const task = data.tasks.find((t) => t.id === taskId);
+  if (!task || task.kind === "habit") return undefined;
+  const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
+  return k === 1 ? undefined : k;
 }
 
 function samples(data: AppData) {
@@ -60,8 +87,13 @@ function samples(data: AppData) {
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
+      // Check-ins count block time, breaks included; estimates are study time.
       return [
-        { activityId: task.activityId, estimatedMinutes: estimated, actualMinutes: c.minutesDone },
+        {
+          activityId: task.activityId,
+          estimatedMinutes: estimated,
+          actualMinutes: studyMinutes(c),
+        },
       ];
     });
 }
@@ -97,7 +129,10 @@ export function progress(data: AppData, now: number): TaskProgress[] {
           deadline: endOfWeek(tz, now),
         };
       }
-      const done = doneMinutes(data, task.id);
+      // Estimates are study time and check-ins block time (breaks included then).
+      const done = data.checkIns
+        .filter((c) => c.taskId === task.id)
+        .reduce((sum, c) => sum + studyMinutes(c), 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
       // Units left out to make the rest fit are neither done nor missing.
       const units = task.units.filter((u) => !u.skipped);
@@ -122,21 +157,31 @@ export function progress(data: AppData, now: number): TaskProgress[] {
 export function toEngineTasks(data: AppData, now: number): Task[] {
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
-    .map((p) => ({
+    .map((p) => {
+      // The planner places block time: study plus its breaks. Weekly silos are already
+      // counted in blocks (a 60-minute session includes its rest).
+      const k =
+        p.task.kind === "habit"
+          ? 1
+          : blockFactor(data.activities.find((a) => a.id === p.task.activityId));
+      return { p, k };
+    })
+    .map(({ p, k }) => ({
       id: p.task.id,
       activityId: p.task.activityId,
       title: p.task.title,
       deadline: p.deadline,
-      remainingMinutes: p.remainingMinutes,
-      minRemainingMinutes: p.minRemainingMinutes,
+      remainingMinutes: Math.ceil(p.remainingMinutes * k),
+      minRemainingMinutes: Math.ceil(p.minRemainingMinutes * k),
       sessionMinutes: p.task.sessionMinutes,
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
-      // An entrega can be handed in smaller: half its minimum, never below an hour.
+      // An entrega can be handed in smaller: half its minimum, never below an hour
+      // (study time, planned as block time like the rest).
       mvpMinutes:
         p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
-          ? Math.max(60, Math.ceil(p.minRemainingMinutes / 2))
+          ? Math.ceil(Math.max(60, Math.ceil(p.minRemainingMinutes / 2)) * k)
           : undefined,
       // Exams with weighed units can leave the lightest ones out.
       units: p.task.units.some((u) => u.weight !== undefined)
@@ -145,7 +190,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
             .map((u) => ({
               id: u.id,
               title: u.title,
-              minutes: u.estimateMinutes,
+              minutes: Math.ceil(u.estimateMinutes * k),
               weight: u.weight ?? 0,
             }))
         : undefined,
@@ -332,8 +377,13 @@ export function applyOption(
     if (!old) return task;
     const next = after.get(task.id);
     if (!next) return { ...task, status: "dropped" as const };
-    const minCut = old.minRemainingMinutes - next.minRemainingMinutes;
-    const cut = old.remainingMinutes - next.remainingMinutes;
+    // The engine cuts block time; tasks keep study time (breaks are not work).
+    const k =
+      task.kind === "habit"
+        ? 1
+        : blockFactor(data.activities.find((a) => a.id === task.activityId));
+    const minCut = Math.round((old.minRemainingMinutes - next.minRemainingMinutes) / k);
+    const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
     const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
     return {
       ...task,

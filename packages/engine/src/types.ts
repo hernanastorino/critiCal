@@ -63,6 +63,10 @@ export interface Activity {
   kind?: "materia" | "rutina";
   /** Other names a materia goes by in events, normalized ("add"). */
   aliases?: string[];
+  /** Study minutes before each break (the app's default for materias: 50). */
+  studyMinutes?: number;
+  /** Rest after each study stretch, inside the block's time (default for materias: 10). */
+  breakMinutes?: number;
 }
 
 export interface Task {
