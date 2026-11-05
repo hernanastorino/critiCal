@@ -275,9 +275,21 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
-  const wake = withLateNight(data, now).find((o) => o.date === date)?.wake;
-  const wakeAt = wake === undefined ? undefined : zonedInstant(tz, date, wake);
-  const displaced = (b: PlanBlock) => wakeAt !== undefined && b.start > now && b.start < wakeAt;
+  const lateOverrides = withLateNight(data, now);
+  const dayOverride = (
+    data.preferences?.holidaysOff === false
+      ? lateOverrides
+      : withHolidays(lateOverrides, tz, now, now)
+  ).find((o) => o.date === date);
+  const routine = data.settings.week[dayOverride?.asWeekday ?? localParts(tz, now).weekday];
+  // Work starts after the morning routine, as the planner counts it.
+  const plannableAt =
+    dayOverride?.wake === undefined
+      ? undefined
+      : zonedInstant(tz, date, dayOverride.wake) +
+        Math.max(0, routine?.morningMinutes ?? 0) * MINUTE;
+  const displaced = (b: PlanBlock) =>
+    plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
   const conflicts = unpinned.filter((b) => !displaced(b) && busy.some((e) => overlaps(e, b)));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];

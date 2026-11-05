@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest";
 import { Inbox } from "./components/Inbox.js";
 import { emptyData, TIMEZONE } from "./demo.js";
+import type { PlanBlock } from "./engine.js";
 import { zonedInstant } from "./engine.js";
 import { lateNight, withLateNight } from "./lateNight.js";
 import type { AppData, AppEvent } from "./model.js";
@@ -129,6 +130,20 @@ describe("late nights", () => {
     });
     const r = refreshPlan(d, morning);
     expect(r.plan.some((b) => b.id === "early")).toBe(false);
+    // With a morning routine, a block in it is freed too (planned work starts after).
+    const slow = {
+      ...d,
+      settings: { ...d.settings, week: d.settings.week.map((w) => ({ ...w, morningMinutes: 30 })) },
+      plan: [
+        {
+          ...(d.plan[0] as PlanBlock),
+          id: "mid",
+          start: at("2026-11-04", "09:30"),
+          end: at("2026-11-04", "10:30"),
+        },
+      ],
+    };
+    expect(refreshPlan(slow, morning).plan.some((b) => b.id === "mid")).toBe(false);
     expect(r.plan.every((b) => b.start >= at("2026-11-04", "09:30"))).toBe(true);
   });
 
