@@ -20,6 +20,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
+import { withLateNight } from "./lateNight.js";
 import type { AppData, AppTask, CheckIn, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
@@ -226,8 +227,8 @@ export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): 
     frozen,
     overrides:
       data.preferences?.holidaysOff === false
-        ? data.overrides
-        : withHolidays(data.overrides, data.settings.timezone, now, horizonEnd),
+        ? withLateNight(data, now)
+        : withHolidays(withLateNight(data, now), data.settings.timezone, now, horizonEnd),
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,
     maxActivitiesPerDay: (data.relaxContextUntil ?? 0) > now ? Number.POSITIVE_INFINITY : undefined,
   };
@@ -310,8 +311,27 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const reserved = (b: PlanBlock) =>
     kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
-  const conflicts = unpinned.filter((b) => clashes(b) || reserved(b));
-  const keep = [...unpinned.filter((b) => !conflicts.includes(b)), ...pins];
+  // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
+  // before; they are planned again instead of staying put.
+  const date = localParts(tz, now).date;
+  const lateOverrides = withLateNight(data, now);
+  const dayOverride = (
+    data.preferences?.holidaysOff === false
+      ? lateOverrides
+      : withHolidays(lateOverrides, tz, now, now)
+  ).find((o) => o.date === date);
+  const routine = data.settings.week[dayOverride?.asWeekday ?? localParts(tz, now).weekday];
+  // Work starts after the morning routine, as the planner counts it.
+  const plannableAt =
+    dayOverride?.wake === undefined
+      ? undefined
+      : zonedInstant(tz, date, dayOverride.wake) +
+        Math.max(0, routine?.morningMinutes ?? 0) * MINUTE;
+  const displaced = (b: PlanBlock) =>
+    plannableAt !== undefined && b.start > now && b.start < plannableAt;
+  // Displaced blocks are planned again anyway: never a conflict to ask about.
+  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b)));
+  const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
   const result = schedule(input);
@@ -326,6 +346,8 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       ...past,
       ...keep,
       ...conflicts,
+      // Until the proposal is answered, today stays as it was, displaced blocks included.
+      ...unpinned.filter(displaced),
       // schedule() echoes frozen blocks, so pins on later days are already in keep.
       ...plan.filter((b) => b.start >= todayEnd && !keep.some((k) => k.id === b.id)),
     ],
