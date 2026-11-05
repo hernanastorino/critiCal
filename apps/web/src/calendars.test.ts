@@ -263,6 +263,38 @@ describe("tags in event titles", () => {
     // A tagged entrega is a deadline, it does not block time.
     expect(visibleEvents(d).find((e) => e.id === "a")?.busy).toBe(false);
 
+    // A moved evaluation is due at its new time; a flexible calendar stays flexible
+    // even when a tag says what the event is.
+    const { isFlexible } = await import("./calendars.js");
+    const flexCal = {
+      ...d,
+      calendars: [
+        ...d.calendars,
+        {
+          id: "google:f",
+          source: "google" as const,
+          externalId: "f",
+          name: "Flex",
+          role: "flexible" as const,
+        },
+      ],
+    };
+    expect(
+      isFlexible(flexCal, {
+        ...d.events[1],
+        calendarId: "google:f",
+        title: "Defensa #presentación",
+      } as never),
+    ).toBe(true);
+    const movedOut = importFromCalendars(
+      {
+        ...out,
+        movedEvents: [{ eventId: "b", from: at(5), start: at(4), end: at(4) + 7_200_000 }],
+      },
+      now,
+      (s: string) => `id:${s}`,
+    );
+    expect(movedOut.tasks.find((t) => t.sourceEventId === "b")?.deadline).toBe(at(4));
     // Removing the tag stops planning the task, keeping it as history.
     const untaggedOut = importFromCalendars(
       { ...out, events: out.events.map((e) => (e.id === "b" ? { ...e, title: "Física" } : e)) },

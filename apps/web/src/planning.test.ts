@@ -561,6 +561,21 @@ describe("more ways out in the app", () => {
     expect(
       reducer(replaced, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
     ).toEqual([earlier]);
+    // A longer event in the calendar keeps its new length at the new time.
+    const longer = {
+      ...moved,
+      events: [{ ...cafe, end: cafe.end + 3_600_000 }],
+    };
+    const shown = visibleEvents(longer)[0];
+    expect(shown?.end).toBe((opt?.moveTo?.start as number) + (cafe.end - cafe.start) + 3_600_000);
+    // Moved earlier: once the new time passes, the move stays while the original is ahead.
+    const early = {
+      ...moved,
+      movedEvents: [
+        { eventId: "google:x", from: cafe.start, start: now - 7_200_000, end: now - 3_600_000 },
+      ],
+    };
+    expect(reducer(early, { type: "refresh", now }).movedEvents).toHaveLength(1);
     // Out of order: undoing the first of two moves keeps the second, and undoing the
     // second afterwards puts the event back at its own time, not at the first move.
     const m1 = { eventId: "google:x", from: cafe.start, start: cafe.start + 1, end: cafe.end + 1 };

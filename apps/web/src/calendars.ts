@@ -104,8 +104,22 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
 }
 
 /** An event that may be moved when the minimums do not fit: #flex, or a flexible calendar. */
-export const isFlexible = (data: AppData, e: AppEvent) =>
-  /#flex\b/iu.test(e.title) || eventRole(data, e) === "flexible";
+export function isFlexible(data: AppData, e: AppEvent): boolean {
+  const c = calendarFor(data, e);
+  const role = c ? roleOf(c) : "busy";
+  // The calendar's role counts even when a tag says what the event is (#presentación).
+  return role !== "ignore" && (/#flex\b/iu.test(e.title) || role === "flexible");
+}
+
+/**
+ * The event where the plan counts it: at its agreed new time while the calendar still
+ * shows it where it was, keeping its current length.
+ */
+export function projected(data: AppData, e: AppEvent): AppEvent {
+  const m = data.movedEvents?.find((x) => x.eventId === e.id);
+  if (!m || m.from !== e.start) return e;
+  return { ...e, start: m.start, end: m.start + (e.end - e.start) };
+}
 
 /** An event that may not happen: so marked by its calendar, or a title ending in «?». */
 export const isTentative = (e: AppEvent) => !!e.tentative || /\?\s*$/.test(e.title);
@@ -116,14 +130,11 @@ export const isTentative = (e: AppEvent) => !!e.tentative || /\?\s*$/.test(e.tit
  * new time (until the calendar itself shows them elsewhere).
  */
 export function visibleEvents(data: AppData): AppEvent[] {
-  const moved = new Map((data.movedEvents ?? []).map((m) => [m.eventId, m]));
   return data.events.flatMap((e): AppEvent[] => {
     const role = eventRole(data, e);
     if (role === "ignore") return [];
     if (role === "entrega") return [{ ...e, busy: false }];
-    const m = moved.get(e.id);
-    const at = m && m.from === e.start ? { start: m.start, end: m.end } : {};
-    return [{ ...e, ...at, flexible: isFlexible(data, e) || undefined }];
+    return [{ ...projected(data, e), flexible: isFlexible(data, e) || undefined }];
   });
 }
 
@@ -154,7 +165,9 @@ export function importFromCalendars(
   let activities = data.activities;
   let changed = false;
 
-  for (const e of data.events) {
+  for (const original of data.events) {
+    // A moved evaluation is due at its new time: preparation must end before it.
+    const e = projected(data, original);
     const role = eventRole(data, e);
     if (role !== "parcial" && role !== "entrega" && role !== "presentacion") {
       // No longer an evaluation (tag removed, calendar role changed): its task stops

@@ -13,9 +13,13 @@ export function refresh(raw: AppData, now: number): AppData {
   // Same ids for the same user on every device and on the server; never across users.
   const owner = raw.owner;
   const ids = owner ? (seed: string) => stableId(`${owner}:${seed}`) : newId;
-  // A move ends once the calendar shows the event elsewhere (or gone), or it is over.
-  const movedEvents = raw.movedEvents?.filter(
-    (m) => m.end > now && raw.events.some((e) => e.id === m.eventId && e.start === m.from),
+  // A move ends once the calendar shows the event elsewhere (or gone), or once both
+  // the new time and the original one are over (moved earlier, the original still
+  // counts until it passes).
+  const movedEvents = raw.movedEvents?.filter((m) =>
+    raw.events.some(
+      (e) => e.id === m.eventId && e.start === m.from && (m.end > now || e.end > now),
+    ),
   );
   const imported = importFromCalendars(
     movedEvents?.length === raw.movedEvents?.length ? input : { ...input, movedEvents },
