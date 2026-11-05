@@ -289,7 +289,11 @@ function apply(data: AppData, action: Action): AppData {
           movedEvents: record.movedEventId
             ? [
                 ...(data.movedEvents ?? []).filter((m) => m.eventId !== record.movedEventId),
-                ...(record.previousMove ? [record.previousMove] : []),
+                // Only while this decision's own move still stands (not removed since).
+                ...(record.previousMove &&
+                data.movedEvents?.some((m) => m.eventId === record.movedEventId)
+                  ? [record.previousMove]
+                  : []),
               ]
             : data.movedEvents,
           freeTimeUntil: record.freeTimeUntil,

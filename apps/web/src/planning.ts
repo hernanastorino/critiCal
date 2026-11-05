@@ -136,7 +136,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       // An entrega can be handed in smaller: half its minimum, never below an hour.
       mvpMinutes:
         p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
-          ? Math.max(60, Math.round(p.minRemainingMinutes / 2 / 30) * 30)
+          ? Math.max(60, Math.ceil(p.minRemainingMinutes / 2))
           : undefined,
       // Exams with weighed units can leave the lightest ones out.
       units: p.task.units.some((u) => u.weight !== undefined)

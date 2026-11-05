@@ -384,6 +384,9 @@ describe("more ways out in the app", () => {
     const [e, p] = toEngineTasks(d, now);
     expect(e?.mvpMinutes).toBe(300);
     expect(p?.mvpMinutes).toBeUndefined();
+    // Exactly half (never under an hour), not rounded to slots.
+    const odd = toEngineTasks(base({ tasks: [task("o", "TP de laboratorio", 210)] }), now)[0];
+    expect(odd?.mvpMinutes).toBe(105);
     // Plurals and accents, and anything imported from a parcial event, are exams too.
     const more = base({
       calendars: [
@@ -473,6 +476,11 @@ describe("more ways out in the app", () => {
     expect(
       reducer(replaced, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
     ).toEqual([earlier]);
+    // Not if the user put the event back by hand in between.
+    const unmoved = reducer(replaced, { type: "unmoveEvent", eventId: "google:x", now });
+    expect(
+      reducer(unmoved, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([]);
     // …and once the calendar shows it elsewhere, the move is over.
     const synced = reducer(
       { ...moved, events: [{ ...cafe, start: cafe.start + 3_600_000 }] },
