@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { InviteGate } from "./App.js";
 import { Connected } from "./Connected.js";
@@ -102,6 +102,27 @@ describe("invite gate", () => {
     expect(screen.getByText(/otro@gmail.com no está invitado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Salir"));
     expect(signOut).toHaveBeenCalled();
+  });
+
+  it("ignores an older answer that arrives after a newer one", async () => {
+    const pending: ((v: unknown) => void)[] = [];
+    const rpc = vi.fn(() => new Promise((resolve) => pending.push(resolve)));
+    render(
+      <InviteGate
+        client={{ rpc } as never}
+        session={{ user: { id: "x", email: "otro@gmail.com" } } as never}
+        onSignOut={() => {}}
+      >
+        <p>la app</p>
+      </InviteGate>,
+    );
+    await waitFor(() => expect(pending.length).toBe(1));
+    // Coming back to the app asks again while the first question is still out.
+    document.dispatchEvent(new Event("visibilitychange"));
+    await waitFor(() => expect(pending.length).toBe(2));
+    await act(async () => pending[1]?.({ data: { invited: true }, error: null }));
+    await act(async () => pending[0]?.({ data: { invited: false }, error: null }));
+    expect(screen.getByText("la app")).toBeTruthy();
   });
 
   it("asks again and opens once the account is invited", async () => {

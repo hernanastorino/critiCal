@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
@@ -127,14 +127,18 @@ export function InviteGate({
 }) {
   const [blocked, setBlocked] = useState(false);
   const uid = session.user?.id;
+  // Only the latest question's answer counts: an older one arriving late is ignored.
+  const latest = useRef(0);
   /** Asks whether this account is invited; returns a cancel for effects. */
   const check = useCallback(() => {
     let cancelled = false;
+    const asked = ++latest.current;
     void Promise.resolve()
       .then(() => client.rpc("my_access"))
       .then(({ data, error }) => {
         const invited = (data as { invited?: boolean } | null)?.invited;
-        if (!cancelled && !error && typeof invited === "boolean") setBlocked(!invited);
+        if (cancelled || asked !== latest.current) return;
+        if (!error && typeof invited === "boolean") setBlocked(!invited);
       })
       .catch(() => undefined);
     return () => {
