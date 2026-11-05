@@ -19,6 +19,8 @@ const AGENT = "critiCal/1.0 (+https://critical-cal.vercel.app)";
  * the routes); the app gives up at 45 s, so the function must be allowed longer.
  */
 export const maxDuration = 60;
+/** How Vercel reads it for a plain Node function in `/api`. */
+export const config = { maxDuration };
 
 /** One-off addresses timed per call: Nominatim allows one lookup per second. */
 export const MAX_SPOTS = 4;
