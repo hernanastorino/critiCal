@@ -162,13 +162,17 @@ export function importFromCalendars(
         existing.status === "dropped" &&
         existing.autoDroppedAt !== undefined &&
         existing.autoDroppedAt === existing.endedAt;
-      if (back || existing.deadline !== deadline || existing.title !== title) {
+      // The event says whether it is an exam: a parcial turned entrega stops being one.
+      const exam = role === "parcial" || undefined;
+      const examChanged = !!existing.exam !== !!exam;
+      if (back || examChanged || existing.deadline !== deadline || existing.title !== title) {
         tasks = tasks.map((t) =>
           t === existing
             ? {
                 ...t,
                 deadline,
                 title,
+                ...(examChanged ? { exam, dayBeforeOnly: exam && t.dayBeforeOnly } : {}),
                 ...(back
                   ? { status: "active" as const, endedAt: undefined, autoDroppedAt: undefined }
                   : {}),
