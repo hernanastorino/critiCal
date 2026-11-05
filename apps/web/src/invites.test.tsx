@@ -104,6 +104,22 @@ describe("invite gate", () => {
     expect(signOut).toHaveBeenCalled();
   });
 
+  it("asks again and opens once the account is invited", async () => {
+    const answers = [{ invited: false }, { invited: true }];
+    const rpc = vi.fn(async () => ({ data: answers.shift() ?? { invited: true }, error: null }));
+    render(
+      <InviteGate
+        client={{ rpc } as never}
+        session={{ user: { id: "x", email: "otro@gmail.com" } } as never}
+        onSignOut={() => {}}
+      >
+        <p>la app</p>
+      </InviteGate>,
+    );
+    fireEvent.click(await screen.findByText("Volver a probar"));
+    expect(await screen.findByText("la app")).toBeTruthy();
+  });
+
   it("opens the app for invited accounts, and when the answer cannot be had", async () => {
     const { rpc } = gate({ invited: true, owner: false });
     expect(screen.getByText("la app")).toBeTruthy();

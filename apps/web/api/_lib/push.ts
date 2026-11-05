@@ -98,5 +98,13 @@ async function send(
 /** Users with at least one device subscribed. */
 export async function subscribedUsers(admin: SupabaseClient): Promise<string[]> {
   const { data } = await admin.from("push_subscriptions").select("user_id");
-  return [...new Set((data ?? []).map((r) => r.user_id as string))];
+  const users = [...new Set((data ?? []).map((r) => r.user_id as string))];
+  // Someone no longer invited gets no notifications (their titles stay unread).
+  const invited = await Promise.all(
+    users.map(async (uid) => {
+      const { data: ok } = await admin.rpc("user_invited", { p_user: uid });
+      return ok === true;
+    }),
+  );
+  return users.filter((_, i) => invited[i]);
 }

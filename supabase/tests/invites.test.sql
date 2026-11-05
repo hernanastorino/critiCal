@@ -1,14 +1,16 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(11);
+select plan(12);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'owner@test.local'),
   ('00000000-0000-0000-0000-0000000000a2', 'Friend@Test.local'),
   ('00000000-0000-0000-0000-0000000000a3', 'stranger@test.local');
-insert into private.app_config (key, value)
-values ('owner', '00000000-0000-0000-0000-0000000000a1')
-on conflict (key) do update set value = excluded.value;
+select is(
+  (select value from private.app_config where key = 'owner'),
+  '00000000-0000-0000-0000-0000000000a1',
+  'the first account created owns the app'
+);
 insert into public.invites (email) values ('friend@test.local');
 
 select throws_ok(

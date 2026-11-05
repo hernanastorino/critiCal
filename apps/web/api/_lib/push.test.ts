@@ -127,6 +127,16 @@ describe("sending", () => {
   it("lists each subscribed user once", async () => {
     expect(await subscribedUsers(admin(tables, () => true).client)).toEqual(["u1"]);
   });
+
+  it("leaves out users no longer invited", async () => {
+    const client = {
+      from: () => ({
+        select: async () => ({ data: [{ user_id: "u1" }, { user_id: "gone" }], error: null }),
+      }),
+      rpc: async (_n: string, a: { p_user: string }) => ({ data: a.p_user !== "gone" }),
+    };
+    expect(await subscribedUsers(client as never)).toEqual(["u1"]);
+  });
 });
 
 describe("error reports", () => {

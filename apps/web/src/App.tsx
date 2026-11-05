@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { Connected } from "./Connected.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
@@ -127,22 +127,30 @@ export function InviteGate({
 }) {
   const [blocked, setBlocked] = useState(false);
   const uid = session.user?.id;
-  useEffect(() => {
-    // Asked again for each account signed in.
-    setBlocked(false);
-    if (!uid) return;
+  /** Asks whether this account is invited; returns a cancel for effects. */
+  const check = useCallback(() => {
     let cancelled = false;
     void Promise.resolve()
       .then(() => client.rpc("my_access"))
       .then(({ data, error }) => {
-        if (!cancelled && !error && (data as { invited?: boolean } | null)?.invited === false)
-          setBlocked(true);
+        const invited = (data as { invited?: boolean } | null)?.invited;
+        if (!cancelled && !error && typeof invited === "boolean") setBlocked(!invited);
       })
       .catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [client, uid]);
+  }, [client]);
+  // Asked for each account signed in, and again on coming back to the app: an
+  // invitation given or taken away meanwhile shows up.
+  useEffect(() => (uid ? check() : undefined), [check, uid]);
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", again);
+    return () => document.removeEventListener("visibilitychange", again);
+  }, [check]);
   if (!blocked) return <>{children}</>;
   return (
     <main className="login">
@@ -153,7 +161,10 @@ export function InviteGate({
         {session.user?.email ? `${session.user.email} no está invitado. ` : ""}Pedile a quien te
         pasó la app que te agregue.
       </p>
-      <button type="button" className="btn primary" onClick={onSignOut}>
+      <button type="button" className="btn primary" onClick={() => void check()}>
+        Volver a probar
+      </button>
+      <button type="button" className="btn" onClick={onSignOut}>
         Salir
       </button>
     </main>
