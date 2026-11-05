@@ -26,6 +26,7 @@ import type {
   CalendarRole,
   CheckIn,
   Place,
+  PlanVersion,
   Preferences,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
@@ -34,6 +35,7 @@ import {
   applyOption,
   type Decisions,
   decisions,
+  endOfDay,
   endOfWeek,
   pendingConfirmations,
   pinBlock,
@@ -106,6 +108,8 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** Back to the plan as it was before the last reorganization. */
+  | { type: "undoPlan"; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
   | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
   /** A class-calendar title that is another name of an existing materia. */
@@ -134,8 +138,20 @@ export type Action =
  * anything other than a decision or its undo leaves the earlier decisions, so undo
  * never overrides it, even if it later returns to the same status.
  */
+/** Reorganizations of the plan that «Deshacer» in the week can take back. */
+const VERSIONED: Partial<Record<Action["type"], string>> = {
+  pin: "mover un bloque",
+  unpin: "soltar un bloque",
+  replanWeek: "reacomodar la semana",
+  override: "ajustar el día",
+  acceptProposal: "aceptar un cambio propuesto",
+  rejectProposal: "rechazar un cambio propuesto",
+};
+/** Plan versions kept for undo. */
+export const PLAN_HISTORY = 20;
+
 export function reducer(data: AppData, action: Action): AppData {
-  const next = apply(data, action);
+  const next = versioned(data, action, apply(data, action));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
   const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
@@ -639,6 +655,26 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
+    case "undoPlan": {
+      const history = data.planHistory ?? [];
+      const v = history.at(-1);
+      if (!v) return data;
+      // What already started stays; today's blocks ahead and the inputs come back.
+      const kept = data.plan.filter((b) => b.start <= now);
+      return refresh(
+        {
+          ...data,
+          plan: [...kept, ...v.today.filter((b) => b.start > now)],
+          pins: v.pins,
+          overrides: v.overrides,
+          proposals: v.proposals,
+          freeTimeUntil: v.freeTimeUntil,
+          relaxContextUntil: v.relaxContextUntil,
+          planHistory: history.slice(0, -1),
+        },
+        now,
+      );
+    }
     case "forgetSpot":
       return refresh(
         { ...data, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
@@ -914,4 +950,24 @@ function dropEmptyNoSubject(data: AppData): AppData {
   const waiting = data.activities.find(isNoSubject);
   if (!waiting || data.tasks.some((t) => t.activityId === waiting.id)) return data;
   return { ...data, activities: data.activities.filter((a) => a.id !== waiting.id) };
+}
+
+/** Keeps what the plan looked like before a reorganization, so it can be undone. */
+function versioned(data: AppData, action: Action, next: AppData): AppData {
+  const label = VERSIONED[action.type];
+  if (!label || next === data) return next;
+  const now = action.now;
+  const version: PlanVersion = {
+    at: now,
+    label,
+    pins: data.pins ?? [],
+    today: data.plan.filter(
+      (b) => b.start > now && b.start < endOfDay(data.settings.timezone, now),
+    ),
+    overrides: data.overrides,
+    proposals: data.proposals,
+    freeTimeUntil: data.freeTimeUntil,
+    relaxContextUntil: data.relaxContextUntil,
+  };
+  return { ...next, planHistory: [...(data.planHistory ?? []), version].slice(-PLAN_HISTORY) };
 }

@@ -28,6 +28,7 @@ interface State {
   noTravel?: string[];
   spots?: Spot[];
   notSubjects?: string[];
+  planHistory?: AppData["planHistory"];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -174,6 +175,7 @@ export function rowsToData(r: {
     noTravel: state.noTravel,
     spots: state.spots,
     notSubjects: state.notSubjects,
+    planHistory: state.planHistory,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -266,6 +268,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.noTravel,
       prev.spots,
       prev.notSubjects,
+      prev.planHistory,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -278,6 +281,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.noTravel,
       next.spots,
       next.notSubjects,
+      next.planHistory,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -295,6 +299,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             noTravel: next.noTravel,
             spots: next.spots,
             notSubjects: next.notSubjects,
+            planHistory: next.planHistory,
           },
         },
       ],
