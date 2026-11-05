@@ -173,6 +173,8 @@ export interface AppData {
   spots?: Spot[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
+  /** What the plan looked like before each reorganization, newest last (up to 20). */
+  planHistory?: PlanVersion[];
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
   notSubjects?: string[];
 }
@@ -324,4 +326,21 @@ export function uniqueColors<T extends { color: string }>(activities: T[]): T[] 
     seen.push(a);
   }
   return changed ? seen : activities;
+}
+
+/**
+ * The plan's own inputs before a reorganization (the plan itself is derived, so these
+ * are what bring it back): pins, today's blocks, day adjustments and permissions.
+ */
+export interface PlanVersion {
+  at: number;
+  /** What changed it, for the undo button. */
+  label: string;
+  pins: PlanBlock[];
+  /** Today's blocks not started yet: today only changes with an OK, so they are kept. */
+  today: PlanBlock[];
+  overrides: DayOverride[];
+  proposals: Proposal[];
+  freeTimeUntil?: number;
+  relaxContextUntil?: number;
 }

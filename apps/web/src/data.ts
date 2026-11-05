@@ -29,6 +29,7 @@ interface State {
   spots?: Spot[];
   notSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
+  planHistory?: AppData["planHistory"];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -178,6 +179,7 @@ export function rowsToData(r: {
     spots: state.spots,
     notSubjects: state.notSubjects,
     movedEvents: state.movedEvents,
+    planHistory: state.planHistory,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -271,6 +273,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.spots,
       prev.notSubjects,
       prev.movedEvents,
+      prev.planHistory,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -284,6 +287,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.spots,
       next.notSubjects,
       next.movedEvents,
+      next.planHistory,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -302,6 +306,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             spots: next.spots,
             notSubjects: next.notSubjects,
             movedEvents: next.movedEvents,
+            planHistory: next.planHistory,
           },
         },
       ],
