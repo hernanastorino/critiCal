@@ -12,6 +12,7 @@ export interface GoogleEvent {
   htmlLink?: string;
   start?: { dateTime?: string; date?: string };
   end?: { dateTime?: string; date?: string };
+  colorId?: string;
   extendedProperties?: { private?: Record<string, string> };
 }
 
@@ -124,6 +125,18 @@ export function planEvent(block: PlanBlockRow, title: string) {
     transparency: "opaque",
     extendedProperties: { private: { criticalBlock: block.id } },
   };
+}
+
+/** Whether a Plan event already shows `wanted`: then there is nothing to send. */
+export function sameEvent(e: GoogleEvent, wanted: ReturnType<typeof planEvent>): boolean {
+  const at = (x?: string) => (x ? Date.parse(x) : Number.NaN);
+  return (
+    e.summary === wanted.summary &&
+    at(e.start?.dateTime) === at(wanted.start.dateTime) &&
+    at(e.end?.dateTime) === at(wanted.end.dateTime) &&
+    e.colorId === wanted.colorId &&
+    (e.transparency ?? "opaque") === wanted.transparency
+  );
 }
 
 export interface PlanDiff {
