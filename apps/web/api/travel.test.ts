@@ -8,6 +8,7 @@ let manualError: Error | null = null;
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
     auth: { getUser: async () => ({ data: { user: { id: "u1" } }, error: null }) },
+    rpc: async () => ({ data: true, error: null }),
     from: (table: string) => ({
       select: () => {
         const result = { data: table === "places" ? places : manual, error: null };

@@ -71,6 +71,9 @@ export async function authenticate(
   const admin = adminClient(env);
   const { data, error } = await admin.auth.getUser(token);
   if (error || !data.user) return json({ error: "unauthorized" }, 401);
+  // Invitation only: a signed-in account that is not on the list gets nothing.
+  const { data: invited } = await admin.rpc("user_invited", { p_user: data.user.id });
+  if (invited !== true) return json({ error: "not_invited" }, 403);
   return { uid: data.user.id, user: userClient(env, token), admin };
 }
 

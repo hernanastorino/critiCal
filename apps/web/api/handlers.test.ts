@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
+let invited = true;
 const tables: Record<string, unknown> = {};
 const writes: { table: string; op: string; payload?: unknown }[] = [];
 
@@ -34,7 +35,9 @@ vi.mock("@supabase/supabase-js", () => ({
           ? { data: { user: { id: "u1" } }, error: null }
           : { data: { user: null }, error: new Error("bad") },
     },
-    rpc,
+    // Everyone in these tests is invited unless a test says otherwise.
+    rpc: (name: string, args: unknown) =>
+      name === "user_invited" ? Promise.resolve({ data: invited, error: null }) : rpc(name, args),
     from: query,
   }),
 }));

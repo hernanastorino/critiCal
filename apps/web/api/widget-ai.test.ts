@@ -3,6 +3,7 @@ import { demoData } from "../src/demo.js";
 import { clean, editedHours, prompt, syllabusTasks } from "../src/syllabus.js";
 
 const rpc = vi.fn();
+let invited = true;
 const loadData = vi.fn();
 const release = vi.fn(async () => {});
 
@@ -14,7 +15,9 @@ vi.mock("@supabase/supabase-js", () => ({
           ? { data: { user: { id: "u1" } }, error: null }
           : { data: { user: null }, error: new Error() },
     },
-    rpc,
+    // Everyone in these tests is invited unless a test says otherwise.
+    rpc: (name: string, args: unknown) =>
+      name === "user_invited" ? Promise.resolve({ data: invited, error: null }) : rpc(name, args),
   }),
 }));
 vi.mock("./_lib/server.js", async (original) => ({

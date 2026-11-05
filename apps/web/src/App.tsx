@@ -109,6 +109,54 @@ function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void
   );
 }
 
+/**
+ * Invitation only: an account not on the owner's list sees why, instead of an empty
+ * app. Invited accounts never wait for the answer; when it cannot be had (offline),
+ * the app opens as usual and the database still keeps others' data out.
+ */
+function InviteGate({
+  client,
+  session,
+  onSignOut,
+  children,
+}: {
+  client: SupabaseClient;
+  session: Session;
+  onSignOut: () => void;
+  children: React.ReactNode;
+}) {
+  const [blocked, setBlocked] = useState(false);
+  const uid = session.user?.id;
+  useEffect(() => {
+    let cancelled = false;
+    setBlocked(false);
+    void Promise.resolve(client.rpc("my_access"))
+      .then(({ data, error }) => {
+        if (!cancelled && !error && (data as { invited?: boolean } | null)?.invited === false)
+          setBlocked(true);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [client, uid]);
+  if (!blocked) return <>{children}</>;
+  return (
+    <main className="login">
+      <img src="/icon-192.png" alt="" />
+      <h1>critiCal</h1>
+      <p>Esta app es por invitación.</p>
+      <p className="meta">
+        {session.user?.email ? `${session.user.email} no está invitado. ` : ""}Pedile a quien te
+        pasó la app que te agregue.
+      </p>
+      <button type="button" className="btn primary" onClick={onSignOut}>
+        Salir
+      </button>
+    </main>
+  );
+}
+
 /** Signed-in mode when Supabase is configured and there is a session. */
 function useSession(client: SupabaseClient | null): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>(client ? undefined : null);
@@ -149,21 +197,22 @@ export function App({
 
   if (client && session === undefined) return <main className="login" />;
   if (client && session) {
+    const signOut = () => {
+      // Nothing of this account stays on the device.
+      // Unsubscribe first, while the session can still delete the device's row.
+      // Bounded: a stalled request must not keep the account signed in.
+      const unsubscribe = disablePush(client).catch(() => undefined);
+      const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+      void Promise.race([unsubscribe, timeout])
+        .then(() => clearLocal())
+        .then(() => client.auth.signOut());
+    };
     return (
-      <Connected client={client} session={session}>
-        <Shell
-          onSignOut={() => {
-            // Nothing of this account stays on the device.
-            // Unsubscribe first, while the session can still delete the device's row.
-            // Bounded: a stalled request must not keep the account signed in.
-            const unsubscribe = disablePush(client).catch(() => undefined);
-            const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
-            void Promise.race([unsubscribe, timeout])
-              .then(() => clearLocal())
-              .then(() => client.auth.signOut());
-          }}
-        />
-      </Connected>
+      <InviteGate client={client} session={session} onSignOut={signOut}>
+        <Connected client={client} session={session}>
+          <Shell onSignOut={signOut} />
+        </Connected>
+      </InviteGate>
     );
   }
   if (mode === "login") {
