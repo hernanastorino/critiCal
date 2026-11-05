@@ -80,9 +80,10 @@ export function midnight(date: string, timeZone: string): string {
   return new Date(naive - (asUtc - naive)).toISOString();
 }
 
-/** Plan blocks are always Basil green, so they never look like parciales (red),
- * entregas (violet) or labs (yellow). Critical ones carry a 🔴 in the title. */
+/** Plan blocks are Basil green, the Plan calendar's colour… */
 export const PLAN_COLOR_ID = "10";
+/** …and critical ones Tomato red (with a 🔴 in the title too), as the iOS widget shows. */
+export const CRITICAL_COLOR_ID = "11";
 export const PLAN_CALENDAR_COLOR = "#0b8043";
 
 export interface CalendarListItem {
@@ -119,7 +120,7 @@ export function planEvent(block: PlanBlockRow, title: string) {
     summary: `${critical ? "🔴 " : ""}${title}`,
     start: { dateTime: block.start_at },
     end: { dateTime: block.end_at },
-    colorId: PLAN_COLOR_ID,
+    colorId: critical ? CRITICAL_COLOR_ID : PLAN_COLOR_ID,
     transparency: "opaque",
     extendedProperties: { private: { criticalBlock: block.id } },
   };
