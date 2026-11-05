@@ -22,15 +22,18 @@ export async function startMonitoring(): Promise<void> {
 const NETWORK =
   /(?:^|[^\p{L}])(?:load failed|failed to fetch|networkerror|network request failed)(?!\p{L})/iu;
 
+/** What went wrong, readable: Supabase errors are plain objects, not Errors. */
+export function errorMessage(e: unknown): string {
+  return e instanceof Error
+    ? e.message
+    : typeof e === "object" && e && "message" in e
+      ? String((e as { message: unknown }).message)
+      : String(e);
+}
+
 /** A dropped connection (the app retries and works offline), not a bug to report. */
 export function isNetworkFailure(e: unknown): boolean {
-  const message =
-    e instanceof Error
-      ? e.message
-      : typeof e === "object" && e && "message" in e
-        ? String((e as { message: unknown }).message)
-        : String(e);
-  return NETWORK.test(message);
+  return NETWORK.test(errorMessage(e));
 }
 
 /** Reports a handled error (one the app shows instead of crashing). */

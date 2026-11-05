@@ -873,3 +873,50 @@ describe("breaks", () => {
     expect(applyOption(d, input, cut, now).tasks[0]?.minMinutes).toBe(250);
   });
 });
+
+describe("undo after deleting a task", () => {
+  it("does not bring back blocks or pins of a task deleted since", () => {
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
+    const base = demoData(now);
+    const { id: task, activityId } = base.tasks[0]!;
+    const other = base.tasks.find((t) => t.id !== task)!;
+    const at = (h: number) => zonedInstant(TIMEZONE, "2026-11-03", h * 60);
+    const block = {
+      id: "later",
+      taskId: task,
+      activityId,
+      start: at(15),
+      end: at(16),
+      level: "ok" as const,
+    };
+    const pin = { ...block, id: "pinned", start: at(17), end: at(18) };
+    // Another task's block and pin, which undo must bring back.
+    const kept = {
+      ...block,
+      id: "kept",
+      taskId: other.id,
+      activityId: other.activityId,
+      start: at(19),
+      end: at(20),
+    };
+    const keptPin = { ...kept, id: "kept-pin", start: at(21), end: at(22) };
+    const seeded = { ...base, plan: [...base.plan, block, kept], pins: [pin, keptPin] };
+    const replanned = reducer(seeded, { type: "replanWeek", now });
+    const saved = replanned.planHistory?.at(-1);
+    // The saved version holds them, so undo would bring them back.
+    expect(saved?.today.some((b) => b.id === "later")).toBe(true);
+    expect(saved?.pins.some((b) => b.id === "pinned")).toBe(true);
+    const deleted = reducer(replanned, {
+      type: "recurrence",
+      taskId: task,
+      change: "deleteAll",
+      now: now + 1000,
+    });
+    const back = reducer(deleted, { type: "undoPlan", now: now + 2000 });
+    expect(back.plan.some((b) => b.taskId === task)).toBe(false);
+    expect((back.pins ?? []).some((b) => b.taskId === task)).toBe(false);
+    expect((back.pins ?? []).some((b) => b.id === "kept-pin")).toBe(true);
+    expect(back.plan.some((b) => b.taskId === other.id)).toBe(true);
+    expect(back.planHistory?.length ?? 0).toBeLessThan(replanned.planHistory?.length ?? 0);
+  });
+});

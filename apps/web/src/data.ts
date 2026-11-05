@@ -267,6 +267,40 @@ export interface Writes {
 }
 
 /** Rows to write so the database matches `next`, given it matched `prev`. */
+/**
+ * Drops from `local` the subjects and tasks another device deleted (in `before`, this
+ * device's baseline, but no longer on the server), with everything that hangs from them.
+ * Calendar events come from the server's copy (only the server writes them), so a stale
+ * event cannot import a deleted task again. Returns `local` itself when nothing was
+ * deleted elsewhere.
+ */
+export function withoutDeleted(before: AppData, server: AppData, local: AppData): AppData {
+  const subjects = new Set(server.activities.map((a) => a.id));
+  const goneSubjects = new Set(
+    before.activities.filter((a) => !subjects.has(a.id)).map((a) => a.id),
+  );
+  const tasks = new Set(server.tasks.map((t) => t.id));
+  const goneTasks = new Set(
+    before.tasks.filter((t) => !tasks.has(t.id) || goneSubjects.has(t.activityId)).map((t) => t.id),
+  );
+  if (!goneSubjects.size && !goneTasks.size) return local;
+  const kept = local.tasks.filter((t) => !goneTasks.has(t.id) && !goneSubjects.has(t.activityId));
+  const ids = new Set(kept.map((t) => t.id));
+  return {
+    ...local,
+    activities: local.activities.filter((a) => !goneSubjects.has(a.id)),
+    tasks: kept,
+    events: server.events,
+    plan: local.plan.filter((b) => ids.has(b.taskId)),
+    pins: local.pins?.filter((b) => ids.has(b.taskId)),
+    checkIns: local.checkIns.filter((c) => ids.has(c.taskId)),
+  };
+}
+
+/** A write that points at a row another device deleted (Postgres foreign key violation). */
+export const isMissingParent = (e: unknown) =>
+  typeof e === "object" && !!e && (e as { code?: unknown }).code === "23503";
+
 export function diffData(prev: AppData, next: AppData): Writes {
   const upserts: Writes["upserts"] = [];
   const inserts: Writes["inserts"] = [];
@@ -425,7 +459,9 @@ export function diffData(prev: AppData, next: AppData): Writes {
   }
 
   const seen = new Set(prev.checkIns.map((c) => c.id));
-  const newCheckIns = next.checkIns.filter((c) => !seen.has(c.id));
+  // Nothing is written for a task this copy no longer has (its parent row may be gone).
+  const live = new Set(next.tasks.map((t) => t.id));
+  const newCheckIns = next.checkIns.filter((c) => !seen.has(c.id) && live.has(c.taskId));
   if (newCheckIns.length) {
     inserts.push({
       table: "check_ins",
@@ -502,7 +538,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
     .map((t) => `${pair(t)}>${t.manual ? "manual" : "computed"}`);
   if (goneTimes.length) deletes.push({ table: "travel_times", ids: goneTimes });
 
-  const blocks = changed(prev.plan, next.plan);
+  const blocks = changed(prev.plan, next.plan).filter((b) => live.has(b.taskId));
   if (blocks.length) {
     upserts.push({
       table: "plan_blocks",
