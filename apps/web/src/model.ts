@@ -85,6 +85,11 @@ export interface CheckIn {
   minutesDone: number;
   unitIds: string[];
   createdAt: number;
+  /**
+   * Block time per study minute when it was recorded (breaks included; see blockFactor).
+   * Missing on older check-ins, which had no breaks: 1.
+   */
+  factor?: number;
 }
 
 export interface Proposal {

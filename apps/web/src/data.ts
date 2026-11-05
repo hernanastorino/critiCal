@@ -67,6 +67,8 @@ export function rowsToData(r: {
             : undefined,
         kind: (a.kind as Activity["kind"]) ?? undefined,
         aliases: (a.aliases as string[] | null)?.length ? (a.aliases as string[]) : undefined,
+        studyMinutes: (a.study_minutes as number | null) ?? undefined,
+        breakMinutes: (a.break_minutes as number | null) ?? undefined,
       }),
     ),
     tasks: r.tasks.map(
@@ -111,6 +113,7 @@ export function rowsToData(r: {
         minutesDone: c.minutes_done as number,
         unitIds: (c.unit_ids as string[]) ?? [],
         createdAt: ms(c.created_at as string),
+        factor: (c.block_factor as number | null) ?? undefined,
       }),
     ),
     events: r.events.map(
@@ -323,6 +326,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         preferred_end: a.preferred?.end ?? null,
         kind: a.kind ?? null,
         aliases: a.aliases ?? [],
+        study_minutes: a.studyMinutes ?? null,
+        break_minutes: a.breakMinutes ?? null,
       })),
     });
   }
@@ -408,6 +413,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         minutes_done: c.minutesDone,
         unit_ids: c.unitIds,
         created_at: iso(c.createdAt),
+        block_factor: c.factor ?? null,
       })),
     });
   }

@@ -41,7 +41,10 @@ describe("app", () => {
     expect(week.querySelectorAll('.pill.planned[data-level="critical"]').length).toBeGreaterThan(0);
     fireEvent.click(toggle);
 
-    const pill = week.querySelector(".pill.planned:not(.past)") as HTMLElement;
+    // The last one is surely ahead, not running.
+    const pill = [...week.querySelectorAll<HTMLElement>(".pill.planned:not(.past)")].at(
+      -1,
+    ) as HTMLElement;
     fireEvent.click(pill, { clientX: 100, clientY: 600 });
     const bubble = document.querySelector(".bubble") as HTMLElement;
     expect(within(bubble).getByText(/Faltan/)).toBeTruthy();
@@ -75,7 +78,8 @@ describe("app", () => {
     expect(done).toHaveLength(2);
     fireEvent.click(done[0] as HTMLElement);
     fireEvent.click(screen.getByLabelText(/^No hecho:/));
-    expect(screen.getByText("Todo al día ✓")).toBeTruthy();
+    // Nothing left to confirm (the demo may still have decisions to take).
+    expect(screen.queryAllByLabelText(/^(No )?[Hh]echo:/)).toEqual([]);
   });
 
   it("records a partial check-in with units", () => {
