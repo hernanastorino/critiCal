@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
-import { zonedInstant } from "./engine.js";
+import { overlaps, zonedInstant } from "./engine.js";
 import {
   dayAndTime,
   dayMonth,
@@ -392,5 +392,21 @@ describe("exams", () => {
     // Review days already past are not asked for.
     const late = toEngineTasks(d, zonedInstant(TIMEZONE, "2026-11-10", 9 * 60))[0];
     expect(late?.reviewDates).toEqual(["2026-11-11"]);
+
+    // A block of another materia already on today's plan, when today becomes reserved,
+    // is not kept silently: the re-plan becomes a proposal.
+    const { refreshPlan } = await import("./planning.js");
+    const morning = zonedInstant(TIMEZONE, "2026-11-11", 8 * 60);
+    const block = {
+      id: "tp@1",
+      taskId: "tp",
+      activityId: "mate",
+      start: zonedInstant(TIMEZONE, "2026-11-11", 15 * 60),
+      end: zonedInstant(TIMEZONE, "2026-11-11", 16 * 60),
+    };
+    const r = refreshPlan({ ...d, plan: [block] }, morning);
+    expect(r.proposal?.conflicts).toEqual(["tp@1"]);
+    expect(r.proposal?.message).toContain("reservado");
+    expect(r.proposal?.plan.some((b) => b.taskId === "tp" && overlaps(b, block))).toBe(false);
   });
 });

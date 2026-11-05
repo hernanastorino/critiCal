@@ -252,7 +252,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // Blocks the user placed by hand stay exactly where they are.
   const pins = (data.pins ?? []).filter((b) => b.end > now && active.has(b.taskId));
   const unpinned = today.filter((b) => !isPinned(b) && !pins.some((p) => overlaps(p, b)));
-  const conflicts = unpinned.filter((b) => busy.some((e) => overlaps(e, b)));
+  // Days kept for another materia's exam count as taken, like a busy event.
+  const avoid = new Map(toEngineTasks(data, now).map((t) => [t.id, t.avoid ?? []]));
+  const reserved = (b: PlanBlock) => (avoid.get(b.taskId) ?? []).some((a) => overlaps(a, b));
+  const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
+  const conflicts = unpinned.filter((b) => clashes(b) || reserved(b));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -275,7 +279,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
     result,
     proposal: {
       id: `conflict@${now}`,
-      message: `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`,
+      message: conflicts.some(clashes)
+        ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
+        : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,

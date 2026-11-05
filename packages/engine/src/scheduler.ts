@@ -225,7 +225,10 @@ export function schedule(input: ScheduleInput): ScheduleResult {
       s += W.outsidePreferred;
     }
     for (let i = start; i < start + length; i++) if (board.slots[i]?.soft) s += W.freeTime;
-    if (p.task.reviewDates?.includes(first.date)) s += W.reviewDay;
+    // The slot's calendar date: after midnight `date` is still the wake-up day.
+    if (p.task.reviewDates?.includes(localParts(settings.timezone, first.start).date)) {
+      s += W.reviewDay;
+    }
     const daysOut = (first.start - now) / (1440 * MINUTE);
     s += daysOut * (urgent ? W.perDayLaterUrgent : W.perDayLater);
     return s;
