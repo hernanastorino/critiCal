@@ -398,7 +398,14 @@ describe("tentative events", () => {
     });
     const after = reducer(no, { type: "refresh", now: now + 240_000 });
     expect(after.proposals.some((p) => p.id.startsWith("tentative@"))).toBe(false);
+    // Today's blocks are still there, all of them from before.
+    expect(ids(after).length).toBeGreaterThan(0);
+    expect(ids(after)).toEqual(ids(again));
     expect(ids(after).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    // Undoing the rejection brings plan B back without the hold.
+    const back = reducer(no, { type: "undoPlan", now: now + 200_000 });
+    expect(back.tentativeHoldUntil).toBeUndefined();
+    expect(back.proposals.some((p) => p.id === "tentative@a")).toBe(true);
     // Asking for a new plan lifts the hold.
     expect(reducer(after, { type: "replanWeek", now: now + 300_000 }).tentativeHoldUntil).toBe(
       undefined,

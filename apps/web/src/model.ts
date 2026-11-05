@@ -337,4 +337,5 @@ export interface PlanVersion {
   proposals: Proposal[];
   freeTimeUntil?: number;
   relaxContextUntil?: number;
+  tentativeHoldUntil?: number;
 }

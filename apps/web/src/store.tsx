@@ -681,6 +681,7 @@ function apply(data: AppData, action: Action): AppData {
           proposals: v.proposals,
           freeTimeUntil: v.freeTimeUntil,
           relaxContextUntil: v.relaxContextUntil,
+          tentativeHoldUntil: v.tentativeHoldUntil,
           planHistory: history.slice(0, -1),
         },
         now,
@@ -978,6 +979,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     overrides: data.overrides,
     proposals: data.proposals,
     freeTimeUntil: data.freeTimeUntil,
+    tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,
   };
   return { ...next, planHistory: [...(data.planHistory ?? []), version].slice(-PLAN_HISTORY) };
