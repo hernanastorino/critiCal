@@ -233,6 +233,8 @@ export interface AppliedDecision {
   /** Each task's status right after the decision: undo touches only tasks still there. */
   after?: Record<string, AppTask["status"]>;
   freeTimeUntil?: number;
+  /** Units this decision left out (prioritizing by weight): undoing brings them back. */
+  skippedUnits?: string[];
   /** A flexible event this decision moved: undoing puts it back. */
   movedEventId?: string;
   /** The move of that event this decision replaced, if any: undoing restores it. */

@@ -247,12 +247,20 @@ function apply(data: AppData, action: Action): AppData {
             t.status !== "dropped" && next.tasks.find((x) => x.id === t.id)?.status === "dropped",
         )
         .map((t) => t.id);
+      // Units this decision left out: undo brings back only these.
+      const skippedUnits = next.tasks.flatMap((n) => {
+        const t = data.tasks.find((x) => x.id === n.id);
+        return n.units
+          .filter((u) => u.skipped && !t?.units.find((o) => o.id === u.id)?.skipped)
+          .map((u) => u.id);
+      });
       const record: AppliedDecision = {
         id: `${option.id}@${now}`,
         label: option.label,
         at: now,
         before: changed,
         ...(dropped.length ? { dropped } : {}),
+        ...(skippedUnits.length ? { skippedUnits } : {}),
         after: Object.fromEntries(
           changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
         ),
@@ -279,11 +287,11 @@ function apply(data: AppData, action: Action): AppData {
               minMinutes: old.minMinutes,
               estimateMinutes: old.estimateMinutes,
               status: old.status,
-              // Units left out come back (whatever was done since stays done).
-              units: t.units.map((u) => ({
-                ...u,
-                skipped: old.units.find((o) => o.id === u.id)?.skipped,
-              })),
+              // Units this decision left out come back; ones a later decision left out
+              // stay out (whatever was done since stays done).
+              units: t.units.map((u) =>
+                record.skippedUnits?.includes(u.id) ? { ...u, skipped: undefined } : u,
+              ),
             }
           : t;
       });

@@ -183,15 +183,16 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
         p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
           ? Math.ceil(Math.max(60, Math.ceil(p.minRemainingMinutes / 2)) * k)
           : undefined,
-      // Exams with weighed units can leave the lightest ones out.
+      // Exams with weighed units can leave the lightest ones out; a unit with no weight
+      // is of unknown importance, so it is never offered to leave out.
       units: p.task.units.some((u) => u.weight !== undefined)
         ? p.task.units
-            .filter((u) => !u.doneAt && !u.skipped)
+            .filter((u) => !u.doneAt && !u.skipped && u.weight !== undefined)
             .map((u) => ({
               id: u.id,
               title: u.title,
               minutes: Math.ceil(u.estimateMinutes * k),
-              weight: u.weight ?? 0,
+              weight: u.weight as number,
             }))
         : undefined,
     }));

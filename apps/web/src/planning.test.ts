@@ -439,6 +439,27 @@ describe("more ways out in the app", () => {
     const record = done.applied?.at(-1);
     const back = reducer(done, { type: "undoDecision", id: record?.id as string, now });
     expect(back.tasks[0]?.units.every((u) => !u.skipped)).toBe(true);
+    // A unit a later decision left out stays out when undoing this one.
+    const later = {
+      ...done,
+      tasks: done.tasks.map((t) => ({
+        ...t,
+        units: t.units.map((u) => (u.id === "u1" ? { ...u, skipped: true } : u)),
+      })),
+    };
+    const undone = reducer(later, { type: "undoDecision", id: record?.id as string, now });
+    expect(record?.skippedUnits).not.toContain("u1");
+    expect(undone.tasks[0]?.units.map((u) => !!u.skipped)).toEqual([true, false, false]);
+  });
+
+  it("never offers to leave out a unit without a weight", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const units = [
+      { id: "u1", title: "Integrales", estimateMinutes: 400, weight: 60 },
+      { id: "u2", title: "Series", estimateMinutes: 400 },
+    ];
+    const t = toEngineTasks(base({ tasks: [task("p", "Parcial de Mate", 800, { units })] }), now);
+    expect(t[0]?.units?.map((u) => u.id)).toEqual(["u1"]);
   });
 
   it("plans a flexible event at its new time until the calendar moves it", async () => {
