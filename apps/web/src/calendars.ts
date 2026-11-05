@@ -72,9 +72,35 @@ function calendarFor(data: AppData, e: AppEvent): AppCalendar | undefined {
   return data.calendars?.find((c) => c.id === e.calendarId);
 }
 
+/** Tags in an event's title that say what it is, whatever its calendar. */
+const TAGS: [RegExp, DetectedKind][] = [
+  [/#(parcial|examen)\b/iu, "parcial"],
+  [/#presentaci[oó]n\b/iu, "presentacion"],
+  [/#entrega\b|📝/iu, "entrega"],
+];
+
+/** The kind an event's title tags it as (📝, #entrega, #parcial…), if any. */
+export function tagRole(title: string): DetectedKind | undefined {
+  return TAGS.find(([re]) => re.test(title))?.[1];
+}
+
+/** The title without its tags, as the task is called. */
+export const untagged = (title: string) =>
+  title
+    .replace(/#(parcial|examen|presentaci[oó]n|entrega)\b/giu, "")
+    .replace(/📝/gu, "")
+    .replace(/\s+/g, " ")
+    .trim() || title;
+
+/**
+ * What an event is for the planner: a tag in its title wins (it is explicit), except
+ * in calendars marked to ignore; otherwise its calendar's role.
+ */
 export function eventRole(data: AppData, e: AppEvent): CalendarRole {
   const c = calendarFor(data, e);
-  return c ? roleOf(c) : "busy";
+  const role = c ? roleOf(c) : "busy";
+  if (role === "ignore") return role;
+  return tagRole(e.title) ?? role;
 }
 
 /** An event that may be moved when the minimums do not fit: #flex, or a flexible calendar. */
@@ -127,12 +153,40 @@ export function importFromCalendars(
 
   for (const e of data.events) {
     const role = eventRole(data, e);
-    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") continue;
+    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") {
+      // No longer an evaluation (tag removed, calendar role changed): its task stops
+      // being planned; dropped, not deleted, so check-ins keep their history.
+      const stale = tasks.find((t) => t.sourceEventId === e.id && t.status === "active");
+      if (stale) {
+        tasks = tasks.map((t) =>
+          t === stale ? { ...t, status: "dropped" as const, endedAt: now, autoDroppedAt: now } : t,
+        );
+        changed = true;
+      }
+      continue;
+    }
     const deadline = role === "entrega" ? e.end : e.start;
     const existing = tasks.find((t) => t.sourceEventId === e.id);
+    const title = untagged(e.title);
     if (existing) {
-      if (existing.deadline !== deadline || existing.title !== e.title) {
-        tasks = tasks.map((t) => (t === existing ? { ...t, deadline, title: e.title } : t));
+      // Dropped by the import and untouched since: it comes back with its event.
+      const back =
+        existing.status === "dropped" &&
+        existing.autoDroppedAt !== undefined &&
+        existing.autoDroppedAt === existing.endedAt;
+      if (back || existing.deadline !== deadline || existing.title !== title) {
+        tasks = tasks.map((t) =>
+          t === existing
+            ? {
+                ...t,
+                deadline,
+                title,
+                ...(back
+                  ? { status: "active" as const, endedAt: undefined, autoDroppedAt: undefined }
+                  : {}),
+              }
+            : t,
+        );
         changed = true;
       }
       continue;
@@ -202,7 +256,7 @@ function deadlineTask(
   return {
     id: newId(`task:${e.id}`),
     activityId,
-    title: e.title,
+    title: untagged(e.title),
     kind: "deliverable",
     deadline,
     estimateMinutes: d.estimate,
