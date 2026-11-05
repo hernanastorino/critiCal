@@ -875,11 +875,26 @@ describe("breaks", () => {
 });
 
 describe("undo after deleting a task", () => {
-  it("does not bring back blocks of a task deleted since", () => {
+  it("does not bring back blocks or pins of a task deleted since", () => {
     const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
     const base = demoData(now);
-    const replanned = reducer(base, { type: "replanWeek", now });
-    const task = (replanned.planHistory?.at(-1)?.today ?? [])[0]?.taskId ?? base.tasks[0]!.id;
+    const { id: task, activityId } = base.tasks[0]!;
+    const at = (h: number) => zonedInstant(TIMEZONE, "2026-11-03", h * 60);
+    const block = {
+      id: "later",
+      taskId: task,
+      activityId,
+      start: at(15),
+      end: at(16),
+      level: "ok" as const,
+    };
+    const pin = { ...block, id: "pinned", start: at(17), end: at(18) };
+    const seeded = { ...base, plan: [...base.plan, block], pins: [pin] };
+    const replanned = reducer(seeded, { type: "replanWeek", now });
+    const saved = replanned.planHistory?.at(-1);
+    // The saved version holds them, so undo would bring them back.
+    expect(saved?.today.some((b) => b.id === "later")).toBe(true);
+    expect(saved?.pins.some((b) => b.id === "pinned")).toBe(true);
     const deleted = reducer(replanned, {
       type: "recurrence",
       taskId: task,

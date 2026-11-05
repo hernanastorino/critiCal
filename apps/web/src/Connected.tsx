@@ -170,13 +170,14 @@ export function Connected({
             await applyWrites(client, writes);
           } catch (e) {
             // Another device deleted a task or subject this copy still writes to: drop
-            // them here too and write the rest against the server's copy, once.
+            // them here too and retry once. The baseline stays, so only this device's
+            // own pending changes are written; the server's copy just says what is gone,
+            // and the next reload brings everything else.
             if (rebased || !isMissingParent(e)) throw e;
             rebased = true;
             const server = owned(await loadData(client));
             const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
             if (pruned === (latest.current ?? target)) throw e;
-            stored.current = server;
             latest.current = pruned;
             replace.current?.(pruned);
             continue;
