@@ -737,11 +737,13 @@ function apply(data: AppData, action: Action): AppData {
       if (!v) return data;
       // What already started stays; today's blocks ahead and the inputs come back.
       const kept = data.plan.filter((b) => b.start <= now);
+      // A task deleted since then does not come back with its blocks.
+      const live = new Set(data.tasks.map((t) => t.id));
       return refresh(
         {
           ...data,
-          plan: [...kept, ...v.today.filter((b) => b.start > now)],
-          pins: v.pins,
+          plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
+          pins: v.pins.filter((b) => live.has(b.taskId)),
           overrides: v.overrides,
           proposals: v.proposals,
           freeTimeUntil: v.freeTimeUntil,

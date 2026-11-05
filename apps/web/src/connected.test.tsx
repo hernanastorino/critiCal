@@ -212,4 +212,27 @@ describe("Connected", () => {
     );
     await waitFor(() => expect(screen.getByText("Algo falló")).toBeTruthy());
   });
+
+  it("shows a database error's message, not [object Object], and offers a way out", async () => {
+    const { client } = fakeClient();
+    const failing = {
+      ...(client as object),
+      from: (table: string) => ({
+        ...(client as { from: (t: string) => object }).from(table),
+        select: () =>
+          Object.assign(
+            Promise.resolve({ data: null, error: { code: "42P01", message: "tabla rota" } }),
+            { maybeSingle: () => Promise.resolve({ data: null, error: null }) },
+          ),
+      }),
+    };
+    render(
+      <Connected client={failing as never} session={{ user: { id: "fresh" } } as never}>
+        <Shell />
+      </Connected>,
+    );
+    expect(await screen.findByText("tabla rota")).toBeTruthy();
+    expect(screen.queryByText("[object Object]")).toBeNull();
+    expect(screen.getByText("Descartar lo de este dispositivo y recargar")).toBeTruthy();
+  });
 });
