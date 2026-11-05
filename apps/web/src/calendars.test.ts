@@ -295,6 +295,9 @@ describe("tags in event titles", () => {
       (s: string) => `id:${s}`,
     );
     expect(movedOut.tasks.find((t) => t.sourceEventId === "b")?.deadline).toBe(at(4));
+    // A #flex parcial is still not offered to move.
+    const flexParcial = { ...d, events: [{ ...d.events[1], title: "Física #parcial #flex" }] };
+    expect(visibleEvents(flexParcial as never)[0]?.flexible).toBeUndefined();
     // A parcial is an exam; retagged as an entrega, its task stops being one.
     expect(out.tasks.find((t) => t.sourceEventId === "b")?.exam).toBe(true);
     const retyped = importFromCalendars(

@@ -134,7 +134,10 @@ export function visibleEvents(data: AppData): AppEvent[] {
     const role = eventRole(data, e);
     if (role === "ignore") return [];
     if (role === "entrega") return [{ ...e, busy: false }];
-    return [{ ...projected(data, e), flexible: isFlexible(data, e) || undefined }];
+    // An evaluation is never offered to move: its date is not the user's to change, and
+    // its task's deadline would have to move with it.
+    const evaluation = role === "parcial" || role === "presentacion";
+    return [{ ...projected(data, e), flexible: (!evaluation && isFlexible(data, e)) || undefined }];
   });
 }
 
