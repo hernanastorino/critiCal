@@ -290,7 +290,9 @@ describe("tasks deleted on another device", () => {
       tasks: [...before.tasks, fresh],
       plan: [...before.plan, { ...before.plan[0]!, id: "b-gone", taskId: gone }],
     };
-    const pruned = withoutDeleted(before, server, local);
+    const pruned = withoutDeleted(before, { ...server, events: [] }, local);
+    // The server's events: a stale one here would import the deleted task again.
+    expect(pruned.events).toEqual([]);
     expect(pruned.tasks.some((t) => t.id === gone)).toBe(false);
     expect(pruned.tasks.some((t) => t.id === "only-here")).toBe(true);
     expect(pruned.plan.some((b) => b.taskId === gone)).toBe(false);
