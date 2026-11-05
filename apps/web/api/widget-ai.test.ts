@@ -102,6 +102,8 @@ describe("widget", () => {
 });
 
 describe("syllabus", () => {
+  // No key of their own unless a test stores one.
+  beforeEach(() => rpc.mockResolvedValue({ data: null, error: null }));
   const answer = (json: unknown) =>
     Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify(json) }] } }] });
   const good = {
@@ -360,5 +362,61 @@ describe("syllabus", () => {
       color: "#0f0",
     });
     expect(fresh).toMatchObject({ isNew: true, activity: { name: "Química", color: "#0f0" } });
+  });
+});
+
+describe("own Gemini key", () => {
+  beforeEach(() => rpc.mockResolvedValue({ data: null, error: null }));
+
+  it("reads syllabi with the user's own key when they have one", async () => {
+    rpc.mockImplementation(async (name: string) => ({
+      data: name === "get_oauth_token" ? "own-key" : null,
+      error: null,
+    }));
+    const keys: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      keys.push((init.headers as Record<string, string>)["x-goog-api-key"] ?? "");
+      return new Response("busy", { status: 503 });
+    });
+    await syllabus.handle(bearer("jwt", { pdf: "x" }), env);
+    expect(keys.every((k) => k === "own-key")).toBe(true);
+    // Their key works even when the app has none.
+    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+      ...env,
+      geminiKey: undefined,
+    });
+    expect(await res.json()).toEqual({ ok: false, error: "gemini_busy" });
+  });
+
+  it("checks a key with Gemini before storing it, and can remove it", async () => {
+    const key = "fake-gemini-key-that-works-0001";
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) =>
+      (init.headers as Record<string, string>)["x-goog-api-key"] === key
+        ? Response.json({ models: [] })
+        : new Response("bad", { status: 400 }),
+    );
+    const bad = await syllabus.handle(
+      bearer("jwt", { action: "set_key", key: "fake-gemini-key-that-fails-0002" }),
+      env,
+    );
+    expect(await bad.json()).toEqual({ ok: false, error: "invalid_key" });
+    expect(rpc).not.toHaveBeenCalledWith("store_oauth_token", expect.anything());
+    const junk = await syllabus.handle(bearer("jwt", { action: "set_key", key: "a b" }), env);
+    expect(junk.status).toBe(400);
+
+    const ok = await syllabus.handle(bearer("jwt", { action: "set_key", key: ` ${key} ` }), env);
+    expect(await ok.json()).toEqual({ ok: true, own: true });
+    expect(rpc).toHaveBeenCalledWith("store_oauth_token", {
+      p_user: "u1",
+      p_provider: "gemini",
+      p_token: key,
+    });
+
+    const status = await syllabus.handle(bearer("jwt", { action: "key_status" }), env);
+    expect(await status.json()).toEqual({ ok: true, own: false, fallback: true });
+
+    const cleared = await syllabus.handle(bearer("jwt", { action: "clear_key" }), env);
+    expect(await cleared.json()).toEqual({ ok: true, own: false });
+    expect(rpc).toHaveBeenCalledWith("delete_oauth_token", { p_user: "u1", p_provider: "gemini" });
   });
 });

@@ -171,6 +171,35 @@ export async function readSyllabus(client: SupabaseClient, pdf: string): Promise
   }
 }
 
+export type GeminiKeyResult =
+  | { ok: true; own: boolean; fallback?: boolean }
+  | { ok: false; error: string };
+
+/** Saves, removes or describes the user's own Gemini key (kept on the server only). */
+export async function geminiKey(
+  client: SupabaseClient,
+  action: "set_key" | "clear_key" | "key_status",
+  key?: string,
+): Promise<GeminiKeyResult> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "unauthorized" };
+    const res = await fetch("/api/syllabus", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action, key }),
+    });
+    const body = (await res.json().catch(() => null)) as
+      | GeminiKeyResult
+      | { error?: string }
+      | null;
+    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "key_failed" };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
 export function syncICloud(
   client: SupabaseClient,
   body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},

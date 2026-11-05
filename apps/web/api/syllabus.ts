@@ -4,7 +4,7 @@
 
 import { clean, prompt, SCHEMA } from "../src/syllabus.js";
 import { report } from "./_lib/report.js";
-import { authenticate, type Env, json, readBody, readEnv } from "./_lib/server.js";
+import { authenticate, type Caller, type Env, json, readBody, readEnv } from "./_lib/server.js";
 
 const API = "https://generativelanguage.googleapis.com/v1beta/models";
 /** Stable Flash first, then the lighter model if it is busy or unavailable. */
@@ -16,10 +16,62 @@ export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
 }
 
+/** Checks a Gemini key with a free call that lists the models it can use. */
+async function validKey(key: string): Promise<boolean> {
+  const res = await fetch(`${API}?pageSize=1`, { headers: { "x-goog-api-key": key } });
+  return res.ok;
+}
+
+/** The user's own key, or the app's when they have none. */
+async function keyFor(caller: Caller, env: Env): Promise<{ key?: string; own: boolean }> {
+  const { data } = await caller.admin.rpc("get_oauth_token", {
+    p_user: caller.uid,
+    p_provider: "gemini",
+  });
+  return typeof data === "string" && data
+    ? { key: data, own: true }
+    : { key: env.geminiKey, own: false };
+}
+
+/** Saves, removes or describes the user's own Gemini key. */
+async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>) {
+  if (body.action === "key_status") {
+    const { own } = await keyFor(caller, env);
+    return json({ ok: true, own, fallback: !!env.geminiKey });
+  }
+  if (body.action === "clear_key") {
+    const { error } = await caller.admin.rpc("delete_oauth_token", {
+      p_user: caller.uid,
+      p_provider: "gemini",
+    });
+    return error ? json({ ok: false, error: "key_failed" }, 500) : json({ ok: true, own: false });
+  }
+  const key = typeof body.key === "string" ? body.key.trim() : "";
+  if (!/^[\w-]{20,200}$/.test(key)) return json({ ok: false, error: "invalid_key" }, 400);
+  if (!(await validKey(key))) return json({ ok: false, error: "invalid_key" }, 400);
+  const { error } = await caller.admin.rpc("store_oauth_token", {
+    p_user: caller.uid,
+    p_provider: "gemini",
+    p_token: key,
+  });
+  return error ? json({ ok: false, error: "key_failed" }, 500) : json({ ok: true, own: true });
+}
+
 export async function handle(req: Request, env: Env, now = Date.now()): Promise<Response> {
-  const caller = await authenticate(req, env, ["geminiKey"]);
+  const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
   const body = await readBody(req);
+  if (body.action === "set_key" || body.action === "clear_key" || body.action === "key_status") {
+    try {
+      return await manageKey(caller, env, body);
+    } catch (e) {
+      await report(env, e, "gemini-key");
+      return json({ ok: false, error: "key_failed" }, 500);
+    }
+  }
+  const { key } = await keyFor(caller, env);
+  // Names only, never values: tells the operator which variable to set.
+  if (!key) return json({ error: "server_not_configured", missing: ["geminiKey"] }, 503);
   const pdf = typeof body.pdf === "string" ? body.pdf : "";
   if (!pdf) return json({ ok: false, error: "missing_pdf" }, 400);
   if ((pdf.length * 3) / 4 > MAX_PDF_BYTES) return json({ ok: false, error: "too_large" }, 413);
@@ -45,7 +97,7 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
     for (const model of models) {
       const res = await fetch(`${API}/${model}:generateContent`, {
         method: "POST",
-        headers: { "x-goog-api-key": env.geminiKey as string, "Content-Type": "application/json" },
+        headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
         body: request,
       });
       // Retired model, quota or overload: try the next one.
