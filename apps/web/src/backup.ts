@@ -64,6 +64,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     // A missed block did no work.
     (c.status !== "missed" || c.minutesDone === 0) &&
     instant(c.createdAt) &&
+    (c.factor === undefined || (num(c.factor) && (c.factor as number) >= 1)) &&
     Array.isArray(c.unitIds) &&
     c.unitIds.every(str);
   // Minutes since midnight; up to two days for times after midnight (meals, free time).
