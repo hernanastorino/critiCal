@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
-import { zonedInstant } from "./engine.js";
+import { overlaps, zonedInstant } from "./engine.js";
 import {
   dayAndTime,
   dayMonth,
@@ -646,6 +646,78 @@ describe("more ways out in the app", () => {
     expect(reducer(moved, { type: "unmoveEvent", eventId: "google:x", now }).movedEvents).toEqual(
       [],
     );
+  });
+});
+
+describe("exams", () => {
+  it("give the planner review days and keep the day before for their materia", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);
+    const act = (id: string) => ({
+      id,
+      name: id,
+      color: "#000",
+      academic: true,
+      maxSessionMinutes: 120,
+      minBlockMinutes: 60,
+    });
+    const deliverable = (id: string, activityId: string, day: string, extra = {}) => ({
+      id,
+      activityId,
+      title: id,
+      kind: "deliverable" as const,
+      deadline: zonedInstant(TIMEZONE, day, 9 * 60),
+      estimateMinutes: 300,
+      minMinutes: 120,
+      priority: 2,
+      status: "active" as const,
+      units: [],
+      ...extra,
+    });
+    const d = {
+      ...emptyData(),
+      activities: [act("fis"), act("mate")],
+      tasks: [
+        deliverable("p", "fis", "2026-11-12", { exam: true, dayBeforeOnly: true }),
+        deliverable("tp", "mate", "2026-11-14"),
+      ],
+    };
+    const [exam, other] = toEngineTasks(d, now);
+    expect(exam?.reviewDates).toEqual(["2026-11-05", "2026-11-09", "2026-11-11"]);
+    expect(exam?.avoid).toEqual([]);
+    expect(other?.reviewDates).toBeUndefined();
+    expect(other?.avoid).toEqual([
+      {
+        start: zonedInstant(TIMEZONE, "2026-11-11", 0),
+        end: zonedInstant(TIMEZONE, "2026-11-11", 1440),
+      },
+    ]);
+    // Review days already past are not asked for.
+    const late = toEngineTasks(d, zonedInstant(TIMEZONE, "2026-11-10", 9 * 60))[0];
+    expect(late?.reviewDates).toEqual(["2026-11-11"]);
+
+    // A block of another materia already on today's plan, when today becomes reserved,
+    // is not kept silently: the re-plan becomes a proposal.
+    const { refreshPlan } = await import("./planning.js");
+    const morning = zonedInstant(TIMEZONE, "2026-11-11", 8 * 60);
+    const block = {
+      id: "tp@1",
+      taskId: "tp",
+      activityId: "mate",
+      start: zonedInstant(TIMEZONE, "2026-11-11", 15 * 60),
+      end: zonedInstant(TIMEZONE, "2026-11-11", 16 * 60),
+    };
+    const r = refreshPlan({ ...d, plan: [block] }, morning);
+    expect(r.proposal?.conflicts).toEqual(["tp@1"]);
+    expect(r.proposal?.message).toContain("reservado");
+    expect(r.proposal?.plan.some((b) => b.taskId === "tp" && overlaps(b, block))).toBe(false);
+    // Also for a task with nothing left to plan.
+    const done = {
+      ...d,
+      plan: [block],
+      tasks: d.tasks.map((t) => (t.id === "tp" ? { ...t, estimateMinutes: 0, minMinutes: 0 } : t)),
+    };
+    expect(refreshPlan(done, morning).proposal?.conflicts).toEqual(["tp@1"]);
   });
 });
 

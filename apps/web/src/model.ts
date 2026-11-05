@@ -49,6 +49,15 @@ export interface AppTask {
   sourceEventId?: string;
   /** Created automatically; waits for a quick OK in the inbox. */
   needsReview?: boolean;
+  /** An exam (parcial): its sessions spread over review days before the date. */
+  exam?: boolean;
+  /** Exams only: the day before is for its materia alone. */
+  dayBeforeOnly?: boolean;
+  /**
+   * What its calendar event was imported as: only a change of that (a parcial retagged
+   * as an entrega) re-decides `exam`; otherwise the user's choice stays.
+   */
+  sourceRole?: DetectedKind;
   /** Weekly silos: off until this instant (the start of the next week). */
   skipUntil?: number;
   /** Weekly silos: off until turned back on. */

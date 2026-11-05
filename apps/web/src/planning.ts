@@ -179,8 +179,35 @@ function weighedUnits(p: TaskProgress, k: number, ratio: number) {
     }));
 }
 
+/** Days before an exam its review sessions should fall on. */
+export const REVIEW_DAYS_BEFORE = [7, 3, 1];
+
+/** The exam's local date and its review dates still ahead. */
+function examDays(tz: string, deadline: number, now: number) {
+  const date = localParts(tz, deadline).date;
+  const today = localParts(tz, now).date;
+  const reviews = REVIEW_DAYS_BEFORE.map((d) => addDays(date, -d)).filter((d) => d >= today);
+  return { date, reviews };
+}
+
+/** Days kept for one materia's exam: everything else stays away from them. */
+function keptDays(data: AppData, now: number) {
+  const tz = data.settings.timezone;
+  return data.tasks
+    .filter((t) => t.exam && t.dayBeforeOnly && t.deadline && t.deadline > now && isRunning(t, now))
+    .map((t) => {
+      const before = addDays(examDays(tz, t.deadline as number, now).date, -1);
+      return {
+        activityId: t.activityId,
+        span: { start: zonedInstant(tz, before, 0), end: zonedInstant(tz, before, 1440) },
+      };
+    });
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
+  const tz = data.settings.timezone;
+  const kept = keptDays(data, now);
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => {
@@ -212,6 +239,9 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       // Exams with weighed units can leave the lightest ones out; a unit with no weight
       // is of unknown importance, so it is never offered to leave out.
       units: weighedUnits(p, k, effortRatio(effort, p.task.activityId)),
+      reviewDates:
+        p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
+      avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
     }));
 }
 
@@ -222,7 +252,7 @@ const EXAM = /(?<![\p{L}\p{N}])(parcial(es)?|ex[aá]men(es)?|pruebas?|final(es)?
 function isExam(data: AppData, task: AppTask): boolean {
   const event = task.sourceEventId && data.events.find((e) => e.id === task.sourceEventId);
   const role = event ? eventRole(data, event) : undefined;
-  if (role === "parcial") return true;
+  if (task.exam || role === "parcial") return true;
   // From an entrega or presentación, "final" is the last one, not an exam.
   const title =
     role === "entrega" || role === "presentacion"
@@ -324,6 +354,15 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // Blocks the user placed by hand stay exactly where they are.
   const pins = (data.pins ?? []).filter((b) => b.end > now && active.has(b.taskId));
   const unpinned = today.filter((b) => !isPinned(b) && !pins.some((p) => overlaps(p, b)));
+  // Days kept for another materia's exam count as taken, like a busy event (also for
+  // blocks of tasks with nothing left to plan).
+  const kept = keptDays(data, now);
+  // By the task's current materia: a block keeps the one it was planned with.
+  const activityOf = (b: PlanBlock) =>
+    data.tasks.find((t) => t.id === b.taskId)?.activityId ?? b.activityId;
+  const reserved = (b: PlanBlock) =>
+    kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
+  const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
@@ -343,7 +382,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const displaced = (b: PlanBlock) =>
     plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
-  const conflicts = unpinned.filter((b) => !displaced(b) && busy.some((e) => overlaps(e, b)));
+  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b)));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -368,7 +407,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
     result,
     proposal: {
       id: `conflict@${now}`,
-      message: `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`,
+      message: conflicts.some(clashes)
+        ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
+        : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,
