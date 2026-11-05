@@ -128,10 +128,10 @@ function examDays(tz: string, deadline: number, now: number) {
   return { date, reviews };
 }
 
-export function toEngineTasks(data: AppData, now: number): Task[] {
+/** Days kept for one materia's exam: everything else stays away from them. */
+function keptDays(data: AppData, now: number) {
   const tz = data.settings.timezone;
-  // Days kept for one materia's exam: everything else stays away from them.
-  const kept = data.tasks
+  return data.tasks
     .filter((t) => t.exam && t.dayBeforeOnly && t.deadline && t.deadline > now && isRunning(t, now))
     .map((t) => {
       const before = addDays(examDays(tz, t.deadline as number, now).date, -1);
@@ -140,6 +140,11 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
         span: { start: zonedInstant(tz, before, 0), end: zonedInstant(tz, before, 1440) },
       };
     });
+}
+
+export function toEngineTasks(data: AppData, now: number): Task[] {
+  const tz = data.settings.timezone;
+  const kept = keptDays(data, now);
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => ({
@@ -252,9 +257,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // Blocks the user placed by hand stay exactly where they are.
   const pins = (data.pins ?? []).filter((b) => b.end > now && active.has(b.taskId));
   const unpinned = today.filter((b) => !isPinned(b) && !pins.some((p) => overlaps(p, b)));
-  // Days kept for another materia's exam count as taken, like a busy event.
-  const avoid = new Map(toEngineTasks(data, now).map((t) => [t.id, t.avoid ?? []]));
-  const reserved = (b: PlanBlock) => (avoid.get(b.taskId) ?? []).some((a) => overlaps(a, b));
+  // Days kept for another materia's exam count as taken, like a busy event (also for
+  // blocks of tasks with nothing left to plan).
+  const kept = keptDays(data, now);
+  const reserved = (b: PlanBlock) =>
+    kept.some((k) => k.activityId !== b.activityId && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
   const conflicts = unpinned.filter((b) => clashes(b) || reserved(b));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b)), ...pins];

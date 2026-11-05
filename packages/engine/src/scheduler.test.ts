@@ -634,6 +634,35 @@ describe("exam review", () => {
     expect(on(spaced)).toBeGreaterThan(on(plain));
   });
 
+  it("leaves a later task the slots only it can use", () => {
+    // A fits only Monday 15–17 or Tuesday 08–09 (a review day); B avoids Monday.
+    const r = schedule(
+      base({
+        tasks: [
+          task("a", "mate", at("2026-11-03", "09:00"), {
+            remainingMinutes: 120,
+            minRemainingMinutes: 120,
+            sessionMinutes: 60,
+            reviewDates: ["2026-11-03"],
+          }),
+          task("b", "fisica", at("2026-11-04", "08:00"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 60,
+            sessionMinutes: 60,
+            avoid: [{ start: at("2026-11-02", "00:00"), end: at("2026-11-03", "00:00") }],
+          }),
+        ],
+        events: [
+          ev("x", at("2026-11-02", "08:00"), at("2026-11-02", "15:00")),
+          ev("y", at("2026-11-02", "17:00"), at("2026-11-03", "08:00")),
+          ev("z", at("2026-11-03", "09:00"), at("2026-11-04", "08:00")),
+        ],
+      }),
+    );
+    expect(minutesOf(r, "a")).toBe(120);
+    expect(minutesOf(r, "b")).toBe(60);
+  });
+
   it("never uses times a task must avoid", () => {
     const keep = { start: at("2026-11-03", "00:00"), end: at("2026-11-04", "00:00") };
     const r = schedule(

@@ -173,14 +173,25 @@ export function schedule(input: ScheduleInput): ScheduleResult {
 
   /** Slack of every pending minimum with the current board (EDF over free slots). */
   const minimumsFit = (): boolean => {
+    // Hall's condition on each deadline prefix: what the prefix still needs must fit in
+    // the free slots any of its tasks can use (eligibility is not nested once tasks
+    // avoid days), and each task's own need in the slots it can use.
     let demand = 0;
+    let capacity = 0;
+    const counted = board.slots.map(() => false);
     for (const p of prepared) {
-      demand += Math.max(0, p.min - (placed.get(p.task.id) ?? 0));
-      let capacity = 0;
+      const need = Math.max(0, p.min - (placed.get(p.task.id) ?? 0));
+      demand += need;
+      let own = 0;
       board.slots.forEach((s, i) => {
-        if (board.owner[i] === null && eligible(p, s, false)) capacity += slotMinutes;
+        if (board.owner[i] !== null || !eligible(p, s, false)) return;
+        own += slotMinutes;
+        if (!counted[i]) {
+          counted[i] = true;
+          capacity += slotMinutes;
+        }
       });
-      if (capacity < demand) return false;
+      if (own < need || capacity < demand) return false;
     }
     return true;
   };

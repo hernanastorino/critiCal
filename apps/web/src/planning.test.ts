@@ -408,5 +408,12 @@ describe("exams", () => {
     expect(r.proposal?.conflicts).toEqual(["tp@1"]);
     expect(r.proposal?.message).toContain("reservado");
     expect(r.proposal?.plan.some((b) => b.taskId === "tp" && overlaps(b, block))).toBe(false);
+    // Also for a task with nothing left to plan.
+    const done = {
+      ...d,
+      plan: [block],
+      tasks: d.tasks.map((t) => (t.id === "tp" ? { ...t, estimateMinutes: 0, minMinutes: 0 } : t)),
+    };
+    expect(refreshPlan(done, morning).proposal?.conflicts).toEqual(["tp@1"]);
   });
 });
