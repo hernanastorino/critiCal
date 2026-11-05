@@ -83,6 +83,13 @@ export interface Task {
   sessionMinutes?: number;
   /** At most this many minutes of the task per day. */
   maxPerDayMinutes?: number;
+  /**
+   * Local dates (YYYY-MM-DD) its sessions should rather fall on: spaced review before
+   * an exam (a week, three days and one day before). A soft preference.
+   */
+  reviewDates?: string[];
+  /** Times the task may never use (a day kept for another materia's exam). */
+  avoid?: Interval[];
   /** Higher survives cuts longer. */
   priority: number;
 }

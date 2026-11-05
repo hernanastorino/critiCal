@@ -263,6 +263,31 @@ describe("tags in event titles", () => {
     // A tagged entrega is a deadline, it does not block time.
     expect(visibleEvents(d).find((e) => e.id === "a")?.busy).toBe(false);
 
+    // A parcial is an exam; retagged as an entrega, its task stops being one.
+    expect(out.tasks.find((t) => t.sourceEventId === "b")?.exam).toBe(true);
+    const retyped = importFromCalendars(
+      {
+        ...out,
+        tasks: out.tasks.map((t) => (t.sourceEventId === "b" ? { ...t, dayBeforeOnly: true } : t)),
+        events: out.events.map((e) => (e.id === "b" ? { ...e, title: "Física #entrega" } : e)),
+      },
+      now,
+      (s: string) => `id:${s}`,
+    );
+    expect(retyped.tasks.find((t) => t.sourceEventId === "b")).toMatchObject({
+      exam: undefined,
+      dayBeforeOnly: undefined,
+    });
+    // Same role, unmarked by hand: the user's choice stays.
+    const byHand = {
+      ...out,
+      tasks: out.tasks.map((t) => (t.sourceEventId === "b" ? { ...t, exam: undefined } : t)),
+    };
+    expect(
+      importFromCalendars(byHand, now + 1, (s: string) => `id:${s}`).tasks.find(
+        (t) => t.sourceEventId === "b",
+      )?.exam,
+    ).toBeUndefined();
     // Removing the tag stops planning the task, keeping it as history.
     const untaggedOut = importFromCalendars(
       { ...out, events: out.events.map((e) => (e.id === "b" ? { ...e, title: "Física" } : e)) },
