@@ -226,7 +226,14 @@ export function App({
         .then(() => client.auth.signOut());
     };
     return (
-      <InviteGate client={client} session={session} onSignOut={signOut}>
+      // Another account signing in starts from scratch: nothing of the previous one
+      // (its data, its invitation list) stays on screen.
+      <InviteGate
+        key={session.user?.id ?? "me"}
+        client={client}
+        session={session}
+        onSignOut={signOut}
+      >
         <Connected client={client} session={session}>
           <Shell onSignOut={signOut} />
         </Connected>

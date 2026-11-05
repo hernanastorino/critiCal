@@ -1,6 +1,6 @@
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(12);
+select plan(13);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000a1', 'owner@test.local'),
@@ -11,6 +11,11 @@ select is(
   '00000000-0000-0000-0000-0000000000a1',
   'the first account created owns the app'
 );
+-- Google identities: the friend's carries the invited email; the stranger typed the
+-- invited email into an email sign-up, which Google never verified.
+insert into auth.identities (provider_id, user_id, identity_data, provider) values
+  ('google-friend', '00000000-0000-0000-0000-0000000000a2', '{"email": "Friend@Test.local"}', 'google'),
+  ('stranger', '00000000-0000-0000-0000-0000000000a3', '{"email": "friend@test.local"}', 'email');
 insert into public.invites (email) values ('friend@test.local');
 
 select throws_ok(
@@ -49,6 +54,10 @@ select is(
 select throws_ok(
   $$ insert into public.settings (data) values ('{}') $$,
   '42501', null, 'a stranger stores nothing'
+);
+select is(
+  public.my_access()::jsonb, '{"invited": false, "owner": false}'::jsonb,
+  'an invited email without Google behind it is not enough'
 );
 select throws_ok(
   $$ select public.user_invited('00000000-0000-0000-0000-0000000000a3') $$,

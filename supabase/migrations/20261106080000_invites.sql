@@ -12,9 +12,10 @@ insert into private.app_config (key, value)
 select 'owner', id::text from auth.users order by created_at limit 1
 on conflict (key) do nothing;
 
--- Accounts that already exist stay invited.
+-- Accounts that already exist (all signed in with Google) stay invited.
 insert into public.invites (email)
-select distinct lower(btrim(email)) from auth.users where email like '%_@_%'
+select distinct lower(btrim(identity_data ->> 'email')) from auth.identities
+where provider = 'google' and identity_data ->> 'email' like '%_@_%'
 on conflict (email) do nothing;
 
 -- On a database without accounts yet, the first one created becomes the owner, before
@@ -30,13 +31,18 @@ create trigger first_account_owns_the_app
   after insert on auth.users
   for each row execute function private.claim_owner();
 
-/** Whether a user may use the app: the owner or an invited email. */
+/**
+ * Whether a user may use the app: the owner, or an invited email that Google verified
+ * for this account (the app only signs in with Google). An email typed into another
+ * sign-up method proves nothing, so it never matches an invitation.
+ */
 create function private.invited(p_user uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
   select exists (select 1 from private.app_config where key = 'owner' and value = p_user::text)
     or exists (
-      select 1 from auth.users u join public.invites i on i.email = lower(btrim(u.email))
-      where u.id = p_user
+      select 1 from auth.identities a
+      join public.invites i on i.email = lower(btrim(a.identity_data ->> 'email'))
+      where a.user_id = p_user and a.provider = 'google'
     );
 $$;
 revoke execute on function private.invited(uuid) from public, anon, authenticated;
