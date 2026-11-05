@@ -29,6 +29,7 @@ interface State {
   spots?: Spot[];
   notSubjects?: string[];
   tentativeSeen?: AppData["tentativeSeen"];
+  tentativeHoldUntil?: number;
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -177,6 +178,7 @@ export function rowsToData(r: {
     spots: state.spots,
     notSubjects: state.notSubjects,
     tentativeSeen: state.tentativeSeen,
+    tentativeHoldUntil: state.tentativeHoldUntil,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -270,6 +272,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.spots,
       prev.notSubjects,
       prev.tentativeSeen,
+      prev.tentativeHoldUntil,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -283,6 +286,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.spots,
       next.notSubjects,
       next.tentativeSeen,
+      next.tentativeHoldUntil,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -301,6 +305,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             spots: next.spots,
             notSubjects: next.notSubjects,
             tentativeSeen: next.tentativeSeen,
+            tentativeHoldUntil: next.tentativeHoldUntil,
           },
         },
       ],

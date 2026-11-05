@@ -33,6 +33,7 @@ import {
   applyOption,
   type Decisions,
   decisions,
+  endOfDay,
   endOfWeek,
   pendingConfirmations,
   pinBlock,
@@ -195,6 +196,10 @@ function apply(data: AppData, action: Action): AppData {
         ...data,
         plan: data.plan.filter((b) => !p.conflicts.includes(b.id)),
         proposals: data.proposals.filter((x) => x.id !== p.id),
+        // No to a plan B: today keeps its blocks for the rest of the day.
+        ...(p.id.startsWith("tentative@")
+          ? { tentativeHoldUntil: endOfDay(data.settings.timezone, now) }
+          : {}),
       };
     }
     case "applyOption": {

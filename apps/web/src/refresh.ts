@@ -29,7 +29,10 @@ export function refresh(raw: AppData, now: number): AppData {
   // While a plan B waits, today keeps the blocks it had (and its pins): the freed time
   // is only used with an OK. Later days still update on their own.
   const todayEnd = endOfDay(data.settings.timezone, now);
-  const plan = proposals.some((p) => p.id.startsWith(TENTATIVE))
+  // Also after turning one down, until the day ends.
+  const hold =
+    proposals.some((p) => p.id.startsWith(TENTATIVE)) || (data.tentativeHoldUntil ?? 0) > now;
+  const plan = hold
     ? r.plan.filter(
         (b) =>
           b.end <= now ||

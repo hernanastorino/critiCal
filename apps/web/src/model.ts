@@ -164,6 +164,8 @@ export interface AppData {
   spots?: Spot[];
   /** Upcoming tentative events last seen, to notice one that falls through. */
   tentativeSeen?: { id: string; title: string; start: number; end: number }[];
+  /** A plan B was turned down: today's blocks stay as they are until then (end of day). */
+  tentativeHoldUntil?: number;
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
   notSubjects?: string[];
 }

@@ -386,6 +386,16 @@ describe("tentative events", () => {
     const ids = (x: typeof d) =>
       x.plan.filter((b) => b.end > now && b.start < todayEnd).map((b) => b.id);
     expect(ids(again).every((id) => d.plan.some((b) => b.id === id))).toBe(true);
+    // Turned down, today still keeps its blocks for the rest of the day.
+    const { reducer } = await import("./store.js");
+    const no = reducer(again, {
+      type: "rejectProposal",
+      id: "tentative@a",
+      now: now + 180_000,
+    });
+    const after = reducer(no, { type: "refresh", now: now + 240_000 });
+    expect(after.proposals.some((p) => p.id.startsWith("tentative@"))).toBe(false);
+    expect(ids(after).every((id) => d.plan.some((b) => b.id === id))).toBe(true);
     // Unanswered, it expires with its day.
     const tomorrow = zonedInstant(TIMEZONE, "2026-11-04", 9 * 60);
     expect(refresh(again, tomorrow).proposals.some((p) => p.id.startsWith("tentative@"))).toBe(
