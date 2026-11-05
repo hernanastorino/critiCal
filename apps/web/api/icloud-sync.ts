@@ -144,6 +144,7 @@ export async function syncICloudFor(
             end_at: new Date(e.end).toISOString(),
             location: e.location ?? null,
             busy: e.busy,
+            tentative: e.tentative,
             all_day: e.allDay,
             link: null,
           });

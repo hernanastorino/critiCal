@@ -1364,3 +1364,10 @@ input[type="datetime-local"] {
   border-radius: 0;
   border-top: 1px solid var(--line);
 }
+
+/* A tentative event: counted on, but it may fall through. */
+.pill.fixed.tentative {
+  /* Buttons reset borders to 0: the dashed edge replaces the solid inset one. */
+  border: 1.5px dashed color-mix(in srgb, var(--ink) 45%, transparent);
+  box-shadow: none;
+}

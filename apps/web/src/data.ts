@@ -28,6 +28,8 @@ interface State {
   noTravel?: string[];
   spots?: Spot[];
   notSubjects?: string[];
+  tentativeSeen?: AppData["tentativeSeen"];
+  tentativeHoldUntil?: number;
   planHistory?: AppData["planHistory"];
 }
 
@@ -125,6 +127,7 @@ export function rowsToData(r: {
         end: ms(e.end_at as string),
         location: (e.location as string) ?? undefined,
         busy: e.busy as boolean,
+        tentative: (e.tentative as boolean) || undefined,
         allDay: e.all_day as boolean,
         source: e.source as AppEvent["source"],
         link: (e.link as string) ?? undefined,
@@ -181,6 +184,8 @@ export function rowsToData(r: {
     noTravel: state.noTravel,
     spots: state.spots,
     notSubjects: state.notSubjects,
+    tentativeSeen: state.tentativeSeen,
+    tentativeHoldUntil: state.tentativeHoldUntil,
     planHistory: state.planHistory,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
@@ -274,6 +279,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.noTravel,
       prev.spots,
       prev.notSubjects,
+      prev.tentativeSeen,
+      prev.tentativeHoldUntil,
       prev.planHistory,
     ]) !==
     JSON.stringify([
@@ -287,6 +294,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.noTravel,
       next.spots,
       next.notSubjects,
+      next.tentativeSeen,
+      next.tentativeHoldUntil,
       next.planHistory,
     ]);
   if (settingsChanged) {
@@ -305,6 +314,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
             noTravel: next.noTravel,
             spots: next.spots,
             notSubjects: next.notSubjects,
+            tentativeSeen: next.tentativeSeen,
+            tentativeHoldUntil: next.tentativeHoldUntil,
             planHistory: next.planHistory,
           },
         },
