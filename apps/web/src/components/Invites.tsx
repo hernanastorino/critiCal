@@ -23,11 +23,15 @@ export function Invites() {
   useEffect(() => {
     if (!client) return;
     let cancelled = false;
-    void client.rpc("is_owner").then(({ data }) => {
-      if (cancelled || data !== true) return;
-      setOwner(true);
-      void load();
-    });
+    // Unanswered (offline, or a database without invitations yet): stays hidden.
+    void Promise.resolve()
+      .then(() => client.rpc("is_owner"))
+      .then(({ data }) => {
+        if (cancelled || data !== true) return;
+        setOwner(true);
+        void load();
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };

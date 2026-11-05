@@ -114,7 +114,7 @@ function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void
  * app. Invited accounts never wait for the answer; when it cannot be had (offline),
  * the app opens as usual and the database still keeps others' data out.
  */
-function InviteGate({
+export function InviteGate({
   client,
   session,
   onSignOut,
@@ -130,7 +130,8 @@ function InviteGate({
   useEffect(() => {
     let cancelled = false;
     setBlocked(false);
-    void Promise.resolve(client.rpc("my_access"))
+    void Promise.resolve()
+      .then(() => client.rpc("my_access"))
       .then(({ data, error }) => {
         if (!cancelled && !error && (data as { invited?: boolean } | null)?.invited === false)
           setBlocked(true);

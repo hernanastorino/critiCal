@@ -3,7 +3,7 @@ import { demoData } from "../src/demo.js";
 import { clean, editedHours, prompt, syllabusTasks } from "../src/syllabus.js";
 
 const rpc = vi.fn();
-let invited = true;
+const invited = true;
 const loadData = vi.fn();
 const release = vi.fn(async () => {});
 

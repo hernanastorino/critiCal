@@ -5,6 +5,7 @@ import { holidaysBetween } from "../holidays.js";
 import { useStore } from "../store.js";
 import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
+import { Invites } from "./Invites.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
 import {
@@ -16,7 +17,6 @@ import {
 } from "./Preferences.js";
 import { Semester } from "./Semester.js";
 import { SyllabusImport } from "./SyllabusImport.js";
-import { Invites } from "./Invites.js";
 import { WidgetSetup } from "./WidgetSetup.js";
 
 export function Settings({

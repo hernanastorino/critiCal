@@ -64,6 +64,7 @@ const req = (token?: string, body: object = {}) =>
   });
 
 beforeEach(() => {
+  invited = true;
   rpc.mockReset();
   writes.length = 0;
   for (const k of Object.keys(tables)) delete tables[k];
@@ -71,6 +72,13 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("server", () => {
+  it("turns away a signed-in account that is not invited", async () => {
+    invited = false;
+    const res = await google(req("good"), env);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "not_invited" });
+  });
+
   it("reads the environment itself, ignoring Vercel's extra argument", async () => {
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("VITE_SUPABASE_URL", "");
