@@ -237,6 +237,11 @@ export interface AppliedDecision {
   dropped?: string[];
   /** Each task's status right after the decision: undo touches only tasks still there. */
   after?: Record<string, AppTask["status"]>;
+  /**
+   * Each task's minutes right after the decision: undo gives back only what this one
+   * cut, so undoing decisions in any order adds up.
+   */
+  afterMinutes?: Record<string, { min: number; estimate: number }>;
   freeTimeUntil?: number;
   /** Units this decision left out (prioritizing by weight): undoing brings them back. */
   skippedUnits?: string[];

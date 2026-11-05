@@ -136,8 +136,9 @@ export function progress(data: AppData, now: number): TaskProgress[] {
       const capLeft = Math.max(0, task.estimateMinutes - done);
       // Units left out to make the rest fit are neither done nor missing.
       const units = task.units.filter((u) => !u.skipped);
+      // With units, only those count (all left out: nothing to plan); without, the estimate.
       const fromUnits =
-        units.length > 0
+        task.units.length > 0
           ? remainingFromUnits(
               units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
               effortRatio(effort, task.activityId),

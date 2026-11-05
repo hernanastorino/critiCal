@@ -264,6 +264,12 @@ function apply(data: AppData, action: Action): AppData {
         after: Object.fromEntries(
           changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
         ),
+        afterMinutes: Object.fromEntries(
+          changed.map((t) => {
+            const n = next.tasks.find((x) => x.id === t.id) ?? t;
+            return [t.id, { min: n.minMinutes, estimate: n.estimateMinutes }];
+          }),
+        ),
         freeTimeUntil: data.freeTimeUntil,
         ...(option.kind === "move-event" && option.eventId
           ? {
@@ -288,8 +294,19 @@ function apply(data: AppData, action: Action): AppData {
         return old
           ? {
               ...t,
-              minMinutes: old.minMinutes,
-              estimateMinutes: old.estimateMinutes,
+              // Back what this decision cut, on top of whatever changed since.
+              ...(() => {
+                const after = record.afterMinutes?.[t.id];
+                return after
+                  ? {
+                      minMinutes: Math.max(0, t.minMinutes + old.minMinutes - after.min),
+                      estimateMinutes: Math.max(
+                        0,
+                        t.estimateMinutes + old.estimateMinutes - after.estimate,
+                      ),
+                    }
+                  : { minMinutes: old.minMinutes, estimateMinutes: old.estimateMinutes };
+              })(),
               status: old.status,
               // Units this decision left out come back; ones a later decision left out
               // stay out (whatever was done since stays done).

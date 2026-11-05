@@ -452,6 +452,35 @@ describe("more ways out in the app", () => {
     expect(undone.tasks[0]?.units.map((u) => !!u.skipped)).toEqual([true, false, false]);
   });
 
+  it("undoes decisions in any order, each giving back its own cut", async () => {
+    const { reducer } = await import("./store.js");
+    const t0 = task("p", "Parcial de Mate", 600);
+    const rec = (id: string, before: number, after: number) => ({
+      id,
+      label: id,
+      at: now,
+      before: [{ ...t0, minMinutes: before, estimateMinutes: before }],
+      after: { p: "active" as const },
+      afterMinutes: { p: { min: after, estimate: after } },
+    });
+    // 600 → 500 (d1) → 300 (d2).
+    const d = base({
+      tasks: [{ ...t0, minMinutes: 300, estimateMinutes: 300 }],
+      applied: [rec("d1", 600, 500), rec("d2", 500, 300)],
+    });
+    const one = reducer(d, { type: "undoDecision", id: "d1", now });
+    expect(one.tasks[0]?.minMinutes).toBe(400);
+    const both = reducer(one, { type: "undoDecision", id: "d2", now });
+    expect(both.tasks[0]?.minMinutes).toBe(600);
+  });
+
+  it("plans nothing for a task whose units are all left out", async () => {
+    const { progress } = await import("./planning.js");
+    const units = [{ id: "u", title: "Series", estimateMinutes: 400, weight: 10, skipped: true }];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 600, { units })] });
+    expect(progress(d, now)[0]?.remainingMinutes).toBe(0);
+  });
+
   it("never offers to leave out a unit without a weight", async () => {
     const { toEngineTasks } = await import("./planning.js");
     const units = [
