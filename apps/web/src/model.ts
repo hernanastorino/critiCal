@@ -239,6 +239,8 @@ export interface AppliedDecision {
   movedEventId?: string;
   /** The move of that event this decision replaced, if any: undoing restores it. */
   previousMove?: NonNullable<AppData["movedEvents"]>[number];
+  /** The move this decision made: undo touches the event only while it still stands. */
+  move?: NonNullable<AppData["movedEvents"]>[number];
 }
 
 /**

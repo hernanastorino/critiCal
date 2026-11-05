@@ -269,6 +269,10 @@ function apply(data: AppData, action: Action): AppData {
           ? {
               movedEventId: option.eventId,
               ...(previousMove ? { previousMove } : {}),
+              ...(() => {
+                const move = next.movedEvents?.find((m) => m.eventId === option.eventId);
+                return move ? { move } : {};
+              })(),
             }
           : {}),
       };
@@ -299,19 +303,17 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...data,
           tasks,
-          // The event goes back where it was before: its earlier agreed move, if any.
-          movedEvents: record.movedEventId
-            ? [
-                ...(data.movedEvents ?? []).filter((m) => m.eventId !== record.movedEventId),
-                // Only while this decision's own move still stands (not removed since).
-                ...(record.previousMove &&
-                data.movedEvents?.some((m) => m.eventId === record.movedEventId)
-                  ? [record.previousMove]
-                  : []),
-              ]
-            : data.movedEvents,
+          movedEvents: undoMove(data.movedEvents, record),
           freeTimeUntil: record.freeTimeUntil,
-          applied: data.applied?.filter((d) => d.id !== record.id),
+          // A later move of the same event that replaced this one now replaces what
+          // this one replaced, so undoing it never brings back an undone move.
+          applied: data.applied
+            ?.filter((d) => d.id !== record.id)
+            .map((d) =>
+              record.move && d.previousMove && sameMove(d.previousMove, record.move)
+                ? { ...d, previousMove: record.previousMove }
+                : d,
+            ),
         },
         now,
       );
@@ -1005,6 +1007,27 @@ function dropEmptyNoSubject(data: AppData): AppData {
 }
 
 /** Keeps what the plan looked like before a reorganization, so it can be undone. */
+type Move = NonNullable<AppData["movedEvents"]>[number];
+const sameMove = (a: Move, b: Move) =>
+  a.eventId === b.eventId && a.start === b.start && a.end === b.end;
+
+/**
+ * The moved events after undoing `record`: the event goes back to the move this one
+ * replaced (or its own time), but only while this decision's move still stands — not
+ * if a later decision moved it again or the user put it back by hand.
+ */
+function undoMove(moves: AppData["movedEvents"], record: AppliedDecision) {
+  if (!record.movedEventId) return moves;
+  const current = moves?.find((m) => m.eventId === record.movedEventId);
+  // Older records without `move`: whatever stands for the event is theirs.
+  const own = current && (!record.move || sameMove(current, record.move));
+  if (!own) return moves;
+  return [
+    ...(moves ?? []).filter((m) => m !== current),
+    ...(record.previousMove ? [record.previousMove] : []),
+  ];
+}
+
 function versioned(data: AppData, action: Action, next: AppData): AppData {
   const label = VERSIONED[action.type];
   if (!label || next === data) return next;

@@ -497,6 +497,22 @@ describe("more ways out in the app", () => {
     expect(
       reducer(replaced, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
     ).toEqual([earlier]);
+    // Out of order: undoing the first of two moves keeps the second, and undoing the
+    // second afterwards puts the event back at its own time, not at the first move.
+    const m1 = { eventId: "google:x", from: cafe.start, start: cafe.start + 1, end: cafe.end + 1 };
+    const m2 = { eventId: "google:x", from: cafe.start, start: cafe.start + 2, end: cafe.end + 2 };
+    const base2 = { at: now, label: "Mover", before: [], freeTimeUntil: undefined };
+    const twice = {
+      ...moved,
+      movedEvents: [m2],
+      applied: [
+        { ...base2, id: "d1", movedEventId: "google:x", move: m1 },
+        { ...base2, id: "d2", movedEventId: "google:x", move: m2, previousMove: m1 },
+      ],
+    };
+    const first = reducer(twice, { type: "undoDecision", id: "d1", now });
+    expect(first.movedEvents).toEqual([m2]);
+    expect(reducer(first, { type: "undoDecision", id: "d2", now }).movedEvents).toEqual([]);
     // Not if the user put the event back by hand in between.
     const unmoved = reducer(replaced, { type: "unmoveEvent", eventId: "google:x", now });
     expect(
