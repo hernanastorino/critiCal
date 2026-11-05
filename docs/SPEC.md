@@ -140,6 +140,7 @@ Hecho y en producción, además de las fases 0–4:
 - **«📚 Plan»**: todos los bloques planificados; los críticos en rojo (Tomato), el resto neutros.
 - **/api/travel**: hasta 60 s para buscar lugares.
 - **Errores de Sentry corregidos**: el cron ya no reescribe eventos del Plan sin cambios (cuota de Google) y reintenta los límites; en la app no se reportan los cortes de red reconocidos («Load failed», «Failed to fetch», etc.).
+- **Solo por invitación**: la cuenta dueña (la primera) maneja en Preferencias la lista de emails invitados; las cuentas que ya existían quedan invitadas. Quien entra sin invitación ve «Esta app es por invitación»: la base no le deja leer ni escribir nada y el servidor (funciones, cron, webhooks, widget) lo saltea.
 
 ## 14. Futuro
 
