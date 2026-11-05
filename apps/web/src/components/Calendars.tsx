@@ -167,8 +167,8 @@ export function Calendars() {
           <div className="title">¿Qué es cada calendario?</div>
           <p className="meta">
             Parciales, entregas y presentaciones crean actividades solas. «Ocupado» bloquea el
-            tiempo. En cualquier calendario, un evento con #parcial, #entrega (o 📝) o #presentación
-            en el título también se toma como tal.
+            tiempo. En cualquier calendario (salvo los que marques «Ignorar»), un evento con
+            #parcial, #entrega (o 📝) o #presentación en el título también se toma como tal.
           </p>
           {(data.calendars ?? [])
             .filter((c) => !isPlanCalendar(c.name))

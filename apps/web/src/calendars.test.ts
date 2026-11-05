@@ -262,5 +262,15 @@ describe("tags in event titles", () => {
     ]);
     // A tagged entrega is a deadline, it does not block time.
     expect(visibleEvents(d).find((e) => e.id === "a")?.busy).toBe(false);
+
+    // Removing the tag stops planning the task, keeping it as history.
+    const untaggedOut = importFromCalendars(
+      { ...out, events: out.events.map((e) => (e.id === "b" ? { ...e, title: "Física" } : e)) },
+      now,
+      (s: string) => `id:${s}`,
+    );
+    const retired = untaggedOut.tasks.find((t) => t.sourceEventId === "b");
+    expect(retired?.status).toBe("dropped");
+    expect(retired?.endedAt).toBe(now);
   });
 });

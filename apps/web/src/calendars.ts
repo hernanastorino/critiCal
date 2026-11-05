@@ -141,7 +141,18 @@ export function importFromCalendars(
 
   for (const e of data.events) {
     const role = eventRole(data, e);
-    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") continue;
+    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") {
+      // No longer an evaluation (tag removed, calendar role changed): its task stops
+      // being planned; dropped, not deleted, so check-ins keep their history.
+      const stale = tasks.find((t) => t.sourceEventId === e.id && t.status === "active");
+      if (stale) {
+        tasks = tasks.map((t) =>
+          t === stale ? { ...t, status: "dropped" as const, endedAt: now } : t,
+        );
+        changed = true;
+      }
+      continue;
+    }
     const deadline = role === "entrega" ? e.end : e.start;
     const existing = tasks.find((t) => t.sourceEventId === e.id);
     const title = untagged(e.title);
