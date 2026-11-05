@@ -59,6 +59,16 @@ describe("late nights", () => {
     expect(withLateNight(answered, morning)).toEqual(answered.overrides);
   });
 
+  it("suggests the clock time across a daylight-saving change", () => {
+    const ny = "America/New_York";
+    const d = data([
+      ev("Fiesta", zonedInstant(ny, "2027-03-13", 21 * 60), zonedInstant(ny, "2027-03-14", 90)),
+    ]);
+    const shifted = { ...d, settings: { ...d.settings, timezone: ny } };
+    // Seven real hours of sleep (the clock jumped an hour) after 01:30: 09:30.
+    expect(lateNight(shifted, zonedInstant(ny, "2027-03-14", 10 * 60))?.assumedWake).toBe(570);
+  });
+
   it("skips free events and waits until the event is over", () => {
     expect(lateNight(data([{ ...party, busy: false }]), morning)).toBeNull();
     expect(lateNight(data([party]), at("2026-11-04", "00:15"))).toBeNull();

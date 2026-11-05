@@ -228,13 +228,14 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // Blocks the user placed by hand stay exactly where they are.
   const pins = (data.pins ?? []).filter((b) => b.end > now && active.has(b.taskId));
   const unpinned = today.filter((b) => !isPinned(b) && !pins.some((p) => overlaps(p, b)));
-  const conflicts = unpinned.filter((b) => busy.some((e) => overlaps(e, b)));
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
   const wake = withLateNight(data, now).find((o) => o.date === date)?.wake;
   const wakeAt = wake === undefined ? undefined : zonedInstant(tz, date, wake);
   const displaced = (b: PlanBlock) => wakeAt !== undefined && b.start > now && b.start < wakeAt;
+  // Displaced blocks are planned again anyway: never a conflict to ask about.
+  const conflicts = unpinned.filter((b) => !displaced(b) && busy.some((e) => overlaps(e, b)));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -250,6 +251,8 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       ...past,
       ...keep,
       ...conflicts,
+      // Until the proposal is answered, today stays as it was, displaced blocks included.
+      ...unpinned.filter(displaced),
       // schedule() echoes frozen blocks, so pins on later days are already in keep.
       ...plan.filter((b) => b.start >= todayEnd && !keep.some((k) => k.id === b.id)),
     ],

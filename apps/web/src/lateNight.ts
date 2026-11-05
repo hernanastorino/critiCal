@@ -1,6 +1,6 @@
 // Late nights: after an event that ends past bedtime, the next morning starts later.
 import { visibleEvents } from "./calendars.js";
-import { addDays, type DayOverride, localParts, MINUTE, zonedInstant } from "./engine.js";
+import { addDays, type DayOverride, localParts, zonedInstant } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import type { AppData, AppEvent } from "./model.js";
 
@@ -48,7 +48,9 @@ export function lateNight(data: AppData, now: number): LateNight | null {
     .sort((a, b) => b.end - a.end)[0];
   if (!late) return null;
   const wake = late.end + sleep;
-  const minutes = Math.round((wake - zonedInstant(tz, today, 0)) / MINUTE);
+  // Clock time of that instant (not minutes since midnight, which a DST change skews).
+  const at = localParts(tz, wake);
+  const minutes = at.date === today ? at.minuteOfDay : 1440;
   // Not past the end of the day, and only while it still matters.
   if (minutes >= 1440 || now > zonedInstant(tz, today, 1440)) return null;
   return { date: today, event: late, assumedWake: Math.max(morning.wake, minutes) };
