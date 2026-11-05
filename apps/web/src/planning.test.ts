@@ -879,6 +879,7 @@ describe("undo after deleting a task", () => {
     const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
     const base = demoData(now);
     const { id: task, activityId } = base.tasks[0]!;
+    const other = base.tasks.find((t) => t.id !== task)!;
     const at = (h: number) => zonedInstant(TIMEZONE, "2026-11-03", h * 60);
     const block = {
       id: "later",
@@ -889,7 +890,17 @@ describe("undo after deleting a task", () => {
       level: "ok" as const,
     };
     const pin = { ...block, id: "pinned", start: at(17), end: at(18) };
-    const seeded = { ...base, plan: [...base.plan, block], pins: [pin] };
+    // Another task's block and pin, which undo must bring back.
+    const kept = {
+      ...block,
+      id: "kept",
+      taskId: other.id,
+      activityId: other.activityId,
+      start: at(19),
+      end: at(20),
+    };
+    const keptPin = { ...kept, id: "kept-pin", start: at(21), end: at(22) };
+    const seeded = { ...base, plan: [...base.plan, block, kept], pins: [pin, keptPin] };
     const replanned = reducer(seeded, { type: "replanWeek", now });
     const saved = replanned.planHistory?.at(-1);
     // The saved version holds them, so undo would bring them back.
@@ -904,5 +915,8 @@ describe("undo after deleting a task", () => {
     const back = reducer(deleted, { type: "undoPlan", now: now + 2000 });
     expect(back.plan.some((b) => b.taskId === task)).toBe(false);
     expect((back.pins ?? []).some((b) => b.taskId === task)).toBe(false);
+    expect((back.pins ?? []).some((b) => b.id === "kept-pin")).toBe(true);
+    expect(back.plan.some((b) => b.taskId === other.id)).toBe(true);
+    expect(back.planHistory?.length ?? 0).toBeLessThan(replanned.planHistory?.length ?? 0);
   });
 });
