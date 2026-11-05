@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildSlots } from "./availability.js";
 import { overlaps } from "./intervals.js";
 import { infeasibilityOptions, recommendations, targetOptions } from "./options.js";
-import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import { assignable, type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
 import { activity, at, settings, task } from "./testing.js";
 import { type CalendarEvent, MINUTE, type PlanBlock } from "./types.js";
 
@@ -686,6 +686,52 @@ describe("exam review", () => {
       }),
     );
     expect(["a", "b", "c"].map((id) => minutesOf(r, id))).toEqual([60, 60, 60]);
+  });
+
+  it("checks every group of tasks, not only deadline prefixes", () => {
+    expect(assignable([60, 60], [{ tasks: [0, 1], minutes: 60 }])).toBe(false);
+    expect(
+      assignable(
+        [120, 60, 60],
+        [
+          { tasks: [0, 1, 2], minutes: 120 },
+          { tasks: [0], minutes: 120 },
+        ],
+      ),
+    ).toBe(true);
+    // A needs 2 h, B and C 1 h each, all on Monday 08–12; B and C avoid 10–12.
+    const avoid = [{ start: at("2026-11-02", "10:00"), end: at("2026-11-02", "12:00") }];
+    const r = schedule(
+      base({
+        tasks: [
+          task("a", "mate", at("2026-11-02", "12:00"), {
+            remainingMinutes: 120,
+            minRemainingMinutes: 120,
+            sessionMinutes: 60,
+          }),
+          task("b", "fisica", at("2026-11-02", "12:30"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 60,
+            sessionMinutes: 60,
+            avoid,
+          }),
+          task("c", "gym", at("2026-11-02", "12:30"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 60,
+            sessionMinutes: 60,
+            avoid,
+          }),
+        ],
+        events: [ev("x", at("2026-11-02", "14:00"), at("2026-11-04", "08:00"))],
+        maxActivitiesPerDay: Number.POSITIVE_INFINITY,
+      }),
+    );
+    // A no longer grabs the morning B and C need (the old prefix check let it).
+    expect(minutesOf(r, "a")).toBe(120);
+    expect(r.blocks.some((b) => b.taskId === "a" && b.start === at("2026-11-02", "08:00"))).toBe(
+      false,
+    );
+    expect(minutesOf(r, "b")).toBe(60);
   });
 
   it("never uses times a task must avoid", () => {

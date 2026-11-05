@@ -171,31 +171,30 @@ export function schedule(input: ScheduleInput): ScheduleResult {
 
   const placed = new Map<string, number>(prepared.map((p) => [p.task.id, 0]));
 
-  /** Slack of every pending minimum with the current board (EDF over free slots). */
+  /**
+   * Whether every pending minimum can still get free slots it may use, all at once:
+   * an exact assignment check (max flow from tasks to groups of slots with the same
+   * eligible tasks), since days avoided by some tasks break the deadline nesting.
+   */
   const minimumsFit = (): boolean => {
-    // Hall's condition on each deadline prefix: what the prefix still needs must fit in
-    // the free slots any of its tasks can use (eligibility is not nested once tasks
-    // avoid days), and each task's own need in the slots it can use.
-    let demand = 0;
-    let capacity = 0;
-    const counted = board.slots.map(() => false);
-    for (const p of prepared) {
-      const need = Math.max(0, p.min - (placed.get(p.task.id) ?? 0));
-      // A task with its minimum placed adds no demand, so its slots add no capacity.
-      if (need === 0) continue;
-      demand += need;
-      let own = 0;
-      board.slots.forEach((s, i) => {
-        if (board.owner[i] !== null || !eligible(p, s, false)) return;
-        own += slotMinutes;
-        if (!counted[i]) {
-          counted[i] = true;
-          capacity += slotMinutes;
-        }
-      });
-      if (own < need || capacity < demand) return false;
-    }
-    return true;
+    const pending = prepared
+      .map((p) => ({ p, need: Math.max(0, p.min - (placed.get(p.task.id) ?? 0)) }))
+      .filter((x) => x.need > 0);
+    if (pending.length === 0) return true;
+    const groups = new Map<string, { tasks: number[]; minutes: number }>();
+    board.slots.forEach((s, i) => {
+      if (board.owner[i] !== null) return;
+      const tasks = pending.flatMap((x, t) => (eligible(x.p, s, false) ? [t] : []));
+      if (tasks.length === 0) return;
+      const key = tasks.join(",");
+      const g = groups.get(key);
+      if (g) g.minutes += slotMinutes;
+      else groups.set(key, { tasks, minutes: slotMinutes });
+    });
+    return assignable(
+      pending.map((x) => x.need),
+      [...groups.values()],
+    );
   };
 
   const score = (p: Prepared, start: number, length: number, urgent: boolean): number | null => {
@@ -371,6 +370,57 @@ function collectBlocks(board: Board): PlanBlock[] {
   return blocks;
 }
 
+/**
+ * Whether `needs` (minutes per task) fit in `groups` of slots, each usable by some of
+ * the tasks: max flow source → task → group → sink (Edmonds–Karp on a tiny graph).
+ */
+export function assignable(
+  needs: number[],
+  groups: { tasks: number[]; minutes: number }[],
+): boolean {
+  const n = needs.length;
+  const g = groups.length;
+  const size = n + g + 2;
+  const source = n + g;
+  const sink = source + 1;
+  // Residual capacities, row-major: cap[u * size + v].
+  const cap = new Float64Array(size * size);
+  needs.forEach((need, t) => {
+    cap[source * size + t] = need;
+  });
+  groups.forEach((group, j) => {
+    for (const t of group.tasks) cap[t * size + n + j] = Number.POSITIVE_INFINITY;
+    cap[(n + j) * size + sink] = group.minutes;
+  });
+  let flow = 0;
+  for (;;) {
+    const prev = new Int32Array(size).fill(-1);
+    prev[source] = source;
+    const queue = [source];
+    for (let q = 0; q < queue.length && prev[sink] === -1; q++) {
+      const u = queue[q] as number;
+      for (let v = 0; v < size; v++) {
+        if (prev[v] === -1 && (cap[u * size + v] as number) > 0) {
+          prev[v] = u;
+          queue.push(v);
+        }
+      }
+    }
+    if (prev[sink] === -1) break;
+    let push = Number.POSITIVE_INFINITY;
+    for (let v = sink; v !== source; v = prev[v] as number) {
+      push = Math.min(push, cap[(prev[v] as number) * size + v] as number);
+    }
+    for (let v = sink; v !== source; v = prev[v] as number) {
+      const u = prev[v] as number;
+      cap[u * size + v] = (cap[u * size + v] as number) - push;
+      cap[v * size + u] = (cap[v * size + u] as number) + push;
+    }
+    flow += push;
+  }
+  return flow >= needs.reduce((a, b) => a + b, 0);
+}
+
 function statuses(
   prepared: Prepared[],
   placed: Map<string, number>,
@@ -380,15 +430,24 @@ function statuses(
 ): TaskStatus[] {
   // Slack: capacity before each deadline (free + planned slots, strict rules) minus
   // the minimums due by then, in deadline order.
+  // Capacity is every slot some task of the deadline prefix may use (avoided days make
+  // eligibility not nested), and a task's own slots bound its slack too.
   let demand = 0;
+  let capacity = 0;
+  const counted = board.slots.map(() => false);
   return prepared.map((p) => {
     demand += p.min;
-    let capacity = 0;
-    board.slots.forEach((s) => {
-      if (eligible(p, s, true)) capacity += settings.slotMinutes;
+    let own = 0;
+    board.slots.forEach((s, i) => {
+      if (!eligible(p, s, true)) return;
+      own += settings.slotMinutes;
+      if (!counted[i]) {
+        counted[i] = true;
+        capacity += settings.slotMinutes;
+      }
     });
     const scheduled = placed.get(p.task.id) ?? 0;
-    const slack = capacity - demand;
+    const slack = Math.min(capacity - demand, own - p.min);
     const minDeficit = Math.max(0, p.min - scheduled);
     const chunk = p.chunkSlots * settings.slotMinutes;
     const level: Level =

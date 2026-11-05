@@ -304,8 +304,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // Days kept for another materia's exam count as taken, like a busy event (also for
   // blocks of tasks with nothing left to plan).
   const kept = keptDays(data, now);
+  // By the task's current materia: a block keeps the one it was planned with.
+  const activityOf = (b: PlanBlock) =>
+    data.tasks.find((t) => t.id === b.taskId)?.activityId ?? b.activityId;
   const reserved = (b: PlanBlock) =>
-    kept.some((k) => k.activityId !== b.activityId && overlaps(k.span, b));
+    kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
   const conflicts = unpinned.filter((b) => clashes(b) || reserved(b));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b)), ...pins];
