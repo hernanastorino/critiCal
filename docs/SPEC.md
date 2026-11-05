@@ -139,7 +139,7 @@ Hecho y en producción, además de las fases 0–4:
 - **Deshacer**: últimas 20 versiones del plan, botón en Semana; las decisiones aplicadas se deshacen en cualquier orden.
 - **«📚 Plan»**: todos los bloques planificados; los críticos en rojo (Tomato), el resto neutros.
 - **/api/travel**: hasta 60 s para buscar lugares.
-- **Errores de Sentry corregidos**: el cron ya no reescribe eventos del Plan sin cambios (cuota de Google) y reintenta los límites; los cortes de red del celular no se reportan.
+- **Errores de Sentry corregidos**: el cron ya no reescribe eventos del Plan sin cambios (cuota de Google) y reintenta los límites; en la app no se reportan los cortes de red reconocidos («Load failed», «Failed to fetch», etc.).
 
 ## 14. Futuro
 
