@@ -1,5 +1,6 @@
 import { buildSlots } from "./availability.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import { travelBuffers } from "./travel.js";
 import { type CalendarEvent, type Interval, MINUTE, type Task } from "./types.js";
 
 export type OptionKind =
@@ -246,8 +247,11 @@ function freeSpot(
   const week = 7 * 1440 * MINUTE;
   const from = Math.max(input.now, event.start - week);
   const to = Math.min(input.horizonEnd, event.start + week);
+  // The trips to the other events are taken too, as schedule() counts them.
+  const others = input.events.filter((e) => e.id !== event.id);
   const busy: Interval[] = [
     ...input.events.filter((e) => e.busy && !e.allDay),
+    ...(input.travel ? travelBuffers(others, input.travel).busy : []),
     ...result.blocks,
     ...(input.frozen ?? []),
   ];

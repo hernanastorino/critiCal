@@ -644,6 +644,30 @@ describe("more ways out", () => {
     );
   });
 
+  it("never moves a flexible event into the trip to another one", () => {
+    const flex = ev("Café #flex", at("2026-11-02", "10:00"), at("2026-11-02", "14:00"), {
+      flexible: true,
+    });
+    const clase = ev("clase", at("2026-11-02", "18:00"), at("2026-11-02", "19:00"), {
+      location: "Facultad",
+    });
+    const travel = {
+      home: "home",
+      resolvePlace: (l: string) => (l === "Facultad" ? "facu" : undefined),
+      travelMinutes: () => 180,
+      marginMinutes: 10,
+      returnHomeAfterMinutes: 120,
+    };
+    const input = base({
+      tasks: [task("m", "mate", deadline, { remainingMinutes: 480, minRemainingMinutes: 480 })],
+      events: [flex, clase],
+      travel,
+    });
+    const move = infeasibilityOptions(input, schedule(input)).find((o) => o.kind === "move-event");
+    const trip = { start: at("2026-11-02", "14:50"), end: at("2026-11-02", "18:00") };
+    if (move?.moveTo) expect(overlaps(move.moveTo, trip)).toBe(false);
+  });
+
   it("leaves out an exam's lightest units, never the heaviest", () => {
     const input = base({
       tasks: [
