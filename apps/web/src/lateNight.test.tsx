@@ -148,8 +148,16 @@ describe("late nights", () => {
   });
 
   it("asks in the inbox and keeps the answer", async () => {
+    let saved: AppData | undefined;
     render(
-      <StoreProvider initial={() => data([party])} persist={false} fixedNow={morning}>
+      <StoreProvider
+        initial={() => data([party])}
+        persist={false}
+        fixedNow={morning}
+        onChange={(_, next) => {
+          saved = next;
+        }}
+      >
         <Inbox />
       </StoreProvider>,
     );
@@ -161,5 +169,7 @@ describe("late nights", () => {
       fireEvent.click(screen.getByRole("button", { name: "Listo" }));
     });
     expect(screen.queryByText("¿A qué hora te levantaste?")).toBeNull();
+    // The answer typed is the one saved, not the assumed 09:30.
+    expect(saved?.overrides.find((o) => o.date === "2026-11-04")?.wake).toBe(10 * 60 + 15);
   });
 });
