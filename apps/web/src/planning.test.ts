@@ -420,6 +420,46 @@ describe("more ways out in the app", () => {
       undefined,
       undefined,
     ]);
+    // From an entrega event, "final" is the last delivery (a smaller one is fine), but
+    // an exam title still counts.
+    const entregas = base({
+      calendars: [
+        {
+          id: "google:e",
+          source: "google" as const,
+          externalId: "e",
+          name: "Entregas",
+          role: "entrega" as const,
+        },
+      ],
+      events: [
+        {
+          id: "x1",
+          title: "Entrega final del TP",
+          start: deadline,
+          end: deadline,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:e",
+        },
+        {
+          id: "x2",
+          title: "Parcial de Mate",
+          start: deadline,
+          end: deadline,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:e",
+        },
+      ],
+      tasks: [
+        task("f", "Entrega final del TP", 600, { sourceEventId: "x1" }),
+        task("g", "Parcial de Mate", 600, { sourceEventId: "x2" }),
+      ],
+    });
+    const [f, g] = toEngineTasks(entregas, now);
+    expect(f?.mvpMinutes).toBe(300);
+    expect(g?.mvpMinutes).toBeUndefined();
   });
 
   it("leaves out units, marks them, and undo brings them back", async () => {

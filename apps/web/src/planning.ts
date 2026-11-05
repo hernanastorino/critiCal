@@ -220,9 +220,15 @@ const EXAM = /(?<![\p{L}\p{N}])(parcial(es)?|ex[aá]men(es)?|pruebas?|final(es)?
 
 /** An exam has no smaller version to hand in: by its title or its calendar event. */
 function isExam(data: AppData, task: AppTask): boolean {
-  if (EXAM.test(task.title)) return true;
   const event = task.sourceEventId && data.events.find((e) => e.id === task.sourceEventId);
-  return !!event && eventRole(data, event) === "parcial";
+  const role = event ? eventRole(data, event) : undefined;
+  if (role === "parcial") return true;
+  // From an entrega or presentación, "final" is the last one, not an exam.
+  const title =
+    role === "entrega" || role === "presentacion"
+      ? task.title.replace(/(?<![\p{L}\p{N}])final(es)?(?![\p{L}\p{N}])/giu, "")
+      : task.title;
+  return EXAM.test(title);
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
