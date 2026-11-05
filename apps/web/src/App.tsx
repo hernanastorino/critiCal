@@ -128,8 +128,10 @@ export function InviteGate({
   const [blocked, setBlocked] = useState(false);
   const uid = session.user?.id;
   useEffect(() => {
-    let cancelled = false;
+    // Asked again for each account signed in.
     setBlocked(false);
+    if (!uid) return;
+    let cancelled = false;
     void Promise.resolve()
       .then(() => client.rpc("my_access"))
       .then(({ data, error }) => {
