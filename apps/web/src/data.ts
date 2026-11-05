@@ -93,6 +93,7 @@ export function rowsToData(r: {
         skipUntil: t.skip_until ? ms(t.skip_until as string) : undefined,
         paused: (t.paused as boolean) || undefined,
         endedAt: t.ended_at ? ms(t.ended_at as string) : undefined,
+        autoDroppedAt: t.auto_dropped_at ? ms(t.auto_dropped_at as string) : undefined,
         units: r.units
           .filter((u) => u.task_id === t.id)
           .sort((a, b) => (a.position as number) - (b.position as number))
@@ -357,6 +358,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         skip_until: t.skipUntil ? iso(t.skipUntil) : null,
         paused: !!t.paused,
         ended_at: t.endedAt ? iso(t.endedAt) : null,
+        auto_dropped_at: t.autoDroppedAt ? iso(t.autoDroppedAt) : null,
       })),
     });
     const units = tasks.flatMap((t) =>
