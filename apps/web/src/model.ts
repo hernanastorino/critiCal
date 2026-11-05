@@ -166,6 +166,8 @@ export interface AppData {
   tentativeSeen?: { id: string; title: string; start: number; end: number }[];
   /** A plan B was turned down: today's blocks stay as they are until then (end of day). */
   tentativeHoldUntil?: number;
+  /** What the plan looked like before each reorganization, newest last (up to 20). */
+  planHistory?: PlanVersion[];
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
   notSubjects?: string[];
 }
@@ -313,4 +315,21 @@ export function uniqueColors<T extends { color: string }>(activities: T[]): T[] 
     seen.push(a);
   }
   return changed ? seen : activities;
+}
+
+/**
+ * The plan's own inputs before a reorganization (the plan itself is derived, so these
+ * are what bring it back): pins, today's blocks, day adjustments and permissions.
+ */
+export interface PlanVersion {
+  at: number;
+  /** What changed it, for the undo button. */
+  label: string;
+  pins: PlanBlock[];
+  /** Today's blocks not started yet: today only changes with an OK, so they are kept. */
+  today: PlanBlock[];
+  overrides: DayOverride[];
+  proposals: Proposal[];
+  freeTimeUntil?: number;
+  relaxContextUntil?: number;
 }

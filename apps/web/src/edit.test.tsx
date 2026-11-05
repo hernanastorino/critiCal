@@ -554,3 +554,23 @@ describe("edit mode", () => {
     expect(screen.getByText(/Soltado/)).toBeTruthy();
   });
 });
+
+describe("plan history", () => {
+  it("undoes the last reorganization, up to twenty", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
+    const pinned = reducer(d, {
+      type: "pin",
+      blockId: block.id,
+      start: block.start + 86_400_000,
+      now: NOW,
+    });
+    expect(pinned.planHistory?.at(-1)?.label).toBe("mover un bloque");
+    const back = reducer(pinned, { type: "undoPlan", now: NOW });
+    expect(back.pins).toEqual(d.pins ?? []);
+    expect(back.planHistory).toEqual([]);
+    let many = d;
+    for (let i = 0; i < 25; i++) many = reducer(many, { type: "replanWeek", now: NOW });
+    expect(many.planHistory).toHaveLength(20);
+  });
+});

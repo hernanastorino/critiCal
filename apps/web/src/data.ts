@@ -30,6 +30,7 @@ interface State {
   notSubjects?: string[];
   tentativeSeen?: AppData["tentativeSeen"];
   tentativeHoldUntil?: number;
+  planHistory?: AppData["planHistory"];
 }
 
 const ms = (iso: string) => Date.parse(iso);
@@ -179,6 +180,7 @@ export function rowsToData(r: {
     notSubjects: state.notSubjects,
     tentativeSeen: state.tentativeSeen,
     tentativeHoldUntil: state.tentativeHoldUntil,
+    planHistory: state.planHistory,
     proposals: state.proposals ?? [],
     preferences: state.preferences,
     applied: state.applied,
@@ -273,6 +275,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.notSubjects,
       prev.tentativeSeen,
       prev.tentativeHoldUntil,
+      prev.planHistory,
     ]) !==
     JSON.stringify([
       next.settings,
@@ -287,6 +290,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.notSubjects,
       next.tentativeSeen,
       next.tentativeHoldUntil,
+      next.planHistory,
     ]);
   if (settingsChanged) {
     upserts.push({
@@ -306,6 +310,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             notSubjects: next.notSubjects,
             tentativeSeen: next.tentativeSeen,
             tentativeHoldUntil: next.tentativeHoldUntil,
+            planHistory: next.planHistory,
           },
         },
       ],
