@@ -1,7 +1,8 @@
 import { importFromCalendars, isTentative, visibleEvents } from "./calendars.js";
+import { localParts, zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { newId, stableId, uniqueColors } from "./model.js";
-import { endOfDay, refreshPlan } from "./planning.js";
+import { endOfDay, isPinned, refreshPlan } from "./planning.js";
 
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
 export function refresh(raw: AppData, now: number): AppData {
@@ -25,7 +26,19 @@ export function refresh(raw: AppData, now: number): AppData {
     JSON.stringify(fallen.seen) === JSON.stringify(data.tentativeSeen ?? [])
       ? data.tentativeSeen
       : fallen.seen;
-  return { ...data, plan: r.plan, proposals, tentativeSeen };
+  // While a plan B waits, today keeps the blocks it had (and its pins): the freed time
+  // is only used with an OK. Later days still update on their own.
+  const todayEnd = endOfDay(data.settings.timezone, now);
+  const plan = proposals.some((p) => p.id.startsWith(TENTATIVE))
+    ? r.plan.filter(
+        (b) =>
+          b.end <= now ||
+          b.start >= todayEnd ||
+          isPinned(b) ||
+          data.plan.some((o) => o.id === b.id),
+      )
+    : r.plan;
+  return { ...data, plan, proposals, tentativeSeen };
 }
 
 const TENTATIVE = "tentative@";
@@ -40,10 +53,14 @@ function planB(data: AppData, now: number, proposals: AppData["proposals"]) {
   const seen = visibleEvents(data)
     .filter((e) => isTentative(e) && e.end > now)
     .map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end }));
-  const todayEnd = endOfDay(data.settings.timezone, now);
+  const tz = data.settings.timezone;
+  const todayEnd = endOfDay(tz, now);
   const gone = (data.tentativeSeen ?? []).filter(
     (s) => s.end > now && s.start < todayEnd && !data.events.some((e) => e.id === s.id),
   );
+  // A plan B is about its own day; unanswered, it expires with it.
+  const todayStart = zonedInstant(tz, localParts(tz, now).date, 0);
+  proposals = proposals.filter((p) => !p.id.startsWith(TENTATIVE) || p.createdAt >= todayStart);
   const waiting = proposals.some((p) => p.id.startsWith(TENTATIVE));
   if (gone.length === 0 && !waiting) return { proposals, seen };
   // Everything from now on, except the block in progress, planned again.
