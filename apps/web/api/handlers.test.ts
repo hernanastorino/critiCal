@@ -218,7 +218,7 @@ describe("google-sync (Node)", () => {
     );
     expect(JSON.parse(created?.body ?? "{}")).toMatchObject({
       summary: "🔴 Parcial",
-      colorId: "10",
+      colorId: "11",
     });
     expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(true);
     const listed = writes.find((w) => w.table === "calendars" && w.op === "upsert")?.payload as {

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  CRITICAL_COLOR_ID,
   choosePlanCalendar,
   diffPlan,
   midnight,
@@ -53,7 +54,7 @@ describe("google helpers", () => {
     expect(midnight("2026-11-04", "UTC")).toBe("2026-11-04T00:00:00.000Z");
   });
 
-  it("paints every plan event green and marks critical ones", () => {
+  it("paints plan events green and critical ones red, marked too", () => {
     const ev = planEvent(
       {
         id: "b",
@@ -67,15 +68,15 @@ describe("google helpers", () => {
     );
     expect(ev).toMatchObject({
       summary: "🔴 Parcial",
-      colorId: PLAN_COLOR_ID,
+      colorId: CRITICAL_COLOR_ID,
       extendedProperties: { private: { criticalBlock: "b" } },
     });
     expect(
       planEvent(
         { id: "c", task_id: "t", start_at: "s", end_at: "e", level: "ok", google_event_id: null },
         "Mate",
-      ).summary,
-    ).toBe("Mate");
+      ),
+    ).toMatchObject({ summary: "Mate", colorId: PLAN_COLOR_ID });
   });
 
   it("keeps exactly one Plan calendar", () => {

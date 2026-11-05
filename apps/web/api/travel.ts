@@ -13,6 +13,15 @@ const ORS = "https://api.openrouteservice.org/v2/matrix/driving-car";
 /** Nominatim's usage policy: an identifying agent, at most one request per second. */
 const AGENT = "critiCal/1.0 (+https://critical-cal.vercel.app)";
 
+/**
+ * Seconds Vercel lets this function run. Two event addresses with a home still to
+ * locate take about 35 s in the worst case (lookups up to 8 s, a second apart, then
+ * the routes); the app gives up at 45 s, so the function must be allowed longer.
+ */
+export const maxDuration = 60;
+/** How Vercel reads it for a plain Node function in `/api`. */
+export const config = { maxDuration };
+
 /** One-off addresses timed per call: Nominatim allows one lookup per second. */
 export const MAX_SPOTS = 4;
 

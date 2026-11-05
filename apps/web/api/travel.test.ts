@@ -43,7 +43,8 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-const { handle, resetGeocoder } = await import("./travel.js");
+const { config, handle, resetGeocoder } = await import("./travel.js");
+const { SPOTS_TIMEOUT_MS } = await import("../src/remote.js");
 const env = { url: "u", publishable: "p", secret: "s", orsKey: "ors" };
 const req = (body?: unknown) =>
   new Request("https://app/api/travel", {
@@ -59,6 +60,10 @@ afterEach(() => {
 });
 
 describe("event addresses", () => {
+  it("may run longer than the app waits for it", () => {
+    expect(config.maxDuration * 1000).toBeGreaterThan(SPOTS_TIMEOUT_MS);
+  });
+
   it("times them from home, the longer way, storing nothing", async () => {
     places = [
       { id: "casa", address: "Casa 1", lat: -34.8, lon: -56.2, is_home: true },
