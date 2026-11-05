@@ -8,7 +8,7 @@ import {
   subjectOf,
   visibleEvents,
 } from "./calendars.js";
-import { emptyData } from "./demo.js";
+import { demoData, emptyData } from "./demo.js";
 import { type AppData, type AppEvent, stableId } from "./model.js";
 import { refresh } from "./refresh.js";
 import { reducer } from "./store.js";
@@ -190,5 +190,106 @@ describe("importFromCalendars", () => {
       now: NOW,
     });
     expect(kept.tasks[0]).toMatchObject({ needsReview: false, status: "active" });
+  });
+});
+
+describe("tags in event titles", () => {
+  it("say what an event is, whatever its calendar, except ignored ones", async () => {
+    const { tagRole, untagged, eventRole, importFromCalendars, visibleEvents } = await import(
+      "./calendars.js"
+    );
+    expect(tagRole("📝 Informe de laboratorio")).toBe("entrega");
+    expect(tagRole("TP final #entrega")).toBe("entrega");
+    expect(tagRole("Física #parcial")).toBe("parcial");
+    expect(tagRole("Física #Examen")).toBe("parcial");
+    expect(tagRole("Defensa #presentación")).toBe("presentacion");
+    expect(tagRole("Cumple de Sofi")).toBeUndefined();
+    expect(untagged("📝 Informe #entrega")).toBe("Informe");
+    expect(untagged("#parcial")).toBe("#parcial");
+
+    const now = Date.UTC(2026, 10, 2, 12);
+    const at = (d: number) => now + d * 86_400_000;
+    const base = demoData(now);
+    const d = {
+      ...base,
+      tasks: [],
+      calendars: [
+        { id: "google:p", source: "google" as const, externalId: "p", name: "Personal" },
+        {
+          id: "google:x",
+          source: "google" as const,
+          externalId: "x",
+          name: "Viejo",
+          role: "ignore" as const,
+        },
+      ],
+      events: [
+        {
+          id: "a",
+          title: "📝 Informe de Física",
+          start: at(3),
+          end: at(3) + 3_600_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:p",
+        },
+        {
+          id: "b",
+          title: "Física #parcial",
+          start: at(5),
+          end: at(5) + 7_200_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:p",
+        },
+        {
+          id: "c",
+          title: "Nada #entrega",
+          start: at(4),
+          end: at(4) + 3_600_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:x",
+        },
+      ],
+    };
+    expect(eventRole(d, d.events[0] as never)).toBe("entrega");
+    expect(eventRole(d, d.events[2] as never)).toBe("ignore");
+    const out = importFromCalendars(d, now, (s: string) => `id:${s}`);
+    expect(out.tasks.map((t) => [t.title, t.deadline])).toEqual([
+      ["Informe de Física", at(3) + 3_600_000],
+      ["Física", at(5)],
+    ]);
+    // A tagged entrega is a deadline, it does not block time.
+    expect(visibleEvents(d).find((e) => e.id === "a")?.busy).toBe(false);
+
+    // Removing the tag stops planning the task, keeping it as history.
+    const untaggedOut = importFromCalendars(
+      { ...out, events: out.events.map((e) => (e.id === "b" ? { ...e, title: "Física" } : e)) },
+      now,
+      (s: string) => `id:${s}`,
+    );
+    const retired = untaggedOut.tasks.find((t) => t.sourceEventId === "b");
+    expect(retired?.status).toBe("dropped");
+    expect(retired?.endedAt).toBe(now);
+    // The tag back: the task returns…
+    const retagged = { ...untaggedOut, events: out.events };
+    const back = importFromCalendars(retagged, now, (s: string) => `id:${s}`);
+    expect(back.tasks.find((t) => t.sourceEventId === "b")).toMatchObject({
+      status: "active",
+      endedAt: undefined,
+    });
+    // …unless the user dropped it themselves meanwhile.
+    const byUser = {
+      ...retagged,
+      tasks: untaggedOut.tasks.map((t) =>
+        t.sourceEventId === "b" ? { ...t, endedAt: now + 1 } : t,
+      ),
+    };
+    expect(
+      importFromCalendars(byUser, now, (s: string) => `id:${s}`).tasks.find(
+        (t) => t.sourceEventId === "b",
+      )?.status,
+    ).toBe("dropped");
   });
 });
