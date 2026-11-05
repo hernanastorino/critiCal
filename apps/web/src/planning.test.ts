@@ -873,3 +873,21 @@ describe("breaks", () => {
     expect(applyOption(d, input, cut, now).tasks[0]?.minMinutes).toBe(250);
   });
 });
+
+describe("undo after deleting a task", () => {
+  it("does not bring back blocks of a task deleted since", () => {
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
+    const base = demoData(now);
+    const replanned = reducer(base, { type: "replanWeek", now });
+    const task = (replanned.planHistory?.at(-1)?.today ?? [])[0]?.taskId ?? base.tasks[0]!.id;
+    const deleted = reducer(replanned, {
+      type: "recurrence",
+      taskId: task,
+      change: "deleteAll",
+      now: now + 1000,
+    });
+    const back = reducer(deleted, { type: "undoPlan", now: now + 2000 });
+    expect(back.plan.some((b) => b.taskId === task)).toBe(false);
+    expect((back.pins ?? []).some((b) => b.taskId === task)).toBe(false);
+  });
+});

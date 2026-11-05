@@ -3,11 +3,13 @@ import { demoData } from "./demo.js";
 import {
   applyWrites,
   diffData,
+  isMissingParent,
   loadData,
   rowsToData,
   syncGoogle,
   syncICloud,
   timeSpots,
+  withoutDeleted,
 } from "./remote.js";
 import { session, stubApi } from "./testing.js";
 
@@ -274,5 +276,52 @@ describe("remote", () => {
       }),
     };
     await expect(loadData(client as never)).rejects.toBe(boom);
+  });
+});
+
+describe("tasks deleted on another device", () => {
+  it("drops them, with their blocks and check-ins, and keeps what is only here", () => {
+    const before = demoData(NOW);
+    const gone = before.tasks[0]!.id;
+    const server = { ...before, tasks: before.tasks.filter((t) => t.id !== gone) };
+    const fresh = { ...before.tasks[1]!, id: "only-here" };
+    const local = {
+      ...before,
+      tasks: [...before.tasks, fresh],
+      plan: [...before.plan, { ...before.plan[0]!, id: "b-gone", taskId: gone }],
+    };
+    const pruned = withoutDeleted(before, server, local);
+    expect(pruned.tasks.some((t) => t.id === gone)).toBe(false);
+    expect(pruned.tasks.some((t) => t.id === "only-here")).toBe(true);
+    expect(pruned.plan.some((b) => b.taskId === gone)).toBe(false);
+    expect(pruned.checkIns.some((c) => c.taskId === gone)).toBe(false);
+    // Nothing deleted elsewhere: the same copy.
+    expect(withoutDeleted(before, before, local)).toBe(local);
+  });
+
+  it("never writes blocks or check-ins of a task the copy no longer has", () => {
+    const prev = demoData(NOW);
+    const block = { ...prev.plan[0]!, id: "orphan", taskId: "nope" };
+    const check = {
+      id: "orphan-c",
+      blockId: "orphan",
+      taskId: "nope",
+      status: "done" as const,
+      minutesDone: 30,
+      unitIds: [],
+      createdAt: NOW,
+    };
+    const w = diffData(prev, {
+      ...prev,
+      plan: [...prev.plan, block],
+      checkIns: [...prev.checkIns, check],
+    });
+    const rows = [...w.upserts, ...w.inserts].flatMap((u) => u.rows as { id?: string }[]);
+    expect(rows.some((r) => r.id === "orphan" || r.id === "orphan-c")).toBe(false);
+  });
+
+  it("recognizes the foreign key violation", () => {
+    expect(isMissingParent({ code: "23503", message: "violates foreign key" })).toBe(true);
+    expect(isMissingParent(new Error("boom"))).toBe(false);
   });
 });

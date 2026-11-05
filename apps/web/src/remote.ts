@@ -2,7 +2,15 @@ import { createClient, type Session, type SupabaseClient } from "@supabase/supab
 
 import type { Syllabus } from "./syllabus.js";
 
-export { applyWrites, diffData, loadData, rowsToData, type Writes } from "./data.js";
+export {
+  applyWrites,
+  diffData,
+  isMissingParent,
+  loadData,
+  rowsToData,
+  type Writes,
+  withoutDeleted,
+} from "./data.js";
 
 const url = import.meta.env.VITE_SUPABASE_URL as string | undefined;
 const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string | undefined;

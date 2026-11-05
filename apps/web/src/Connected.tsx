@@ -11,12 +11,13 @@ import {
 } from "react";
 import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
-import { reportError } from "./monitoring.js";
-import { isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
+import { errorMessage, reportError } from "./monitoring.js";
+import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
 import { home } from "./places.js";
 import {
   applyWrites,
   diffData,
+  isMissingParent,
   loadData,
   SPOTS_PER_CALL,
   type SyncResult,
@@ -25,6 +26,7 @@ import {
   syncICloud,
   timeSpots,
   type Writes,
+  withoutDeleted,
 } from "./remote.js";
 import { StoreProvider, useStore } from "./store.js";
 import { hold, saving } from "./updates.js";
@@ -92,6 +94,8 @@ export function Connected({
   const latest = useRef<AppData | null>(null);
   // Counts local changes, so a server copy loaded meanwhile is known to be stale.
   const changes = useRef(0);
+  // Puts a copy on screen (set by SyncProvider, which sits inside the store).
+  const replace = useRef<((d: AppData) => void) | null>(null);
 
   const pullCalendars = useCallback(async () => {
     setStatus((s) => ({ ...s, busy: true }));
@@ -134,7 +138,7 @@ export function Connected({
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!cancelled) setError(errorMessage(e));
       }
     })();
     return () => {
@@ -152,6 +156,7 @@ export function Connected({
       // Never finish synchronously: `flushing` must be set before it is cleared.
       await Promise.resolve();
       let wrote = false;
+      let rebased = false;
       try {
         for (;;) {
           const target = latest.current;
@@ -161,7 +166,21 @@ export function Connected({
           if (stored.current === null) return false;
           const writes = diffData(stored.current, target);
           if (nothing(writes)) break;
-          await applyWrites(client, writes);
+          try {
+            await applyWrites(client, writes);
+          } catch (e) {
+            // Another device deleted a task or subject this copy still writes to: drop
+            // them here too and write the rest against the server's copy, once.
+            if (rebased || !isMissingParent(e)) throw e;
+            rebased = true;
+            const server = owned(await loadData(client));
+            const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
+            if (pruned === (latest.current ?? target)) throw e;
+            stored.current = server;
+            latest.current = pruned;
+            replace.current?.(pruned);
+            continue;
+          }
           stored.current = target;
           wrote = true;
           void writeLocal(uid, { data: latest.current ?? target, stored: target });
@@ -178,7 +197,7 @@ export function Connected({
         if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
         else {
           reportError(e);
-          setError(e instanceof Error ? e.message : String(e));
+          setError(errorMessage(e));
         }
         return false;
       } finally {
@@ -188,7 +207,7 @@ export function Connected({
     // A reload for a new version waits until this lands.
     flushing.current = saving(run());
     return flushing.current;
-  }, [client, session, uid]);
+  }, [client, session, uid, owned]);
 
   const onChange = useCallback(
     (_prev: AppData, next: AppData) => {
@@ -226,6 +245,17 @@ export function Connected({
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Reintentar
         </button>
+        <button
+          type="button"
+          className="btn"
+          onClick={async () => {
+            // Unsaved changes on this device are lost; the server's copy loads fresh.
+            await clearLocal();
+            window.location.reload();
+          }}
+        >
+          Descartar lo de este dispositivo y recargar
+        </button>
       </main>
     );
   }
@@ -248,6 +278,7 @@ export function Connected({
         refreshOnMount={local !== null}
         flush={flush}
         stored={stored}
+        replace={replace}
         latest={latest}
         changes={changes}
         owned={owned}
@@ -268,6 +299,7 @@ function SyncProvider({
   refreshOnMount,
   flush,
   stored,
+  replace,
   latest,
   changes,
   owned,
@@ -281,12 +313,14 @@ function SyncProvider({
   refreshOnMount: boolean;
   flush: () => Promise<boolean>;
   stored: React.MutableRefObject<AppData | null>;
+  replace: React.MutableRefObject<((d: AppData) => void) | null>;
   latest: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
   owned: (d: AppData) => AppData;
   children: React.ReactNode;
 }) {
   const { dispatch } = useStore();
+  replace.current = (d) => dispatch({ type: "replace", data: d });
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
   const queue = useRef<Promise<void>>(Promise.resolve());
