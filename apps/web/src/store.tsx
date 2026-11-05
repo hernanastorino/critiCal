@@ -18,6 +18,7 @@ import {
   type Settings,
   zonedInstant,
 } from "./engine.js";
+import { lateNight } from "./lateNight.js";
 import type {
   AppData,
   AppliedDecision,
@@ -961,6 +962,7 @@ export function StoreProvider({
       pinShort,
       inboxCount:
         (data.movedEvents?.length ?? 0) +
+        (lateNight(data, now) ? 1 : 0) +
         // Addresses still being timed are not questions yet.
         where.filter((u) => !u.lookup).length +
         newClassTitles(data).length +

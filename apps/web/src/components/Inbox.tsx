@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MINUTE, type PlanBlock } from "../engine.js";
-import { dayAndTime, hours, time } from "../format.js";
+import { dayAndTime, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
+import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
 import { endOfDay, pinClashes } from "../planning.js";
@@ -27,6 +28,7 @@ export function Inbox() {
     const event = data.events.find((e) => e.id === m.eventId);
     return event ? [{ ...m, event }] : [];
   });
+  const late = lateNight(data, now);
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
   const unsorted = unsortedActivities(data);
@@ -44,6 +46,7 @@ export function Inbox() {
       decisions.recommendations.length +
       review.length +
       moves.length +
+      (late ? 1 : 0) +
       classes.length +
       unassigned.length +
       unsorted.length ===
@@ -86,6 +89,7 @@ export function Inbox() {
             </button>
           </div>
         ))}
+        {late && <LateNightCard key={`${late.date}@${late.assumedWake}`} late={late} />}
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
         {unlocated.map((u) =>
@@ -491,6 +495,42 @@ function WhereCard({
       >
         No hace falta traslado
       </button>
+    </div>
+  );
+}
+
+/** After a late night: when did you get up? Until answered the plan assumes your usual sleep. */
+function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight>> }) {
+  const { data, dispatch } = useStore();
+  const tz = data.settings.timezone;
+  const [wake, setWake] = useState(minutesToHhmm(late.assumedWake));
+  return (
+    <div className="card">
+      <div className="title">¿A qué hora te levantaste?</div>
+      <p className="meta">
+        Anoche «{late.event.title}» terminó a las {time(tz, late.event.end)}. Mientras tanto
+        planifico como si hubieras dormido tus horas de siempre.
+      </p>
+      <div className="row fields">
+        <label className="field" style={{ flex: 1, marginBottom: 0 }}>
+          <span>Me levanté a las</span>
+          <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
+        </label>
+        <button
+          type="button"
+          className="btn small"
+          disabled={!wake}
+          onClick={() => {
+            const own = data.overrides.find((o) => o.date === late.date);
+            dispatch({
+              type: "override",
+              override: { ...own, date: late.date, wake: hhmmToMinutes(wake) },
+            });
+          }}
+        >
+          Listo
+        </button>
+      </div>
     </div>
   );
 }
