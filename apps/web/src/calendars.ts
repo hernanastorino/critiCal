@@ -147,7 +147,7 @@ export function importFromCalendars(
       const stale = tasks.find((t) => t.sourceEventId === e.id && t.status === "active");
       if (stale) {
         tasks = tasks.map((t) =>
-          t === stale ? { ...t, status: "dropped" as const, endedAt: now } : t,
+          t === stale ? { ...t, status: "dropped" as const, endedAt: now, autoDroppedAt: now } : t,
         );
         changed = true;
       }
@@ -157,8 +157,24 @@ export function importFromCalendars(
     const existing = tasks.find((t) => t.sourceEventId === e.id);
     const title = untagged(e.title);
     if (existing) {
-      if (existing.deadline !== deadline || existing.title !== title) {
-        tasks = tasks.map((t) => (t === existing ? { ...t, deadline, title } : t));
+      // Dropped by the import and untouched since: it comes back with its event.
+      const back =
+        existing.status === "dropped" &&
+        existing.autoDroppedAt !== undefined &&
+        existing.autoDroppedAt === existing.endedAt;
+      if (back || existing.deadline !== deadline || existing.title !== title) {
+        tasks = tasks.map((t) =>
+          t === existing
+            ? {
+                ...t,
+                deadline,
+                title,
+                ...(back
+                  ? { status: "active" as const, endedAt: undefined, autoDroppedAt: undefined }
+                  : {}),
+              }
+            : t,
+        );
         changed = true;
       }
       continue;

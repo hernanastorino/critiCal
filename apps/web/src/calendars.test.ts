@@ -272,5 +272,24 @@ describe("tags in event titles", () => {
     const retired = untaggedOut.tasks.find((t) => t.sourceEventId === "b");
     expect(retired?.status).toBe("dropped");
     expect(retired?.endedAt).toBe(now);
+    // The tag back: the task returns…
+    const retagged = { ...untaggedOut, events: out.events };
+    const back = importFromCalendars(retagged, now, (s: string) => `id:${s}`);
+    expect(back.tasks.find((t) => t.sourceEventId === "b")).toMatchObject({
+      status: "active",
+      endedAt: undefined,
+    });
+    // …unless the user dropped it themselves meanwhile.
+    const byUser = {
+      ...retagged,
+      tasks: untaggedOut.tasks.map((t) =>
+        t.sourceEventId === "b" ? { ...t, endedAt: now + 1 } : t,
+      ),
+    };
+    expect(
+      importFromCalendars(byUser, now, (s: string) => `id:${s}`).tasks.find(
+        (t) => t.sourceEventId === "b",
+      )?.status,
+    ).toBe("dropped");
   });
 });
