@@ -665,7 +665,9 @@ describe("more ways out", () => {
     });
     const move = infeasibilityOptions(input, schedule(input)).find((o) => o.kind === "move-event");
     const trip = { start: at("2026-11-02", "14:50"), end: at("2026-11-02", "18:00") };
-    if (move?.moveTo) expect(overlaps(move.moveTo, trip)).toBe(false);
+    // There is room elsewhere, so a move is offered, and never into the trip.
+    expect(move?.moveTo).toBeDefined();
+    expect(overlaps(move?.moveTo as { start: number; end: number }, trip)).toBe(false);
   });
 
   it("leaves out an exam's lightest units, never the heaviest", () => {
