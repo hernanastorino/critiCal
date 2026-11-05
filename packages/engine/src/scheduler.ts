@@ -181,6 +181,20 @@ export function schedule(input: ScheduleInput): ScheduleResult {
       .map((p) => ({ p, need: Math.max(0, p.min - (placed.get(p.task.id) ?? 0)) }))
       .filter((x) => x.need > 0);
     if (pending.length === 0) return true;
+    // Without avoided times eligibility is nested by deadline, so the cumulative check
+    // over deadline prefixes is already exact (and much cheaper than the flow).
+    if (!pending.some((x) => x.p.task.avoid?.length)) {
+      let demand = 0;
+      for (const x of pending) {
+        demand += x.need;
+        let capacity = 0;
+        board.slots.forEach((s, i) => {
+          if (board.owner[i] === null && eligible(x.p, s, false)) capacity += slotMinutes;
+        });
+        if (capacity < demand) return false;
+      }
+      return true;
+    }
     const groups = new Map<string, { tasks: number[]; minutes: number }>();
     board.slots.forEach((s, i) => {
       if (board.owner[i] !== null) return;
