@@ -67,7 +67,7 @@ export function Inbox() {
       <div className="scroll">
         {empty && <p className="empty">Todo al día ✓</p>}
 
-        {late && <LateNightCard late={late} />}
+        {late && <LateNightCard key={`${late.date}@${late.assumedWake}`} late={late} />}
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
         {unlocated.map((u) =>

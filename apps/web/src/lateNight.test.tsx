@@ -59,6 +59,69 @@ describe("late nights", () => {
     expect(withLateNight(answered, morning)).toEqual(answered.overrides);
   });
 
+  it("skips free events and waits until the event is over", () => {
+    expect(lateNight(data([{ ...party, busy: false }]), morning)).toBeNull();
+    expect(lateNight(data([party]), at("2026-11-04", "00:15"))).toBeNull();
+  });
+
+  it("uses the evening's bedtime override and today's holiday routine", () => {
+    // Bed moved to 02:00 last night: the party ended before it.
+    const lateBed = data([party], { overrides: [{ date: "2026-11-03", bed: 120 }] });
+    expect(lateNight(lateBed, morning)).toBeNull();
+    // Today planned as a Sunday that starts at 10:00: the assumed wake is not earlier.
+    const d = data([party], { overrides: [{ date: "2026-11-04", asWeekday: 0 }] });
+    const sunday = {
+      ...d,
+      settings: {
+        ...d.settings,
+        week: d.settings.week.map((w, i) => (i === 0 ? { ...w, wake: 600 } : w)),
+      },
+    };
+    expect(lateNight(sunday, morning)?.assumedWake).toBe(600 + 150);
+  });
+
+  it("frees today's blocks that now fall before the wake-up", async () => {
+    const { refreshPlan } = await import("./planning.js");
+    const d = data([party], {
+      activities: [
+        {
+          id: "a",
+          name: "Física",
+          color: "#000",
+          academic: true,
+          maxSessionMinutes: 120,
+          minBlockMinutes: 60,
+        },
+      ],
+      tasks: [
+        {
+          id: "t",
+          activityId: "a",
+          title: "Parcial",
+          kind: "deliverable",
+          deadline: at("2026-11-10", "09:00"),
+          estimateMinutes: 120,
+          minMinutes: 60,
+          priority: 2,
+          status: "active",
+          units: [],
+        },
+      ],
+      plan: [
+        {
+          id: "early",
+          taskId: "t",
+          activityId: "a",
+          start: at("2026-11-04", "08:00"),
+          end: at("2026-11-04", "09:00"),
+        },
+      ],
+    });
+    const r = refreshPlan(d, morning);
+    expect(r.plan.some((b) => b.id === "early")).toBe(false);
+    expect(r.plan.every((b) => b.start >= at("2026-11-04", "09:30"))).toBe(true);
+  });
+
   it("asks in the inbox and keeps the answer", async () => {
     render(
       <StoreProvider initial={() => data([party])} persist={false} fixedNow={morning}>

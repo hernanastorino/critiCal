@@ -1,6 +1,7 @@
 // Late nights: after an event that ends past bedtime, the next morning starts later.
 import { visibleEvents } from "./calendars.js";
 import { addDays, type DayOverride, localParts, MINUTE, zonedInstant } from "./engine.js";
+import { withHolidays } from "./holidays.js";
 import type { AppData, AppEvent } from "./model.js";
 
 export interface LateNight {
@@ -21,18 +22,29 @@ export function lateNight(data: AppData, now: number): LateNight | null {
   const today = localParts(tz, now).date;
   if (data.overrides.some((o) => o.date === today && o.wake !== undefined)) return null;
   const evening = addDays(today, -1);
-  const weekday = (date: string) => localParts(tz, zonedInstant(tz, date, 720)).weekday;
-  const night = data.settings.week[weekday(evening)];
-  const morning = data.settings.week[weekday(today)];
+  // Each day's routine as the planner sees it: holidays and saved overrides included.
+  const overrides =
+    data.preferences?.holidaysOff === false
+      ? data.overrides
+      : withHolidays(data.overrides, tz, zonedInstant(tz, evening, 720), now);
+  const routine = (date: string) => {
+    const o = overrides.find((x) => x.date === date);
+    const base =
+      data.settings.week[o?.asWeekday ?? localParts(tz, zonedInstant(tz, date, 720)).weekday];
+    return base && { wake: o?.wake ?? base.wake, bed: o?.bed ?? base.bed };
+  };
+  const night = routine(evening);
+  const morning = routine(today);
   if (!night || !morning) return null;
   // A bedtime at or before wake-up time is after midnight.
-  const bedtime = zonedInstant(tz, night.bed <= night.wake ? today : evening, night.bed);
+  const bedtime = zonedInstant(tz, evening, night.bed <= night.wake ? night.bed + 1440 : night.bed);
   const usualWake = zonedInstant(tz, today, morning.wake);
   const sleep = usualWake - bedtime;
   if (sleep <= 0) return null;
   const late = visibleEvents(data)
-    // Started before bedtime and ended after it: not an early start (a 5 a.m. flight).
-    .filter((e) => !e.allDay && e.start < bedtime && e.end > bedtime)
+    // Busy, started before bedtime and ended after it (not an early start, a 5 a.m.
+    // flight), and over: no asking how the night went while it goes on.
+    .filter((e) => e.busy && !e.allDay && e.start < bedtime && e.end > bedtime && e.end <= now)
     .sort((a, b) => b.end - a.end)[0];
   if (!late) return null;
   const wake = late.end + sleep;
