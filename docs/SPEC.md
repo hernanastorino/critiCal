@@ -26,7 +26,7 @@ Calendario personal que planifica automáticamente el tiempo de estudio y hábit
 - **"Mostrar como: Disponible"** → el evento es compatible con bloques planificados (paralelo). "Ocupado" → bloquea.
 - **Detección de entregas**: eventos con emoji/tag (`📝`, `#entrega`, `#parcial`, `#presentación`) en cualquier calendario (salvo los marcados «Ignorar») se proponen en la bandeja para estimar. Si el evento pierde la etiqueta, su tarea sale del plan; si la recupera, vuelve.
 - **Eventos flexibles**: `#flex` en el título o un calendario marcado «Flexible». Un parcial o presentación nunca se ofrece mover.
-- **Eventos tentativos**: estado *tentative* de Google / `STATUS:TENTATIVE` de iCloud, o un título que termina en «?».
+- **Eventos tentativos**: estado _tentative_ de Google / `STATUS:TENTATIVE` de iCloud, o un título que termina en «?».
 - OAuth de Google en modo **Production** (no verificado) para que los refresh tokens no venzan a los 7 días.
 
 ## 3. Modelo de datos (fuente de verdad)
