@@ -25,7 +25,7 @@ Calendario personal que planifica automáticamente el tiempo de estudio y hábit
 - Recomendación: Google como calendario por defecto en el iPhone, para que los eventos nuevos impacten al instante.
 - **"Mostrar como: Disponible"** → el evento es compatible con bloques planificados (paralelo). "Ocupado" → bloquea.
 - **Detección de entregas**: eventos con emoji/tag (`📝`, `#entrega`, `#parcial`, `#presentación`) en cualquier calendario (salvo los marcados «Ignorar») se proponen en la bandeja para estimar. Si el evento pierde la etiqueta, su tarea sale del plan; si la recupera, vuelve.
-- **Eventos flexibles**: `#flex` en el título o un calendario marcado «Flexible». Un parcial o presentación nunca se ofrece mover.
+- **Eventos flexibles**: `#flex` en el título o un calendario marcado «Flexible». Las evaluaciones (parcial, entrega, presentación) nunca se ofrecen mover: la entrega es solo un plazo y no ocupa tiempo.
 - **Eventos tentativos**: estado _tentative_ de Google / `STATUS:TENTATIVE` de iCloud, o un título que termina en «?».
 - OAuth de Google en modo **Production** (no verificado) para que los refresh tokens no venzan a los 7 días.
 
@@ -106,8 +106,8 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 - Playwright E2E contra la preview, con emulación iPhone (WebKit) y desktop.
 - Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod con **aprobación manual** (GitHub Environment).
 - Migraciones versionadas (Supabase CLI), Dependabot, CodeQL, rollback a un clic en Vercel.
-- Revisor IA: CodeRabbit en cada PR; se mergea solo con CI verde, CodeRabbit terminado sobre el último commit y 0 hilos abiertos. (La prueba contra Macroscope se descartó.)
-- Sentry en cliente y funciones; los cortes de red no se reportan como errores.
+- Revisor IA: CodeRabbit en cada PR (check requerido por la regla de la rama `main`). Además, por práctica del equipo —no lo verifica GitHub—, se mergea recién con sus comentarios resueltos. (La prueba contra Macroscope se descartó.)
+- Sentry en cliente y funciones. En el cliente, los cortes de red reconocidos («Load failed», «Failed to fetch», etc.) no se reportan como errores.
 
 ## 11. Seguridad
 
