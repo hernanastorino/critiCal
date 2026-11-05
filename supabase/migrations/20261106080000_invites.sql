@@ -77,7 +77,8 @@ grant execute on function public.my_access() to authenticated;
 revoke execute on function public.user_invited(uuid) from public, anon, authenticated;
 grant execute on function public.user_invited(uuid) to service_role;
 
--- Only the owner sees and edits the list.
+-- Only the owner sees and edits the list (privileges here, the owner check in RLS).
+grant select, insert, update, delete on public.invites to authenticated, service_role;
 alter table public.invites enable row level security;
 create policy owner_only on public.invites for all to authenticated
   using ((select public.is_owner())) with check ((select public.is_owner()));
