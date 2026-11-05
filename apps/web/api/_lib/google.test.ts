@@ -156,6 +156,18 @@ describe("plan events and Google's API", () => {
     vi.stubGlobal("fetch", async () => answers.shift() as Response);
     expect(await google<{ id: string }>("t", "/x", { method: "POST" })).toEqual({ id: "ok" });
 
+    // A 5xx on a create is not repeated: Google may have made the event already.
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response("", { status: 503 });
+    });
+    await expect(google("t", "/x", { method: "POST" })).rejects.toBeInstanceOf(SyncError);
+    expect(calls).toBe(1);
+    calls = 0;
+    await expect(google("t", "/x", { method: "PATCH" })).rejects.toBeInstanceOf(SyncError);
+    expect(calls).toBe(4);
+
     vi.stubGlobal("fetch", async () => new Response("", { status: 404 }));
     expect(await google("t", "/x", { method: "DELETE" })).toEqual({});
     const failed = (await google("t", "/x", { method: "PATCH" }).catch((e) => e)) as SyncError;

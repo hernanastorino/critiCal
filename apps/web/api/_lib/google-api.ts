@@ -60,10 +60,12 @@ export async function google<T>(token: string, path: string, init: RequestInit =
       .json()
       .then((b) => b?.error?.errors?.[0]?.reason as string | undefined)
       .catch(() => undefined);
-    const limited =
+    // A rate limit was refused before doing anything, so any call can go again; a 5xx
+    // may have done the work, so only calls safe to repeat (not a POST that creates).
+    const rateLimited =
       res.status === 429 ||
-      res.status >= 500 ||
       (res.status === 403 && /rateLimitExceeded|userRateLimitExceeded/.test(reason ?? ""));
+    const limited = rateLimited || (res.status >= 500 && init.method !== "POST");
     if (!limited || attempt >= TRIES) throw new SyncError("google_api_error", res.status, reason);
     await sleep(retryDelay.ms * 2 ** (attempt - 1));
   }
