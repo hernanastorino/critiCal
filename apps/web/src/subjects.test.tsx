@@ -572,3 +572,26 @@ it("migrates a demo saved before the study mark, once", () => {
   expect(localStorage.getItem("critical.demo.v1")).toBeNull();
   expect(localStorage.getItem("critical.demo.v2")).toBeNull();
 });
+
+it("edits a materia's study and break minutes", async () => {
+  render(
+    <StoreProvider initial={() => data()} persist={false} fixedNow={NOW}>
+      <ActivitySettings />
+      <Probe />
+    </StoreProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Análisis y Diseño/ }));
+  expect((screen.getByLabelText(/Estudio antes del descanso/) as HTMLInputElement).value).toBe(
+    "50",
+  );
+  expect((screen.getByLabelText(/Descanso \(min/) as HTMLInputElement).value).toBe("10");
+  fireEvent.change(screen.getByLabelText(/Estudio antes del descanso/), {
+    target: { value: "25" },
+  });
+  fireEvent.change(screen.getByLabelText(/Descanso \(min/), { target: { value: "5" } });
+  await act(async () => {
+    fireEvent.click(screen.getByRole("button", { name: /Guardar Análisis y Diseño/ }));
+  });
+  expect(screen.getByTestId("subjects").textContent).toContain('"studyMinutes":25');
+  expect(screen.getByTestId("subjects").textContent).toContain('"breakMinutes":5');
+});
