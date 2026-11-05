@@ -166,15 +166,19 @@ export function importFromCalendars(
         existing.autoDroppedAt !== undefined &&
         existing.autoDroppedAt === existing.endedAt;
       // The event says whether it is an exam: a parcial turned entrega stops being one.
+      // Only a change of role re-decides it; the user may have (un)marked it by hand.
+      // Tasks from before roles were kept just start remembering theirs.
+      const roleChanged = existing.sourceRole !== role;
       const exam = role === "parcial" || undefined;
-      const examChanged = !!existing.exam !== !!exam;
-      if (back || examChanged || existing.deadline !== deadline || existing.title !== title) {
+      const examChanged = roleChanged && !!existing.sourceRole && !!existing.exam !== !!exam;
+      if (back || roleChanged || existing.deadline !== deadline || existing.title !== title) {
         tasks = tasks.map((t) =>
           t === existing
             ? {
                 ...t,
                 deadline,
                 title,
+                sourceRole: role,
                 ...(examChanged ? { exam, dayBeforeOnly: exam && t.dayBeforeOnly } : {}),
                 ...(back
                   ? { status: "active" as const, endedAt: undefined, autoDroppedAt: undefined }
@@ -262,5 +266,6 @@ function deadlineTask(
     sourceEventId: e.id,
     needsReview: true,
     exam: role === "parcial" || undefined,
+    sourceRole: role,
   };
 }
