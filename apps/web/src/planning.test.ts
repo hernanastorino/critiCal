@@ -371,6 +371,8 @@ describe("tentative events", () => {
     expect(d.tentativeSeen?.map((s) => s.id)).toEqual(["a", "b"]);
     expect(d.proposals.filter((p) => p.id.startsWith("tentative@"))).toEqual([]);
 
+    // Today's plan while the event still stood.
+    const saved = d.plan;
     // Both fall through: only today's asks (later days are planned again on their own).
     d = refresh({ ...d, events: base.events }, now + 60_000);
     const asks = d.proposals.filter((p) => p.id.startsWith("tentative@"));
@@ -385,7 +387,8 @@ describe("tentative events", () => {
     const todayEnd = zonedInstant(TIMEZONE, "2026-11-04", 0);
     const ids = (x: typeof d) =>
       x.plan.filter((b) => b.end > now && b.start < todayEnd).map((b) => b.id);
-    expect(ids(again).every((id) => d.plan.some((b) => b.id === id))).toBe(true);
+    expect(ids(d).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    expect(ids(again).every((id) => saved.some((b) => b.id === id))).toBe(true);
     // Turned down, today still keeps its blocks for the rest of the day.
     const { reducer } = await import("./store.js");
     const no = reducer(again, {
@@ -395,7 +398,7 @@ describe("tentative events", () => {
     });
     const after = reducer(no, { type: "refresh", now: now + 240_000 });
     expect(after.proposals.some((p) => p.id.startsWith("tentative@"))).toBe(false);
-    expect(ids(after).every((id) => d.plan.some((b) => b.id === id))).toBe(true);
+    expect(ids(after).every((id) => saved.some((b) => b.id === id))).toBe(true);
     // Unanswered, it expires with its day.
     const tomorrow = zonedInstant(TIMEZONE, "2026-11-04", 9 * 60);
     expect(refresh(again, tomorrow).proposals.some((p) => p.id.startsWith("tentative@"))).toBe(
