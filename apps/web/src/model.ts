@@ -51,6 +51,11 @@ export interface AppTask {
   paused?: boolean;
   /** When it stopped repeating; earlier weeks stay as history. */
   endedAt?: number;
+  /**
+   * Set with endedAt when the import dropped it (its event stopped being an evaluation).
+   * Still equal to endedAt: the user has not touched it since, so it may come back.
+   */
+  autoDroppedAt?: number;
 }
 
 export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion" | "clases";
