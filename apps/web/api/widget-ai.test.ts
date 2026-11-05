@@ -181,9 +181,19 @@ describe("syllabus", () => {
           units: ["Z", "A", "B", "C"],
           weights: [5, 60, 150, "mucho"],
         },
+        {
+          title: "Q",
+          kind: "parcial",
+          date: null,
+          hours: 1,
+          units: ["A", "B", "C"],
+          // Missing weights stay missing, never 0.
+          weights: [null, "", []],
+        },
       ],
     });
     expect(weighed?.assessments[0]?.weights).toEqual({ A: 60, B: 100 });
+    expect(weighed?.assessments[1]?.weights).toEqual({});
     expect(clean(null)).toBeNull();
     expect(clean({})).toBeNull();
     expect(prompt(2027)).toContain("2027");

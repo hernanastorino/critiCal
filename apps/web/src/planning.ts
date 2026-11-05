@@ -1,4 +1,4 @@
-import { visibleEvents } from "./calendars.js";
+import { eventRole, visibleEvents } from "./calendars.js";
 import {
   addDays,
   effortRatio,
@@ -135,7 +135,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       priority: p.task.priority,
       // An entrega can be handed in smaller: half its minimum, never below an hour.
       mvpMinutes:
-        p.task.kind === "deliverable" && !EXAM.test(p.task.title) && p.minRemainingMinutes > 60
+        p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
           ? Math.max(60, Math.round(p.minRemainingMinutes / 2 / 30) * 30)
           : undefined,
       // Exams with weighed units can leave the lightest ones out.
@@ -153,7 +153,14 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
 }
 
 /** Titles of exams (not entregas): no "smaller version" of those. */
-const EXAM = /\b(parcial|examen|prueba|final)\b/i;
+const EXAM = /(?<![\p{L}\p{N}])(parcial(es)?|ex[aá]men(es)?|pruebas?|final(es)?)(?![\p{L}\p{N}])/iu;
+
+/** An exam has no smaller version to hand in: by its title or its calendar event. */
+function isExam(data: AppData, task: AppTask): boolean {
+  if (EXAM.test(task.title)) return true;
+  const event = task.sourceEventId && data.events.find((e) => e.id === task.sourceEventId);
+  return !!event && eventRole(data, event) === "parcial";
+}
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
   const tasks = toEngineTasks(data, now);

@@ -228,6 +228,8 @@ export interface AppliedDecision {
   freeTimeUntil?: number;
   /** A flexible event this decision moved: undoing puts it back. */
   movedEventId?: string;
+  /** The move of that event this decision replaced, if any: undoing restores it. */
+  previousMove?: NonNullable<AppData["movedEvents"]>[number];
 }
 
 /**

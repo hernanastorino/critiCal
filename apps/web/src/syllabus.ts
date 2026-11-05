@@ -196,7 +196,12 @@ function covered(rawUnits: unknown, rawWeights: unknown, titles: Set<string>) {
     const title = text(t);
     if (!titles.has(title) || units.includes(title)) return;
     units.push(title);
-    const w = Number(weightsIn[i]);
+    // Untrusted: null, "" or [] would read as 0 (a weightless unit, left out first).
+    const raw = weightsIn[i];
+    const w =
+      typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "")
+        ? Number(raw)
+        : Number.NaN;
     if (Number.isFinite(w) && w >= 0) weights[title] = Math.min(100, Math.round(w));
   });
   return { units, weights };

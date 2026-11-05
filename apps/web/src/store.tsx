@@ -204,6 +204,10 @@ function apply(data: AppData, action: Action): AppData {
       const option = decisions(r.input, r.result).options.find((o) => o.id === action.optionId);
       if (!option) return data;
       const next = applyOption(data, r.input, option, now);
+      const previousMove =
+        option.kind === "move-event"
+          ? data.movedEvents?.find((m) => m.eventId === option.eventId)
+          : undefined;
       // Only tasks whose undoable fields really moved, so undo cannot clobber later edits.
       const changed = data.tasks.filter((t) => {
         const n = next.tasks.find((x) => x.id === t.id);
@@ -231,7 +235,12 @@ function apply(data: AppData, action: Action): AppData {
           changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
         ),
         freeTimeUntil: data.freeTimeUntil,
-        ...(option.kind === "move-event" && option.eventId ? { movedEventId: option.eventId } : {}),
+        ...(option.kind === "move-event" && option.eventId
+          ? {
+              movedEventId: option.eventId,
+              ...(previousMove ? { previousMove } : {}),
+            }
+          : {}),
       };
       return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
     }
@@ -260,8 +269,12 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...data,
           tasks,
+          // The event goes back where it was before: its earlier agreed move, if any.
           movedEvents: record.movedEventId
-            ? data.movedEvents?.filter((m) => m.eventId !== record.movedEventId)
+            ? [
+                ...(data.movedEvents ?? []).filter((m) => m.eventId !== record.movedEventId),
+                ...(record.previousMove ? [record.previousMove] : []),
+              ]
             : data.movedEvents,
           freeTimeUntil: record.freeTimeUntil,
           applied: data.applied?.filter((d) => d.id !== record.id),

@@ -384,6 +384,39 @@ describe("more ways out in the app", () => {
     const [e, p] = toEngineTasks(d, now);
     expect(e?.mvpMinutes).toBe(300);
     expect(p?.mvpMinutes).toBeUndefined();
+    // Plurals and accents, and anything imported from a parcial event, are exams too.
+    const more = base({
+      calendars: [
+        {
+          id: "google:p",
+          source: "google" as const,
+          externalId: "p",
+          name: "Parciales",
+          role: "parcial" as const,
+        },
+      ],
+      events: [
+        {
+          id: "ev",
+          title: "Física",
+          start: deadline,
+          end: deadline + 3_600_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:p",
+        },
+      ],
+      tasks: [
+        task("a", "Exámenes de Física", 600),
+        task("b", "Finales", 600),
+        task("c", "Física", 600, { sourceEventId: "ev" }),
+      ],
+    });
+    expect(toEngineTasks(more, now).map((t) => t.mvpMinutes)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 
   it("leaves out units, marks them, and undo brings them back", async () => {
@@ -431,6 +464,15 @@ describe("more ways out in the app", () => {
     expect(
       reducer(moved, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
     ).toEqual([]);
+    // …or back to the move it replaced, when there was one.
+    const earlier = { eventId: "google:x", from: cafe.start, start: cafe.start, end: cafe.end };
+    const replaced = {
+      ...moved,
+      applied: moved.applied?.map((a) => (a === record ? { ...a, previousMove: earlier } : a)),
+    };
+    expect(
+      reducer(replaced, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([earlier]);
     // …and once the calendar shows it elsewhere, the move is over.
     const synced = reducer(
       { ...moved, events: [{ ...cafe, start: cafe.start + 3_600_000 }] },
