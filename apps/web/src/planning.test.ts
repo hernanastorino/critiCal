@@ -481,6 +481,28 @@ describe("more ways out in the app", () => {
     expect(progress(d, now)[0]?.remainingMinutes).toBe(0);
   });
 
+  it("weighs units by the learned effort, like what is left", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const units = [
+      { id: "u0", title: "Hecho", estimateMinutes: 100, weight: 5, doneAt: now - 1 },
+      { id: "u1", title: "Integrales", estimateMinutes: 100, weight: 60 },
+    ];
+    // That unit took twice its estimate.
+    const checkIns = [
+      {
+        id: "c",
+        blockId: "b",
+        taskId: "p",
+        status: "done" as const,
+        minutesDone: 200,
+        unitIds: ["u0"],
+        createdAt: now - 1,
+      },
+    ];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 600, { units })], checkIns });
+    expect(toEngineTasks(d, now)[0]?.units?.[0]?.minutes).toBeGreaterThan(100);
+  });
+
   it("never offers to leave out a unit without a weight", async () => {
     const { toEngineTasks } = await import("./planning.js");
     const units = [

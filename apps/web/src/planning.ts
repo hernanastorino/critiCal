@@ -156,6 +156,7 @@ export function progress(data: AppData, now: number): TaskProgress[] {
 }
 
 export function toEngineTasks(data: AppData, now: number): Task[] {
+  const effort = samples(data);
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => {
@@ -192,7 +193,8 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
             .map((u) => ({
               id: u.id,
               title: u.title,
-              minutes: Math.ceil(u.estimateMinutes * k),
+              // Like what is left: the learned effort ratio, then block time.
+              minutes: Math.ceil(u.estimateMinutes * effortRatio(effort, p.task.activityId) * k),
               weight: u.weight as number,
             }))
         : undefined,
