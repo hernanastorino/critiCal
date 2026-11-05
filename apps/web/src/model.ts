@@ -73,6 +73,8 @@ export interface AppCalendar {
 
 export interface AppEvent extends CalendarEvent {
   source: "google" | "icloud" | "demo";
+  /** The calendar says it may not happen (or its title ends in «?»). */
+  tentative?: boolean;
   link?: string;
   /** `source:calendarExternalId` */
   calendarId?: string;
@@ -170,6 +172,10 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** Upcoming tentative events last seen, to notice one that falls through. */
+  tentativeSeen?: { id: string; title: string; start: number; end: number }[];
+  /** A plan B was turned down: today's blocks stay as they are until then (end of day). */
+  tentativeHoldUntil?: number;
   /** What the plan looked like before each reorganization, newest last (up to 20). */
   planHistory?: PlanVersion[];
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
@@ -336,4 +342,5 @@ export interface PlanVersion {
   proposals: Proposal[];
   freeTimeUntil?: number;
   relaxContextUntil?: number;
+  tentativeHoldUntil?: number;
 }

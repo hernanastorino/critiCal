@@ -346,6 +346,84 @@ describe("reducer", () => {
   });
 });
 
+describe("tentative events", () => {
+  it("propose a plan B when one of today falls through", async () => {
+    const { refresh } = await import("./refresh.js");
+    const { isTentative } = await import("./calendars.js");
+    const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);
+    const ev = (id: string, title: string, day: string, from: number, extra = {}) => ({
+      id,
+      title,
+      start: zonedInstant(TIMEZONE, day, from * 60),
+      end: zonedInstant(TIMEZONE, day, (from + 2) * 60),
+      busy: true,
+      source: "google" as const,
+      ...extra,
+    });
+    const today = ev("a", "Juntada?", "2026-11-03", 15);
+    const later = ev("b", "Cine", "2026-11-05", 20, { tentative: true });
+    expect(isTentative(today)).toBe(true);
+    expect(isTentative(later)).toBe(true);
+    expect(isTentative(ev("c", "Clase", "2026-11-03", 10))).toBe(false);
+
+    const base = { ...demoData(now), preferences: { holidaysOff: false } };
+    let d = refresh({ ...base, events: [...base.events, today, later] }, now);
+    expect(d.tentativeSeen?.map((s) => s.id)).toEqual(["a", "b"]);
+    expect(d.proposals.filter((p) => p.id.startsWith("tentative@"))).toEqual([]);
+
+    // Today's plan while the event still stood.
+    const saved = d.plan;
+    // Both fall through: only today's asks (later days are planned again on their own).
+    d = refresh({ ...d, events: base.events }, now + 60_000);
+    const asks = d.proposals.filter((p) => p.id.startsWith("tentative@"));
+    expect(asks.map((p) => p.id)).toEqual(["tentative@a"]);
+    expect(asks[0]?.message).toContain("«Juntada»");
+    expect(asks[0]?.plan.length).toBeGreaterThan(0);
+    expect(d.tentativeSeen).toEqual([]);
+    // Not asked again; the waiting one gets a fresh plan B.
+    const again = refresh(d, now + 120_000);
+    expect(again.proposals.filter((p) => p.id.startsWith("tentative@"))).toHaveLength(1);
+    // Meanwhile today's plan does not take the freed time: no new blocks today.
+    const todayEnd = zonedInstant(TIMEZONE, "2026-11-04", 0);
+    const ids = (x: typeof d) =>
+      x.plan.filter((b) => b.end > now && b.start < todayEnd).map((b) => b.id);
+    expect(ids(d).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    expect(ids(again).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    // Turned down, today still keeps its blocks for the rest of the day.
+    const { reducer } = await import("./store.js");
+    const no = reducer(again, {
+      type: "rejectProposal",
+      id: "tentative@a",
+      now: now + 180_000,
+    });
+    const after = reducer(no, { type: "refresh", now: now + 240_000 });
+    expect(after.proposals.some((p) => p.id.startsWith("tentative@"))).toBe(false);
+    // Today's blocks are still there, all of them from before.
+    expect(ids(after).length).toBeGreaterThan(0);
+    expect(ids(after)).toEqual(ids(again));
+    expect(ids(after).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    // Undoing the rejection brings plan B back without the hold.
+    const back = reducer(no, { type: "undoPlan", now: now + 200_000 });
+    expect(back.tentativeHoldUntil).toBeUndefined();
+    expect(back.proposals.some((p) => p.id === "tentative@a")).toBe(true);
+    // Asking for a new plan lifts the hold.
+    expect(reducer(after, { type: "replanWeek", now: now + 300_000 }).tentativeHoldUntil).toBe(
+      undefined,
+    );
+    // A tentative event that takes no time is not watched.
+    const free = refresh(
+      { ...base, events: [...base.events, ev("f", "Quizás?", "2026-11-03", 17, { busy: false })] },
+      now,
+    );
+    expect((free.tentativeSeen ?? []).some((s) => s.id === "f")).toBe(false);
+    // Unanswered, it expires with its day.
+    const tomorrow = zonedInstant(TIMEZONE, "2026-11-04", 9 * 60);
+    expect(refresh(again, tomorrow).proposals.some((p) => p.id.startsWith("tentative@"))).toBe(
+      false,
+    );
+  });
+});
+
 describe("breaks", () => {
   it("plan block time for study time: 60 minutes of blocks per 50 of study", async () => {
     const { applyOption, blockFactor, checkInFactor, progress, toEngineTasks } = await import(
