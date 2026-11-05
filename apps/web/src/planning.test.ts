@@ -399,6 +399,16 @@ describe("tentative events", () => {
     const after = reducer(no, { type: "refresh", now: now + 240_000 });
     expect(after.proposals.some((p) => p.id.startsWith("tentative@"))).toBe(false);
     expect(ids(after).every((id) => saved.some((b) => b.id === id))).toBe(true);
+    // Asking for a new plan lifts the hold.
+    expect(reducer(after, { type: "replanWeek", now: now + 300_000 }).tentativeHoldUntil).toBe(
+      undefined,
+    );
+    // A tentative event that takes no time is not watched.
+    const free = refresh(
+      { ...base, events: [...base.events, ev("f", "Quizás?", "2026-11-03", 17, { busy: false })] },
+      now,
+    );
+    expect((free.tentativeSeen ?? []).some((s) => s.id === "f")).toBe(false);
     // Unanswered, it expires with its day.
     const tomorrow = zonedInstant(TIMEZONE, "2026-11-04", 9 * 60);
     expect(refresh(again, tomorrow).proposals.some((p) => p.id.startsWith("tentative@"))).toBe(

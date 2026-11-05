@@ -54,7 +54,8 @@ const TENTATIVE = "tentative@";
  */
 function planB(data: AppData, now: number, proposals: AppData["proposals"]) {
   const seen = visibleEvents(data)
-    .filter((e) => isTentative(e) && e.end > now)
+    // Only the ones that take time, like the planner counts them.
+    .filter((e) => isTentative(e) && e.busy && !e.allDay && e.end > now)
     .map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end }));
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);

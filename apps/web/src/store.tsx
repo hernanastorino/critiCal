@@ -410,7 +410,8 @@ function apply(data: AppData, action: Action): AppData {
     case "replanWeek": {
       // Start over from now: keep history and the block in progress, drop the rest.
       const plan = data.plan.filter((b) => b.start <= now);
-      return refresh({ ...data, plan, proposals: [] }, now);
+      // Asked for a new plan: a turned-down plan B no longer holds today.
+      return refresh({ ...data, plan, proposals: [], tentativeHoldUntil: undefined }, now);
     }
     case "settings":
       return refresh({ ...data, settings: action.settings }, now);
