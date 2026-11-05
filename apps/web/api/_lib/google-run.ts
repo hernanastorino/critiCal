@@ -6,6 +6,7 @@ import {
   PLAN_CALENDAR,
   PLAN_CALENDAR_COLOR,
   planEvent,
+  sameEvent,
   toRow,
 } from "./google.js";
 import {
@@ -184,6 +185,9 @@ export async function mirrorPlan(
     await user.from("plan_blocks").update({ google_event_id: ev.id }).eq("id", b.id);
   }
   for (const b of diff.update) {
+    // Unchanged events are left alone: rewriting every block each run hits Google's quota.
+    const current = existing.find((e) => e.id === b.google_event_id);
+    if (current && sameEvent(current, eventFor(b))) continue;
     await google(token, `${events}/${b.google_event_id}`, {
       method: "PATCH",
       body: JSON.stringify(eventFor(b)),

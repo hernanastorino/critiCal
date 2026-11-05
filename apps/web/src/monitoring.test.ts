@@ -26,6 +26,16 @@ describe("monitoring", () => {
     const e = new Error("boom");
     m.reportError(e);
     expect(sentry.captureException).toHaveBeenCalledWith(e);
+    // A dropped connection is not a bug; a Supabase error object becomes an Error.
+    sentry.captureException.mockClear();
+    m.reportError({ code: "", message: "TypeError: Load failed (x.supabase.co)" });
+    m.reportError(new TypeError("Failed to fetch"));
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    m.reportError({ code: "42501", message: "permission denied", details: "", hint: "" });
+    const sent = sentry.captureException.mock.calls[0]?.[0] as Error;
+    expect(sent).toBeInstanceOf(Error);
+    expect(sent.message).toBe("permission denied");
+    expect(sent.name).toBe("42501");
     vi.unstubAllEnvs();
   });
 });

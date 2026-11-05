@@ -18,7 +18,31 @@ export async function startMonitoring(): Promise<void> {
   capture = (e) => Sentry.captureException(e);
 }
 
+const NETWORK = /load failed|failed to fetch|networkerror|network request failed/i;
+
+/** A dropped connection (the app retries and works offline), not a bug to report. */
+export function isNetworkFailure(e: unknown): boolean {
+  const message =
+    e instanceof Error
+      ? e.message
+      : typeof e === "object" && e && "message" in e
+        ? String((e as { message: unknown }).message)
+        : String(e);
+  return NETWORK.test(message);
+}
+
 /** Reports a handled error (one the app shows instead of crashing). */
 export function reportError(e: unknown): void {
-  capture?.(e);
+  if (!capture || isNetworkFailure(e)) return;
+  // Supabase errors are plain objects: an Error keeps their message as the title.
+  if (!(e instanceof Error) && typeof e === "object" && e && "message" in e) {
+    const err = new Error(String((e as { message: unknown }).message));
+    err.name =
+      "code" in e && (e as { code: unknown }).code
+        ? String((e as { code: unknown }).code)
+        : "SupabaseError";
+    capture(err);
+    return;
+  }
+  capture(e);
 }
