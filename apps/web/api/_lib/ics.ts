@@ -11,6 +11,7 @@ export interface IcsEvent {
   allDay: boolean;
   busy: boolean;
   cancelled: boolean;
+  tentative: boolean;
 }
 
 interface Prop {
@@ -128,6 +129,7 @@ export function parseIcs(text: string, fallbackTz: string): IcsEvent[] {
           allDay,
           busy: get("TRANSP")?.value !== "TRANSPARENT",
           cancelled: get("STATUS")?.value === "CANCELLED",
+          tentative: get("STATUS")?.value === "TENTATIVE",
         });
       }
       current = null;

@@ -107,6 +107,9 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
 export const isFlexible = (data: AppData, e: AppEvent) =>
   /#flex\b/iu.test(e.title) || eventRole(data, e) === "flexible";
 
+/** An event that may not happen: so marked by its calendar, or a title ending in «?». */
+export const isTentative = (e: AppEvent) => !!e.tentative || /\?\s*$/.test(e.title);
+
 /**
  * Events the planner and the week view use: ignored calendars out, deadlines of
  * "entrega" do not block time, and flexible events the user agreed to move are at their

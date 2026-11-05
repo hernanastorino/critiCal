@@ -219,6 +219,10 @@ function apply(data: AppData, action: Action): AppData {
         ...data,
         plan: data.plan.filter((b) => !p.conflicts.includes(b.id)),
         proposals: data.proposals.filter((x) => x.id !== p.id),
+        // No to a plan B: today keeps its blocks for the rest of the day.
+        ...(p.id.startsWith("tentative@")
+          ? { tentativeHoldUntil: endOfDay(data.settings.timezone, now) }
+          : {}),
       };
     }
     case "applyOption": {
@@ -462,7 +466,8 @@ function apply(data: AppData, action: Action): AppData {
     case "replanWeek": {
       // Start over from now: keep history and the block in progress, drop the rest.
       const plan = data.plan.filter((b) => b.start <= now);
-      return refresh({ ...data, plan, proposals: [] }, now);
+      // Asked for a new plan: a turned-down plan B no longer holds today.
+      return refresh({ ...data, plan, proposals: [], tentativeHoldUntil: undefined }, now);
     }
     case "settings":
       return refresh({ ...data, settings: action.settings }, now);
@@ -740,6 +745,7 @@ function apply(data: AppData, action: Action): AppData {
           proposals: v.proposals,
           freeTimeUntil: v.freeTimeUntil,
           relaxContextUntil: v.relaxContextUntil,
+          tentativeHoldUntil: v.tentativeHoldUntil,
           planHistory: history.slice(0, -1),
         },
         now,
@@ -1059,6 +1065,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     overrides: data.overrides,
     proposals: data.proposals,
     freeTimeUntil: data.freeTimeUntil,
+    tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,
   };
   return { ...next, planHistory: [...(data.planHistory ?? []), version].slice(-PLAN_HISTORY) };

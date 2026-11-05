@@ -11,9 +11,15 @@ export class SyncError extends Error {
     readonly status?: number,
     readonly reason?: string,
   ) {
-    super(code);
+    // The status in the message tells reports apart (403 quota, 404 gone, 5xx).
+    super(status ? `${code} (${status}${reason ? ` ${reason}` : ""})` : code);
   }
 }
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Retries for Google's rate limits and hiccups, with backoff. */
+const TRIES = 4;
+export const retryDelay = { ms: 500 };
 
 export async function accessToken(env: Env, refreshToken: string): Promise<string> {
   const res = await fetch("https://oauth2.googleapis.com/token", {
@@ -38,16 +44,31 @@ export async function accessToken(env: Env, refreshToken: string): Promise<strin
 }
 
 export async function google<T>(token: string, path: string, init: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${GOOGLE}${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
-  });
-  if (!res.ok && res.status !== 410) throw new SyncError("google_api_error", res.status);
-  return (res.status === 204 || res.status === 410 ? {} : await res.json()) as T;
+  for (let attempt = 1; ; attempt++) {
+    const res = await fetch(`${GOOGLE}${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        ...init.headers,
+      },
+    });
+    // Deleting what is already gone is done.
+    const gone = res.status === 410 || (res.status === 404 && init.method === "DELETE");
+    if (res.ok || gone) return (res.status === 204 || gone ? {} : await res.json()) as T;
+    const reason = await res
+      .json()
+      .then((b) => b?.error?.errors?.[0]?.reason as string | undefined)
+      .catch(() => undefined);
+    // A rate limit was refused before doing anything, so any call can go again; a 5xx
+    // may have done the work, so only calls safe to repeat (not a POST that creates).
+    const rateLimited =
+      res.status === 429 ||
+      (res.status === 403 && /rateLimitExceeded|userRateLimitExceeded/.test(reason ?? ""));
+    const limited = rateLimited || (res.status >= 500 && init.method !== "POST");
+    if (!limited || attempt >= TRIES) throw new SyncError("google_api_error", res.status, reason);
+    await sleep(retryDelay.ms * 2 ** (attempt - 1));
+  }
 }
 
 export async function listEvents(

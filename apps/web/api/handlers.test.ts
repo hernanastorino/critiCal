@@ -154,6 +154,16 @@ describe("google-sync (Node)", () => {
         google_event_id: null,
         tasks: { title: "Parcial" },
       },
+      // Already in Google exactly like this: left alone (no write per cron run).
+      {
+        id: "b2",
+        task_id: "t2",
+        start_at: "2026-11-03T15:00:00Z",
+        end_at: "2026-11-03T16:00:00Z",
+        level: "ok",
+        google_event_id: "g2",
+        tasks: { title: "Mate" },
+      },
     ];
     tables.calendar_events = [{ external_id: "old" }];
     const calls: { method: string; url: string; body?: string }[] = [];
@@ -191,7 +201,19 @@ describe("google-sync (Node)", () => {
         });
       }
       if (url.includes("/calendars/plan2/events") && (init.method ?? "GET") === "GET")
-        return Response.json({ items: [] });
+        return Response.json({
+          items: [
+            {
+              id: "g2",
+              summary: "Mate",
+              // Google answers in the calendar's zone: the same instants.
+              start: { dateTime: "2026-11-03T12:00:00-03:00" },
+              end: { dateTime: "2026-11-03T13:00:00-03:00" },
+              colorId: "10",
+              extendedProperties: { private: { criticalBlock: "b2" } },
+            },
+          ],
+        });
       if (url.includes("/calendars/plan2/events")) return Response.json({ id: "g1" });
       return new Response(null, { status: 204 });
     });
@@ -220,6 +242,7 @@ describe("google-sync (Node)", () => {
       summary: "🔴 Parcial",
       colorId: "11",
     });
+    expect(calls.some((c) => c.method === "PATCH" && c.url.includes("/events/g2"))).toBe(false);
     expect(writes.some((w) => w.table === "calendar_events" && w.op === "delete")).toBe(true);
     const listed = writes.find((w) => w.table === "calendars" && w.op === "upsert")?.payload as {
       external_id: string;

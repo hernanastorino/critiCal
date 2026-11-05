@@ -1,7 +1,8 @@
-import { importFromCalendars } from "./calendars.js";
+import { importFromCalendars, isTentative, visibleEvents } from "./calendars.js";
+import { localParts, zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { newId, stableId, uniqueColors } from "./model.js";
-import { refreshPlan } from "./planning.js";
+import { endOfDay, isPinned, refreshPlan } from "./planning.js";
 
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
 export function refresh(raw: AppData, now: number): AppData {
@@ -24,8 +25,69 @@ export function refresh(raw: AppData, now: number): AppData {
   const activities = uniqueColors(imported.activities);
   const data = activities === imported.activities ? imported : { ...imported, activities };
   const r = refreshPlan(data, now);
-  const proposals = r.proposal
+  let proposals = r.proposal
     ? [...data.proposals.filter((p) => !p.id.startsWith("conflict@")), r.proposal]
     : data.proposals.filter((p) => !p.id.startsWith("conflict@"));
-  return { ...data, plan: r.plan, proposals };
+  const fallen = planB(data, now, proposals);
+  proposals = fallen.proposals;
+  const tentativeSeen =
+    JSON.stringify(fallen.seen) === JSON.stringify(data.tentativeSeen ?? [])
+      ? data.tentativeSeen
+      : fallen.seen;
+  // While a plan B waits, today keeps the blocks it had (and its pins): the freed time
+  // is only used with an OK. Later days still update on their own.
+  const todayEnd = endOfDay(data.settings.timezone, now);
+  // Also after turning one down, until the day ends.
+  const hold =
+    proposals.some((p) => p.id.startsWith(TENTATIVE)) || (data.tentativeHoldUntil ?? 0) > now;
+  const plan = hold
+    ? r.plan.filter(
+        (b) =>
+          b.end <= now ||
+          b.start >= todayEnd ||
+          isPinned(b) ||
+          data.plan.some((o) => o.id === b.id),
+      )
+    : r.plan;
+  return { ...data, plan, proposals, tentativeSeen };
+}
+
+const TENTATIVE = "tentative@";
+
+/**
+ * A tentative event of today that is gone from the calendar frees its time, but today's
+ * plan only changes with an OK: the plan B (the rest of the day planned again) waits as
+ * a proposal. Later days are planned again on their own. Proposals already waiting get
+ * a fresh plan B every time, so accepting one never brings back an old plan.
+ */
+function planB(data: AppData, now: number, proposals: AppData["proposals"]) {
+  const seen = visibleEvents(data)
+    // Only the ones that take time, like the planner counts them.
+    .filter((e) => isTentative(e) && e.busy && !e.allDay && e.end > now)
+    .map((e) => ({ id: e.id, title: e.title, start: e.start, end: e.end }));
+  const tz = data.settings.timezone;
+  const todayEnd = endOfDay(tz, now);
+  const gone = (data.tentativeSeen ?? []).filter(
+    (s) => s.end > now && s.start < todayEnd && !data.events.some((e) => e.id === s.id),
+  );
+  // A plan B is about its own day; unanswered, it expires with it.
+  const todayStart = zonedInstant(tz, localParts(tz, now).date, 0);
+  proposals = proposals.filter((p) => !p.id.startsWith(TENTATIVE) || p.createdAt >= todayStart);
+  const waiting = proposals.some((p) => p.id.startsWith(TENTATIVE));
+  if (gone.length === 0 && !waiting) return { proposals, seen };
+  // Everything from now on, except the block in progress, planned again.
+  const plan = refreshPlan({ ...data, plan: data.plan.filter((b) => b.start <= now) }, now).plan;
+  return {
+    seen,
+    proposals: [
+      ...proposals.map((p) => (p.id.startsWith(TENTATIVE) ? { ...p, plan } : p)),
+      ...gone.map((s) => ({
+        id: `${TENTATIVE}${s.id}`,
+        message: `Se cayó «${s.title.replace(/\s*\?\s*$/, "")}» (era tentativo): ¿reacomodo el día con ese tiempo?`,
+        plan,
+        conflicts: [],
+        createdAt: now,
+      })),
+    ],
+  };
 }

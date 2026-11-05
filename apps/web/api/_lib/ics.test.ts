@@ -26,6 +26,7 @@ const ics = [
   "DTSTART;VALUE=DATE:20261106",
   "SUMMARY:Entrega TP",
   "TRANSP:TRANSPARENT",
+  "STATUS:TENTATIVE",
   "END:VEVENT",
   "BEGIN:VEVENT",
   "UID:rec",
@@ -54,10 +55,12 @@ describe("parseIcs", () => {
       allDay: false,
       busy: true,
       cancelled: false,
+      tentative: false,
     });
     expect(allDay).toMatchObject({
       allDay: true,
       busy: false,
+      tentative: true,
       start: Date.UTC(2026, 10, 6, 3),
       end: Date.UTC(2026, 10, 7, 3),
     });
