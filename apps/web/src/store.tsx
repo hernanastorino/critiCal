@@ -31,6 +31,7 @@ import { newId, nextColor, pruneApplied, undoable } from "./model.js";
 import { home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
+  checkInFactor,
   type Decisions,
   decisions,
   endOfWeek,
@@ -155,7 +156,12 @@ function apply(data: AppData, action: Action): AppData {
     case "replace":
       return refresh(action.data, now);
     case "checkIn": {
-      const checkIn: CheckIn = { ...action.checkIn, id: newId(), createdAt: now };
+      const checkIn: CheckIn = {
+        ...action.checkIn,
+        id: newId(),
+        createdAt: now,
+        factor: checkInFactor(data, action.checkIn.taskId),
+      };
       const tasks = data.tasks.map((t) =>
         t.id === checkIn.taskId
           ? {
@@ -313,6 +319,7 @@ function apply(data: AppData, action: Action): AppData {
                 minutesDone: Math.max(0, Math.round(action.minutes)),
                 unitIds: newlyDone,
                 createdAt: now,
+                factor: checkInFactor(data, task.id),
               },
             ]
           : data.checkIns;
@@ -712,6 +719,7 @@ export function seedHistory(data: AppData, now: number): AppData {
     minutesDone: (b.end - b.start) / 60_000,
     unitIds: [],
     createdAt: b.end,
+    factor: checkInFactor(caught, b.taskId),
   }));
   return { ...caught, checkIns };
 }

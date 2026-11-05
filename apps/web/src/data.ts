@@ -110,6 +110,7 @@ export function rowsToData(r: {
         minutesDone: c.minutes_done as number,
         unitIds: (c.unit_ids as string[]) ?? [],
         createdAt: ms(c.created_at as string),
+        factor: (c.block_factor as number | null) ?? undefined,
       }),
     ),
     events: r.events.map(
@@ -403,6 +404,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         minutes_done: c.minutesDone,
         unit_ids: c.unitIds,
         created_at: iso(c.createdAt),
+        block_factor: c.factor ?? null,
       })),
     });
   }

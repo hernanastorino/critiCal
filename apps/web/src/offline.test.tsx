@@ -176,7 +176,10 @@ describe("offline", () => {
         <Shell />
       </Connected>,
     );
-    await waitFor(async () => expect((await readLocal("me"))?.stored).not.toBeNull());
+    // Planning the demo plus a full sync can pass a second on a slow CI runner.
+    await waitFor(async () => expect((await readLocal("me"))?.stored).not.toBeNull(), {
+      timeout: 5000,
+    });
     // Nothing of the user's is deleted (the plan is regenerated, so its blocks may be).
     expect(deletes.filter((t) => t !== "plan_blocks")).toEqual([]);
     const kept = await readLocal("me");

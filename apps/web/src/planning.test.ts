@@ -348,7 +348,9 @@ describe("reducer", () => {
 
 describe("breaks", () => {
   it("plan block time for study time: 60 minutes of blocks per 50 of study", async () => {
-    const { blockFactor, progress, toEngineTasks } = await import("./planning.js");
+    const { applyOption, blockFactor, checkInFactor, progress, toEngineTasks } = await import(
+      "./planning.js"
+    );
     const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);
     const subject = {
       id: "m",
@@ -391,9 +393,11 @@ describe("breaks", () => {
           minutesDone: 60,
           unitIds: [],
           createdAt: now - 3_600_000,
+          factor: 1.2,
         },
       ],
     };
+    expect(checkInFactor(d, "t")).toBeCloseTo(1.2);
     // What is left reads in study time…
     expect(progress(d, now)[0]?.remainingMinutes).toBe(250);
     // …and the planner gets the block time it needs.
@@ -401,5 +405,18 @@ describe("breaks", () => {
       remainingMinutes: 300,
       minRemainingMinutes: 300,
     });
+
+    // Turning breaks off later keeps the hour already done at 50 minutes of study.
+    const noBreaks = { ...d, activities: [{ ...subject, breakMinutes: 0 }] };
+    expect(progress(noBreaks, now)[0]?.remainingMinutes).toBe(250);
+    expect(checkInFactor(noBreaks, "t")).toBeUndefined();
+
+    // An option cutting 60 minutes of blocks takes 50 minutes of study off the task.
+    const input = { tasks: toEngineTasks(d, now) } as never;
+    const cut = {
+      kind: "lower-minimum",
+      input: { tasks: toEngineTasks(d, now).map((t) => ({ ...t, minRemainingMinutes: 240 })) },
+    } as never;
+    expect(applyOption(d, input, cut, now).tasks[0]?.minMinutes).toBe(250);
   });
 });

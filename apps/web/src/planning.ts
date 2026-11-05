@@ -20,7 +20,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
-import type { AppData, AppTask, Proposal } from "./model.js";
+import type { AppData, AppTask, CheckIn, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -67,6 +67,17 @@ export function doneMinutes(data: AppData, taskId: string, since = 0): number {
     .reduce((sum, c) => sum + c.minutesDone, 0);
 }
 
+/** Study minutes of a check-in: its block time without the breaks it had then. */
+export const studyMinutes = (c: CheckIn) => c.minutesDone / (c.factor ?? 1);
+
+/** The block factor to record on a new check-in of a task. */
+export function checkInFactor(data: AppData, taskId: string): number | undefined {
+  const task = data.tasks.find((t) => t.id === taskId);
+  if (!task || task.kind === "habit") return undefined;
+  const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
+  return k === 1 ? undefined : k;
+}
+
 function samples(data: AppData) {
   return data.checkIns
     .filter((c) => c.status !== "missed")
@@ -77,12 +88,11 @@ function samples(data: AppData) {
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
       // Check-ins count block time, breaks included; estimates are study time.
-      const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
       return [
         {
           activityId: task.activityId,
           estimatedMinutes: estimated,
-          actualMinutes: c.minutesDone / k,
+          actualMinutes: studyMinutes(c),
         },
       ];
     });
@@ -119,9 +129,10 @@ export function progress(data: AppData, now: number): TaskProgress[] {
           deadline: endOfWeek(tz, now),
         };
       }
-      // Estimates are study time and check-ins block time (breaks included).
-      const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
-      const done = doneMinutes(data, task.id) / k;
+      // Estimates are study time and check-ins block time (breaks included then).
+      const done = data.checkIns
+        .filter((c) => c.taskId === task.id)
+        .reduce((sum, c) => sum + studyMinutes(c), 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
       const fromUnits =
         task.units.length > 0
@@ -327,8 +338,13 @@ export function applyOption(
     if (!old) return task;
     const next = after.get(task.id);
     if (!next) return { ...task, status: "dropped" as const };
-    const minCut = old.minRemainingMinutes - next.minRemainingMinutes;
-    const cut = old.remainingMinutes - next.remainingMinutes;
+    // The engine cuts block time; tasks keep study time (breaks are not work).
+    const k =
+      task.kind === "habit"
+        ? 1
+        : blockFactor(data.activities.find((a) => a.id === task.activityId));
+    const minCut = Math.round((old.minRemainingMinutes - next.minRemainingMinutes) / k);
+    const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
     return {
       ...task,
       minMinutes: Math.max(0, task.minMinutes - minCut),
