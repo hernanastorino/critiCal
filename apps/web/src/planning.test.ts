@@ -501,6 +501,19 @@ describe("more ways out in the app", () => {
     ];
     const d = base({ tasks: [task("p", "Parcial de Mate", 600, { units })], checkIns });
     expect(toEngineTasks(d, now)[0]?.units?.[0]?.minutes).toBeGreaterThan(100);
+    // Capped by the estimate, units never add up to more than what is left.
+    const capped = base({
+      tasks: [
+        task("p", "Parcial de Mate", 300, {
+          units: [...units, { id: "u2", title: "Series", estimateMinutes: 100, weight: 10 }],
+        }),
+      ],
+      checkIns,
+    });
+    const [t] = toEngineTasks(capped, now);
+    const sum = (t?.units ?? []).reduce((a, u) => a + u.minutes, 0);
+    expect(sum).toBeLessThanOrEqual(t?.remainingMinutes ?? 0);
+    expect(sum).toBeGreaterThan(0);
   });
 
   it("never offers to leave out a unit without a weight", async () => {

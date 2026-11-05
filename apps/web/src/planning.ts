@@ -155,6 +155,29 @@ export function progress(data: AppData, now: number): TaskProgress[] {
     });
 }
 
+/**
+ * Weighed units still to study, in planner minutes. They are scaled so together with
+ * the rest they never exceed what is left of the task (capped by its estimate), so
+ * leaving some out never takes the time of the ones kept.
+ */
+function weighedUnits(p: TaskProgress, k: number, ratio: number) {
+  if (!p.task.units.some((u) => u.weight !== undefined)) return undefined;
+  const open = p.task.units.filter((u) => !u.doneAt && !u.skipped);
+  const raw = (u: (typeof open)[number]) => u.estimateMinutes * ratio * k;
+  const total = open.reduce((sum, u) => sum + raw(u), 0);
+  const left = p.remainingMinutes * k;
+  const scale = total > left && total > 0 ? left / total : 1;
+  return open
+    .filter((u) => u.weight !== undefined)
+    .map((u) => ({
+      id: u.id,
+      title: u.title,
+      // Like what is left: the learned effort ratio, then block time.
+      minutes: Math.floor(raw(u) * scale),
+      weight: u.weight as number,
+    }));
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   return progress(data, now)
@@ -187,17 +210,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
           : undefined,
       // Exams with weighed units can leave the lightest ones out; a unit with no weight
       // is of unknown importance, so it is never offered to leave out.
-      units: p.task.units.some((u) => u.weight !== undefined)
-        ? p.task.units
-            .filter((u) => !u.doneAt && !u.skipped && u.weight !== undefined)
-            .map((u) => ({
-              id: u.id,
-              title: u.title,
-              // Like what is left: the learned effort ratio, then block time.
-              minutes: Math.ceil(u.estimateMinutes * effortRatio(effort, p.task.activityId) * k),
-              weight: u.weight as number,
-            }))
-        : undefined,
+      units: weighedUnits(p, k, effortRatio(effort, p.task.activityId)),
     }));
 }
 
