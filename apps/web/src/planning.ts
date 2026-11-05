@@ -1,4 +1,4 @@
-import { visibleEvents } from "./calendars.js";
+import { eventRole, visibleEvents } from "./calendars.js";
 import {
   type Activity,
   addDays,
@@ -135,10 +135,13 @@ export function progress(data: AppData, now: number): TaskProgress[] {
         .filter((c) => c.taskId === task.id)
         .reduce((sum, c) => sum + studyMinutes(c), 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
+      // Units left out to make the rest fit are neither done nor missing.
+      const units = task.units.filter((u) => !u.skipped);
+      // With units, only those count (all left out: nothing to plan); without, the estimate.
       const fromUnits =
         task.units.length > 0
           ? remainingFromUnits(
-              task.units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
+              units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
               effortRatio(effort, task.activityId),
             )
           : capLeft;
@@ -151,6 +154,29 @@ export function progress(data: AppData, now: number): TaskProgress[] {
         deadline: task.deadline ?? endOfWeek(tz, now),
       };
     });
+}
+
+/**
+ * Weighed units still to study, in planner minutes. They are scaled so together with
+ * the rest they never exceed what is left of the task (capped by its estimate), so
+ * leaving some out never takes the time of the ones kept.
+ */
+function weighedUnits(p: TaskProgress, k: number, ratio: number) {
+  if (!p.task.units.some((u) => u.weight !== undefined)) return undefined;
+  const open = p.task.units.filter((u) => !u.doneAt && !u.skipped);
+  const raw = (u: (typeof open)[number]) => u.estimateMinutes * ratio * k;
+  const total = open.reduce((sum, u) => sum + raw(u), 0);
+  const left = p.remainingMinutes * k;
+  const scale = total > left && total > 0 ? left / total : 1;
+  return open
+    .filter((u) => u.weight !== undefined)
+    .map((u) => ({
+      id: u.id,
+      title: u.title,
+      // Like what is left: the learned effort ratio, then block time.
+      minutes: Math.floor(raw(u) * scale),
+      weight: u.weight as number,
+    }));
 }
 
 /** Days before an exam its review sessions should fall on. */
@@ -179,6 +205,7 @@ function keptDays(data: AppData, now: number) {
 }
 
 export function toEngineTasks(data: AppData, now: number): Task[] {
+  const effort = samples(data);
   const tz = data.settings.timezone;
   const kept = keptDays(data, now);
   return progress(data, now)
@@ -203,10 +230,35 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
+      // An entrega can be handed in smaller: half its minimum, never below an hour
+      // (study time, planned as block time like the rest).
+      mvpMinutes:
+        p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
+          ? Math.ceil(Math.max(60, Math.ceil(p.minRemainingMinutes / 2)) * k)
+          : undefined,
+      // Exams with weighed units can leave the lightest ones out; a unit with no weight
+      // is of unknown importance, so it is never offered to leave out.
+      units: weighedUnits(p, k, effortRatio(effort, p.task.activityId)),
       reviewDates:
         p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
     }));
+}
+
+/** Titles of exams (not entregas): no "smaller version" of those. */
+const EXAM = /(?<![\p{L}\p{N}])(parcial(es)?|ex[aá]men(es)?|pruebas?|final(es)?)(?![\p{L}\p{N}])/iu;
+
+/** An exam has no smaller version to hand in: by its title or its calendar event. */
+function isExam(data: AppData, task: AppTask): boolean {
+  const event = task.sourceEventId && data.events.find((e) => e.id === task.sourceEventId);
+  const role = event ? eventRole(data, event) : undefined;
+  if (task.exam || role === "parcial") return true;
+  // From an entrega or presentación, "final" is the last one, not an exam.
+  const title =
+    role === "entrega" || role === "presentacion"
+      ? task.title.replace(/(?<![\p{L}\p{N}])final(es)?(?![\p{L}\p{N}])/giu, "")
+      : task.title;
+  return EXAM.test(title);
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
@@ -394,6 +446,16 @@ export function applyOption(
 ): AppData {
   if (option.kind === "use-free-time")
     return { ...data, freeTimeUntil: endOfWeek(data.settings.timezone, now) };
+  if (option.kind === "move-event" && option.eventId && option.moveTo) {
+    const event = data.events.find((e) => e.id === option.eventId);
+    if (!event) return data;
+    // Planned at the new time until the calendar shows it moved (or the user undoes it).
+    const move = { eventId: event.id, from: event.start, ...option.moveTo };
+    return {
+      ...data,
+      movedEvents: [...(data.movedEvents ?? []).filter((m) => m.eventId !== event.id), move],
+    };
+  }
   const before = new Map(input.tasks.map((t) => [t.id, t]));
   const after = new Map(option.input.tasks.map((t) => [t.id, t]));
   const tasks = data.tasks.map((task) => {
@@ -408,10 +470,14 @@ export function applyOption(
         : blockFactor(data.activities.find((a) => a.id === task.activityId));
     const minCut = Math.round((old.minRemainingMinutes - next.minRemainingMinutes) / k);
     const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
+    const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
     return {
       ...task,
       minMinutes: Math.max(0, task.minMinutes - minCut),
       estimateMinutes: Math.max(0, task.estimateMinutes - cut),
+      units: out.size
+        ? task.units.map((u) => (out.has(u.id) ? { ...u, skipped: true } : u))
+        : task.units,
     };
   });
   return { ...data, tasks };

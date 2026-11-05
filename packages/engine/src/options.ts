@@ -1,12 +1,17 @@
+import { buildSlots } from "./availability.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
-import type { Task } from "./types.js";
+import { travelBuffers } from "./travel.js";
+import { type CalendarEvent, type Interval, MINUTE, type Task } from "./types.js";
 
 export type OptionKind =
   | "drop"
   | "lower-minimum"
   | "proportional"
   | "use-free-time"
-  | "minimum-only";
+  | "minimum-only"
+  | "move-event"
+  | "minimum-viable"
+  | "prioritize";
 
 export interface PlanOption {
   id: string;
@@ -18,6 +23,11 @@ export interface PlanOption {
   result: ScheduleResult;
   /** Input to apply if chosen. */
   input: ScheduleInput;
+  /** move-event: the event and where it would go. */
+  eventId?: string;
+  moveTo?: Interval;
+  /** prioritize: the exam's units left out. */
+  unitIds?: string[];
 }
 
 function withTasks(input: ScheduleInput, tasks: Task[]): ScheduleInput {
@@ -47,7 +57,85 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
     });
   }
 
+  // A flexible event before the last deadline in trouble, moved to the free time
+  // closest to it within a week.
+  for (const e of input.events) {
+    if (!e.flexible || !e.busy || e.allDay || e.start <= input.now || e.start >= deadlineLimit)
+      continue;
+    const without = { ...input, events: input.events.filter((x) => x.id !== e.id) };
+    const to = freeSpot(without, schedule(without), e);
+    if (!to) continue;
+    const next = { ...without, events: [...without.events, { ...e, ...to }] };
+    options.push({
+      id: `move-event:${e.id}`,
+      kind: "move-event",
+      eventId: e.id,
+      moveTo: to,
+      label: `Mover «${e.title}» al ${when(input.settings.timezone, to.start)}`,
+      input: next,
+      result: schedule(next),
+    });
+  }
+
   const deficit = short.reduce((sum, s) => sum + s.minDeficit, 0);
+
+  // Exams: leave out the units that weigh least until the time fits.
+  for (const t of involved) {
+    const units = [...(t.units ?? [])].sort((a, b) => a.weight - b.weight);
+    const out: typeof units = [];
+    let freed = 0;
+    // Always keep the heaviest unit.
+    for (const u of units.slice(0, -1)) {
+      if (freed >= deficit) break;
+      out.push(u);
+      freed += u.minutes;
+    }
+    if (out.length === 0) continue;
+    const next = withTasks(
+      input,
+      input.tasks.map((x) =>
+        x.id === t.id
+          ? {
+              ...x,
+              minRemainingMinutes: Math.max(0, x.minRemainingMinutes - freed),
+              remainingMinutes: Math.max(0, x.remainingMinutes - freed),
+            }
+          : x,
+      ),
+    );
+    options.push({
+      id: `prioritize:${t.id}`,
+      kind: "prioritize",
+      taskId: t.id,
+      unitIds: out.map((u) => u.id),
+      label: `Priorizar los temas de ${t.title}: dejar afuera ${out.map((u) => `«${u.title}»`).join(", ")}`,
+      input: next,
+      result: schedule(next),
+    });
+  }
+
+  // Entregas: hand in the smallest version still worth it.
+  for (const t of involved) {
+    if (t.mvpMinutes === undefined || t.mvpMinutes >= t.minRemainingMinutes) continue;
+    add(
+      `minimum-viable:${t.id}`,
+      "minimum-viable",
+      `Entregar una versión mínima de ${t.title} (${duration(t.mvpMinutes)})`,
+      withTasks(
+        input,
+        input.tasks.map((x) =>
+          x.id === t.id
+            ? {
+                ...x,
+                minRemainingMinutes: t.mvpMinutes as number,
+                remainingMinutes: Math.min(x.remainingMinutes, t.mvpMinutes as number),
+              }
+            : x,
+        ),
+      ),
+      t.id,
+    );
+  }
   for (const t of [...involved].sort((a, b) => a.priority - b.priority)) {
     const lowered = Math.max(0, t.minRemainingMinutes - deficit);
     // Lowering to zero is just "No hacer", which is offered below.
@@ -122,11 +210,76 @@ function duration(minutes: number): string {
 
 const ORDER: OptionKind[] = [
   "use-free-time",
+  "move-event",
   "lower-minimum",
+  "prioritize",
+  "minimum-viable",
   "proportional",
   "minimum-only",
   "drop",
 ];
+
+/** "jue 5/11 18:00" in the user's time zone. */
+function when(timeZone: string, instant: number): string {
+  const f = new Intl.DateTimeFormat("es-UY", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return f.format(instant).replace(",", "");
+}
+
+/**
+ * Where an event could go instead: the awake, non-free-time stretch closest to its
+ * time, within a week either side, after now, that neither the plan nor any other event
+ * uses.
+ */
+function freeSpot(
+  input: ScheduleInput,
+  result: ScheduleResult,
+  event: CalendarEvent,
+): Interval | null {
+  const length = event.end - event.start;
+  const week = 7 * 1440 * MINUTE;
+  const from = Math.max(input.now, event.start - week);
+  const to = Math.min(input.horizonEnd, event.start + week);
+  // The trips to the other events are taken too, as schedule() counts them.
+  const others = input.events.filter((e) => e.id !== event.id);
+  const busy: Interval[] = [
+    ...input.events.filter((e) => e.busy && !e.allDay),
+    ...(input.travel ? travelBuffers(others, input.travel).busy : []),
+    ...result.blocks,
+    ...(input.frozen ?? []),
+  ];
+  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, busy).filter(
+    (s) => !s.soft,
+  );
+  let best: Interval | null = null;
+  for (let i = 0; i < slots.length; i++) {
+    const first = slots[i] as (typeof slots)[number];
+    let end = first.end;
+    let j = i;
+    // Contiguous slots of one day, long enough for the event.
+    while (
+      end - first.start < length &&
+      slots[j + 1]?.start === end &&
+      slots[j + 1]?.date === first.date
+    ) {
+      j++;
+      end = (slots[j] as (typeof slots)[number]).end;
+    }
+    if (end - first.start < length) continue;
+    const spot = { start: first.start, end: first.start + length };
+    if (spot.start === event.start) continue;
+    if (!best || Math.abs(spot.start - event.start) < Math.abs(best.start - event.start))
+      best = spot;
+  }
+  return best;
+}
 const rank = (k: OptionKind) => ORDER.indexOf(k);
 
 /** When minimums fit but targets do not: settle for the minimum. */

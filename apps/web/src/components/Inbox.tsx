@@ -24,6 +24,10 @@ export function Inbox() {
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
   const clashes = pinClashes(data, now);
+  const moves = (data.movedEvents ?? []).flatMap((m) => {
+    const event = data.events.find((e) => e.id === m.eventId);
+    return event ? [{ ...m, event }] : [];
+  });
   const late = lateNight(data, now);
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
@@ -41,6 +45,7 @@ export function Inbox() {
       decisions.options.length +
       decisions.recommendations.length +
       review.length +
+      moves.length +
       (late ? 1 : 0) +
       classes.length +
       unassigned.length +
@@ -67,6 +72,23 @@ export function Inbox() {
       <div className="scroll">
         {empty && <p className="empty">Todo al día ✓</p>}
 
+        {moves.length > 0 && <div className="section-title">Para mover en tu calendario</div>}
+        {moves.map((m) => (
+          <div key={m.eventId} className="card">
+            <div className="title">{m.event.title}</div>
+            <p className="meta">
+              Planifico con este evento el {dayAndTime(tz, m.start)}: movelo en tu calendario (de
+              {` ${dayAndTime(tz, m.from)}`}). Cuando lo muevas, esto desaparece solo.
+            </p>
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => dispatch({ type: "unmoveEvent", eventId: m.eventId })}
+            >
+              Volver a su horario
+            </button>
+          </div>
+        ))}
         {late && <LateNightCard key={`${late.date}@${late.assumedWake}`} late={late} />}
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}

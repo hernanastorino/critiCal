@@ -616,6 +616,100 @@ describe("schedule invariants", () => {
   });
 });
 
+describe("more ways out", () => {
+  const deadline = at("2026-11-02", "19:30");
+
+  it("moves a flexible event to the closest free time", () => {
+    const flex = ev("Café #flex", at("2026-11-02", "10:00"), at("2026-11-02", "14:00"), {
+      flexible: true,
+    });
+    const input = base({
+      tasks: [task("m", "mate", deadline, { remainingMinutes: 480, minRemainingMinutes: 480 })],
+      events: [flex],
+    });
+    const r = schedule(input);
+    expect(r.feasible).toBe(false);
+    const move = infeasibilityOptions(input, r).find((o) => o.kind === "move-event");
+    expect(move).toMatchObject({ eventId: "Café #flex" });
+    expect(move?.label).toMatch(/^Mover «Café #flex» al /);
+    const to = move?.moveTo as { start: number; end: number };
+    expect(to.end - to.start).toBe(flex.end - flex.start);
+    expect(to.start).not.toBe(flex.start);
+    // The moved event is in the option's input, at its new time.
+    expect(move?.input.events.find((e) => e.id === flex.id)).toMatchObject(to);
+    // A fixed event is never offered.
+    const fixed = base({ ...input, events: [{ ...flex, flexible: false }] });
+    expect(infeasibilityOptions(fixed, schedule(fixed)).some((o) => o.kind === "move-event")).toBe(
+      false,
+    );
+  });
+
+  it("never moves a flexible event into the trip to another one", () => {
+    const flex = ev("Café #flex", at("2026-11-02", "10:00"), at("2026-11-02", "14:00"), {
+      flexible: true,
+    });
+    const clase = ev("clase", at("2026-11-02", "18:00"), at("2026-11-02", "19:00"), {
+      location: "Facultad",
+    });
+    const travel = {
+      home: "home",
+      resolvePlace: (l: string) => (l === "Facultad" ? "facu" : undefined),
+      travelMinutes: () => 180,
+      marginMinutes: 10,
+      returnHomeAfterMinutes: 120,
+    };
+    const input = base({
+      tasks: [task("m", "mate", deadline, { remainingMinutes: 480, minRemainingMinutes: 480 })],
+      events: [flex, clase],
+      travel,
+    });
+    const move = infeasibilityOptions(input, schedule(input)).find((o) => o.kind === "move-event");
+    const trip = { start: at("2026-11-02", "14:50"), end: at("2026-11-02", "18:00") };
+    // There is room elsewhere, so a move is offered, and never into the trip.
+    expect(move?.moveTo).toBeDefined();
+    expect(overlaps(move?.moveTo as { start: number; end: number }, trip)).toBe(false);
+  });
+
+  it("leaves out an exam's lightest units, never the heaviest", () => {
+    const input = base({
+      tasks: [
+        task("p", "mate", deadline, {
+          remainingMinutes: 900,
+          minRemainingMinutes: 900,
+          units: [
+            { id: "u1", title: "Integrales", minutes: 300, weight: 50 },
+            { id: "u2", title: "Series", minutes: 300, weight: 10 },
+            { id: "u3", title: "Límites", minutes: 300, weight: 40 },
+          ],
+        }),
+      ],
+    });
+    const opt = infeasibilityOptions(input, schedule(input)).find((o) => o.kind === "prioritize");
+    expect(opt?.unitIds?.[0]).toBe("u2");
+    expect(opt?.unitIds).not.toContain("u1");
+    expect(opt?.label).toContain("«Series»");
+    const t = opt?.input.tasks[0];
+    expect(t?.minRemainingMinutes).toBe(900 - 300 * (opt?.unitIds?.length ?? 0));
+  });
+
+  it("offers a minimum viable version of an entrega", () => {
+    const input = base({
+      tasks: [
+        task("e", "mate", deadline, {
+          remainingMinutes: 900,
+          minRemainingMinutes: 900,
+          mvpMinutes: 300,
+        }),
+      ],
+    });
+    const opt = infeasibilityOptions(input, schedule(input)).find(
+      (o) => o.kind === "minimum-viable",
+    );
+    expect(opt?.input.tasks[0]).toMatchObject({ minRemainingMinutes: 300, remainingMinutes: 300 });
+    expect(opt?.label).toBe("Entregar una versión mínima de e (5 h)");
+  });
+});
+
 describe("exam review", () => {
   const dayOf = (b: PlanBlock) => new Date(b.start - 3 * 3_600_000).toISOString().slice(0, 10);
 

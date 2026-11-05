@@ -92,6 +92,10 @@ export interface Task {
   avoid?: Interval[];
   /** Higher survives cuts longer. */
   priority: number;
+  /** Entregas: the smallest version still worth handing in, in minutes. */
+  mvpMinutes?: number;
+  /** Exams: the units still to study and their weight in the exam. */
+  units?: { id: string; title: string; minutes: number; weight: number }[];
 }
 
 export interface CalendarEvent {
@@ -103,6 +107,8 @@ export interface CalendarEvent {
   /** "Show as busy"; free events can overlap planned blocks. */
   busy: boolean;
   allDay?: boolean;
+  /** May be moved to another time when the minimums do not fit (#flex). */
+  flexible?: boolean;
 }
 
 export type Level = "ok" | "warn" | "critical";

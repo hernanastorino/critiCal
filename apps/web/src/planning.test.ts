@@ -346,6 +346,309 @@ describe("reducer", () => {
   });
 });
 
+describe("more ways out in the app", () => {
+  const now = zonedInstant(TIMEZONE, "2026-11-03", 8 * 60);
+  const deadline = zonedInstant(TIMEZONE, "2026-11-03", 19 * 60);
+  const act = {
+    id: "m",
+    name: "Mate",
+    color: "#000",
+    academic: false,
+    maxSessionMinutes: 600,
+    minBlockMinutes: 60,
+  };
+  const base = (extra: Partial<ReturnType<typeof emptyData>> = {}) => ({
+    ...emptyData(),
+    activities: [act],
+    ...extra,
+  });
+  const task = (id: string, title: string, minutes: number, extra = {}) => ({
+    id,
+    activityId: "m",
+    title,
+    kind: "deliverable" as const,
+    deadline,
+    estimateMinutes: minutes,
+    minMinutes: minutes,
+    priority: 2,
+    status: "active" as const,
+    units: [],
+    ...extra,
+  });
+
+  it("offers a smaller entrega, never a smaller exam", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const d = base({
+      tasks: [task("e", "TP de laboratorio", 600), task("p", "Parcial de Mate", 600)],
+    });
+    const [e, p] = toEngineTasks(d, now);
+    expect(e?.mvpMinutes).toBe(300);
+    expect(p?.mvpMinutes).toBeUndefined();
+    // Exactly half (never under an hour), not rounded to slots.
+    const odd = toEngineTasks(base({ tasks: [task("o", "TP de laboratorio", 210)] }), now)[0];
+    expect(odd?.mvpMinutes).toBe(105);
+    // Plurals and accents, and anything imported from a parcial event, are exams too.
+    const more = base({
+      calendars: [
+        {
+          id: "google:p",
+          source: "google" as const,
+          externalId: "p",
+          name: "Parciales",
+          role: "parcial" as const,
+        },
+      ],
+      events: [
+        {
+          id: "ev",
+          title: "Física",
+          start: deadline,
+          end: deadline + 3_600_000,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:p",
+        },
+      ],
+      tasks: [
+        task("a", "Exámenes de Física", 600),
+        task("b", "Finales", 600),
+        task("c", "Física", 600, { sourceEventId: "ev" }),
+      ],
+    });
+    expect(toEngineTasks(more, now).map((t) => t.mvpMinutes)).toEqual([
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    // From an entrega event, "final" is the last delivery (a smaller one is fine), but
+    // an exam title still counts.
+    const entregas = base({
+      calendars: [
+        {
+          id: "google:e",
+          source: "google" as const,
+          externalId: "e",
+          name: "Entregas",
+          role: "entrega" as const,
+        },
+      ],
+      events: [
+        {
+          id: "x1",
+          title: "Entrega final del TP",
+          start: deadline,
+          end: deadline,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:e",
+        },
+        {
+          id: "x2",
+          title: "Parcial de Mate",
+          start: deadline,
+          end: deadline,
+          busy: true,
+          source: "google" as const,
+          calendarId: "google:e",
+        },
+      ],
+      tasks: [
+        task("f", "Entrega final del TP", 600, { sourceEventId: "x1" }),
+        task("g", "Parcial de Mate", 600, { sourceEventId: "x2" }),
+      ],
+    });
+    const [f, g] = toEngineTasks(entregas, now);
+    expect(f?.mvpMinutes).toBe(300);
+    expect(g?.mvpMinutes).toBeUndefined();
+  });
+
+  it("leaves out units, marks them, and undo brings them back", async () => {
+    const { reducer } = await import("./store.js");
+    const { decisions, refreshPlan } = await import("./planning.js");
+    const units = [
+      { id: "u1", title: "Integrales", estimateMinutes: 400, weight: 60 },
+      { id: "u2", title: "Series", estimateMinutes: 400, weight: 10 },
+      { id: "u3", title: "Límites", estimateMinutes: 400, weight: 30 },
+    ];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 1200, { units })] });
+    const r = refreshPlan(d, now);
+    const opt = decisions(r.input, r.result).options.find((o) => o.kind === "prioritize");
+    expect(opt?.unitIds?.[0]).toBe("u2");
+    const done = reducer(d, { type: "applyOption", optionId: opt?.id as string, now });
+    expect(done.tasks[0]?.units.find((u) => u.id === "u2")?.skipped).toBe(true);
+    const record = done.applied?.at(-1);
+    const back = reducer(done, { type: "undoDecision", id: record?.id as string, now });
+    expect(back.tasks[0]?.units.every((u) => !u.skipped)).toBe(true);
+    // A unit a later decision left out stays out when undoing this one.
+    const later = {
+      ...done,
+      tasks: done.tasks.map((t) => ({
+        ...t,
+        units: t.units.map((u) => (u.id === "u1" ? { ...u, skipped: true } : u)),
+      })),
+    };
+    const undone = reducer(later, { type: "undoDecision", id: record?.id as string, now });
+    expect(record?.skippedUnits).not.toContain("u1");
+    expect(undone.tasks[0]?.units.map((u) => !!u.skipped)).toEqual([true, false, false]);
+  });
+
+  it("undoes decisions in any order, each giving back its own cut", async () => {
+    const { reducer } = await import("./store.js");
+    const t0 = task("p", "Parcial de Mate", 600);
+    const rec = (id: string, before: number, after: number) => ({
+      id,
+      label: id,
+      at: now,
+      before: [{ ...t0, minMinutes: before, estimateMinutes: before }],
+      after: { p: "active" as const },
+      afterMinutes: { p: { min: after, estimate: after } },
+    });
+    // 600 → 500 (d1) → 300 (d2).
+    const d = base({
+      tasks: [{ ...t0, minMinutes: 300, estimateMinutes: 300 }],
+      applied: [rec("d1", 600, 500), rec("d2", 500, 300)],
+    });
+    const one = reducer(d, { type: "undoDecision", id: "d1", now });
+    expect(one.tasks[0]?.minMinutes).toBe(400);
+    const both = reducer(one, { type: "undoDecision", id: "d2", now });
+    expect(both.tasks[0]?.minMinutes).toBe(600);
+  });
+
+  it("plans nothing for a task whose units are all left out", async () => {
+    const { progress } = await import("./planning.js");
+    const units = [{ id: "u", title: "Series", estimateMinutes: 400, weight: 10, skipped: true }];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 600, { units })] });
+    expect(progress(d, now)[0]?.remainingMinutes).toBe(0);
+  });
+
+  it("weighs units by the learned effort, like what is left", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const units = [
+      { id: "u0", title: "Hecho", estimateMinutes: 100, weight: 5, doneAt: now - 1 },
+      { id: "u1", title: "Integrales", estimateMinutes: 100, weight: 60 },
+    ];
+    // That unit took twice its estimate.
+    const checkIns = [
+      {
+        id: "c",
+        blockId: "b",
+        taskId: "p",
+        status: "done" as const,
+        minutesDone: 200,
+        unitIds: ["u0"],
+        createdAt: now - 1,
+      },
+    ];
+    const d = base({ tasks: [task("p", "Parcial de Mate", 600, { units })], checkIns });
+    expect(toEngineTasks(d, now)[0]?.units?.[0]?.minutes).toBeGreaterThan(100);
+    // Capped by the estimate, units never add up to more than what is left.
+    const capped = base({
+      tasks: [
+        task("p", "Parcial de Mate", 300, {
+          units: [...units, { id: "u2", title: "Series", estimateMinutes: 100, weight: 10 }],
+        }),
+      ],
+      checkIns,
+    });
+    const [t] = toEngineTasks(capped, now);
+    const sum = (t?.units ?? []).reduce((a, u) => a + u.minutes, 0);
+    expect(sum).toBeLessThanOrEqual(t?.remainingMinutes ?? 0);
+    expect(sum).toBeGreaterThan(0);
+  });
+
+  it("never offers to leave out a unit without a weight", async () => {
+    const { toEngineTasks } = await import("./planning.js");
+    const units = [
+      { id: "u1", title: "Integrales", estimateMinutes: 400, weight: 60 },
+      { id: "u2", title: "Series", estimateMinutes: 400 },
+    ];
+    const t = toEngineTasks(base({ tasks: [task("p", "Parcial de Mate", 800, { units })] }), now);
+    expect(t[0]?.units?.map((u) => u.id)).toEqual(["u1"]);
+  });
+
+  it("plans a flexible event at its new time until the calendar moves it", async () => {
+    const { reducer } = await import("./store.js");
+    const { decisions, refreshPlan } = await import("./planning.js");
+    const { isFlexible, visibleEvents } = await import("./calendars.js");
+    const cafe = {
+      id: "google:x",
+      title: "Café con Ana #flex",
+      start: zonedInstant(TIMEZONE, "2026-11-03", 9 * 60),
+      // Four hours: a free stretch that long exists between meals on other days.
+      end: zonedInstant(TIMEZONE, "2026-11-03", 13 * 60),
+      busy: true,
+      source: "google" as const,
+    };
+    const d = base({ events: [cafe], tasks: [task("e", "Parcial", 540)] });
+    expect(isFlexible(d, cafe)).toBe(true);
+    const r = refreshPlan(d, now);
+    const opt = decisions(r.input, r.result).options.find((o) => o.kind === "move-event");
+    expect(opt?.moveTo).toBeTruthy();
+    const moved = reducer(d, { type: "applyOption", optionId: opt?.id as string, now });
+    expect(moved.movedEvents).toEqual([{ eventId: "google:x", from: cafe.start, ...opt?.moveTo }]);
+    expect(visibleEvents(moved)[0]).toMatchObject({ start: opt?.moveTo?.start, flexible: true });
+    // Undo puts it back…
+    const record = moved.applied?.at(-1);
+    expect(
+      reducer(moved, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([]);
+    // …or back to the move it replaced, when there was one.
+    const earlier = { eventId: "google:x", from: cafe.start, start: cafe.start, end: cafe.end };
+    const replaced = {
+      ...moved,
+      applied: moved.applied?.map((a) => (a === record ? { ...a, previousMove: earlier } : a)),
+    };
+    expect(
+      reducer(replaced, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([earlier]);
+    // A longer event in the calendar keeps its new length at the new time.
+    const longer = {
+      ...moved,
+      events: [{ ...cafe, end: cafe.end + 3_600_000 }],
+    };
+    const shown = visibleEvents(longer)[0];
+    expect(shown?.end).toBe((opt?.moveTo?.start as number) + (cafe.end - cafe.start) + 3_600_000);
+    // Moved earlier: once the new time passes, the move stays while the original is ahead.
+    const early = {
+      ...moved,
+      movedEvents: [
+        { eventId: "google:x", from: cafe.start, start: now - 7_200_000, end: now - 3_600_000 },
+      ],
+    };
+    expect(reducer(early, { type: "refresh", now }).movedEvents).toHaveLength(1);
+    // Out of order: undoing the first of two moves keeps the second, and undoing the
+    // second afterwards puts the event back at its own time, not at the first move.
+    const m1 = { eventId: "google:x", from: cafe.start, start: cafe.start + 1, end: cafe.end + 1 };
+    const m2 = { eventId: "google:x", from: cafe.start, start: cafe.start + 2, end: cafe.end + 2 };
+    const base2 = { at: now, label: "Mover", before: [], freeTimeUntil: undefined };
+    const twice = {
+      ...moved,
+      movedEvents: [m2],
+      applied: [
+        { ...base2, id: "d1", movedEventId: "google:x", move: m1 },
+        { ...base2, id: "d2", movedEventId: "google:x", move: m2, previousMove: m1 },
+      ],
+    };
+    const first = reducer(twice, { type: "undoDecision", id: "d1", now });
+    expect(first.movedEvents).toEqual([m2]);
+    expect(reducer(first, { type: "undoDecision", id: "d2", now }).movedEvents).toEqual([]);
+    // Not if the user put the event back by hand in between.
+    const unmoved = reducer(replaced, { type: "unmoveEvent", eventId: "google:x", now });
+    expect(
+      reducer(unmoved, { type: "undoDecision", id: record?.id as string, now }).movedEvents,
+    ).toEqual([]);
+    // …and once the calendar shows it elsewhere, the move is over.
+    const synced = reducer(
+      { ...moved, events: [{ ...cafe, start: cafe.start + 3_600_000 }] },
+      { type: "refresh", now },
+    );
+    expect(synced.movedEvents).toEqual([]);
+    expect(reducer(moved, { type: "unmoveEvent", eventId: "google:x", now }).movedEvents).toEqual(
+      [],
+    );
+  });
+});
+
 describe("exams", () => {
   it("give the planner review days and keep the day before for their materia", async () => {
     const { toEngineTasks } = await import("./planning.js");

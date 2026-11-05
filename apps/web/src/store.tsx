@@ -109,6 +109,8 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** A flexible event goes back to its own time in the plan. */
+  | { type: "unmoveEvent"; eventId: string; now: number }
   /** Back to the plan as it was before the last reorganization. */
   | { type: "undoPlan"; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
@@ -229,6 +231,10 @@ function apply(data: AppData, action: Action): AppData {
       const option = decisions(r.input, r.result).options.find((o) => o.id === action.optionId);
       if (!option) return data;
       const next = applyOption(data, r.input, option, now);
+      const previousMove =
+        option.kind === "move-event"
+          ? data.movedEvents?.find((m) => m.eventId === option.eventId)
+          : undefined;
       // Only tasks whose undoable fields really moved, so undo cannot clobber later edits.
       const changed = data.tasks.filter((t) => {
         const n = next.tasks.find((x) => x.id === t.id);
@@ -236,7 +242,8 @@ function apply(data: AppData, action: Action): AppData {
           !!n &&
           (n.minMinutes !== t.minMinutes ||
             n.estimateMinutes !== t.estimateMinutes ||
-            n.status !== t.status)
+            n.status !== t.status ||
+            n.units.some((u, i) => !!u.skipped !== !!t.units[i]?.skipped))
         );
       });
       const dropped = changed
@@ -245,16 +252,40 @@ function apply(data: AppData, action: Action): AppData {
             t.status !== "dropped" && next.tasks.find((x) => x.id === t.id)?.status === "dropped",
         )
         .map((t) => t.id);
+      // Units this decision left out: undo brings back only these.
+      const skippedUnits = next.tasks.flatMap((n) => {
+        const t = data.tasks.find((x) => x.id === n.id);
+        return n.units
+          .filter((u) => u.skipped && !t?.units.find((o) => o.id === u.id)?.skipped)
+          .map((u) => u.id);
+      });
       const record: AppliedDecision = {
         id: `${option.id}@${now}`,
         label: option.label,
         at: now,
         before: changed,
         ...(dropped.length ? { dropped } : {}),
+        ...(skippedUnits.length ? { skippedUnits } : {}),
         after: Object.fromEntries(
           changed.map((t) => [t.id, next.tasks.find((x) => x.id === t.id)?.status ?? t.status]),
         ),
+        afterMinutes: Object.fromEntries(
+          changed.map((t) => {
+            const n = next.tasks.find((x) => x.id === t.id) ?? t;
+            return [t.id, { min: n.minMinutes, estimate: n.estimateMinutes }];
+          }),
+        ),
         freeTimeUntil: data.freeTimeUntil,
+        ...(option.kind === "move-event" && option.eventId
+          ? {
+              movedEventId: option.eventId,
+              ...(previousMove ? { previousMove } : {}),
+              ...(() => {
+                const move = next.movedEvents?.find((m) => m.eventId === option.eventId);
+                return move ? { move } : {};
+              })(),
+            }
+          : {}),
       };
       return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
     }
@@ -268,9 +299,25 @@ function apply(data: AppData, action: Action): AppData {
         return old
           ? {
               ...t,
-              minMinutes: old.minMinutes,
-              estimateMinutes: old.estimateMinutes,
+              // Back what this decision cut, on top of whatever changed since.
+              ...(() => {
+                const after = record.afterMinutes?.[t.id];
+                return after
+                  ? {
+                      minMinutes: Math.max(0, t.minMinutes + old.minMinutes - after.min),
+                      estimateMinutes: Math.max(
+                        0,
+                        t.estimateMinutes + old.estimateMinutes - after.estimate,
+                      ),
+                    }
+                  : { minMinutes: old.minMinutes, estimateMinutes: old.estimateMinutes };
+              })(),
               status: old.status,
+              // Units this decision left out come back; ones a later decision left out
+              // stay out (whatever was done since stays done).
+              units: t.units.map((u) =>
+                record.skippedUnits?.includes(u.id) ? { ...u, skipped: undefined } : u,
+              ),
             }
           : t;
       });
@@ -278,8 +325,17 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...data,
           tasks,
+          movedEvents: undoMove(data.movedEvents, record),
           freeTimeUntil: record.freeTimeUntil,
-          applied: data.applied?.filter((d) => d.id !== record.id),
+          // A later move of the same event that replaced this one now replaces what
+          // this one replaced, so undoing it never brings back an undone move.
+          applied: data.applied
+            ?.filter((d) => d.id !== record.id)
+            .map((d) =>
+              record.move && d.previousMove && sameMove(d.previousMove, record.move)
+                ? { ...d, previousMove: record.previousMove }
+                : d,
+            ),
         },
         now,
       );
@@ -667,6 +723,14 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
+    case "unmoveEvent":
+      return refresh(
+        {
+          ...data,
+          movedEvents: data.movedEvents?.filter((m) => m.eventId !== action.eventId),
+        },
+        now,
+      );
     case "undoPlan": {
       const history = data.planHistory ?? [];
       const v = history.at(-1);
@@ -897,6 +961,7 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       inboxCount:
+        (data.movedEvents?.length ?? 0) +
         (lateNight(data, now) ? 1 : 0) +
         // Addresses still being timed are not questions yet.
         where.filter((u) => !u.lookup).length +
@@ -967,6 +1032,27 @@ function dropEmptyNoSubject(data: AppData): AppData {
 }
 
 /** Keeps what the plan looked like before a reorganization, so it can be undone. */
+type Move = NonNullable<AppData["movedEvents"]>[number];
+const sameMove = (a: Move, b: Move) =>
+  a.eventId === b.eventId && a.start === b.start && a.end === b.end;
+
+/**
+ * The moved events after undoing `record`: the event goes back to the move this one
+ * replaced (or its own time), but only while this decision's move still stands — not
+ * if a later decision moved it again or the user put it back by hand.
+ */
+function undoMove(moves: AppData["movedEvents"], record: AppliedDecision) {
+  if (!record.movedEventId) return moves;
+  const current = moves?.find((m) => m.eventId === record.movedEventId);
+  // Older records without `move`: whatever stands for the event is theirs.
+  const own = current && (!record.move || sameMove(current, record.move));
+  if (!own) return moves;
+  return [
+    ...(moves ?? []).filter((m) => m !== current),
+    ...(record.previousMove ? [record.previousMove] : []),
+  ];
+}
+
 function versioned(data: AppData, action: Action, next: AppData): AppData {
   const label = VERSIONED[action.type];
   if (!label || next === data) return next;

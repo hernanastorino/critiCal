@@ -19,6 +19,10 @@ export interface Unit {
   title: string;
   estimateMinutes: number;
   doneAt?: number;
+  /** How much it weighs in the exam, 0–100 (e.g. % of the grade). */
+  weight?: number;
+  /** Left out to make the rest fit: not studied, not counted as missing. */
+  skipped?: boolean;
 }
 
 export interface AppTask {
@@ -67,7 +71,14 @@ export interface AppTask {
   autoDroppedAt?: number;
 }
 
-export type CalendarRole = "busy" | "ignore" | "parcial" | "entrega" | "presentacion" | "clases";
+export type CalendarRole =
+  | "busy"
+  | "ignore"
+  | "parcial"
+  | "entrega"
+  | "presentacion"
+  | "clases"
+  | "flexible";
 
 export interface AppCalendar {
   /** `source:externalId` */
@@ -181,6 +192,8 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** Flexible events the user agreed to move: planned at the new time until moved. */
+  movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */
   tentativeSeen?: { id: string; title: string; start: number; end: number }[];
   /** A plan B was turned down: today's blocks stay as they are until then (end of day). */
@@ -239,7 +252,20 @@ export interface AppliedDecision {
   dropped?: string[];
   /** Each task's status right after the decision: undo touches only tasks still there. */
   after?: Record<string, AppTask["status"]>;
+  /**
+   * Each task's minutes right after the decision: undo gives back only what this one
+   * cut, so undoing decisions in any order adds up.
+   */
+  afterMinutes?: Record<string, { min: number; estimate: number }>;
   freeTimeUntil?: number;
+  /** Units this decision left out (prioritizing by weight): undoing brings them back. */
+  skippedUnits?: string[];
+  /** A flexible event this decision moved: undoing puts it back. */
+  movedEventId?: string;
+  /** The move of that event this decision replaced, if any: undoing restores it. */
+  previousMove?: NonNullable<AppData["movedEvents"]>[number];
+  /** The move this decision made: undo touches the event only while it still stands. */
+  move?: NonNullable<AppData["movedEvents"]>[number];
 }
 
 /**

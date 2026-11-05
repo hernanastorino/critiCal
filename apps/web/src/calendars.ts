@@ -44,6 +44,7 @@ export const ROLE_LABEL: Record<CalendarRole, string> = {
   entrega: "Entregas",
   presentacion: "Presentaciones",
   clases: "Clases (materias)",
+  flexible: "Flexible (se puede mover)",
   ignore: "Ignorar",
 };
 
@@ -102,16 +103,41 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
   return tagRole(e.title) ?? role;
 }
 
+/** An event that may be moved when the minimums do not fit: #flex, or a flexible calendar. */
+export function isFlexible(data: AppData, e: AppEvent): boolean {
+  const c = calendarFor(data, e);
+  const role = c ? roleOf(c) : "busy";
+  // The calendar's role counts even when a tag says what the event is (#presentación).
+  return role !== "ignore" && (/#flex\b/iu.test(e.title) || role === "flexible");
+}
+
+/**
+ * The event where the plan counts it: at its agreed new time while the calendar still
+ * shows it where it was, keeping its current length.
+ */
+export function projected(data: AppData, e: AppEvent): AppEvent {
+  const m = data.movedEvents?.find((x) => x.eventId === e.id);
+  if (!m || m.from !== e.start) return e;
+  return { ...e, start: m.start, end: m.start + (e.end - e.start) };
+}
+
 /** An event that may not happen: so marked by its calendar, or a title ending in «?». */
 export const isTentative = (e: AppEvent) => !!e.tentative || /\?\s*$/.test(e.title);
 
-/** Events the planner and the week view use: ignored calendars out, deadlines of "entrega" do not block time. */
+/**
+ * Events the planner and the week view use: ignored calendars out, deadlines of
+ * "entrega" do not block time, and flexible events the user agreed to move are at their
+ * new time (until the calendar itself shows them elsewhere).
+ */
 export function visibleEvents(data: AppData): AppEvent[] {
-  return data.events.flatMap((e) => {
+  return data.events.flatMap((e): AppEvent[] => {
     const role = eventRole(data, e);
     if (role === "ignore") return [];
     if (role === "entrega") return [{ ...e, busy: false }];
-    return [e];
+    // An evaluation is never offered to move: its date is not the user's to change, and
+    // its task's deadline would have to move with it.
+    const evaluation = role === "parcial" || role === "presentacion";
+    return [{ ...projected(data, e), flexible: (!evaluation && isFlexible(data, e)) || undefined }];
   });
 }
 
@@ -142,7 +168,9 @@ export function importFromCalendars(
   let activities = data.activities;
   let changed = false;
 
-  for (const e of data.events) {
+  for (const original of data.events) {
+    // A moved evaluation is due at its new time: preparation must end before it.
+    const e = projected(data, original);
     const role = eventRole(data, e);
     if (role !== "parcial" && role !== "entrega" && role !== "presentacion") {
       // No longer an evaluation (tag removed, calendar role changed): its task stops

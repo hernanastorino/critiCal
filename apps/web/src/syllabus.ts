@@ -17,6 +17,8 @@ export interface Syllabus {
     hours: number;
     /** Titles of the units it covers. */
     units: string[];
+    /** How much each covered unit weighs in it, 0–100, by unit title. */
+    weights: Record<string, number>;
   }[];
 }
 
@@ -43,6 +45,8 @@ export const SCHEMA = {
           date: { type: "STRING", nullable: true },
           hours: { type: "NUMBER" },
           units: { type: "ARRAY", items: { type: "STRING" } },
+          /** Weight of each unit in the assessment, same order as `units`. */
+          weights: { type: "ARRAY", items: { type: "NUMBER" } },
         },
         required: ["title", "kind", "hours", "units"],
       },
@@ -57,6 +61,7 @@ export function prompt(year: number): string {
     "Extraé el nombre de la materia, sus unidades o temas, y las evaluaciones (parciales, exámenes, entregas, trabajos, presentaciones).",
     "Para cada unidad, estimá las horas de estudio personal (fuera de clase) que necesita un estudiante promedio para dominarla.",
     "Para cada evaluación, indicá qué unidades abarca (con el mismo título que en la lista de unidades), las horas de preparación y la fecha si aparece.",
+    "En weights, cuánto pesa cada una de esas unidades en la evaluación (0 a 100, en el mismo orden que units): lo que diga el programa (porcentaje o puntos) o, si no lo dice, una estimación según su importancia.",
     `Las fechas van en formato AAAA-MM-DD; si falta el año, es ${year}. Si no hay fecha, usá null. No inventes evaluaciones que el programa no menciona.`,
     "Respondé en español.",
   ].join(" ");
@@ -99,9 +104,7 @@ export function clean(raw: unknown): Syllabus | null {
         : "parcial") as AssessmentKind,
       date: realDate(a?.date) ? a.date : null,
       hours: clampHours(a?.hours),
-      units: (Array.isArray(a?.units) ? a.units : [])
-        .map((t: unknown) => text(t))
-        .filter((t: string, i: number, all: string[]) => titles.has(t) && all.indexOf(t) === i),
+      ...covered(a?.units, a?.weights, titles),
     }))
     .filter((a) => a.title)
     .slice(0, 20);
@@ -126,8 +129,8 @@ export interface PlannedAssessment {
   title: string;
   kind: AssessmentKind;
   date: string;
-  /** Units with their study minutes. */
-  units: { title: string; minutes: number }[];
+  /** Units with their study minutes and, if known, their weight in it. */
+  units: { title: string; minutes: number; weight?: number }[];
   /** Used when it covers no listed unit. */
   minutes: number;
 }
@@ -158,6 +161,7 @@ export function syllabusTasks(input: {
       id: input.newId(),
       title: u.title,
       estimateMinutes: u.minutes,
+      ...(u.weight !== undefined ? { weight: u.weight } : {}),
     }));
     // Its own hours only without units: kept units define the estimate, even at zero.
     const total = units.length ? units.reduce((s, u) => s + u.estimateMinutes, 0) : a.minutes;
@@ -177,4 +181,28 @@ export function syllabusTasks(input: {
     };
   });
   return { activity, isNew: !existing, tasks };
+}
+
+/**
+ * The listed units an assessment covers (each once) and their weights, kept in step:
+ * weights come in the same order as the model's unit titles.
+ */
+function covered(rawUnits: unknown, rawWeights: unknown, titles: Set<string>) {
+  const list = Array.isArray(rawUnits) ? rawUnits : [];
+  const weightsIn = Array.isArray(rawWeights) ? rawWeights : [];
+  const units: string[] = [];
+  const weights: Record<string, number> = {};
+  list.forEach((t: unknown, i: number) => {
+    const title = text(t);
+    if (!titles.has(title) || units.includes(title)) return;
+    units.push(title);
+    // Untrusted: null, "" or [] would read as 0 (a weightless unit, left out first).
+    const raw = weightsIn[i];
+    const w =
+      typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "")
+        ? Number(raw)
+        : Number.NaN;
+    if (Number.isFinite(w) && w >= 0) weights[title] = Math.min(100, Math.round(w));
+  });
+  return { units, weights };
 }
