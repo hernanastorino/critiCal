@@ -575,6 +575,10 @@ textarea {
   color: var(--surface);
 }
 
+.btn:disabled {
+  opacity: 0.45;
+}
+
 .btn.done {
   background: color-mix(in srgb, var(--ok) 18%, transparent);
   color: var(--ok);

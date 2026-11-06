@@ -117,6 +117,9 @@ function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void
       <button type="button" className={`btn${onGoogle ? "" : " primary"}`} onClick={onDemo}>
         Probar con datos de ejemplo
       </button>
+      <a className="meta" href="/privacy.html" target="_blank" rel="noreferrer">
+        Política de privacidad
+      </a>
     </main>
   );
 }
