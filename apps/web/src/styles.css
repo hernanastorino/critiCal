@@ -1071,6 +1071,38 @@ textarea {
   }
 }
 
+.settings-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--glass);
+  color: var(--ink-soft);
+}
+
+.settings-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  outline: none;
+}
+
+.settings [aria-label="Resultados"] {
+  display: grid;
+  gap: 8px;
+}
+
+.settings [aria-label="Resultados"] > .btn {
+  justify-self: start;
+}
+
 .notices {
   display: grid;
   gap: 8px;

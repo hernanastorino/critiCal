@@ -11,7 +11,7 @@ import { Backup } from "./Backup.js";
 import { Calendars, describe, healthy } from "./Calendars.js";
 import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
-import { ChevronLeft, ChevronRight, SettingsIcons as I } from "./icons.js";
+import { ChevronLeft, ChevronRight, SettingsIcons as I, SearchIcon } from "./icons.js";
 import { useModal } from "./modal.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
@@ -53,6 +53,35 @@ interface Page {
   danger?: boolean;
   content: ReactNode;
 }
+
+/**
+ * What each screen holds, so a search for a field finds its section ("almuerzo" →
+ * Mi semana). Matched without accents or case, as written in the forms.
+ */
+const KEYWORDS: Record<PageId, string> = {
+  semester: "cuatrimestre semestre fechas empieza termina feriados clases materias parcial examen",
+  syllabus: "programa pdf ia gemini temas unidades evaluaciones",
+  week: "semana dias levanto me acuesto dormir desayuno almuerzo cena comida arreglarse traslado estudio horario",
+  subjects: "materias color sesion descanso bloque minimo estudio semanal prefiero horario",
+  routines: "rutinas gimnasio habito veces por semana",
+  rules: "reglas maximo materias por dia margen evento aviso",
+  detected: "horas detectado parcial entrega presentacion defensa examen minimo",
+  places: "lugares casa facultad trabajo direccion traslados minutos auto",
+  calendars:
+    "calendarios google icloud sincronizar reconectar apple contrasena tipo ocupado ignorar",
+  notifications: "notificaciones avisos recordatorio push minutos antes resumen",
+  widget: "widget scriptable silos pantalla de inicio script",
+  ai: "ia gemini clave google ai studio",
+  invites: "invitaciones invitar email amigos acceso",
+  backup: "respaldo exportar importar json copia",
+  account: "cuenta borrar eliminar revocar",
+};
+
+const fold = (t: string) =>
+  t
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
 
 /** Errors «Reconectar Google» fixes; others are looked at in Calendarios. */
 const reconnects = (r: SyncResult) =>
@@ -212,6 +241,7 @@ export function Settings({
 
   const sheet = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState<PageId | null>(initialPage ?? null);
+  const [query, setQuery] = useState("");
   const back = useRef<HTMLButtonElement>(null);
   const rows = useRef(new Map<PageId, HTMLButtonElement>());
   /** Where the list was scrolled when a screen opened, to come back to it. */
@@ -372,6 +402,14 @@ export function Settings({
     : null;
   const all = account ? [...pages, account] : pages;
   const current = all.find((p) => p.id === page);
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  /** With a search typed, the matching screens instead of the groups. */
+  const found = words.length
+    ? all.filter((p) => {
+        const text = fold(`${p.title} ${KEYWORDS[p.id]}`);
+        return words.every((w) => text.includes(w));
+      })
+    : null;
   const rowRef = (id: PageId) => (el: HTMLButtonElement | null) => {
     if (el) rows.current.set(id, el);
     else rows.current.delete(id);
@@ -403,104 +441,146 @@ export function Settings({
 
         <div className="settings-list" hidden={!!page} inert={!!page}>
           <h2 tabIndex={-1}>Ajustes</h2>
-          <Notices onOpen={open} />
-
-          <div className="card today">
-            <h3>
-              <I.sun /> Hoy
-            </h3>
-            <p className="meta">
-              Si te levantaste o te vas a acostar a otra hora, el día se reacomoda.
-            </p>
-            <div className="row">
-              <label className="field" style={{ flex: 1 }}>
-                <span>Me levanté a las</span>
-                <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
-              </label>
-              <label className="field" style={{ flex: 1 }}>
-                <span>Me acuesto a las</span>
-                <input type="time" value={bed} onChange={(e) => setBed(e.target.value)} />
-              </label>
-            </div>
-            <button
-              type="button"
-              className="btn primary"
-              style={{ width: "100%" }}
-              onClick={() => {
-                dispatch({
-                  type: "override",
-                  // Keep whatever else today's override says (its routine).
-                  override: {
-                    ...override,
-                    date: today,
-                    wake: hhmmToMinutes(wake),
-                    bed: hhmmToMinutes(bed),
-                  },
-                });
-                onClose();
-              }}
-            >
-              Reacomodar hoy
-            </button>
-          </div>
-
-          {groups.map((g) => {
-            const shown = g.pages.filter((p): p is Page => !!p);
-            const weekly = g.label === "Planificar" && onWeeklyPlan;
-            if (!shown.length && !weekly) return null;
-            return (
-              <section key={g.label} aria-label={g.label}>
-                <div className="section-title">{g.label}</div>
+          <label className="settings-search">
+            <SearchIcon />
+            <input
+              type="search"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar: almuerzo, margen, iCloud…"
+              aria-label="Buscar un ajuste"
+            />
+          </label>
+          {found ? (
+            <section aria-label="Resultados">
+              <button type="button" className="btn small" onClick={() => setQuery("")}>
+                Limpiar búsqueda
+              </button>
+              {found.length ? (
                 <div className="settings-group">
-                  {weekly && (
-                    <Row icon={I.plan} label="Planificación semanal" onClick={onWeeklyPlan} />
-                  )}
-                  {shown.map((p) => (
+                  {found.map((p) => (
                     <Row
                       key={p.id}
                       icon={p.icon}
                       label={p.title}
                       value={p.value}
+                      danger={p.danger}
                       onClick={() => open(p.id)}
                       rowRef={rowRef(p.id)}
                     />
                   ))}
-                  {g.label === "Cuenta" && (
-                    <a
-                      className="settings-row"
-                      aria-label="Política de privacidad (se abre en otra pestaña)"
-                      href="/privacy.html"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <span className="settings-icon">
-                        <I.shield />
-                      </span>
-                      <span className="settings-label">Política de privacidad</span>
-                      <ChevronRight />
-                    </a>
-                  )}
-                  {g.label === "Cuenta" && onReset && (
-                    <Row icon={I.repeat} label="Reiniciar demo" onClick={onReset} />
-                  )}
-                  {g.label === "Cuenta" && onSignOut && (
-                    <Row icon={I.out} label="Salir" onClick={onSignOut} />
-                  )}
                 </div>
-              </section>
-            );
-          })}
+              ) : (
+                <div className="empty">
+                  <p>No hay ningún ajuste con «{query.trim()}».</p>
+                  <button type="button" className="btn" onClick={() => setQuery("")}>
+                    Ver todos los ajustes
+                  </button>
+                </div>
+              )}
+            </section>
+          ) : (
+            <>
+              <Notices onOpen={open} />
 
-          {account && (
-            <div className="settings-group">
-              <Row
-                icon={account.icon}
-                label={account.title}
-                danger
-                onClick={() => open(account.id)}
-                rowRef={rowRef(account.id)}
-              />
-            </div>
+              <div className="card today">
+                <h3>
+                  <I.sun /> Hoy
+                </h3>
+                <p className="meta">
+                  Si te levantaste o te vas a acostar a otra hora, el día se reacomoda.
+                </p>
+                <div className="row">
+                  <label className="field" style={{ flex: 1 }}>
+                    <span>Me levanté a las</span>
+                    <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
+                  </label>
+                  <label className="field" style={{ flex: 1 }}>
+                    <span>Me acuesto a las</span>
+                    <input type="time" value={bed} onChange={(e) => setBed(e.target.value)} />
+                  </label>
+                </div>
+                <button
+                  type="button"
+                  className="btn primary"
+                  style={{ width: "100%" }}
+                  onClick={() => {
+                    dispatch({
+                      type: "override",
+                      // Keep whatever else today's override says (its routine).
+                      override: {
+                        ...override,
+                        date: today,
+                        wake: hhmmToMinutes(wake),
+                        bed: hhmmToMinutes(bed),
+                      },
+                    });
+                    onClose();
+                  }}
+                >
+                  Reacomodar hoy
+                </button>
+              </div>
+
+              {groups.map((g) => {
+                const shown = g.pages.filter((p): p is Page => !!p);
+                const weekly = g.label === "Planificar" && onWeeklyPlan;
+                if (!shown.length && !weekly) return null;
+                return (
+                  <section key={g.label} aria-label={g.label}>
+                    <div className="section-title">{g.label}</div>
+                    <div className="settings-group">
+                      {weekly && (
+                        <Row icon={I.plan} label="Planificación semanal" onClick={onWeeklyPlan} />
+                      )}
+                      {shown.map((p) => (
+                        <Row
+                          key={p.id}
+                          icon={p.icon}
+                          label={p.title}
+                          value={p.value}
+                          onClick={() => open(p.id)}
+                          rowRef={rowRef(p.id)}
+                        />
+                      ))}
+                      {g.label === "Cuenta" && (
+                        <a
+                          className="settings-row"
+                          aria-label="Política de privacidad (se abre en otra pestaña)"
+                          href="/privacy.html"
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <span className="settings-icon">
+                            <I.shield />
+                          </span>
+                          <span className="settings-label">Política de privacidad</span>
+                          <ChevronRight />
+                        </a>
+                      )}
+                      {g.label === "Cuenta" && onReset && (
+                        <Row icon={I.repeat} label="Reiniciar demo" onClick={onReset} />
+                      )}
+                      {g.label === "Cuenta" && onSignOut && (
+                        <Row icon={I.out} label="Salir" onClick={onSignOut} />
+                      )}
+                    </div>
+                  </section>
+                );
+              })}
+
+              {account && (
+                <div className="settings-group">
+                  <Row
+                    icon={account.icon}
+                    label={account.title}
+                    danger
+                    onClick={() => open(account.id)}
+                    rowRef={rowRef(account.id)}
+                  />
+                </div>
+              )}
+            </>
           )}
         </div>
 
