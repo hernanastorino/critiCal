@@ -68,6 +68,16 @@ export function TaskEditor({
       );
       return;
     }
+    // Any habit: whole times a week and minutes a session that a backup can hold.
+    const times = Number(sessions);
+    const length = Number(sessionMin);
+    const whole = (n: number, max: number) => Number.isInteger(n) && n >= 1 && n <= max;
+    if (kind === "habit" && !(whole(times, 14) && whole(length, 1440))) {
+      setHabitError(
+        "Poné de 1 a 14 veces por semana y de 1 a 1440 minutos por vez, en cifras enteras.",
+      );
+      return;
+    }
     setHabitError(null);
     let actId = activityId;
     let activity: Activity | undefined;

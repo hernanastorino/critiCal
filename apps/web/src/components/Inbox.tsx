@@ -507,6 +507,8 @@ function WhereCard({
             type="text"
             inputMode="decimal"
             value={minutes}
+            aria-invalid={minutes.trim() !== "" && !valid ? true : undefined}
+            aria-describedby={`minutes-help-${item.text}`}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
@@ -522,6 +524,16 @@ function WhereCard({
           Usar
         </button>
       </div>
+      <p
+        className="meta"
+        id={`minutes-help-${item.text}`}
+        role={minutes.trim() !== "" && !valid ? "alert" : undefined}
+        style={minutes.trim() !== "" && !valid ? { color: "var(--critical)" } : undefined}
+      >
+        {minutes.trim() !== "" && !valid
+          ? "Poné minutos de 0 a 1440, solo cifras (12,5 se guarda como 13)."
+          : "Minutos de 0 a 1440; con coma o punto se redondea."}
+      </p>
       <label className="check">
         <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
         <span>Guardar como lugar</span>
