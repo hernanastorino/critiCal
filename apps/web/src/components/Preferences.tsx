@@ -596,8 +596,16 @@ function ActivityRow({ activity }: { activity: Activity }) {
                   activityId: activity.id,
                   minutes: Math.round(hours * 60),
                 });
-              // Reopened, it shows what was saved (20 and 25 minutes become 30 and 30).
-              setForm({ ...form, max: String(maxSession), min: String(minBlock) });
+              // Reopened, it shows what was saved (20 and 25 minutes become 30 and 30, 999 of study 240).
+              setForm({
+                ...form,
+                max: String(maxSession),
+                min: String(minBlock),
+                study: String(
+                  clampMinutes(form.study, 5, 240) ?? activity.studyMinutes ?? form.study,
+                ),
+                rest: String(clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes ?? form.rest),
+              });
               setOpen(false);
             }}
           >

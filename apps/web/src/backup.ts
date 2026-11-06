@@ -49,6 +49,11 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   // An instant Date can represent (toISOString would throw otherwise).
   const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
   const opt = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
+  const routineIds = new Set(
+    (Array.isArray(d.activities) ? d.activities : [])
+      .filter((a) => isObject(a) && a.kind === "rutina")
+      .map((a) => (a as { id: unknown }).id),
+  );
   // A hand-edited deadline («mañana») would blank Silos on every visit.
   const validTask = (t: unknown) =>
     isObject(t) &&
@@ -62,8 +67,9 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     between(t.minMinutes, 0, 100_000) &&
     opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
     opt(t.sessionMinutes, (v) => between(v, 1, 1440)) &&
-    // A routine as the form allows it (at most 6 h a time and 40 h a week).
-    (t.kind !== "habit" ||
+    // A routine's habit as Rutinas allows it (6 h a time, 40 h a week); other habits,
+    // saved from the editor, keep their own limits.
+    (!routineIds.has(t.activityId as string) ||
       t.sessionsPerWeek === undefined ||
       validRoutine(t.sessionsPerWeek as number, (t.sessionMinutes as number) ?? 0));
   const validActivity = (a: unknown) =>

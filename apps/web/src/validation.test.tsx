@@ -140,6 +140,29 @@ describe("Materias", () => {
   });
 });
 
+describe("habits from the editor", () => {
+  it("restores a habit that is not a routine even with long sessions", () => {
+    const d = demoData(Date.now());
+    const act = d.activities.find((a) => a.kind !== "rutina") as AppData["activities"][number];
+    const habit = {
+      id: "h1",
+      activityId: act.id,
+      title: "Lectura larga",
+      kind: "habit",
+      estimateMinutes: 1200,
+      minMinutes: 1200,
+      sessionsPerWeek: 3,
+      sessionMinutes: 400,
+      priority: 2,
+      status: "active",
+      units: [],
+    } as AppData["tasks"][number];
+    expect(
+      parseBackup(exportJson({ ...d, tasks: [...d.tasks, habit] }, Date.now())),
+    ).toHaveProperty("data");
+  });
+});
+
 describe("Rutinas", () => {
   it("caps a routine at what a week can hold", () => {
     expect(validRoutine(3, 60)).toBe(true);
