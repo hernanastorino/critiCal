@@ -368,6 +368,19 @@ describe("syllabus", () => {
 describe("own Gemini key", () => {
   beforeEach(() => rpc.mockResolvedValue({ data: null, error: null }));
 
+  it("never falls back to the app's key when the user's cannot be read", async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error("vault down") });
+    const used: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      used.push((init.headers as Record<string, string>)["x-goog-api-key"] ?? "");
+      return new Response("busy", { status: 503 });
+    });
+    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), env);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "key_failed" });
+    expect(used).toEqual([]);
+  });
+
   it("reads syllabi with the user's own key when they have one", async () => {
     rpc.mockImplementation(async (name: string) => ({
       data: name === "get_oauth_token" ? "own-key" : null,
@@ -414,6 +427,12 @@ describe("own Gemini key", () => {
 
     const status = await syllabus.handle(bearer("jwt", { action: "key_status" }), env);
     expect(await status.json()).toEqual({ ok: true, own: false, fallback: true });
+
+    // Quota or an outage is not a bad key.
+    vi.stubGlobal("fetch", async () => new Response("busy", { status: 429 }));
+    const busy = await syllabus.handle(bearer("jwt", { action: "set_key", key }), env);
+    expect(busy.status).toBe(503);
+    expect(await busy.json()).toEqual({ ok: false, error: "gemini_busy" });
 
     const cleared = await syllabus.handle(bearer("jwt", { action: "clear_key" }), env);
     expect(await cleared.json()).toEqual({ ok: true, own: false });

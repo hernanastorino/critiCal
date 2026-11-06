@@ -4,6 +4,7 @@ import { geminiKey } from "../remote.js";
 
 const ERRORS: Record<string, string> = {
   invalid_key: "Gemini no aceptó esa clave. Revisá que esté completa.",
+  gemini_busy: "Gemini no responde ahora. Probá de nuevo en un rato.",
   unreachable: "Sin conexión. Probá de nuevo.",
 };
 

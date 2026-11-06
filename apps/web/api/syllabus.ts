@@ -16,18 +16,31 @@ export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
 }
 
-/** Checks a Gemini key with a free call that lists the models it can use. */
-async function validKey(key: string): Promise<boolean> {
-  const res = await fetch(`${API}?pageSize=1`, { headers: { "x-goog-api-key": key } });
-  return res.ok;
+/**
+ * Checks a Gemini key with a free call that lists the models it can use. Only a refusal
+ * means a bad key; quota, outages and timeouts say nothing about it.
+ */
+async function validKey(key: string): Promise<boolean | "unavailable"> {
+  try {
+    const res = await fetch(`${API}?pageSize=1`, {
+      headers: { "x-goog-api-key": key },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (res.ok) return true;
+    return [400, 401, 403].includes(res.status) ? false : "unavailable";
+  } catch {
+    return "unavailable";
+  }
 }
 
 /** The user's own key, or the app's when they have none. */
 async function keyFor(caller: Caller, env: Env): Promise<{ key?: string; own: boolean }> {
-  const { data } = await caller.admin.rpc("get_oauth_token", {
+  const { data, error } = await caller.admin.rpc("get_oauth_token", {
     p_user: caller.uid,
     p_provider: "gemini",
   });
+  // Unreadable is not "has none": falling back would spend the app's quota.
+  if (error) throw error;
   return typeof data === "string" && data
     ? { key: data, own: true }
     : { key: env.geminiKey, own: false };
@@ -48,7 +61,9 @@ async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>
   }
   const key = typeof body.key === "string" ? body.key.trim() : "";
   if (!/^[\w-]{20,200}$/.test(key)) return json({ ok: false, error: "invalid_key" }, 400);
-  if (!(await validKey(key))) return json({ ok: false, error: "invalid_key" }, 400);
+  const valid = await validKey(key);
+  if (valid === "unavailable") return json({ ok: false, error: "gemini_busy" }, 503);
+  if (!valid) return json({ ok: false, error: "invalid_key" }, 400);
   const { error } = await caller.admin.rpc("store_oauth_token", {
     p_user: caller.uid,
     p_provider: "gemini",
@@ -69,7 +84,13 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       return json({ ok: false, error: "key_failed" }, 500);
     }
   }
-  const { key } = await keyFor(caller, env);
+  let key: string | undefined;
+  try {
+    ({ key } = await keyFor(caller, env));
+  } catch (e) {
+    await report(env, e, "gemini-key");
+    return json({ ok: false, error: "key_failed" }, 500);
+  }
   // Names only, never values: tells the operator which variable to set.
   if (!key) return json({ error: "server_not_configured", missing: ["geminiKey"] }, 503);
   const pdf = typeof body.pdf === "string" ? body.pdf : "";
