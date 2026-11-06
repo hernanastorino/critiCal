@@ -106,7 +106,7 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 
 - PR: Biome (lint/format), `tsc`, Vitest con cobertura (motor ≥ 90 %, global ≥ 80 %), property-based tests con fast-check sobre invariantes del motor (nunca sobre eventos fijos, nunca bajo mínimos, nunca en franja libre sin permiso).
 - Playwright E2E contra la preview, con emulación iPhone (WebKit) y desktop.
-- Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod con **aprobación manual** (GitHub Environment).
+- Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod automático si staging y su E2E pasan (GitHub Environment `production`, limitado a `main`).
 - Migraciones versionadas (Supabase CLI), Dependabot, CodeQL, rollback a un clic en Vercel.
 - Revisor IA: CodeRabbit en cada PR (check requerido por la regla de la rama `main`). Además, por práctica del equipo —no lo verifica GitHub—, se mergea recién con sus comentarios resueltos. (La prueba contra Macroscope se descartó.)
 - Sentry en cliente y funciones. En el cliente, los cortes de red reconocidos («Load failed», «Failed to fetch», etc.) no se reportan como errores.
@@ -197,12 +197,44 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 - La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
 
-## 15. Futuro
-
-### Traslados en ómnibus (Montevideo y Canelones)
+## 15. Traslados en ómnibus (Montevideo y Canelones) — pendiente
 
 - Elegir por traslado (o por par de lugares) entre **auto** y **ómnibus**.
 - Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas reales por parada, **esperas** y **transbordos**.
 - Sugerir qué ómnibus tomar para minimizar el tiempo puerta a puerta.
 - **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
-- Antes de implementarlo: definir fuentes de datos (datos abiertos de la IM / GTFS del STM, líneas de Canelones), cada cuánto refrescar el caché y cómo se elige el modo en la interfaz.
+- Decisiones (noviembre 2026, tomadas por Claude a pedido del usuario; se pueden revisar):
+  - **Fuentes**: GTFS del STM publicado en el catálogo de datos abiertos de la IM (incluye las líneas metropolitanas que entran a Canelones) y, si está disponible, el tiempo real de pasadas por parada de la API de la IM. Si alguna línea de Canelones no figura, se usa su horario publicado y se marca como «horario teórico».
+  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y se recalculan si cambia el GTFS, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (feriado, fin de semana, horario de verano) o si el usuario lo pide. Antes de salir, si hay pasadas en tiempo real, se usan para avisar si el ómnibus elegido ya no llega y proponer otro.
+  - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
+  - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
+
+## 16. Rediseño de Configuración (pendiente)
+
+Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las secciones no tienen borde y se pierden; abrir una sección empuja todo el resto y abrir y cerrar secciones se siente tosco.
+
+- Hacer **3 mockups** bien distintos del panel de Configuración (por ejemplo: lista agrupada estilo Ajustes de iOS que navega a subpantallas; buscador con secciones en tarjetas; resumen con lo importante arriba y lo avanzado aparte). Cada uno se evalúa con criterio: ¿está muy cargado?, ¿se entiende qué hace cada botón sin leer de más?, ¿es lo más rápido y cómodo para las tareas frecuentes?, ¿se puede aliviar?, y cómo cumple las guías del §14.
+- Entrega: una presentación corta y navegable con una pantalla por mockup, renderizada como en el iPhone, con sus pros y contras. Se publica en un link privado de claude.ai para mostrarla a otras personas, y una copia HTML queda en `docs/mockups/`.
+- El usuario y las personas que consulte eligen uno. **Se implementa recién cuando el usuario lo elige**, en un PR aparte, y después se vuelve a pasar por el ciclo del §17.
+- Se empieza recién cuando los cambios de UI en curso estén terminados, validados, mergeados y desplegados en producción.
+
+## 17. Hasta producción: orden de trabajo y ciclo de validación
+
+Orden:
+
+1. Terminar, mergear y desplegar lo que está en curso.
+2. Hacer los mockups del §16.
+3. Implementar todo lo que el proyecto tiene pendiente: las guías del §14 que no tienen ✅, los traslados en ómnibus del §15 y cualquier TODO que haya en el código. Un PR por tema.
+4. Correr el ciclo de validación hasta que quede limpio.
+
+**Cuenta de prueba local**: un usuario con email y contraseña inventados, creado por el seed de Supabase local (`supabase/seed.sql`, activado en `[db.seed]` de `config.toml`). La pantalla de login muestra un formulario de email y contraseña **solo** cuando la app corre en desarrollo (`import.meta.env.DEV`) contra el Supabase local (URL `127.0.0.1`/`localhost`); en staging y producción ese formulario no existe y el proveedor de email está apagado. Las credenciales quedan en el seed y en `.env.example`, nunca en el chat. Google e iCloud reales no se prueban con esta cuenta. Para que funcionen los traslados, la sync y el resto de `/api` en local, las funciones se sirven con `vercel dev` (o un proxy equivalente en Vite) con un `.env.local` que apunta al Supabase local; las claves de terceros (OpenRouteService, Gemini) son las de desarrollo y, si faltan, esas funciones se prueban con sus respuestas simuladas. La sincronización con Google e iCloud no se puede probar de punta a punta sin cuentas reales: se valida con los tests automáticos que simulan Google y CalDAV (`apps/web/api/*.test.ts`), y en el simulador se prueba con la **cuenta de prueba local** (no en modo demo, que no sincroniza): las funciones `/api` locales usan proveedores simulados de Google y CalDAV, activables solo en desarrollo, que devuelven eventos inventados. Desde la interfaz se comprueba la sync exitosa (aparecen los eventos, «✓ N eventos · hora» en Calendarios, se replanifica) y los estados de error y «Reconectar». Como «Reconectar Google» pasa por el OAuth de Supabase y no por `/api`, en desarrollo con el proveedor simulado ese botón usa un OAuth simulado que deja el permiso otra vez válido sin salir de la app; que el OAuth real pida los scopes correctos se cubre con un test unitario de la llamada. El modo demo queda exceptuado de las pruebas de sincronización. **Pendiente**: todavía no existen ni el seed ni el formulario ni la forma de servir `/api` en local. Se implementan y se comprueba que se puede entrar con la cuenta local, en un PR propio, antes de empezar el ciclo.
+
+**Ciclo de validación**: se valida **antes** de mergear, porque cada merge a `main` termina desplegado en producción. Se repite entero después de cada arreglo:
+
+1. **Local**: Claude abre la app del PR en el simulador de iPhone (dev server y Supabase local en Docker) y prueba **todas** las funciones, con los caminos felices y los de error, en modo demo y con la cuenta de prueba local. Anota lo que falle.
+2. **Agente atacante**: un agente sin contexto técnico de la app usa la interfaz de iPhone con un solo objetivo: encontrar todas las vulnerabilidades que pueda y romper todas las funciones posibles, y reportarlas. Ataca primero el entorno **local** y después repite en la **preview del PR** (con el Supabase de staging) solo las pruebas que no rompen datos. Nunca ataca producción.
+3. Todo lo reportado se arregla en el mismo PR y se vuelve al paso 1.
+4. Con una vuelta limpia, el CI en verde y CodeRabbit sin pendientes, se mergea. Staging se despliega solo y, si su E2E pasa, producción también (no hay aprobación manual: por eso se valida antes de mergear).
+5. **Producción**: Sentry sin errores nuevos ni problemas de seguridad abiertos después del deploy, más una prueba rápida de la app desplegada en el simulador (modo demo). Si algo falla, se abre un PR con el arreglo y vuelve al paso 1.
+
+El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
