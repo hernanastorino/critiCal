@@ -95,12 +95,20 @@ describe("Mi semana", () => {
     fireEvent.change(screen.getByLabelText("Me acuesto"), { target: { value: "01:00" } });
     fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
     expect(screen.getByRole("alert").textContent).toMatch(
-      /Desayuno a las 07:30 cae cuando estás dormido/,
+      /Desayuno a las 07:30 cae, o termina, cuando estás dormido/,
     );
     expect(latest?.settings.week).toBe(before);
     fireEvent.change(screen.getByLabelText("Me acuesto"), { target: { value: "23:00" } });
     fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
     expect(screen.getByRole("alert").textContent).toMatch(/misma hora/);
+    // A long dinner that runs past bedtime does not fit either.
+    fireEvent.change(screen.getByLabelText("Me levanto"), { target: { value: "07:30" } });
+    fireEvent.change(screen.getByLabelText("Cena"), { target: { value: "22:45" } });
+    fireEvent.change(screen.getAllByLabelText("Dura (min)")[2] as HTMLElement, {
+      target: { value: "120" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
+    expect(screen.getByRole("alert").textContent).toMatch(/Cena a las 22:45 cae, o termina/);
   });
 
   it("explains the planning start with the morning as it will be saved", () => {
@@ -244,6 +252,16 @@ describe("second round of the attacker", () => {
     expect(
       bad({ activities: [{ ...act, maxSessionMinutes: 0 }, ...d.activities.slice(1)] }),
     ).toHaveProperty("error");
+    expect(
+      bad({
+        activities: [
+          { ...act, minBlockMinutes: 500, maxSessionMinutes: 60 },
+          ...d.activities.slice(1),
+        ],
+      }),
+    ).toHaveProperty("error");
+    const { minMinutes: _m, ...noMin } = task;
+    expect(bad({ tasks: [noMin as never, ...d.tasks.slice(1)] })).toHaveProperty("error");
   });
 
   it("keeps a dinner after midnight on the same day when going to bed late", () => {

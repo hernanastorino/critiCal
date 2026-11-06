@@ -71,11 +71,16 @@ export function WeekSettings() {
       meal("cena", form.dinner, form.dinnerMin),
     ].filter((m) => m.end > m.start);
     // A meal while asleep (breakfast 07:30 when getting up at 23:00) would vanish silently.
-    const awake = (m: number) => (wake < bed ? m >= wake && m < bed : m >= wake || m < bed);
-    const asleep = meals.find((m) => !awake(m.start));
+    // The whole meal, not just its start: a 2 h dinner at 22:45 with bed at 23:00 does not fit.
+    const bedEnd = wake < bed ? bed : bed + 1440;
+    const fits = (m: Meal) => {
+      const start = m.start < wake ? m.start + 1440 : m.start;
+      return start >= wake && start + (m.end - m.start) <= bedEnd;
+    };
+    const asleep = meals.find((m) => !fits(m));
     if (asleep) {
       setError(
-        `${asleep.kind ? MEAL_NAMES[asleep.kind] : "Una comida"} a las ${minutesToHhmm(asleep.start)} cae cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora o poné duración 0.`,
+        `${asleep.kind ? MEAL_NAMES[asleep.kind] : "Una comida"} a las ${minutesToHhmm(asleep.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
       );
       return;
     }
@@ -591,6 +596,8 @@ function ActivityRow({ activity }: { activity: Activity }) {
                   activityId: activity.id,
                   minutes: Math.round(hours * 60),
                 });
+              // Reopened, it shows what was saved (20 and 25 minutes become 30 and 30).
+              setForm({ ...form, max: String(maxSession), min: String(minBlock) });
               setOpen(false);
             }}
           >

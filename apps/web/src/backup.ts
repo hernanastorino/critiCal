@@ -1,6 +1,7 @@
 // Export and import of everything as one JSON file (also a manual backup).
 import type { AppData } from "./model.js";
-import { markLegacyStudy } from "./subjects.js";
+
+import { markLegacyStudy, validRoutine } from "./subjects.js";
 
 /** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
 export const BACKUP_VERSION = 2;
@@ -56,15 +57,22 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     Array.isArray(t.units) &&
     t.units.every(validUnit) &&
     opt(t.deadline, instant) &&
-    opt(t.estimateMinutes, (v) => between(v, 0, 100_000)) &&
-    opt(t.minMinutes, (v) => between(v, 0, 100_000)) &&
+    // Without its durations the planner gets NaN and leaves it unplanned.
+    between(t.estimateMinutes, 0, 100_000) &&
+    between(t.minMinutes, 0, 100_000) &&
     opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
-    opt(t.sessionMinutes, (v) => between(v, 1, 1440));
+    opt(t.sessionMinutes, (v) => between(v, 1, 1440)) &&
+    // A routine as the form allows it (at most 6 h a time and 40 h a week).
+    (t.kind !== "habit" ||
+      t.sessionsPerWeek === undefined ||
+      validRoutine(t.sessionsPerWeek as number, (t.sessionMinutes as number) ?? 0));
   const validActivity = (a: unknown) =>
     isObject(a) &&
     str(a.id) &&
-    opt(a.maxSessionMinutes, (v) => between(v, 1, 1440)) &&
-    opt(a.minBlockMinutes, (v) => between(v, 1, 1440)) &&
+    // Both limits, and the block within the session (as the form requires).
+    between(a.maxSessionMinutes, 1, 1440) &&
+    between(a.minBlockMinutes, 1, 1440) &&
+    (a.minBlockMinutes as number) <= (a.maxSessionMinutes as number) &&
     opt(
       a.preferred,
       (p) =>
