@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
 
@@ -17,12 +17,19 @@ export function GeminiKey() {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!client) return;
+  /** Reads which key is in use; returns a cancel for effects. */
+  const load = useCallback(() => {
+    if (!client) return undefined;
     let cancelled = false;
     void geminiKey(client, "key_status").then((r) => {
-      if (cancelled || !r.ok) return;
+      if (cancelled) return;
+      // Unknown, not "the app's key": the user may well have one stored.
+      if (!r.ok) {
+        setOwn(null);
+        setError("No se pudo ver qué clave usás.");
+        return;
+      }
+      setError(null);
       setOwn(r.own);
       setFallback(r.fallback !== false);
     });
@@ -30,6 +37,8 @@ export function GeminiKey() {
       cancelled = true;
     };
   }, [client]);
+
+  useEffect(() => load(), [load]);
 
   if (!client) return null;
 
@@ -50,11 +59,13 @@ export function GeminiKey() {
     <details className="card prefs">
       <summary className="title">Tu IA (Gemini)</summary>
       <p className="meta">
-        {own
-          ? "Usás tu propia clave de Gemini para leer programas."
-          : fallback
-            ? "Usás la clave de critiCal. Con la tuya, la cuota gratis es solo tuya."
-            : "No hay clave de Gemini: cargá la tuya para leer programas con IA."}{" "}
+        {own === null
+          ? "Cargando qué clave usás…"
+          : own
+            ? "Usás tu propia clave de Gemini para leer programas."
+            : fallback
+              ? "Usás la clave de critiCal. Con la tuya, la cuota gratis es solo tuya."
+              : "No hay clave de Gemini: cargá la tuya para leer programas con IA."}{" "}
         Se consigue gratis en{" "}
         <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer">
           Google AI Studio
@@ -81,7 +92,7 @@ export function GeminiKey() {
           Guardar
         </button>
       </div>
-      {own && (
+      {own !== false && (
         <button
           type="button"
           className="btn"
@@ -93,6 +104,11 @@ export function GeminiKey() {
         </button>
       )}
       {error && <p className="meta">{error}</p>}
+      {own === null && error && (
+        <button type="button" className="btn small" onClick={() => void load()}>
+          Volver a probar
+        </button>
+      )}
     </details>
   );
 }
