@@ -3,56 +3,91 @@ import { type RefObject, useEffect, useRef } from "react";
 /** Taps on the backdrop this soon after opening are the rest of a double tap, not a close. */
 export const OPEN_GRACE_MS = 400;
 
+interface Open {
+  sheet: HTMLElement;
+  escape: () => void;
+}
+
+/** Open sheets, the top one last. Only it can be reached; Escape is its alone. */
+const stack: Open[] = [];
+/** The inert value each element had before any sheet covered it. */
+const original = new Map<HTMLElement, boolean>();
+
+/** Everything but the top sheet (and the backdrops) is inert; the rest is put back. */
+function cover() {
+  const top = stack[stack.length - 1]?.sheet;
+  const want = new Set<HTMLElement>();
+  for (const { sheet } of stack) {
+    for (const c of sheet.parentElement ? [...sheet.parentElement.children] : []) {
+      if (c instanceof HTMLElement && c !== top && !c.classList.contains("scrim")) want.add(c);
+    }
+  }
+  for (const c of want) {
+    if (!original.has(c)) original.set(c, c.inert);
+    c.inert = true;
+  }
+  for (const [c, inert] of original) {
+    if (want.has(c)) continue;
+    c.inert = inert;
+    original.delete(c);
+  }
+}
+
+// One listener for every sheet, so Escape works even after a tap left focus on the page.
+function onKey(e: KeyboardEvent) {
+  if (e.key !== "Escape" || e.defaultPrevented) return;
+  // An open native picker (time, date) closes itself first.
+  const t = e.target;
+  if (t instanceof HTMLInputElement && /^(time|date|datetime-local|month|week)$/.test(t.type)) {
+    return;
+  }
+  const top = stack[stack.length - 1];
+  if (!top) return;
+  e.preventDefault();
+  top.escape();
+}
+
 /**
- * Makes a sheet a real modal: everything else in its parent is inert while it is open,
- * focus moves into it (to `focusFirst`, or the sheet's heading), Escape anywhere calls
- * `onEscape`, and focus goes back to whatever opened it on closing.
- * Returns a guard for the backdrop: true while a tap there should be ignored.
+ * Makes a sheet a real modal: everything else is inert while it is the top one (even
+ * what mounts later, like a tab a notification switches to), focus moves into it (to its
+ * heading when `focusFirst`), Escape calls `onEscape`, and focus goes back to whatever
+ * opened it on closing, or to `fallback` when that is gone (Safari does not focus a tapped
+ * button). Returns a guard for the backdrop: true while a tap there should be ignored.
  */
 export function useModal(
   sheet: RefObject<HTMLElement | null>,
   onEscape: () => void,
   focusFirst = true,
-  /** Where focus goes on closing when what opened it is gone (e.g. a closed Ajustes row). */
   fallback?: () => HTMLElement | null,
 ): () => boolean {
-  const back = useRef(fallback);
-  back.current = fallback;
   const onEsc = useRef(onEscape);
   onEsc.current = onEscape;
+  const back = useRef(fallback);
+  back.current = fallback;
   const openedAt = useRef(Date.now());
 
   useEffect(() => {
     const el = sheet.current;
-    const parent = el?.parentElement;
-    /** Each sibling's own inert value, restored on closing. */
-    const was = new Map<HTMLElement, boolean>();
-    const cover = () => {
-      for (const c of parent ? [...parent.children] : []) {
-        if (!(c instanceof HTMLElement) || c === el || c.classList.contains("scrim")) continue;
-        if (c.getAttribute("role") === "dialog") continue; // another sheet on top stays usable
-        if (!was.has(c)) was.set(c, c.inert);
-        c.inert = true;
-      }
-    };
+    if (!el) return;
+    const me: Open = { sheet: el, escape: () => onEsc.current() };
+    if (stack.length === 0) document.addEventListener("keydown", onKey);
+    stack.push(me);
     cover();
-    // A notification can switch tabs behind the sheet: what mounts then is covered too.
-    const observer = parent ? new MutationObserver(cover) : undefined;
-    if (parent) observer?.observe(parent, { childList: true });
+    const observer = new MutationObserver(cover);
+    if (el.parentElement) observer.observe(el.parentElement, { childList: true });
     const opener = document.activeElement as HTMLElement | null;
-    if (focusFirst) el?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
-    // On the document, so Escape works even after a tap left focus on the page.
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      onEsc.current();
-    };
-    document.addEventListener("keydown", onKey);
+    if (focusFirst) el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
     return () => {
-      document.removeEventListener("keydown", onKey);
-      observer?.disconnect();
-      for (const [c, inert] of was) c.inert = inert;
-      const to = opener?.isConnected && opener !== document.body ? opener : back.current?.();
+      observer.disconnect();
+      const wasTop = stack[stack.length - 1] === me;
+      stack.splice(stack.indexOf(me), 1);
+      cover();
+      if (stack.length === 0) document.removeEventListener("keydown", onKey);
+      // A sheet closing under another one leaves the focus where it is.
+      if (!wasTop) return;
+      const usable = (n: HTMLElement | null | undefined) =>
+        !!n && n.isConnected && n !== document.body && !n.closest("[inert]");
+      const to = usable(opener) ? opener : back.current?.();
       to?.focus({ preventScroll: true });
     };
   }, [sheet, focusFirst]);

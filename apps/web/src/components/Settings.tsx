@@ -232,7 +232,12 @@ export function Settings({
   };
   const close = () => setPage(null);
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
-  const justOpened = useModal(sheet, () => (page ? close() : onClose()), !initialPage);
+  const justOpened = useModal(
+    sheet,
+    () => (page ? close() : onClose()),
+    !initialPage,
+    () => document.querySelector<HTMLElement>('[aria-label="Ajustes"]'),
+  );
 
   // Focus follows the screen: «Ajustes» on a section, its row again on the way back.
   useEffect(() => {

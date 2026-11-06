@@ -123,6 +123,48 @@ describe("Ajustes as a modal", () => {
   });
 });
 
+describe("sheets on top of each other", () => {
+  it("only the top one is reachable, and closing the lower one keeps the top in charge", async () => {
+    const { WeeklyPlan } = await import("./components/WeeklyPlan.js");
+    const closeSettings = vi.fn();
+    const closeWeekly = vi.fn();
+    const view = (weekly: boolean, settings = true) => (
+      <StoreProvider initial={withHome} persist={false}>
+        <div className="app">
+          <button type="button">Detrás</button>
+          {settings && <Settings onClose={closeSettings} />}
+          {weekly && <WeeklyPlan onClose={closeWeekly} onInbox={() => {}} />}
+        </div>
+      </StoreProvider>
+    );
+    const { rerender } = render(view(false));
+    rerender(view(true));
+    const settings = screen.getByRole("dialog", { name: "Ajustes", hidden: true });
+    expect(settings.inert).toBe(true);
+    expect(screen.getByText("Detrás", { selector: "button" }).inert).toBe(true);
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(closeWeekly).toHaveBeenCalledOnce();
+    expect(closeSettings).not.toHaveBeenCalled();
+    // Settings closes under the plan: the screen behind stays covered.
+    rerender(view(true, false));
+    expect(screen.getByText("Detrás", { selector: "button" }).inert).toBe(true);
+    rerender(view(false, false));
+    // Back to what it was (jsdom has no inert of its own: undefined, not false).
+    expect(screen.getByText("Detrás", { selector: "button" }).inert).toBeFalsy();
+  });
+
+  it("lets Escape close an open time picker first", () => {
+    const onClose = vi.fn();
+    render(
+      <StoreProvider initial={withHome} persist={false}>
+        <Settings onClose={onClose} />
+      </StoreProvider>,
+    );
+    fireEvent.keyDown(screen.getByLabelText("Me levanté a las"), { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
 describe("Ajustes for a signed-in account", () => {
   function client(owner: boolean) {
     const ok = Promise.resolve({ data: [], error: null });
