@@ -116,7 +116,9 @@ describe("revoke everything and delete the account", () => {
         <Settings onClose={() => {}} />
       </StoreProvider>,
     );
-    expect(screen.getByText("Política de privacidad").getAttribute("href")).toBe("/privacy.html");
+    expect(screen.getByText("Política de privacidad").closest("a")?.getAttribute("href")).toBe(
+      "/privacy.html",
+    );
     expect(screen.queryByText("Revocar todo y borrar la cuenta")).toBeNull();
   });
 });

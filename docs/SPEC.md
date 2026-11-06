@@ -209,7 +209,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
   - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
   - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
 
-## 16. Rediseño de Configuración (pendiente)
+## 16. Rediseño de Configuración ✅
 
 Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las secciones no tienen borde y se pierden; abrir una sección empuja todo el resto y abrir y cerrar secciones se siente tosco.
 
@@ -217,6 +217,12 @@ Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las s
 - Entrega: una presentación corta y navegable con una pantalla por mockup, renderizada como en el iPhone, con sus pros y contras. Se publica en un link privado de claude.ai para mostrarla a otras personas, y una copia HTML queda en `docs/mockups/`.
 - El usuario y las personas que consulte eligen uno. **Se implementa recién cuando el usuario lo elige**, en un PR aparte, y después se vuelve a pasar por el ciclo del §17.
 - Se empieza recién cuando los cambios de UI en curso estén terminados, validados, mergeados y desplegados en producción.
+- ✅ **Elegido (noviembre 2026): el mockup A**, lista agrupada como Ajustes de iOS (`docs/mockups/configuracion.html`), con el **aviso de arriba del C**:
+  - Arriba, solo si algo pide acción: Google o iCloud sin sincronizar (con «Reconectar Google» o «Ver Calendarios») y la casa sin guardar («Agregar casa»). Si todo está bien no se muestra nada.
+  - Después «Hoy» y cinco grupos: Planificar, Mi tiempo, Lugares, Conexiones y Cuenta. «Revocar todo y borrar la cuenta» va solo, en rojo, al final. Cada fila dice su estado a la derecha.
+  - Cada sección es una pantalla que entra de costado (con resorte; con «reducir movimiento», un fundido). El foco pasa a «‹ Ajustes» y, al volver, a la fila que la abrió. Lo de atrás queda inerte. Las pantallas siguen montadas, así un formulario a medio llenar no se pierde al volver.
+  - «Materias» y «Rutinas» son filas distintas (antes «Materias y rutinas» y «Rutinas» se pisaban).
+  - La **búsqueda del mockup B** queda lista en una rama aparte, encima de A, para sumarla arriba de todo cuando las secciones crezcan mucho. No se mergea hasta que el usuario lo pida.
 
 ## 17. Hasta producción: orden de trabajo y ciclo de validación
 

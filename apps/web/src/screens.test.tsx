@@ -166,17 +166,12 @@ const state = () => JSON.parse(screen.getByTestId("state").textContent ?? "{}");
 describe("semester start", () => {
   it("saves the dates, lists holidays and adds subjects and exams", async () => {
     const now = at("2026-08-01", 600);
-    const { container } = render(
+    render(
       <StoreProvider initial={emptyData} persist={false} fixedNow={now}>
         <Semester />
         <Probe />
       </StoreProvider>,
     );
-    const details = container.querySelector("details") as HTMLDetailsElement;
-    await act(async () => {
-      details.open = true;
-      details.dispatchEvent(new Event("toggle"));
-    });
     fireEvent.change(screen.getByLabelText("Termina"), { target: { value: "2026-11-30" } });
     expect(screen.getByText(/Declaratoria de la Independencia/)).toBeTruthy();
     await act(async () => fireEvent.click(screen.getByText("Guardar fechas")));

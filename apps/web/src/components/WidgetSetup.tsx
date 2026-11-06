@@ -3,6 +3,7 @@ import { useSync } from "../Connected.js";
 import { CRITICAL } from "../model.js";
 import { widgetToken } from "../remote.js";
 import { widgetScript } from "../widget-script.js";
+import { Section } from "./Section.js";
 
 /** Scriptable widget: a personal token and the script to paste in Scriptable. */
 export function WidgetSetup() {
@@ -37,8 +38,7 @@ export function WidgetSetup() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Widget de silos (Scriptable)</summary>
+    <Section>
       <p className="meta">
         Instalá Scriptable (gratis), creá un script nuevo y pegá el código. Después agregá un widget
         de Scriptable en la pantalla de inicio y elegí ese script. Generar un código nuevo invalida
@@ -95,6 +95,6 @@ export function WidgetSetup() {
         </p>
       )}
       {state === "revoked" && <p className="meta">Widget desactivado ✓</p>}
-    </details>
+    </Section>
   );
 }

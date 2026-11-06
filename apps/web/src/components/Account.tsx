@@ -4,6 +4,7 @@ import { CRITICAL } from "../model.js";
 import { closeAccount } from "../remote.js";
 import { useStore } from "../store.js";
 import { downloadJson } from "./Backup.js";
+import { Section } from "./Section.js";
 
 /** What has to be typed to delete the account. */
 export const CONFIRM_WORD = "BORRAR";
@@ -71,8 +72,7 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Revocar todo y borrar la cuenta</summary>
+    <Section>
       <p className="meta">
         Revoca el acceso a Google Calendar y borra la contraseña de iCloud y tu clave de Gemini
         {owner
@@ -131,6 +131,6 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
           {message.text}
         </p>
       )}
-    </details>
+    </Section>
   );
 }

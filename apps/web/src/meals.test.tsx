@@ -111,7 +111,9 @@ describe("meals on the calendar", () => {
     const bubble = document.querySelector(".bubble") as HTMLElement;
     expect(within(bubble).getByText(/Corrido de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
-    expect(screen.getByText("Mi semana")).toBeTruthy();
+    // Straight to «Mi semana», where meal times are set.
+    expect(screen.getByRole("dialog", { name: "Mi semana" })).toBeTruthy();
+    expect(document.activeElement?.classList.contains("settings-back")).toBe(true);
   });
 });
 

@@ -4,6 +4,7 @@ import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { CRITICAL, NOTIFY_DEFAULTS, type NotificationPrefs } from "../model.js";
 import { disablePush, enablePush, type PushState, pushState } from "../push.js";
 import { useStore } from "../store.js";
+import { Section } from "./Section.js";
 
 const STATE_TEXT: Record<Exclude<PushState, "on" | "off">, string> = {
   unsupported: "Este navegador no permite notificaciones.",
@@ -50,8 +51,7 @@ export function Notifications() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Notificaciones</summary>
+    <Section>
       {!sync ? (
         <p className="meta">Entrá con Google para recibir avisos en este dispositivo.</p>
       ) : state && state !== "on" && state !== "off" ? (
@@ -115,6 +115,6 @@ export function Notifications() {
           onChange={(e) => save({ sundayAt: hhmmToMinutes(e.target.value) })}
         />
       </label>
-    </details>
+    </Section>
   );
 }

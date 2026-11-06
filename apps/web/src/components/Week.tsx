@@ -82,7 +82,14 @@ const clock = (m: number) => {
 };
 
 /** The week view: the plan and the calendar day by day, with drag-and-drop to pin blocks. */
-export function Week({ day, onSettings }: { day?: string; onSettings: () => void }) {
+export function Week({
+  day,
+  onSettings,
+}: {
+  day?: string;
+  /** Opens Ajustes, on one of its screens if given. */
+  onSettings: (page?: "week") => void;
+}) {
   const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;
   // Opens on the week of `day` (weeks start on the same weekday as `weekDates`).
@@ -405,8 +412,13 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
             ↶
           </button>
         )}
-        <SyncDot onClick={onSettings} />
-        <button type="button" className="icon-btn" aria-label="Ajustes" onClick={onSettings}>
+        <SyncDot onClick={() => onSettings()} />
+        <button
+          type="button"
+          className="icon-btn"
+          aria-label="Ajustes"
+          onClick={() => onSettings()}
+        >
           <GearIcon />
         </button>
       </div>
@@ -742,7 +754,8 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
             bubble={mealBubble}
             onSettings={() => {
               setMealBubble(null);
-              onSettings();
+              // Meal times live in «Mi semana».
+              onSettings("week");
             }}
           />
         </>

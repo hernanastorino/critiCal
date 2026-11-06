@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
+import { Section } from "./Section.js";
 
 const ERRORS: Record<string, string> = {
   invalid_key: "Gemini no aceptó esa clave. Revisá que esté completa.",
@@ -62,8 +63,7 @@ export function GeminiKey() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Tu IA (Gemini)</summary>
+    <Section>
       <p className="meta">
         {own === null
           ? "Cargando qué clave usás…"
@@ -115,6 +115,6 @@ export function GeminiKey() {
           Volver a probar
         </button>
       )}
-    </details>
+    </Section>
   );
 }

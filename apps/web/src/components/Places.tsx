@@ -4,6 +4,7 @@ import { CRITICAL, newId, type Place, type Spot } from "../model.js";
 import { minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { Section } from "./Section.js";
 
 const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 
@@ -62,8 +63,7 @@ export function Places() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Lugares y traslados</summary>
+    <Section>
       <p className="meta">
         Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
         evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
@@ -180,7 +180,7 @@ export function Places() {
           )}
         </>
       )}
-    </details>
+    </Section>
   );
 }
 
