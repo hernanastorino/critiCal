@@ -25,6 +25,8 @@ function cover() {
     for (const c of n.parentElement ? [...n.parentElement.children] : []) {
       if (!(c instanceof HTMLElement) || c === n) continue;
       if (c.classList.contains("scrim") && c.nextElementSibling === top) continue;
+      // The app's notices stay readable and tappable over a sheet (its «Deshacer»).
+      if (c.classList.contains("snacks")) continue;
       want.add(c);
     }
   }

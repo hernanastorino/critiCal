@@ -20,6 +20,20 @@ function Trigger({ undo }: { undo?: () => void }) {
   );
 }
 
+function Two({ onUndo }: { onUndo: () => void }) {
+  const toast = useToast();
+  return (
+    <>
+      <button type="button" onClick={() => toast.show("Movido", { undo: onUndo })}>
+        Mover
+      </button>
+      <button type="button" onClick={() => toast.show("Reglas guardadas")}>
+        Guardar
+      </button>
+    </>
+  );
+}
+
 describe("the app's one notice", () => {
   it("is announced, and goes away after a while", () => {
     render(
@@ -70,6 +84,24 @@ describe("the app's one notice", () => {
     expect(undo).toHaveBeenCalledOnce();
     expect(screen.queryByText("Reglas guardadas")).toBeNull();
     expect(UNDO_MS).toBeGreaterThan(TOAST_MS);
+  });
+
+  it("still goes away after an undo tapped with the pointer on it", () => {
+    const undo = vi.fn();
+    render(
+      <ToastProvider>
+        <Two onUndo={undo} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByText("Mover"));
+    const button = screen.getByRole("button", { name: "Deshacer" });
+    fireEvent.pointerEnter(button);
+    fireEvent.click(button);
+    fireEvent.click(screen.getByText("Guardar"));
+    act(() => {
+      vi.advanceTimersByTime(TOAST_MS + 10);
+    });
+    expect(screen.queryByText("Reglas guardadas")).toBeNull();
   });
 
   it("does nothing outside the app (a screen tested alone)", () => {

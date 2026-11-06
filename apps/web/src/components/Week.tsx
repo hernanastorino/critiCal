@@ -585,7 +585,17 @@ export function Week({
                         }
                       : undefined
                   }
-                  ref={b.id === focusId ? (el) => el?.focus() : undefined}
+                  // Once, right after a keyboard move: kept, it would pull focus back on
+                  // every render (the clock ticks each minute).
+                  ref={
+                    b.id === focusId
+                      ? (el) => {
+                          if (!el) return;
+                          el.focus();
+                          setFocusId(null);
+                        }
+                      : undefined
+                  }
                   onKeyDown={
                     movable
                       ? (e) => {

@@ -55,6 +55,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback<ToastApi["show"]>(
     (message, opts) => {
       const t = { message, ...opts };
+      // A notice that left under the pointer never got its «leave»: start fresh.
+      held.current = false;
       setCurrent(t);
       startTimer(t);
     },
@@ -96,6 +98,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 className="btn small snack-btn"
                 onClick={() => {
                   const was = current;
+                  held.current = false;
                   was.undo?.();
                   // The undo may show a notice of its own: only this one goes.
                   setCurrent((c) => (c === was ? null : c));
