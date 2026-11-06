@@ -13,6 +13,61 @@ describe("monitoring", () => {
     expect(sentry.init).not.toHaveBeenCalled();
   });
 
+  it("keeps a report made while the SDK loads and sends it once ready", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    const m = await import("./monitoring.js");
+    const ready = m.startMonitoring();
+    const early = new Error("render failed before Sentry");
+    m.reportError(early, { componentStack: "in App" });
+    m.reportError(new Error("Failed to fetch"));
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    await ready;
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(sentry.captureException).toHaveBeenCalledWith(early, {
+      extra: { componentStack: "in App" },
+    });
+    vi.unstubAllEnvs();
+  });
+
+  it("keeps the waiting reports when the start fails, and sends them on the next try", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    const m = await import("./monitoring.js");
+    const first = m.startMonitoring();
+    const early = new Error("before Sentry");
+    m.reportError(early);
+    await first;
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    await m.startMonitoring();
+    expect(sentry.captureException).toHaveBeenCalledWith(early, undefined);
+    vi.unstubAllEnvs();
+  });
+
+  it("retries when the connection came back while a failing start was loading", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    const m = await import("./monitoring.js");
+    const early = new Error("queued");
+    m.reportError(early);
+    const first = m.startMonitoring();
+    // «online» fires while the first start is still loading.
+    void m.startMonitoring();
+    m.reportError(early);
+    await first;
+    expect(sentry.captureException).toHaveBeenCalledWith(early, undefined);
+    vi.unstubAllEnvs();
+  });
+
   it("reports errors without personal data once configured", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
     vi.resetModules();
@@ -26,6 +81,14 @@ describe("monitoring", () => {
     const e = new Error("boom");
     m.reportError(e);
     expect(sentry.captureException).toHaveBeenCalledWith(e, undefined);
+    // Context (a render error's component stack) travels as Sentry extra.
+    sentry.captureException.mockClear();
+    m.reportError(e, { componentStack: "in Silos" });
+    expect(sentry.captureException).toHaveBeenCalledWith(e, {
+      extra: { componentStack: "in Silos" },
+    });
+    m.reportError(new Error("Failed to fetch"), { componentStack: "in Silos" });
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
     // A dropped connection is not a bug; a Supabase error object becomes an Error.
     sentry.captureException.mockClear();
     m.reportError({ code: "", message: "TypeError: Load failed (x.supabase.co)" });

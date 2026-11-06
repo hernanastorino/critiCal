@@ -1,6 +1,7 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
+import { ErrorBoundary } from "./components/ErrorBoundary.js";
 import { startMonitoring } from "./monitoring.js";
 import "./styles.css";
 import { watchUpdates } from "./updates.js";
@@ -12,12 +13,16 @@ for (const type of ["gesturestart", "gesturechange"]) {
 }
 
 void startMonitoring();
+// A start that failed offline tries again when the connection is back.
+window.addEventListener("online", () => void startMonitoring());
 watchUpdates();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("#root missing");
 createRoot(root).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 );
