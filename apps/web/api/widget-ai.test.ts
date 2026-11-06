@@ -416,6 +416,22 @@ describe("own Gemini key", () => {
     expect(rpc).not.toHaveBeenCalledWith("store_oauth_token", expect.anything());
     const junk = await syllabus.handle(bearer("jwt", { action: "set_key", key: "a b" }), env);
     expect(junk.status).toBe(400);
+    // Newer keys carry a period: Gemini, not the format, decides.
+    const asked: string[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      asked.push((init.headers as Record<string, string>)["x-goog-api-key"] ?? "");
+      return new Response("bad", { status: 400 });
+    });
+    await syllabus.handle(
+      bearer("jwt", { action: "set_key", key: "AQ.fake-gemini-key-with-dot" }),
+      env,
+    );
+    expect(asked).toEqual(["AQ.fake-gemini-key-with-dot"]);
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) =>
+      (init.headers as Record<string, string>)["x-goog-api-key"] === key
+        ? Response.json({ models: [] })
+        : new Response("bad", { status: 400 }),
+    );
 
     const ok = await syllabus.handle(bearer("jwt", { action: "set_key", key: ` ${key} ` }), env);
     expect(await ok.json()).toEqual({ ok: true, own: true });

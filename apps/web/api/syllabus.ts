@@ -60,7 +60,8 @@ async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>
     return error ? json({ ok: false, error: "key_failed" }, 500) : json({ ok: true, own: false });
   }
   const key = typeof body.key === "string" ? body.key.trim() : "";
-  if (!/^[\w-]{20,200}$/.test(key)) return json({ ok: false, error: "invalid_key" }, 400);
+  // Key formats change (AIza…, AQ.…): only junk is turned away here; Gemini decides.
+  if (!/^[\x21-\x7e]{10,300}$/.test(key)) return json({ ok: false, error: "invalid_key" }, 400);
   const valid = await validKey(key);
   if (valid === "unavailable") return json({ ok: false, error: "gemini_busy" }, 503);
   if (!valid) return json({ ok: false, error: "invalid_key" }, 400);
