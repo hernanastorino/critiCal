@@ -180,7 +180,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 - **Transiciones con resorte** (200–300 ms) en hojas, pestañas, bloques que cambian de lugar y avisos. Con «reducir movimiento» pasan a un fundido corto o a nada.
 - **Respuesta optimista**: marcar ✓/✗, mover o editar se ve al instante; si el servidor falla, se revierte con un aviso que dice qué no se guardó.
-- **Deshacer en vez de confirmar**: las acciones destructivas (borrar, abandonar una entrega, rechazar una propuesta) se hacen al toque y muestran un aviso con «Deshacer» durante unos segundos. Solo borrar la cuenta pide confirmación.
+- **Deshacer en vez de confirmar**: las acciones destructivas (borrar, abandonar una entrega, rechazar una propuesta) se hacen al toque y muestran un aviso con «Deshacer». El aviso se anuncia a VoiceOver, se alcanza con el teclado, no se va mientras tiene el foco o el puntero encima, y lo deshecho también se puede recuperar después desde el historial de «Deshacer» (§13). Solo borrar la cuenta pide confirmación.
 - **Gestos**: deslizar un bloque para marcarlo hecho o salteado, y deslizar horizontalmente para cambiar de día o semana. Siempre con un botón equivalente.
 - **Vibración háptica** al marcar un bloque y al soltar un arrastre, donde el navegador la soporte (Safari en iPhone casi no la soporta: es un extra, no puede ser la única señal).
 
