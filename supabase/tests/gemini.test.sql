@@ -5,6 +5,10 @@ select plan(2);
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000b1', 'ai@test.local'),
   ('00000000-0000-0000-0000-0000000000b2', 'cal@test.local');
+-- The first account owns the app; the second is an invited Google account.
+insert into auth.identities (provider_id, user_id, identity_data, provider) values
+  ('google-cal', '00000000-0000-0000-0000-0000000000b2', '{"email": "cal@test.local"}', 'google');
+insert into public.invites (email) values ('cal@test.local');
 
 set local role service_role;
 select public.store_oauth_token('00000000-0000-0000-0000-0000000000b1', 'gemini', 'key-1');
