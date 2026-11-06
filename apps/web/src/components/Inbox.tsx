@@ -6,7 +6,7 @@ import { dayAndTime, hhmmToMinutes, hours, minutesToHhmm, time } from "../format
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
-import { endOfDay, pinClashes } from "../planning.js";
+import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -15,7 +15,7 @@ import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
 export function Inbox() {
-  const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
+  const { data, now, pending, decisions, unlocated, pinShort, clashes, dispatch } = useStore();
   const offline = !!useSync()?.status.offline;
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
@@ -23,7 +23,6 @@ export function Inbox() {
   const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
-  const clashes = pinClashes(data, now);
   const moves = (data.movedEvents ?? []).flatMap((m) => {
     const event = data.events.find((e) => e.id === m.eventId);
     return event ? [{ ...m, event }] : [];

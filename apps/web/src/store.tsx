@@ -910,6 +910,8 @@ interface Store {
   unlocated: ReturnType<typeof unlocated>;
   /** Minimums the upcoming pins put out of reach, and those pins. */
   pinShort: ReturnType<typeof pinShortfall>;
+  /** Upcoming pins a calendar event overlaps. */
+  clashes: ReturnType<typeof pinClashes>;
   inboxCount: number;
 }
 
@@ -973,6 +975,7 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
+    const clashes = pinClashes(data, now, r.input);
     return {
       data,
       now,
@@ -987,6 +990,7 @@ export function StoreProvider({
       result: r.result,
       unlocated: where,
       pinShort,
+      clashes,
       inboxCount:
         (data.movedEvents?.length ?? 0) +
         (lateNight(data, now) ? 1 : 0) +
@@ -996,7 +1000,7 @@ export function StoreProvider({
         unassignedTasks(data).length +
         unsortedActivities(data).length +
         (pinShort.short.length > 0 ? 1 : 0) +
-        pinClashes(data, now).length +
+        clashes.length +
         pending.length +
         data.proposals.length +
         d.options.length +

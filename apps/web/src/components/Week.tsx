@@ -3,7 +3,7 @@ import { isTentative, visibleEvents } from "../calendars.js";
 import { dropTarget, nearestFree } from "../drag.js";
 import { localParts, MINUTE, overlaps, type PlanBlock, zonedInstant } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
-import type { AppEvent } from "../model.js";
+import type { AppEvent, PlanVersion } from "../model.js";
 import { isPinned, pinId, progress, weekDates } from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -26,6 +26,8 @@ interface Toast {
   message: string;
   /** Puts things back as they were; shown as a button. */
   undo?: () => void;
+  /** The plan version `undo` goes back from: once another one is newer, it is gone. */
+  version?: PlanVersion;
 }
 
 interface Bubble {
@@ -102,9 +104,9 @@ export function Week({ onSettings }: { onSettings: () => void }) {
 
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const flash = (message: string, undo?: () => void) => {
+  const flash = (message: string, undo?: () => void, version?: PlanVersion) => {
     clearTimeout(toastTimer.current);
-    setToast({ message, undo });
+    setToast({ message, undo, version });
     toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 2500);
   };
 
@@ -116,8 +118,15 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     id: string;
     before: Map<string, number>;
     undo: () => void;
+    /** `undo` restores the plan version this pin saved. */
+    restores: boolean;
     note?: string;
   } | null>(null);
+  // An undo of the plan version a drop saved would undo whatever came after instead.
+  const latest = data.planHistory?.at(-1);
+  useEffect(() => {
+    if (toast?.version && toast.version !== latest) setToast(null);
+  }, [toast, latest]);
   useEffect(() => {
     const w = watch.current;
     if (!w) return;
@@ -130,7 +139,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       worse.length > 0 &&
         `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
     ].filter(Boolean);
-    if (said.length > 0) flash(said.join(" · "), w.undo);
+    if (said.length > 0) flash(said.join(" · "), w.undo, w.restores ? latest : undefined);
   });
 
   /** Pins `block` at `start`, offering to put it back if that breaks a minimum. */
@@ -149,11 +158,13 @@ export function Week({ onSettings }: { onSettings: () => void }) {
       freed.length > 0 &&
         `${freed.map((p) => `📌 ${titleOfTask(p.taskId)}`).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`,
       flexible?.kind === "event" &&
-        `Quedó sobre ${flexible.event.title}: en la Bandeja te propongo moverlo`,
+        // One already under way is not offered to move, only shown as a clash.
+        `Quedó sobre ${flexible.event.title}: ${flexible.start > now ? "en la Bandeja te propongo moverlo" : "revisá el choque en la Bandeja"}`,
     ].filter((n): n is string => !!n);
     watch.current = {
       id: moved,
       before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
+      restores: freed.length > 0,
       note: notes.join(" · ") || undefined,
       undo: () => {
         setToast(null);

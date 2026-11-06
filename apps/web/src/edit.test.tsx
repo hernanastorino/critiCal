@@ -496,6 +496,51 @@ describe("edit mode", () => {
     expect(undone.pins?.map((p) => [p.taskId, p.start])).toEqual([[a?.taskId, at]]);
   });
 
+  it("drops the undo of a freed pin once the plan changes again", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const tz = d.settings.timezone;
+    const [a, b] = d.plan.filter((x) => x.start > NOW && x.taskId !== d.plan[0]?.taskId);
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const first = reducer(d, { type: "pin", blockId: a?.id as string, start: at, now: NOW });
+    render(<App fixedNow={NOW} initial={() => first} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
+    const pill = screen.getByLabelText(`${title}, ${time(tz, b?.start as number)}`);
+    const { x, y } = spot(d, at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 7 });
+    expect(screen.getByRole("button", { name: "Deshacer" })).toBeTruthy();
+    // A replan after it: its undo would take back the replan, not the drop.
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
+  });
+
+  it("does not promise to move a flexible event already under way", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const gym = {
+      id: "gym",
+      title: "Gym #flex",
+      start: NOW - 3_600_000,
+      end: at + 3 * 3_600_000,
+      busy: true,
+      source: "demo" as const,
+    };
+    const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const { x, y } = spot(initial(NOW), at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 4 });
+    expect(screen.getByText(/Quedó sobre Gym #flex: revisá el choque en la Bandeja/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Bandeja"));
+    expect(screen.getByText(/Choca con Gym #flex/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mover Gym #flex" })).toBeNull();
+  });
+
   it("drops over the plan's blocks, warns when a minimum breaks and undoes it", () => {
     const d = reducer(tight(NOW), { type: "refresh", now: NOW });
     const tz = d.settings.timezone;

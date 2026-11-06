@@ -322,6 +322,7 @@ export function pinBlock(block: PlanBlock, start: number): PlanBlock {
 export function pinClashes(
   data: AppData,
   now: number,
+  planned?: ScheduleInput,
 ): { pin: PlanBlock; event: AppEvent; moveTo?: Interval }[] {
   const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
   // Pins of paused, skipped or ended silos are not on the plan, so they cannot clash.
@@ -332,7 +333,7 @@ export function pinClashes(
     return event ? [{ pin, event }] : [];
   });
   if (!clashes.some((c) => c.event.flexible && c.event.start > now)) return clashes;
-  const input = refreshPlan(data, now).input;
+  const input = planned ?? refreshPlan(data, now).input;
   return clashes.map((c) => {
     if (!c.event.flexible || c.event.start <= now) return c;
     const event = input.events.find((e) => e.id === c.event.id);
