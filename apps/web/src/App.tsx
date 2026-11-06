@@ -43,7 +43,8 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
     navigator.serviceWorker?.addEventListener("message", onMessage);
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
-  const [settings, setSettings] = useState(false);
+  /** Ajustes open, on its list (`true`) or on one screen. */
+  const [settings, setSettings] = useState<boolean | "week">(false);
   /** A day to open the week on, picked from the inbox. */
   const [day, setDay] = useState<string>();
   const tabs: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -53,7 +54,7 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
   ];
   return (
     <div className="app">
-      {tab === "week" && <Week day={day} onSettings={() => setSettings(true)} />}
+      {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
       {tab === "silos" && <Silos />}
       {tab === "inbox" && (
         <Inbox
@@ -82,6 +83,7 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
       </nav>
       {settings && (
         <Settings
+          initialPage={settings === true ? undefined : settings}
           onClose={() => setSettings(false)}
           onReset={onReset}
           onSignOut={onSignOut}

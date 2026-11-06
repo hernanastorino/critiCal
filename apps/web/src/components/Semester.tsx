@@ -6,6 +6,7 @@ import { holidaysBetween } from "../holidays.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, subjectsOf } from "../subjects.js";
+import { Section, useSectionOpen } from "./Section.js";
 
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
@@ -19,7 +20,8 @@ export function Semester() {
   const [weekly, setWeekly] = useState("");
   const [exam, setExam] = useState({ activityId: "", title: "Parcial", date: "" });
   const [saved, setSaved] = useState<string | null>(null);
-  const [open, setOpen] = useState(false);
+  // The calendar's titles are only worked out once its screen is on view.
+  const open = useSectionOpen();
   const holidaysOn = data.preferences?.holidaysOff !== false;
   const subjects = subjectsOf(data);
   // Both dates are needed: an empty start would mean "from year 0".
@@ -89,8 +91,7 @@ export function Semester() {
   };
 
   return (
-    <details className="card prefs" onToggle={(e) => setOpen(e.currentTarget.open)}>
-      <summary className="title">Inicio de cuatrimestre</summary>
+    <Section>
       {open && (
         <>
           <div className="row fields">
@@ -220,6 +221,6 @@ export function Semester() {
           {saved && <p className="meta">{saved} ✓</p>}
         </>
       )}
-    </details>
+    </Section>
   );
 }

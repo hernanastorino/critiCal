@@ -6,8 +6,11 @@ import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js"
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
 import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
+import { Section } from "./Section.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
+/** For VoiceOver: two «M» would read alike. */
+const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
@@ -66,8 +69,7 @@ export function WeekSettings() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Mi semana</summary>
+    <Section>
       <p className="meta">
         Lo que casi nunca cambia. Para un día puntual usá «Hoy» arriba. Elegí los días y editá:
       </p>
@@ -77,7 +79,7 @@ export function WeekSettings() {
             key={d}
             type="button"
             aria-pressed={days.includes(d)}
-            aria-label={`Día ${DAYS[d]}`}
+            aria-label={DAY_NAMES[d]}
             className={`chip${days.includes(d) ? " on" : ""}`}
             onClick={() => pick(d)}
           >
@@ -115,12 +117,23 @@ export function WeekSettings() {
         comida se corre sola al hueco más cercano, hasta 1 h 30 antes o después. Con duración 0 no
         hay esa comida.
       </p>
-      <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
+      <button
+        type="button"
+        className="btn primary"
+        style={{ width: "100%" }}
+        // «Guardar para L M M J V» reads as loose letters: VoiceOver gets the day names.
+        aria-label={
+          saved
+            ? undefined
+            : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAY_NAMES[d]).join(", ")}`
+        }
+        onClick={save}
+      >
         {saved
           ? "Guardado ✓"
           : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
       </button>
-    </details>
+    </Section>
   );
 }
 
@@ -182,8 +195,7 @@ export function RuleSettings() {
     setSaved(false);
   };
   return (
-    <details className="card prefs">
-      <summary className="title">Reglas</summary>
+    <Section>
       <div className="grid2">
         <Field
           label="Máximo de materias por día"
@@ -220,7 +232,7 @@ export function RuleSettings() {
       >
         {saved ? "Guardado ✓" : "Guardar reglas"}
       </button>
-    </details>
+    </Section>
   );
 }
 
@@ -244,8 +256,7 @@ export function DetectedDefaults() {
   );
   const [saved, setSaved] = useState(false);
   return (
-    <details className="card prefs">
-      <summary className="title">Horas para lo que se detecta</summary>
+    <Section>
       <p className="meta">
         Cuánto le planifico a cada evento nuevo de tus calendarios hasta que lo ajustes.
       </p>
@@ -310,7 +321,7 @@ export function DetectedDefaults() {
       >
         Volver todo lo detectado a estas horas
       </button>
-    </details>
+    </Section>
   );
 }
 
@@ -318,13 +329,12 @@ export function DetectedDefaults() {
 export function ActivitySettings() {
   const { data } = useStore();
   return (
-    <details className="card prefs">
-      <summary className="title">Materias y rutinas</summary>
+    <Section>
       <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
       {data.activities.map((a) => (
         <ActivityRow key={a.id} activity={a} />
       ))}
-    </details>
+    </Section>
   );
 }
 
@@ -502,8 +512,7 @@ export function Routines() {
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
   return (
-    <details className="card prefs">
-      <summary className="title">Rutinas</summary>
+    <Section>
       <p className="meta">
         Cosas como el gimnasio: sin parciales ni entregas, el plan les busca lugar las veces que
         digas por semana.
@@ -553,6 +562,6 @@ export function Routines() {
       >
         Agregar rutina
       </button>
-    </details>
+    </Section>
   );
 }

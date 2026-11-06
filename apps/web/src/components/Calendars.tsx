@@ -5,6 +5,7 @@ import { time } from "../format.js";
 import type { CalendarRole } from "../model.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
+import { Section } from "./Section.js";
 
 const MESSAGES: Record<string, string> = {
   no_refresh_token: "Falta el permiso de Google Calendar. Tocá «Reconectar Google».",
@@ -33,7 +34,7 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
 
 const ROLES = Object.keys(ROLE_LABEL) as CalendarRole[];
 
-const healthy = (r?: SyncResult) => !r || r.connected || r.error === "not_connected";
+export const healthy = (r?: SyncResult) => !r || r.connected || r.error === "not_connected";
 
 /**
  * Tiny status light: grey while syncing, green when everything is up to date, hollow
@@ -79,9 +80,7 @@ export function Calendars() {
   const icloudConnected = status.icloud?.connected;
 
   return (
-    // Closed by default: it is set up once and then rarely touched.
-    <details className="card prefs calendars">
-      <summary className="title">Calendarios</summary>
+    <Section className="calendars">
       <div className="card">
         <div className="title">Google Calendar</div>
         <p className="meta" data-testid="google-status">
@@ -203,6 +202,6 @@ export function Calendars() {
             ))}
         </div>
       )}
-    </details>
+    </Section>
   );
 }

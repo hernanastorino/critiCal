@@ -6,6 +6,7 @@ import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
 import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
+import { Section } from "./Section.js";
 
 const MAX_BYTES = 3_000_000;
 
@@ -150,8 +151,7 @@ export function SyllabusImport() {
     a.units.filter((t) => draft?.units.some((u) => u.title === t && u.keep));
 
   return (
-    <details className="card prefs">
-      <summary className="title">Cargar programa (PDF) con IA</summary>
+    <Section>
       <p className="meta">
         Gemini lee el programa y propone unidades, horas y evaluaciones. Revisás todo antes de crear
         nada. Usa el plan gratis de Google AI Studio (Google puede usar el PDF para mejorar sus
@@ -292,6 +292,6 @@ export function SyllabusImport() {
           </div>
         </>
       )}
-    </details>
+    </Section>
   );
 }

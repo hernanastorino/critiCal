@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSync } from "../Connected.js";
 import { errorMessage } from "../monitoring.js";
+import { Section } from "./Section.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -59,8 +60,7 @@ export function Invites() {
   };
 
   return (
-    <details className="card prefs">
-      <summary className="title">Invitaciones</summary>
+    <Section>
       <p className="meta">
         Solo estos emails de Google pueden usar critiCal. Quien entre sin estar en la lista ve que
         la app es por invitación. Quitar a alguien le corta el acceso y la sincronización.
@@ -88,6 +88,6 @@ export function Invites() {
         </button>
       </div>
       {error && <p className="meta">{error}</p>}
-    </details>
+    </Section>
   );
 }
