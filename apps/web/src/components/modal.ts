@@ -13,13 +13,19 @@ const stack: Open[] = [];
 /** The inert value each element had before any sheet covered it. */
 const original = new Map<HTMLElement, boolean>();
 
-/** Everything but the top sheet (and the backdrops) is inert; the rest is put back. */
+/**
+ * Everything but the top sheet is inert, and the rest is put back. The sheet may sit
+ * inside another one (a silo's detail inside Ajustes), so this walks up from it to the
+ * body covering every sibling on the way; its own backdrop stays tappable.
+ */
 function cover() {
   const top = stack[stack.length - 1]?.sheet;
   const want = new Set<HTMLElement>();
-  for (const { sheet } of stack) {
-    for (const c of sheet.parentElement ? [...sheet.parentElement.children] : []) {
-      if (c instanceof HTMLElement && c !== top && !c.classList.contains("scrim")) want.add(c);
+  for (let n: Element | null = top ?? null; n && n !== document.body; n = n.parentElement) {
+    for (const c of n.parentElement ? [...n.parentElement.children] : []) {
+      if (!(c instanceof HTMLElement) || c === n) continue;
+      if (c.classList.contains("scrim") && c.nextElementSibling === top) continue;
+      want.add(c);
     }
   }
   for (const c of want) {
@@ -31,6 +37,30 @@ function cover() {
     c.inert = inert;
     original.delete(c);
   }
+}
+
+/**
+ * The control last tapped. Safari does not focus a tapped button, so this is what
+ * opened a sheet when nothing has focus, and where focus goes back on closing.
+ */
+let lastTapped: { el: HTMLElement; at: number } | null = null;
+/** A tap counts as what opened a sheet only this soon before it (a notification may open one later). */
+const TAP_OPENS_MS = 1000;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const t =
+        e.target instanceof Element ? e.target.closest<HTMLElement>("button, a, [tabindex]") : null;
+      // A backdrop never takes focus (the second tap of a double tap lands there).
+      if (t?.classList.contains("scrim")) {
+        e.preventDefault();
+        return;
+      }
+      if (t) lastTapped = { el: t, at: Date.now() };
+    },
+    true,
+  );
 }
 
 // One listener for every sheet, so Escape works even after a tap left focus on the page.
@@ -59,6 +89,8 @@ export function useModal(
   onEscape: () => void,
   focusFirst = true,
   fallback?: () => HTMLElement | null,
+  /** The fallback wins over what had focus (a block's detail goes back to that block). */
+  preferFallback = false,
 ): () => boolean {
   const onEsc = useRef(onEscape);
   onEsc.current = onEscape;
@@ -73,10 +105,28 @@ export function useModal(
     if (stack.length === 0) document.addEventListener("keydown", onKey);
     stack.push(me);
     cover();
+    // Whatever mounts later around it (a tab a notification switches to) is covered too.
     const observer = new MutationObserver(cover);
-    if (el.parentElement) observer.observe(el.parentElement, { childList: true });
-    const opener = document.activeElement as HTMLElement | null;
-    if (focusFirst) el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const focused = document.activeElement as HTMLElement | null;
+    const tapped = lastTapped && Date.now() - lastTapped.at < TAP_OPENS_MS ? lastTapped.el : null;
+    const opener = focused && focused !== document.body ? focused : tapped;
+    // A sheet without a name of its own is named by its heading for VoiceOver, before
+    // focus moves in, so it is announced with it.
+    const heading = el.querySelector<HTMLElement>("h2");
+    if (heading && !el.hasAttribute("aria-label") && !el.hasAttribute("aria-labelledby")) {
+      heading.id ||= `sheet-title-${Math.random().toString(36).slice(2)}`;
+      el.setAttribute("aria-labelledby", heading.id);
+    }
+    if (focusFirst) {
+      // Where it asks to start ([data-autofocus]), else its heading, else its first control.
+      const first =
+        el.querySelector<HTMLElement>("[data-autofocus]") ??
+        el.querySelector<HTMLElement>("h2") ??
+        el.querySelector<HTMLElement>("button");
+      if (first && first.tagName === "H2" && !first.hasAttribute("tabindex")) first.tabIndex = -1;
+      first?.focus({ preventScroll: true });
+    }
     return () => {
       observer.disconnect();
       const wasTop = stack[stack.length - 1] === me;
@@ -88,11 +138,18 @@ export function useModal(
       const usable = (n: HTMLElement | null | undefined) =>
         !!n && n.isConnected && n !== document.body && !n.closest("[inert]");
       // With another sheet still open, focus goes back into it.
-      const below = stack[stack.length - 1]?.sheet.querySelector<HTMLElement>("h2");
-      const to = usable(opener) ? opener : (below ?? back.current?.());
+      const lower = stack[stack.length - 1]?.sheet;
+      const below =
+        lower?.querySelector<HTMLElement>("h2") ?? lower?.querySelector<HTMLElement>("button");
+      const preferred = preferFallback ? back.current?.() : null;
+      const to = usable(preferred)
+        ? preferred
+        : usable(opener)
+          ? opener
+          : (below ?? back.current?.());
       to?.focus({ preventScroll: true });
     };
-  }, [sheet, focusFirst]);
+  }, [sheet, focusFirst, preferFallback]);
 
   return () => Date.now() - openedAt.current < OPEN_GRACE_MS;
 }

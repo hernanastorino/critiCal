@@ -429,7 +429,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               >
                 ✓
               </button>
-              <button type="button" className="btn" onClick={() => setOpen(b)}>
+              <button
+                type="button"
+                className="btn"
+                aria-label={`Parcial u otro resultado: ${titleOf(b)}`}
+                onClick={() => setOpen(b)}
+              >
                 ◐
               </button>
               <button
