@@ -421,7 +421,11 @@ describe("places screens", () => {
       </StoreProvider>,
     );
     const field = screen.getByLabelText("O minutos desde casa");
-    expect(screen.getByText(/Minutos de 0 a 1440/)).toBeTruthy();
+    // Described by its help text, even for a place name with spaces.
+    expect(field.getAttribute("aria-describedby")).not.toMatch(/\s/);
+    expect(
+      document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toMatch(/Minutos de 0 a 1440/);
     fireEvent.change(field, { target: { value: "1441" } });
     expect(screen.getByRole("alert").textContent).toMatch(/de 0 a 1440/);
     expect((screen.getByRole("button", { name: "Usar" }) as HTMLButtonElement).disabled).toBe(true);

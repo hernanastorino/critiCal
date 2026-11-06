@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -481,6 +481,8 @@ function WhereCard({
   const { data, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [minutes, setMinutes] = useState("");
+  // An id without spaces: «Instituto Anglo» would split aria-describedby in two.
+  const helpId = useId();
   const [save, setSave] = useState(false);
   const [name, setName] = useState("");
   const failed = spotFor(data, item.event.location)?.failed;
@@ -508,7 +510,7 @@ function WhereCard({
             inputMode="decimal"
             value={minutes}
             aria-invalid={minutes.trim() !== "" && !valid ? true : undefined}
-            aria-describedby={`minutes-help-${item.text}`}
+            aria-describedby={helpId}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
@@ -526,7 +528,7 @@ function WhereCard({
       </div>
       <p
         className="meta"
-        id={`minutes-help-${item.text}`}
+        id={helpId}
         role={minutes.trim() !== "" && !valid ? "alert" : undefined}
         style={minutes.trim() !== "" && !valid ? { color: "var(--critical)" } : undefined}
       >
