@@ -687,6 +687,27 @@ describe("edit mode", () => {
       expect(document.querySelector(".bubble")).toBeTruthy();
     });
 
+    it("ignores the click that ends a drag even when it arrives late", () => {
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
+      render(<App fixedNow={NOW} initial={demoData} />);
+      const pill = future();
+      fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 8 });
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+      fireEvent.pointerMove(pill, { clientX: 160, clientY: 600, pointerId: 8 });
+      fireEvent.pointerUp(pill, { clientX: 160, clientY: 600, pointerId: 8 });
+      // A slow phone still replanning: the click comes two seconds later.
+      vi.setSystemTime(Date.now() + 2000);
+      fireEvent.click(pill, { detail: 1 });
+      expect(document.querySelector(".bubble")).toBeNull();
+      // The next tap on it opens as usual.
+      fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 9 });
+      fireEvent.pointerUp(pill, { clientX: 10, clientY: 110, pointerId: 9 });
+      fireEvent.click(pill, { detail: 1 });
+      expect(document.querySelector(".bubble")).toBeTruthy();
+    });
+
     it("keeps short taps as taps and early movement as a scroll", () => {
       render(<App fixedNow={NOW} initial={demoData} />);
       const pill = future();
