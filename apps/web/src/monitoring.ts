@@ -10,10 +10,16 @@ let capture: Capture | null = null;
 let waiting: [unknown, Record<string, string> | undefined][] | null = null;
 const WAIT_MAX = 20;
 let loading = false;
+/** A start asked for while one was loading: it runs if that one fails. */
+let again = false;
 
 export async function startMonitoring(): Promise<void> {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn || capture || loading) return;
+  if (!dsn || capture) return;
+  if (loading) {
+    again = true;
+    return;
+  }
   waiting ??= [];
   loading = true;
   try {
@@ -23,6 +29,11 @@ export async function startMonitoring(): Promise<void> {
   } finally {
     loading = false;
   }
+  if (again && !capture) {
+    again = false;
+    await startMonitoring();
+  }
+  again = false;
 }
 
 async function load(dsn: string) {

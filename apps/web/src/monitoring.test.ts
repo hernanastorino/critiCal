@@ -49,6 +49,25 @@ describe("monitoring", () => {
     vi.unstubAllEnvs();
   });
 
+  it("retries when the connection came back while a failing start was loading", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    const m = await import("./monitoring.js");
+    const early = new Error("queued");
+    m.reportError(early);
+    const first = m.startMonitoring();
+    // «online» fires while the first start is still loading.
+    void m.startMonitoring();
+    m.reportError(early);
+    await first;
+    expect(sentry.captureException).toHaveBeenCalledWith(early, undefined);
+    vi.unstubAllEnvs();
+  });
+
   it("reports errors without personal data once configured", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
     vi.resetModules();
