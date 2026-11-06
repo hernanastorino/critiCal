@@ -54,10 +54,12 @@ async function revokeGoogle(
   deletePlan: boolean,
 ): Promise<SyncError | null> {
   const { uid, user, admin } = caller;
-  const { data: refresh } = await admin.rpc("get_oauth_token", {
+  const { data: refresh, error } = await admin.rpc("get_oauth_token", {
     p_user: uid,
     p_provider: "google",
   });
+  // Unknown is not "not connected": deleting now would lose the token still to revoke.
+  if (error) throw error;
   if (typeof refresh !== "string" || !refresh) return null;
   let token: string;
   try {
@@ -91,10 +93,13 @@ async function revokeGoogle(
   }
   // Revokes the refresh token and every access token of the grant. An already revoked
   // token answers 400, which is just as done.
-  await fetch("https://oauth2.googleapis.com/revoke", {
+  const res = await fetch("https://oauth2.googleapis.com/revoke", {
     method: "POST",
+    signal: AbortSignal.timeout(10_000),
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({ token: refresh }),
   });
+  // Anything else (rate limits, outages) leaves the grant alive: keep the token to retry.
+  if (!res.ok && res.status !== 400) return new SyncError("google_revoke_failed", res.status);
   return null;
 }

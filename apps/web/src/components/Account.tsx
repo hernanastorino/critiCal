@@ -14,6 +14,7 @@ const ERRORS: Record<string, string> = {
   google_api_error:
     "Google no dejó borrar el calendario «📚 Plan». No se borró nada: probá de nuevo.",
   token_refresh_failed: "Google no respondió. No se borró nada: probá de nuevo.",
+  google_revoke_failed: "Google no respondió. No se borró nada: probá de nuevo.",
   unreachable: "Sin conexión. No se borró nada: probá de nuevo cuando tengas internet.",
 };
 

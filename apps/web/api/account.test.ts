@@ -131,6 +131,32 @@ describe("account", () => {
     expect(rpc).not.toHaveBeenCalledWith("delete_account", expect.anything());
   });
 
+  it("deletes nothing when Google cannot revoke the grant", async () => {
+    stubGoogle();
+    const calls: string[] = [];
+    const google = globalThis.fetch;
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      calls.push(url);
+      return url.includes("/revoke") ? new Response(null, { status: 503 }) : google(url, init);
+    });
+    const res = await handle(req({ action: "delete" }), env);
+    expect(res.status).toBe(502);
+    expect(await res.json()).toMatchObject({ ok: false, error: "google_revoke_failed" });
+    expect(rpc).not.toHaveBeenCalledWith("delete_account", expect.anything());
+  });
+
+  it("deletes nothing when the stored token cannot be read", async () => {
+    rpc.mockImplementation(async (name: string) =>
+      name === "get_oauth_token"
+        ? { data: null, error: new Error("db down") }
+        : { data: null, error: null },
+    );
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await handle(req({ action: "delete" }), env);
+    expect(res.status).toBe(500);
+    expect(rpc).not.toHaveBeenCalledWith("delete_account", expect.anything());
+  });
+
   it("works without a Google connection", async () => {
     rpc.mockImplementation(async () => ({ data: null, error: null }));
     const calls = stubGoogle();
