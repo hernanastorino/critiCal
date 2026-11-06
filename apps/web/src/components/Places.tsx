@@ -200,8 +200,9 @@ function MinutesInput({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    if (draft !== null && draft !== "" && Number(draft) >= 0 && Number(draft) !== value)
-      onCommit(Number(draft));
+    // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
+    const n = Math.min(1440, Math.round(Number(draft?.replace(",", "."))));
+    if (draft !== null && /^\s*\d+(?:[.,]\d+)?\s*$/.test(draft) && n !== value) onCommit(n);
     setDraft(null);
   };
   return (

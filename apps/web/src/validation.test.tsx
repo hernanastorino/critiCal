@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { exportJson, parseBackup } from "./backup.js";
 import {
   ActivitySettings,
+  DetectedDefaults,
   isFigure,
   Routines,
   RuleSettings,
@@ -11,7 +12,7 @@ import {
 import { Settings } from "./components/Settings.js";
 import { demoData } from "./demo.js";
 import type { AppData } from "./model.js";
-import { StoreProvider, useStore } from "./store.js";
+import { reducer, StoreProvider, useStore } from "./store.js";
 import { validRoutine } from "./subjects.js";
 
 afterEach(cleanup);
@@ -191,5 +192,92 @@ describe("backup and Hoy", () => {
     fireEvent.click(button);
     fireEvent.click(button);
     expect((latest?.planHistory?.length ?? 0) - before).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("second round of the attacker", () => {
+  it("caps the hours for detected events and refuses non-figures", () => {
+    renderWith(<DetectedDefaults />);
+    const [hours] = screen.getAllByLabelText(/^Horas de/);
+    fireEvent.change(hours as HTMLElement, { target: { value: "1e3" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(screen.getByRole("alert").textContent).toMatch(/solo cifras/);
+    fireEvent.change(hours as HTMLElement, { target: { value: "2000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(latest?.preferences?.importDefaults?.parcial?.estimate).toBe(200 * 60);
+    roundTrips();
+  });
+
+  it("keeps a typed travel time to whole minutes within a day", () => {
+    const d = demoData(Date.now());
+    const set = (minutes: number) =>
+      reducer(d, {
+        type: "travelTime",
+        from: "a",
+        to: "b",
+        minutes,
+        now: Date.now(),
+      }).travelTimes?.at(-1)?.minutes;
+    expect(set(12.5)).toBe(13);
+    expect(set(1e9)).toBe(1440);
+    expect(set(-4)).toBe(0);
+  });
+
+  it("refuses a hand-edited deadline or a backwards window in a backup", () => {
+    const d = demoData(Date.now());
+    const bad = (patch: Partial<AppData>) =>
+      parseBackup(exportJson({ ...d, ...patch } as AppData, Date.now()));
+    const task = d.tasks[0] as AppData["tasks"][number];
+    expect(
+      bad({ tasks: [{ ...task, deadline: "mañana" as never }, ...d.tasks.slice(1)] }),
+    ).toHaveProperty("error");
+    expect(bad({ tasks: [{ ...task, sessionsPerWeek: 1e7 }, ...d.tasks.slice(1)] })).toHaveProperty(
+      "error",
+    );
+    const act = d.activities[0] as AppData["activities"][number];
+    expect(
+      bad({
+        activities: [{ ...act, preferred: { start: 900, end: 100 } }, ...d.activities.slice(1)],
+      }),
+    ).toHaveProperty("error");
+    expect(
+      bad({ activities: [{ ...act, maxSessionMinutes: 0 }, ...d.activities.slice(1)] }),
+    ).toHaveProperty("error");
+  });
+
+  it("keeps a dinner after midnight on the same day when going to bed late", () => {
+    renderWith(<WeekSettings />);
+    fireEvent.change(screen.getByLabelText("Me acuesto"), { target: { value: "01:30" } });
+    fireEvent.change(screen.getByLabelText("Cena"), { target: { value: "00:45" } });
+    fireEvent.change(screen.getByLabelText("Nada de estudio desde"), {
+      target: { value: "00:30" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
+    const day = latest?.settings.week[1];
+    expect(day?.meals.find((m) => m.kind === "cena")?.start).toBe(1440 + 45);
+    expect(day?.freeFrom).toBe(1440 + 30);
+    roundTrips();
+  });
+
+  it("reads a decimal comma instead of dropping it, and refuses hexadecimal", () => {
+    renderWith(<RuleSettings />);
+    fireEvent.change(screen.getByLabelText("Margen antes de cada evento (min)"), {
+      target: { value: "15,5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar reglas" }));
+    expect(latest?.settings.travelMarginMinutes).toBe(16);
+    expect(isFigure("0x10")).toBe(false);
+  });
+
+  it("does not add a second routine with the same name", () => {
+    renderWith(<Routines />);
+    const name = screen.getByPlaceholderText("Gimnasio");
+    fireEvent.change(name, { target: { value: "Nadar" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
+    fireEvent.change(name, { target: { value: " nadar " } });
+    expect(
+      (screen.getByRole("button", { name: "Agregar rutina" }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(screen.getByText("Ya hay una materia o rutina con ese nombre.")).toBeTruthy();
   });
 });

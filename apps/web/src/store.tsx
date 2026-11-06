@@ -554,7 +554,9 @@ function apply(data: AppData, action: Action): AppData {
       const others = (data.travelTimes ?? []).filter(
         (t) => !(t.from === action.from && t.to === action.to),
       );
-      const time = { from: action.from, to: action.to, minutes: action.minutes, manual: true };
+      const minutes = Math.min(1440, Math.max(0, Math.round(action.minutes)));
+      if (!Number.isFinite(minutes)) return data;
+      const time = { from: action.from, to: action.to, minutes, manual: true };
       return refresh({ ...data, travelTimes: [...others, time] }, now);
     }
     case "classTitle": {

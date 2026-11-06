@@ -45,14 +45,31 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   const validUnit = (u: unknown) =>
     isObject(u) && str(u.id) && str(u.title) && num(u.estimateMinutes);
+  // An instant Date can represent (toISOString would throw otherwise).
+  const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
+  const opt = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
+  // A hand-edited deadline («mañana») would blank Silos on every visit.
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
     str(t.activityId) &&
     Array.isArray(t.units) &&
-    t.units.every(validUnit);
-  // An instant Date can represent (toISOString would throw otherwise).
-  const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
+    t.units.every(validUnit) &&
+    opt(t.deadline, instant) &&
+    opt(t.estimateMinutes, (v) => between(v, 0, 100_000)) &&
+    opt(t.minMinutes, (v) => between(v, 0, 100_000)) &&
+    opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
+    opt(t.sessionMinutes, (v) => between(v, 1, 1440));
+  const validActivity = (a: unknown) =>
+    isObject(a) &&
+    str(a.id) &&
+    opt(a.maxSessionMinutes, (v) => between(v, 1, 1440)) &&
+    opt(a.minBlockMinutes, (v) => between(v, 1, 1440)) &&
+    opt(
+      a.preferred,
+      (p) =>
+        isObject(p) && minute(p.start) && minute(p.end) && (p.end as number) > (p.start as number),
+    );
   const validCheckIn = (c: unknown) =>
     isObject(c) &&
     str(c.id) &&
@@ -232,6 +249,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     // A colour goes into style attributes: only #rrggbb. A materia needs a name to be told apart.
     !(d.activities as unknown[]).every(
       (a) =>
+        validActivity(a) &&
         isObject(a) &&
         str(a.id) &&
         typeof a.name === "string" &&

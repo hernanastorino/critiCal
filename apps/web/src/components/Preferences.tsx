@@ -17,13 +17,15 @@ const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
 /** A whole number of minutes within [min, max] from a field, or undefined if not one. */
-const clampMinutes = (v: string, min: number, max: number) => {
-  const n = Math.round(Number(v));
-  return v.trim() !== "" && Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : undefined;
-};
-
 /** A plain non-negative figure as typed in a form («2», «1,5»): no letters, signs or exponents. */
 export const isFigure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
+
+// «3,5» reads as 3.5; «0x10» or «1e2» are not figures.
+const clampMinutes = (v: string, min: number, max: number) => {
+  if (!isFigure(v)) return undefined;
+  const n = Math.round(Number(v.replace(",", ".")));
+  return Number.isFinite(n) ? Math.min(max, Math.max(min, n)) : undefined;
+};
 
 const toHours = (m: number) => String(Math.round((m / 60) * 100) / 100);
 const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
@@ -78,12 +80,19 @@ export function WeekSettings() {
       return;
     }
     setError(null);
+    // Going to bed after midnight: what comes after midnight belongs to the same day
+    // (dinner at 00:45 is 24:45, not this morning).
+    const late = (m: number) => (bed < wake && m < wake ? m + 1440 : m);
     const day: DaySettings = {
       wake,
       morningMinutes: clampMinutes(form.morning, 0, 240) ?? 0,
       bed,
-      meals,
-      freeFrom: hhmmToMinutes(form.freeFrom),
+      meals: meals.map((m) => ({
+        ...m,
+        start: late(m.start),
+        end: late(m.start) + (m.end - m.start),
+      })),
+      freeFrom: late(hhmmToMinutes(form.freeFrom)),
     };
     const week = data.settings.week.map((d, i) => (days.includes(i) ? day : d));
     dispatch({ type: "settings", settings: { ...data.settings, week } });
@@ -306,6 +315,7 @@ export function DetectedDefaults() {
       ]),
     ),
   );
+  const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   return (
     <Section>
@@ -346,9 +356,19 @@ export function DetectedDefaults() {
         className="btn primary"
         style={{ width: "100%" }}
         onClick={() => {
+          const typed = KINDS.flatMap(({ kind }) => [
+            form[kind]?.estimate ?? "0",
+            form[kind]?.min ?? "0",
+          ]);
+          if (!typed.every(isFigure)) {
+            setError("Revisá las horas: solo cifras, sin letras ni signos.");
+            return;
+          }
+          setError(null);
           const importDefaults = Object.fromEntries(
             KINDS.map(({ kind }) => {
-              const estimate = fromHours(form[kind]?.estimate ?? "0");
+              // At most 200 h: more would not even fit a backup.
+              const estimate = Math.min(200 * 60, fromHours(form[kind]?.estimate ?? "0"));
               return [
                 kind,
                 {
@@ -365,6 +385,11 @@ export function DetectedDefaults() {
       >
         {saved ? "Guardado ✓" : "Guardar"}
       </button>
+      {error && (
+        <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+          {error}
+        </p>
+      )}
       <button
         type="button"
         className="btn"
@@ -452,6 +477,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             <span>Nombre</span>
             <input
               aria-label="Nombre de la materia"
+              maxLength={60}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
@@ -579,6 +605,10 @@ export function Routines() {
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
   const [detail, setDetail] = useState<AppTask | null>(null);
+  // Two «Nadar» would be told apart by nothing.
+  const repeated = data.activities.some(
+    (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase(),
+  );
   const [editing, setEditing] = useState<AppTask | null>(null);
   return (
     <Section>
@@ -621,7 +651,12 @@ export function Routines() {
       <div className="row fields">
         <label className="field" style={{ flex: 2 }}>
           <span>Rutina</span>
-          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Gimnasio" />
+          <input
+            value={name}
+            maxLength={60}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Gimnasio"
+          />
         </label>
         <label className="field" style={{ flex: 1 }}>
           <span>Veces/sem.</span>
@@ -636,7 +671,7 @@ export function Routines() {
         type="button"
         className="btn"
         style={{ width: "100%" }}
-        disabled={!name.trim() || !validRoutine(Number(times), Number(minutes))}
+        disabled={!name.trim() || repeated || !validRoutine(Number(times), Number(minutes))}
         onClick={() => {
           dispatch({
             type: "saveRoutine",
@@ -649,6 +684,9 @@ export function Routines() {
       >
         Agregar rutina
       </button>
+      {repeated && name.trim() && (
+        <p className="meta">Ya hay una materia o rutina con ese nombre.</p>
+      )}
     </Section>
   );
 }
