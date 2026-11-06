@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { demoData } from "./demo.js";
-import { deadlineInRange } from "./limits.js";
+import { dateYearInRange, deadlineInRange } from "./limits.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -22,6 +22,20 @@ describe("deadline range", () => {
     expect(deadlineInRange(Date.UTC(9999, 11, 31), NOW)).toBe(false);
     expect(deadlineInRange(Date.UTC(1999, 0, 1), NOW)).toBe(false);
     expect(deadlineInRange(Number.NaN, NOW)).toBe(false);
+  });
+
+  it("goes by the year as written, so 1/1 after the last year is out in any zone", () => {
+    expect(dateYearInRange("2031-12-31", NOW)).toBe(true);
+    expect(dateYearInRange("2031-12-31T23:59", NOW)).toBe(true);
+    expect(dateYearInRange("2032-01-01", NOW)).toBe(false);
+    expect(dateYearInRange("1999-12-31", NOW)).toBe(false);
+    expect(dateYearInRange("275760-09-13", NOW)).toBe(false);
+    expect(dateYearInRange("", NOW)).toBe(false);
+  });
+
+  it("does not save 1/1 of the year after the limit", () => {
+    const sheet = newDeliverable("2032-01-01T00:30");
+    expect(within(sheet).getByRole("alert")).toBeTruthy();
   });
 
   function newDeliverable(deadline: string) {

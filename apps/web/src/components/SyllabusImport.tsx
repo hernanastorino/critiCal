@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { zonedInstant } from "../engine.js";
-import { deadlineInRange } from "../limits.js";
+import { dateYearInRange, deadlineInRange } from "../limits.js";
 import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
@@ -76,7 +76,8 @@ export function SyllabusImport() {
   const { data, now, dispatch } = useStore();
   /** A date the plan can use: present and in a sane range (not year 9999). */
   const usable = (date: string) => {
-    if (!date) return false;
+    // By the date as written: 1/1 of the year after the limit is out, in any zone.
+    if (!dateYearInRange(date, now)) return false;
     try {
       return deadlineInRange(zonedInstant(data.settings.timezone, date, 12 * 60), now);
     } catch {

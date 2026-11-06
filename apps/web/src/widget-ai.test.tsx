@@ -99,7 +99,7 @@ describe("syllabus import", () => {
     expect(screen.getByText(/falta la fecha/)).toBeTruthy();
     // A date beyond what the plan (or JavaScript) can hold asks to be checked, and is not created.
     const date = screen.getByLabelText("Fecha de Primer parcial");
-    for (const far of ["9999-12-31", "275760-09-13"]) {
+    for (const far of [`${new Date().getUTCFullYear() + 6}-01-01`, "9999-12-31", "275760-09-13"]) {
       fireEvent.change(date, { target: { value: far } });
       expect(screen.getByText(/revisá la fecha/)).toBeTruthy();
       expect((screen.getByText("Crear") as HTMLButtonElement).disabled).toBe(true);

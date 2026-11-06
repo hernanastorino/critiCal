@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { minutesToHhmm } from "../format.js";
-import { deadlineInRange, deadlineMaxYear } from "../limits.js";
+import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
 
@@ -50,7 +50,7 @@ export function TaskEditor({
 
   const save = () => {
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
-    if (due !== undefined && !deadlineInRange(due, now)) {
+    if (due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now))) {
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
       return;
     }

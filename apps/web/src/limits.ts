@@ -19,3 +19,12 @@ export const deadlineMaxYear = (now: number) =>
 export function deadlineInRange(at: number, now: number): boolean {
   return Number.isFinite(at) && at >= DEADLINE_MIN && at < Date.UTC(deadlineMaxYear(now) + 1, 0, 2);
 }
+
+/**
+ * A typed calendar date ("2031-12-31", "2031-12-31T23:59") whose year the plan accepts:
+ * 2000 to `deadlineMaxYear`, by the date as written, whatever the time zone.
+ */
+export function dateYearInRange(value: string, now: number): boolean {
+  const year = Number(/^(\d{4,6})-\d{2}-\d{2}/.exec(value)?.[1]);
+  return year >= 2000 && year <= deadlineMaxYear(now);
+}
