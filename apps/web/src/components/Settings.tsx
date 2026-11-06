@@ -5,6 +5,7 @@ import { holidaysBetween } from "../holidays.js";
 import { useStore } from "../store.js";
 import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
+import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
@@ -99,6 +100,7 @@ export function Settings({
         <Semester />
         <Routines />
         <SyllabusImport />
+        <GeminiKey />
         <WeekSettings />
         <RuleSettings />
         <ActivitySettings />
