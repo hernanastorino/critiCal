@@ -215,7 +215,8 @@ export function Settings({
   const rows = useRef(new Map<PageId, HTMLButtonElement>());
   /** Where the list was scrolled when a screen opened, to come back to it. */
   const listScroll = useRef(0);
-  const opened = useRef<PageId | null>(null);
+  // Opened straight on a screen (a meal's «Mi semana»): Back still lands on its row.
+  const opened = useRef<PageId | null>(initialPage ?? null);
 
   const open = (id: PageId) => {
     listScroll.current = sheet.current?.scrollTop ?? 0;

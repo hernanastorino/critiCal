@@ -114,6 +114,8 @@ describe("meals on the calendar", () => {
     // Straight to «Mi semana», where meal times are set.
     expect(screen.getByRole("dialog", { name: "Mi semana" })).toBeTruthy();
     expect(document.activeElement?.classList.contains("settings-back")).toBe(true);
+    fireEvent.click(document.activeElement as HTMLElement);
+    expect(document.activeElement?.textContent).toContain("Mi semana");
   });
 });
 
