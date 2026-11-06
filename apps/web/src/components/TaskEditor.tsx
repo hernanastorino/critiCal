@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { minutesToHhmm } from "../format.js";
 import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
+import { useModal } from "./modal.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -49,6 +50,9 @@ export function TaskEditor({
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [habitError, setHabitError] = useState<string | null>(null);
+
+  const sheet = useRef<HTMLDivElement>(null);
+  const justOpened = useModal(sheet, onClose);
 
   const save = () => {
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
@@ -111,8 +115,18 @@ export function TaskEditor({
 
   return (
     <>
-      <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
+      {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}
+      <button
+        type="button"
+        className="scrim dim"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => {
+          if (!justOpened()) onClose();
+        }}
+      />
       <div
+        ref={sheet}
         className="sheet"
         role="dialog"
         aria-modal="true"
