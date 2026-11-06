@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { minutesToHhmm } from "../format.js";
+import { DEADLINE_YEARS_AHEAD, deadlineInRange } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
 
@@ -9,8 +10,10 @@ const toLocalInput = (tz: string, t: number) => {
   return `${p.date}T${minutesToHhmm(p.minuteOfDay)}`;
 };
 
+/** NaN for a cleared or malformed field. */
 const fromLocalInput = (tz: string, v: string) => {
-  const [date, hhmm] = v.split("T") as [string, string];
+  const [date, hhmm] = v.split("T");
+  if (!date || !hhmm || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return Number.NaN;
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
   return zonedInstant(tz, date, h * 60 + m);
 };
@@ -43,8 +46,16 @@ export function TaskEditor({
   const [isExam, setIsExam] = useState(!!task?.exam);
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
+  const [deadlineError, setDeadlineError] = useState<string | null>(null);
 
   const save = () => {
+    const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
+    if (due !== undefined && !deadlineInRange(due, now)) {
+      setDeadlineError(
+        `Elegí una fecha entre el año 2000 y ${new Date(now).getUTCFullYear() + DEADLINE_YEARS_AHEAD}.`,
+      );
+      return;
+    }
     let actId = activityId;
     let activity: Activity | undefined;
     if (actId === "new") {
@@ -67,7 +78,7 @@ export function TaskEditor({
       activityId: actId,
       title: title.trim() || "Sin título",
       kind,
-      deadline: kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined,
+      deadline: due,
       estimateMinutes:
         kind === "habit"
           ? Number(sessions) * Number(sessionMin)
@@ -154,9 +165,20 @@ export function TaskEditor({
               <input
                 type="datetime-local"
                 value={deadline}
-                onChange={(e) => setDeadline(e.target.value)}
+                min="2000-01-01T00:00"
+                max={`${new Date(now).getUTCFullYear() + DEADLINE_YEARS_AHEAD}-12-31T23:59`}
+                aria-invalid={deadlineError ? true : undefined}
+                onChange={(e) => {
+                  setDeadline(e.target.value);
+                  setDeadlineError(null);
+                }}
               />
             </label>
+            {deadlineError && (
+              <p className="meta" role="alert">
+                {deadlineError}
+              </p>
+            )}
             <label className="check">
               <input
                 type="checkbox"

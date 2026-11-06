@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
+import { zonedInstant } from "../engine.js";
+import { deadlineInRange } from "../limits.js";
 import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
@@ -71,7 +73,10 @@ function HoursInput({
 /** Cargar un programa en PDF: Gemini propone unidades y evaluaciones; nada se crea sin OK. */
 export function SyllabusImport() {
   const sync = useSync();
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
+  /** A date the plan can use: present and in a sane range (not year 9999). */
+  const usable = (date: string) =>
+    !!date && deadlineInRange(zonedInstant(data.settings.timezone, date, 12 * 60), now);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -105,7 +110,7 @@ export function SyllabusImport() {
   const confirm = (d: Draft) => {
     const hours = new Map(d.units.filter((u) => u.keep).map((u) => [u.title, u.hours]));
     const assessments: PlannedAssessment[] = d.assessments
-      .filter((a) => a.keep && a.date)
+      .filter((a) => a.keep && usable(a.date))
       .map((a) => ({
         title: a.title.trim() || "Evaluación",
         kind: a.kind,
@@ -243,7 +248,8 @@ export function SyllabusImport() {
               </label>
               <p className="meta">
                 {covered(a).length ? `Abarca: ${covered(a).join(", ")}` : "Sin unidades: "}
-                {!a.date && a.keep ? " · falta la fecha" : ""}
+                {a.keep && !a.date ? " · falta la fecha" : ""}
+                {a.keep && a.date && !usable(a.date) ? " · revisá la fecha" : ""}
               </p>
               {covered(a).length === 0 && (
                 <div className="check">
@@ -267,7 +273,7 @@ export function SyllabusImport() {
             <button
               type="button"
               className="btn primary"
-              disabled={!draft.assessments.some((a) => a.keep && a.date)}
+              disabled={!draft.assessments.some((a) => a.keep && usable(a.date))}
               onClick={() => confirm(draft)}
             >
               Crear

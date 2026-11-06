@@ -81,7 +81,7 @@ describe("syllabus import", () => {
                 {
                   title: "Primer parcial",
                   kind: "parcial",
-                  date: "2099-09-20",
+                  date: `${new Date().getUTCFullYear() + 1}-09-20`,
                   hours: 0,
                   units: ["Electrostática", "Circuitos"],
                 },
