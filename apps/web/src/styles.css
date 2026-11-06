@@ -1459,6 +1459,8 @@ input[type="datetime-local"] {
   align-items: center;
   gap: 2px;
   font-size: 12px;
+  /* Short labels («feriado») stay whole: the sheet's anywhere-wrapping is for long names. */
+  overflow-wrap: normal;
 }
 
 .week-bar .bar {
