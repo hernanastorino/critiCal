@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Connected } from "./Connected.js";
 import { GeminiKey } from "./components/GeminiKey.js";
@@ -54,5 +54,31 @@ describe("own Gemini key", () => {
     expect(screen.queryByText(/Usás la clave de critiCal/)).toBeNull();
     fireEvent.click(screen.getByText("Volver a probar"));
     expect(await screen.findByText(/Usás tu propia clave de Gemini/)).toBeTruthy();
+  });
+
+  it("ignores an older status answer that arrives after a newer one", async () => {
+    const db = client();
+    const pending: ((r: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string) =>
+        String(url).includes("/api/syllabus")
+          ? new Promise<Response>((resolve) => pending.push(resolve))
+          : Promise.resolve(Response.json({ connected: true })),
+      ),
+    );
+    render(
+      <Connected client={db} session={{ user: { id: "u" } } as never}>
+        <GeminiKey />
+      </Connected>,
+    );
+    await waitFor(() => expect(pending.length).toBe(1));
+    await act(async () => pending[0]?.(new Response("down", { status: 500 })));
+    fireEvent.click(await screen.findByText("Volver a probar"));
+    fireEvent.click(screen.getByText("Volver a probar"));
+    await waitFor(() => expect(pending.length).toBe(3));
+    await act(async () => pending[2]?.(Response.json({ ok: true, own: true, fallback: true })));
+    await act(async () => pending[1]?.(Response.json({ ok: true, own: false, fallback: true })));
+    expect(screen.getByText(/Usás tu propia clave de Gemini/)).toBeTruthy();
   });
 });

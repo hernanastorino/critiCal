@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
 
@@ -17,12 +17,15 @@ export function GeminiKey() {
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Only the latest question's answer counts: an older one arriving late is ignored.
+  const latest = useRef(0);
   /** Reads which key is in use; returns a cancel for effects. */
   const load = useCallback(() => {
     if (!client) return undefined;
     let cancelled = false;
+    const asked = ++latest.current;
     void geminiKey(client, "key_status").then((r) => {
-      if (cancelled) return;
+      if (cancelled || asked !== latest.current) return;
       // Unknown, not "the app's key": the user may well have one stored.
       if (!r.ok) {
         setOwn(null);
