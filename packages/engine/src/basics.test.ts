@@ -233,6 +233,25 @@ describe("buildSlots", () => {
       [{ ...out, meal: "almuerzo" }],
     ).filter((m) => m.date === "2026-11-02");
     expect(withOut.map((m) => m.kind)).toEqual(["desayuno", "cena"]);
+    // Also when it is far from lunchtime, but only on its own day.
+    const late = { start: at("2026-11-02", "17:00"), end: at("2026-11-02", "18:00") };
+    const lateLunch = placeMeals(
+      odd,
+      [],
+      from,
+      at("2026-11-04", "00:00"),
+      [late],
+      [{ ...late, meal: "almuerzo" }],
+    );
+    expect(lateLunch.filter((m) => m.date === "2026-11-02").map((m) => m.kind)).toEqual([
+      "desayuno",
+      "cena",
+    ]);
+    expect(lateLunch.filter((m) => m.date === "2026-11-03").map((m) => m.kind)).toEqual([
+      "desayuno",
+      "almuerzo",
+      "cena",
+    ]);
   });
 
   it("frees the preferred meal slot when the meal moves", () => {

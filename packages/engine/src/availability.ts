@@ -106,8 +106,8 @@ export type MealEvent = Interval & { meal?: MealKind };
 
 /**
  * The day's meals placed one after the other, each around the fixed events and the
- * meals already placed (so two meals never overlap). A meal that an event near its
- * time already is (`meal` of the same kind) is left out.
+ * meals already placed (so two meals never overlap). A meal that an event of that
+ * day already is (`meal` of the same kind) is left out.
  */
 function placeDayMeals(
   window: DayWindow,
@@ -115,14 +115,11 @@ function placeDayMeals(
   eaten: readonly MealEvent[],
 ): MealTime[] {
   const taken: Interval[] = [...busy];
-  const near = (pref: Interval) => ({
-    start: pref.start - MEAL_RANGE,
-    end: pref.end + MEAL_RANGE,
-  });
+  // An event that is the meal, anywhere in the day (waking to bedtime), replaces it.
+  const out = (kind?: MealKind) =>
+    !!kind && eaten.some((e) => e.meal === kind && e.start < window.bedAt && window.wakeAt < e.end);
   return window.meals.flatMap(({ kind, ...preferred }) => {
-    const around = near(preferred);
-    const out = (e: MealEvent) => !!kind && e.meal === kind;
-    if (eaten.some((e) => out(e) && e.start < around.end && around.start < e.end)) return [];
+    if (out(kind)) return [];
     const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, kind === "desayuno");
     if (at) taken.push(at);
     return [{ date: window.date, ...(kind ? { kind } : {}), preferred, at }];
