@@ -1,4 +1,5 @@
 import { buildSlots } from "./availability.js";
+import { overlaps } from "./intervals.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
 import { travelBuffers } from "./travel.js";
 import { type CalendarEvent, type Interval, MINUTE, type Task } from "./types.js";
@@ -235,17 +236,17 @@ function when(timeZone: string, instant: number): string {
   return f.format(instant).replace(",", "");
 }
 
-/**
- * Where an event could go instead: the awake, non-free-time stretch closest to its
- * time, within a week either side, after now, that neither the plan nor any other event
- * uses.
- */
 /** Where `event` could go instead: the free time closest to it within a week. */
 export function moveSpot(input: ScheduleInput, event: CalendarEvent): Interval | null {
   const without = { ...input, events: input.events.filter((x) => x.id !== event.id) };
   return freeSpot(without, schedule(without), event);
 }
 
+/**
+ * Where an event could go instead: the awake, non-free-time stretch closest to its
+ * time, within a week either side, after now, that neither the plan nor any other event
+ * uses, nor the trips to and from it there.
+ */
 function freeSpot(
   input: ScheduleInput,
   result: ScheduleResult,
@@ -255,17 +256,28 @@ function freeSpot(
   const week = 7 * 1440 * MINUTE;
   const from = Math.max(input.now, event.start - week);
   const to = Math.min(input.horizonEnd, event.start + week);
-  // The trips to the other events are taken too, as schedule() counts them.
   const others = input.events.filter((e) => e.id !== event.id);
-  const busy: Interval[] = [
+  const travel = input.travel;
+  const trips = travel ? travelBuffers(others, travel).busy : [];
+  const taken: Interval[] = [
     ...input.events.filter((e) => e.busy && !e.allDay),
-    ...(input.travel ? travelBuffers(others, input.travel).busy : []),
     ...result.blocks,
     ...(input.frozen ?? []),
   ];
-  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, busy).filter(
-    (s) => !s.soft,
-  );
+  // The trips to the other events are taken too, as schedule() counts them.
+  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, [
+    ...taken,
+    ...trips,
+  ]).filter((s) => !s.soft);
+  // The event's own trips there must fit too. Not checked against the other trips:
+  // placing the event may change those very trips.
+  const tripsFit = (spot: Interval) => {
+    if (!travel) return true;
+    const own = travelBuffers([...others, { ...event, ...spot }], travel).busy.filter(
+      (t) => !trips.some((b) => b.start === t.start && b.end === t.end),
+    );
+    return own.every((t) => t.start >= input.now && !taken.some((b) => overlaps(b, t)));
+  };
   let best: Interval | null = null;
   for (let i = 0; i < slots.length; i++) {
     const first = slots[i] as (typeof slots)[number];
@@ -283,8 +295,8 @@ function freeSpot(
     if (end - first.start < length) continue;
     const spot = { start: first.start, end: first.start + length };
     if (spot.start === event.start) continue;
-    if (!best || Math.abs(spot.start - event.start) < Math.abs(best.start - event.start))
-      best = spot;
+    if (best && Math.abs(spot.start - event.start) >= Math.abs(best.start - event.start)) continue;
+    if (tripsFit(spot)) best = spot;
   }
   return best;
 }
