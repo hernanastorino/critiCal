@@ -18,8 +18,8 @@ afterEach(cleanup);
 
 describe("fixed settings", () => {
   it("edits the weekly routine for the chosen days", () => {
-    fireEvent.click(screen.getByLabelText("Día S"));
-    fireEvent.click(screen.getByLabelText("Día L"));
+    fireEvent.click(screen.getByLabelText("sábado"));
+    fireEvent.click(screen.getByLabelText("lunes"));
     fireEvent.change(screen.getByLabelText("Arreglarse, traslado (min)"), {
       target: { value: "45" },
     });
@@ -51,10 +51,10 @@ describe("fixed settings", () => {
   });
 
   it("drops a meal whose duration is zero and keeps at least one day selected", () => {
-    for (const d of ["L", "M", "J", "V"])
-      fireEvent.click(screen.getAllByLabelText(`Día ${d}`)[0] as HTMLElement);
-    fireEvent.click(screen.getAllByLabelText("Día M")[1] as HTMLElement);
-    expect(screen.getAllByLabelText("Día M")[1]?.getAttribute("aria-pressed")).toBe("true");
+    for (const d of ["lunes", "martes", "jueves", "viernes"])
+      fireEvent.click(screen.getByLabelText(d));
+    fireEvent.click(screen.getByLabelText("miércoles"));
+    expect(screen.getByLabelText("miércoles").getAttribute("aria-pressed")).toBe("true");
     const [breakfastMin, , dinnerMin] = screen.getAllByLabelText("Dura (min)");
     fireEvent.change(dinnerMin as HTMLElement, { target: { value: "0" } });
     fireEvent.change(breakfastMin as HTMLElement, { target: { value: "0" } });

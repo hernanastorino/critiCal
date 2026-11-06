@@ -9,6 +9,8 @@ import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
+/** For VoiceOver: two «M» would read alike. */
+const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 // Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).
@@ -77,7 +79,7 @@ export function WeekSettings() {
             key={d}
             type="button"
             aria-pressed={days.includes(d)}
-            aria-label={`Día ${DAYS[d]}`}
+            aria-label={DAY_NAMES[d]}
             className={`chip${days.includes(d) ? " on" : ""}`}
             onClick={() => pick(d)}
           >

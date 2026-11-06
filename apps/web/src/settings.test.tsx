@@ -86,6 +86,35 @@ describe("Ajustes as a grouped list", () => {
   });
 });
 
+describe("Ajustes as a modal", () => {
+  it("takes the focus, keeps the screen behind out of reach, and Escape goes back then closes", () => {
+    const onClose = vi.fn();
+    const { container } = render(
+      <StoreProvider initial={withHome} persist={false}>
+        <div className="app">
+          <button type="button">Detrás</button>
+          <Settings onClose={onClose} />
+        </div>
+      </StoreProvider>,
+    );
+    expect(screen.getByText("Detrás").inert).toBe(true);
+    expect(document.activeElement?.textContent).toBe("Ajustes");
+    const dialog = screen.getByRole("dialog", { name: "Ajustes" });
+    fireEvent.click(screen.getByRole("button", { name: /Reglas/ }));
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: "Escape" });
+    expect(screen.getByRole("dialog", { name: "Ajustes" })).toBe(dialog);
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(dialog, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledOnce();
+    // The backdrop is for taps only: no second «Cerrar» for VoiceOver or Tab.
+    expect(container.querySelector(".scrim")?.getAttribute("tabindex")).toBe("-1");
+    expect(screen.getAllByRole("button", { name: "Cerrar" })).toHaveLength(1);
+    expect(
+      screen.getAllByRole("button", { name: "Volver a Ajustes", hidden: true }).length,
+    ).toBeGreaterThan(0);
+  });
+});
+
 describe("Ajustes for a signed-in account", () => {
   function client(owner: boolean) {
     const ok = Promise.resolve({ data: [], error: null });

@@ -479,6 +479,8 @@ textarea {
 }
 
 .sheet {
+  /* A name of 200 letters with no spaces wraps instead of pushing the sheet sideways. */
+  overflow-wrap: anywhere;
   overflow-x: hidden;
   touch-action: pan-y;
   overscroll-behavior: contain;

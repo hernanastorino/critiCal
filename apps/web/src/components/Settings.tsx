@@ -209,8 +209,30 @@ export function Settings({
   const wake = wakeEdit ?? defaultWake;
   const bed = bedEdit ?? defaultBed;
 
-  const [page, setPage] = useState<PageId | null>(initialPage ?? null);
   const sheet = useRef<HTMLDivElement>(null);
+  const [page, setPage] = useState<PageId | null>(initialPage ?? null);
+  // A real modal: the screen behind is inert while Ajustes is open, and focus comes back
+  // to whatever opened it (the gear) on closing.
+  useEffect(() => {
+    const el = sheet.current;
+    const behind = el?.parentElement
+      ? [...el.parentElement.children].filter(
+          (c): c is HTMLElement =>
+            c instanceof HTMLElement && c !== el && !c.classList.contains("scrim"),
+        )
+      : [];
+    const was = behind.map((c) => c.inert);
+    for (const c of behind) c.inert = true;
+    const opener = document.activeElement as HTMLElement | null;
+    if (!initialPage)
+      el?.querySelector<HTMLElement>(".settings-list h2")?.focus({ preventScroll: true });
+    return () => {
+      behind.forEach((c, i) => {
+        c.inert = was[i] ?? false;
+      });
+      opener?.focus?.({ preventScroll: true });
+    };
+  }, [initialPage]);
   const back = useRef<HTMLButtonElement>(null);
   const rows = useRef(new Map<PageId, HTMLButtonElement>());
   /** Where the list was scrolled when a screen opened, to come back to it. */
@@ -362,11 +384,24 @@ export function Settings({
 
   return (
     <>
-      <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
+      {/* Tapping outside closes; for the keyboard and VoiceOver there is ✕ and Escape. */}
+      <button
+        type="button"
+        className="scrim dim"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={onClose}
+      />
       <div
         ref={sheet}
         className="sheet settings"
         role="dialog"
+        onKeyDown={(e) => {
+          if (e.key !== "Escape") return;
+          e.preventDefault();
+          if (page) close();
+          else onClose();
+        }}
         aria-modal="true"
         aria-label={current ? current.title : "Ajustes"}
       >
@@ -375,7 +410,7 @@ export function Settings({
         </button>
 
         <div className="settings-list" hidden={!!page} inert={!!page}>
-          <h2>Ajustes</h2>
+          <h2 tabIndex={-1}>Ajustes</h2>
           <Notices onOpen={open} />
 
           <div className="card today">
@@ -483,6 +518,7 @@ export function Settings({
               ref={page === p.id ? back : undefined}
               type="button"
               className="settings-back"
+              aria-label="Volver a Ajustes"
               onClick={close}
             >
               <ChevronLeft /> Ajustes
