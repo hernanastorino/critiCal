@@ -24,14 +24,21 @@ export function useModal(
 
   useEffect(() => {
     const el = sheet.current;
-    const behind = el?.parentElement
-      ? [...el.parentElement.children].filter(
-          (c): c is HTMLElement =>
-            c instanceof HTMLElement && c !== el && !c.classList.contains("scrim"),
-        )
-      : [];
-    const was = behind.map((c) => c.inert);
-    for (const c of behind) c.inert = true;
+    const parent = el?.parentElement;
+    /** Each sibling's own inert value, restored on closing. */
+    const was = new Map<HTMLElement, boolean>();
+    const cover = () => {
+      for (const c of parent ? [...parent.children] : []) {
+        if (!(c instanceof HTMLElement) || c === el || c.classList.contains("scrim")) continue;
+        if (c.getAttribute("role") === "dialog") continue; // another sheet on top stays usable
+        if (!was.has(c)) was.set(c, c.inert);
+        c.inert = true;
+      }
+    };
+    cover();
+    // A notification can switch tabs behind the sheet: what mounts then is covered too.
+    const observer = parent ? new MutationObserver(cover) : undefined;
+    if (parent) observer?.observe(parent, { childList: true });
     const opener = document.activeElement as HTMLElement | null;
     if (focusFirst) el?.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
     // On the document, so Escape works even after a tap left focus on the page.
@@ -43,9 +50,8 @@ export function useModal(
     document.addEventListener("keydown", onKey);
     return () => {
       document.removeEventListener("keydown", onKey);
-      behind.forEach((c, i) => {
-        c.inert = was[i] ?? false;
-      });
+      observer?.disconnect();
+      for (const [c, inert] of was) c.inert = inert;
       const to = opener?.isConnected && opener !== document.body ? opener : back.current?.();
       to?.focus({ preventScroll: true });
     };

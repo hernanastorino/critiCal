@@ -91,7 +91,7 @@ describe("Ajustes as a grouped list", () => {
 });
 
 describe("Ajustes as a modal", () => {
-  it("takes the focus, keeps the screen behind out of reach, and Escape goes back then closes", () => {
+  it("takes the focus, keeps the screen behind out of reach, and Escape goes back then closes", async () => {
     const onClose = vi.fn();
     const { container } = render(
       <StoreProvider initial={withHome} persist={false}>
@@ -102,6 +102,10 @@ describe("Ajustes as a modal", () => {
       </StoreProvider>,
     );
     expect(screen.getByText("Detrás").inert).toBe(true);
+    // What mounts behind while it is open (a notification switching tabs) is covered too.
+    const late = document.createElement("div");
+    container.querySelector(".app")?.appendChild(late);
+    await waitFor(() => expect(late.inert).toBe(true));
     expect(document.activeElement?.textContent).toBe("Ajustes");
     const dialog = screen.getByRole("dialog", { name: "Ajustes" });
     fireEvent.click(screen.getByRole("button", { name: /Reglas/ }));
