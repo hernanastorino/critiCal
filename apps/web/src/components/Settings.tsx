@@ -236,7 +236,7 @@ export function Settings({
     sheet,
     () => (page ? close() : onClose()),
     !initialPage,
-    () => document.querySelector<HTMLElement>('[aria-label="Ajustes"]'),
+    () => document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
   );
 
   // Focus follows the screen: «Ajustes» on a section, its row again on the way back.

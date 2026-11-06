@@ -87,7 +87,9 @@ export function useModal(
       if (!wasTop) return;
       const usable = (n: HTMLElement | null | undefined) =>
         !!n && n.isConnected && n !== document.body && !n.closest("[inert]");
-      const to = usable(opener) ? opener : back.current?.();
+      // With another sheet still open, focus goes back into it.
+      const below = stack[stack.length - 1]?.sheet.querySelector<HTMLElement>("h2");
+      const to = usable(opener) ? opener : (below ?? back.current?.());
       to?.focus({ preventScroll: true });
     };
   }, [sheet, focusFirst]);

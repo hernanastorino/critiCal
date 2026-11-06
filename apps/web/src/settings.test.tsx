@@ -145,6 +145,10 @@ describe("sheets on top of each other", () => {
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(closeWeekly).toHaveBeenCalledOnce();
     expect(closeSettings).not.toHaveBeenCalled();
+    // The plan closes over Settings: focus goes back into Settings.
+    rerender(view(false));
+    expect(settings.contains(document.activeElement)).toBe(true);
+    rerender(view(true));
     // Settings closes under the plan: the screen behind stays covered.
     rerender(view(true, false));
     expect(screen.getByText("Detrás", { selector: "button" }).inert).toBe(true);
