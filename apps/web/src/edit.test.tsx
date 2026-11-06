@@ -138,7 +138,7 @@ describe("pins", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it("refuses a second pin with the same id", () => {
+  it("drops onto another pin exactly and gives that one back to the plan", () => {
     const d = start();
     const [a, b] = d.plan.filter(
       (x) => x.start > NOW && x.taskId === d.plan.find((y) => y.start > NOW)?.taskId,
@@ -146,8 +146,46 @@ describe("pins", () => {
     expect(a && b).toBeTruthy();
     const target = (b?.start ?? 0) + 24 * 3_600_000;
     const once = reducer(d, { type: "pin", blockId: a?.id as string, start: target, now: NOW });
-    expect(reducer(once, { type: "pin", blockId: b?.id as string, start: target, now: NOW })).toBe(
-      once,
+    // Same task, same slot: the new pin takes the place, the old one is planned again.
+    const twice = reducer(once, { type: "pin", blockId: b?.id as string, start: target, now: NOW });
+    expect(twice.pins?.map((p) => p.start)).toEqual([target]);
+    expect(twice.plan.filter((x) => x.start < target + 1 && x.end > target)).toHaveLength(1);
+    // Half an hour later still overlaps: the earlier pin goes back to the plan too.
+    const c = d.plan.find((x) => x.start > NOW && x.taskId !== a?.taskId);
+    const shifted = reducer(once, {
+      type: "pin",
+      blockId: c?.id as string,
+      start: target + 30 * 60_000,
+      now: NOW,
+    });
+    expect(shifted.pins?.map((p) => p.start)).toEqual([target + 30 * 60_000]);
+    for (const x of shifted.plan.filter((y) => y.id !== shifted.pins?.[0]?.id && y.end > NOW)) {
+      expect(x.end <= target + 30 * 60_000 || x.start >= (shifted.pins?.[0]?.end ?? 0)).toBe(true);
+    }
+  });
+
+  it("keeps a pin already under way when another lands on it", () => {
+    const d = start();
+    const [a, b] = d.plan.filter((x) => x.start > NOW);
+    const pinned = reducer(d, {
+      type: "pin",
+      blockId: a?.id as string,
+      start: a?.start as number,
+      now: NOW,
+    });
+    const running = (a?.start as number) + 60_000;
+    const over = reducer(
+      { ...pinned, plan: pinned.plan },
+      {
+        type: "pin",
+        blockId: b?.id as string,
+        start: (a?.start as number) + 30 * 60_000,
+        now: running,
+      },
+    );
+    // Both stay: the running one is frozen, the new one lands where it was dropped.
+    expect(over.pins?.map((p) => p.start).sort()).toEqual(
+      [a?.start as number, (a?.start as number) + 30 * 60_000].sort(),
     );
   });
 
@@ -394,6 +432,143 @@ describe("edit mode", () => {
     const pin = saved.pins?.[0];
     expect(pin).toBeTruthy();
     expect((pin?.end ?? 0) <= clash.start || (pin?.start ?? 0) >= clash.end).toBe(true);
+  });
+
+  it("drops exactly on a flexible event and offers to move the event", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const gym = {
+      id: "gym",
+      title: "Gym #flex",
+      start: zonedInstant(tz, "2026-11-05", 720),
+      end: zonedInstant(tz, "2026-11-05", 840),
+      busy: true,
+      source: "demo" as const,
+    };
+    const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const { x, y } = spot(initial(NOW), at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 4 });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins?.[0]?.start).toBe(at);
+    expect(
+      screen.getByText(/Quedó sobre Gym #flex: en la Bandeja te propongo moverlo/),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByText("Bandeja"));
+    expect(screen.getByText(/Está sobre Gym #flex, que se puede mover/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Mover Gym #flex" }));
+    const moved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    const move = moved.movedEvents?.[0];
+    expect(move?.eventId).toBe("gym");
+    // Off the pin, which stays where it was dropped.
+    expect((move?.end ?? 0) <= at || (move?.start ?? 0) >= (moved.pins?.[0]?.end ?? 0)).toBe(true);
+    expect(moved.pins?.[0]?.start).toBe(at);
+    expect(screen.queryByText(/Está sobre Gym/)).toBeNull();
+    expect(screen.getByText("Para mover en tu calendario")).toBeTruthy();
+  });
+
+  it("drops exactly on another pin, gives it back to the plan and undoes both", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const tz = d.settings.timezone;
+    const [a, b] = d.plan.filter((x) => x.start > NOW && x.taskId !== d.plan[0]?.taskId);
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const first = reducer(d, { type: "pin", blockId: a?.id as string, start: at, now: NOW });
+    render(<App fixedNow={NOW} initial={() => first} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
+    const pill = screen.getByLabelText(`${title}, ${time(tz, b?.start as number)}`);
+    const { x, y } = spot(d, at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
+    // The pin under it is shown as about to move.
+    expect(screen.getByLabelText(/, fijado$/).classList.contains("displaced")).toBe(true);
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 7 });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins?.map((p) => [p.taskId, p.start])).toEqual([[b?.taskId, at]]);
+    expect(screen.getByText(/volvió al plan/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    const undone = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(undone.pins?.map((p) => [p.taskId, p.start])).toEqual([[a?.taskId, at]]);
+  });
+
+  it("drops the undo of a freed pin once the plan changes again", () => {
+    const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const tz = d.settings.timezone;
+    const [a, b] = d.plan.filter((x) => x.start > NOW && x.taskId !== d.plan[0]?.taskId);
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const first = reducer(d, { type: "pin", blockId: a?.id as string, start: at, now: NOW });
+    render(<App fixedNow={NOW} initial={() => first} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
+    const pill = screen.getByLabelText(`${title}, ${time(tz, b?.start as number)}`);
+    const { x, y } = spot(d, at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 7 });
+    expect(screen.getByRole("button", { name: "Deshacer" })).toBeTruthy();
+    // A replan after it: its undo would take back the replan, not the drop.
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
+  });
+
+  it("does not promise to move a flexible event already under way", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const at = zonedInstant(tz, "2026-11-05", 750);
+    const gym = {
+      id: "gym",
+      title: "Gym #flex",
+      start: NOW - 3_600_000,
+      end: at + 3 * 3_600_000,
+      busy: true,
+      source: "demo" as const,
+    };
+    const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const { x, y } = spot(initial(NOW), at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 4 });
+    expect(screen.getByText(/Quedó sobre Gym #flex: revisá el choque en la Bandeja/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Bandeja"));
+    expect(screen.getByText(/Choca con Gym #flex/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Mover Gym #flex" })).toBeNull();
+  });
+
+  it("does not promise to move a flexible event with nowhere to go", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const at = zonedInstant(tz, "2026-11-07", 750);
+    // Longer than any waking day: there is no spot for it.
+    const trip = {
+      id: "trip",
+      title: "Paseo #flex",
+      start: zonedInstant(tz, "2026-11-07", 360),
+      end: zonedInstant(tz, "2026-11-07", 360) + 20 * 3_600_000,
+      busy: true,
+      source: "demo" as const,
+    };
+    const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, trip] });
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const { x, y } = spot(initial(NOW), at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 4 });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins?.[0]?.start).toBe(at);
+    expect(
+      screen.getByText(/Quedó sobre Paseo #flex: revisá el choque en la Bandeja/),
+    ).toBeTruthy();
+    // Its undo goes too once the plan changes again.
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
   });
 
   it("drops over the plan's blocks, warns when a minimum breaks and undoes it", () => {

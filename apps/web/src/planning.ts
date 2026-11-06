@@ -5,12 +5,14 @@ import {
   type CalendarEvent,
   type DaySettings,
   effortRatio,
+  type Interval,
   infeasibilityOptions,
   localParts,
   type Meal,
   type MealKind,
   type MealTime,
   MINUTE,
+  moveSpot,
   overlaps,
   type PlanBlock,
   type PlanOption,
@@ -29,7 +31,7 @@ import {
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppTask, CheckIn, Proposal } from "./model.js";
+import type { AppData, AppEvent, AppTask, CheckIn, Proposal } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -401,15 +403,31 @@ export function pinBlock(block: PlanBlock, start: number): PlanBlock {
   };
 }
 
-/** Upcoming pins that a calendar event now overlaps; they stay until the user acts. */
-export function pinClashes(data: AppData, now: number) {
+/**
+ * Upcoming pins that a calendar event now overlaps; they stay until the user acts. A
+ * flexible event under a pin comes with `moveTo`, the free time closest to it, to
+ * propose moving the event instead.
+ */
+export function pinClashes(
+  data: AppData,
+  now: number,
+  planned?: ScheduleInput,
+): { pin: PlanBlock; event: AppEvent; moveTo?: Interval }[] {
   const busy = visibleEvents(data).filter((e) => e.busy && !e.allDay);
   // Pins of paused, skipped or ended silos are not on the plan, so they cannot clash.
   const running = new Set(data.tasks.filter((t) => isRunning(t, now)).map((t) => t.id));
-  return (data.pins ?? []).flatMap((pin) => {
+  const clashes = (data.pins ?? []).flatMap((pin) => {
     if (!running.has(pin.taskId)) return [];
     const event = pin.end > now ? busy.find((e) => overlaps(e, pin)) : undefined;
     return event ? [{ pin, event }] : [];
+  });
+  if (!clashes.some((c) => c.event.flexible && c.event.start > now)) return clashes;
+  const input = planned ?? refreshPlan(data, now).input;
+  return clashes.map((c) => {
+    if (!c.event.flexible || c.event.start <= now) return c;
+    const event = input.events.find((e) => e.id === c.event.id);
+    const moveTo = event && moveSpot(input, event);
+    return moveTo ? { ...c, moveTo } : c;
   });
 }
 
