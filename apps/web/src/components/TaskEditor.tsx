@@ -4,6 +4,7 @@ import { minutesToHhmm } from "../format.js";
 import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
+import { validRoutine } from "../subjects.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -47,6 +48,7 @@ export function TaskEditor({
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  const [habitError, setHabitError] = useState<string | null>(null);
 
   const save = () => {
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
@@ -54,6 +56,15 @@ export function TaskEditor({
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
       return;
     }
+    // A routine's habit keeps Rutinas' limits, or its backup could not be restored.
+    const routine = data.activities.find((a) => a.id === activityId)?.kind === "rutina";
+    if (kind === "habit" && routine && !validRoutine(Number(sessions), Number(sessionMin))) {
+      setHabitError(
+        "Una rutina va de 1 a 14 veces por semana, hasta 6 h por vez y 40 h por semana.",
+      );
+      return;
+    }
+    setHabitError(null);
     let actId = activityId;
     let activity: Activity | undefined;
     if (actId === "new") {
@@ -335,6 +346,11 @@ export function TaskEditor({
             Guardar
           </button>
         </div>
+        {habitError && (
+          <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+            {habitError}
+          </p>
+        )}
       </div>
     </>
   );

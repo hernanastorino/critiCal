@@ -163,6 +163,25 @@ describe("habits from the editor", () => {
   });
 });
 
+describe("a routine edited in the editor", () => {
+  it("keeps Rutinas' limits, so its backup still restores", () => {
+    renderWith(<Routines />);
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Remo" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Remo, 3 por semana/ }));
+    fireEvent.click(screen.getByText("Editar"));
+    const editor = screen.getByRole("dialog", { name: "Editar" });
+    const minutes = within(editor)
+      .getAllByRole("textbox")
+      .find((i) => (i as HTMLInputElement).value === "60");
+    fireEvent.change(minutes as HTMLElement, { target: { value: "400" } });
+    fireEvent.click(within(editor).getByRole("button", { name: "Guardar" }));
+    expect(within(editor).getByRole("alert").textContent).toMatch(/hasta 6 h por vez/);
+    expect(latest?.tasks.find((t) => t.title === "Remo")?.sessionMinutes).toBe(60);
+    roundTrips();
+  });
+});
+
 describe("Rutinas", () => {
   it("caps a routine at what a week can hold", () => {
     expect(validRoutine(3, 60)).toBe(true);
