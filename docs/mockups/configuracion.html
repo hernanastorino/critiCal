@@ -507,15 +507,26 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
       enter(root, sub);
     };
   }
+  // A modal sheet: what is behind it is inert, Escape closes it, focus comes back.
   function sheetNav(sheet, scrim) {
+    const views = [...sheet.parentElement.querySelectorAll(".view")];
     let trigger = null;
-    const close = () => { sheet.classList.remove("on"); scrim.classList.remove("on"); if (trigger) trigger.focus({ preventScroll: true }); };
+    let before = [];
+    const close = () => {
+      if (!sheet.classList.contains("on")) return;
+      sheet.classList.remove("on"); scrim.classList.remove("on");
+      views.forEach((v, i) => { v.inert = before[i]; });
+      if (trigger) trigger.focus({ preventScroll: true });
+    };
     scrim.onclick = close;
+    sheet.addEventListener("keydown", (e) => { if (e.key === "Escape") close(); });
     return (k, from) => {
       trigger = from || null;
       sheet.innerHTML = `<div class="grab"></div><div class="inner"><div class="nav"><h3 class="large" style="font-size:22px">${S[k].t}</h3><button class="done" type="button" data-close>Cerrar</button></div>${S[k].body}</div>`;
       sheet.setAttribute("aria-label", S[k].t);
       sheet.querySelector("[data-close]").onclick = close;
+      before = views.map((v) => v.inert);
+      views.forEach((v) => { v.inert = true; });
       sheet.scrollTop = 0; sheet.classList.add("on"); scrim.classList.add("on");
       sheet.querySelector("[data-close]").focus({ preventScroll: true });
     };
