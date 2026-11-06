@@ -200,6 +200,30 @@ export async function geminiKey(
   }
 }
 
+export type AccountResult = { ok: true } | { ok: false; error: string; status?: number };
+
+/** «Revocar todo» (`revoke`) or that and deleting the account with all its data (`delete`). */
+export async function closeAccount(
+  client: SupabaseClient,
+  action: "revoke" | "delete",
+  deletePlan: boolean,
+): Promise<AccountResult> {
+  try {
+    const { data } = await client.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return { ok: false, error: "unauthorized" };
+    const res = await fetch("/api/account", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ action, deletePlan }),
+    });
+    const body = (await res.json().catch(() => null)) as AccountResult | { error?: string } | null;
+    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "failed" };
+  } catch {
+    return { ok: false, error: "unreachable" };
+  }
+}
+
 export function syncICloud(
   client: SupabaseClient,
   body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},

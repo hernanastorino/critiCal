@@ -164,9 +164,9 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Privacidad y cuenta
 
-- Link a la política de privacidad (`privacy.html`) en Ajustes y en la pantalla de login. (Hoy existe la página, pero la app no la enlaza).
+- ✅ Link a la política de privacidad (`privacy.html`) en Ajustes y en la pantalla de login.
 - Los permisos (notificaciones, ubicación, fotos, archivos) se piden solo al usar la función que los necesita y explicando para qué, nunca al abrir la app. (Hoy ya se cumple).
-- **Revocar todo y borrar la cuenta** en Ajustes, en un solo lugar y con un paso de confirmación escribiendo algo: revoca los tokens de Google, borra la contraseña de iCloud del Vault, borra el calendario «📚 Plan» si el usuario quiere y elimina la cuenta con todos sus datos. Ofrece antes exportar el JSON. (Hoy solo existe «Desconectar iCloud»).
+- ✅ **Revocar todo y borrar la cuenta** en Ajustes, en un solo lugar y con un paso de confirmación escribiendo «BORRAR»: revoca los tokens de Google, borra la contraseña de iCloud y la clave de Gemini del Vault, borra el calendario «📚 Plan» si el usuario quiere (viene marcado) y elimina la cuenta con todos sus datos y su invitación. Ofrece antes exportar el JSON. La cuenta dueña no se puede borrar (se quedaría la app sin quien maneje las invitaciones): solo revoca.
 
 ### Consistencia visual
 

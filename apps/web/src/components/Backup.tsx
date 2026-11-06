@@ -1,9 +1,20 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
-import { CRITICAL } from "../model.js";
+import { type AppData, CRITICAL } from "../model.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
+
+/** Saves everything as a JSON file named after today. */
+export function downloadJson(data: AppData, now: number) {
+  const blob = new Blob([exportJson(data, now)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `critical-${localParts(data.settings.timezone, now).date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
 
 /** Download everything as JSON, or replace everything with a downloaded file. */
 export function Backup() {
@@ -11,15 +22,7 @@ export function Backup() {
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
 
-  const download = () => {
-    const blob = new Blob([exportJson(data, now)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `critical-${localParts(data.settings.timezone, now).date}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+  const download = () => downloadJson(data, now);
 
   const restore = async (f: File) => {
     const parsed = parseBackup(await f.text());
