@@ -75,8 +75,15 @@ export function SyllabusImport() {
   const sync = useSync();
   const { data, now, dispatch } = useStore();
   /** A date the plan can use: present and in a sane range (not year 9999). */
-  const usable = (date: string) =>
-    !!date && deadlineInRange(zonedInstant(data.settings.timezone, date, 12 * 60), now);
+  const usable = (date: string) => {
+    if (!date) return false;
+    try {
+      return deadlineInRange(zonedInstant(data.settings.timezone, date, 12 * 60), now);
+    } catch {
+      // Beyond what a JavaScript date can hold (year 275760): not a date the plan can use.
+      return false;
+    }
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);

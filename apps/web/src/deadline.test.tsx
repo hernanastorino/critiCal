@@ -16,6 +16,9 @@ describe("deadline range", () => {
   it("accepts real dates up to five years ahead", () => {
     expect(deadlineInRange(NOW + 86_400_000, NOW)).toBe(true);
     expect(deadlineInRange(Date.UTC(2031, 9, 1), NOW)).toBe(true);
+    // The whole last year counts, as the date field's max says, in any time zone.
+    expect(deadlineInRange(Date.UTC(2032, 0, 1, 2, 59), NOW)).toBe(true);
+    expect(deadlineInRange(Date.UTC(2032, 1, 1), NOW)).toBe(false);
     expect(deadlineInRange(Date.UTC(9999, 11, 31), NOW)).toBe(false);
     expect(deadlineInRange(Date.UTC(1999, 0, 1), NOW)).toBe(false);
     expect(deadlineInRange(Number.NaN, NOW)).toBe(false);
@@ -33,7 +36,9 @@ describe("deadline range", () => {
 
   it("does not save year 9999, which the database cannot hold", () => {
     const sheet = newDeliverable("9999-12-31T23:59");
-    expect(within(sheet).getByRole("alert").textContent).toMatch(/entre el año 2000 y 2031/);
+    expect(within(sheet).getByRole("alert").textContent).toMatch(
+      /entre el 1\/1\/2000 y el 31\/12\/2031/,
+    );
     expect(screen.getByRole("dialog", { name: "Nueva actividad" })).toBe(sheet);
     expect(screen.queryByText(/Algo falló/)).toBeNull();
   });

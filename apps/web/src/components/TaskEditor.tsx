@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { minutesToHhmm } from "../format.js";
-import { DEADLINE_YEARS_AHEAD, deadlineInRange } from "../limits.js";
+import { deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
 
@@ -51,9 +51,7 @@ export function TaskEditor({
   const save = () => {
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     if (due !== undefined && !deadlineInRange(due, now)) {
-      setDeadlineError(
-        `Elegí una fecha entre el año 2000 y ${new Date(now).getUTCFullYear() + DEADLINE_YEARS_AHEAD}.`,
-      );
+      setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
       return;
     }
     let actId = activityId;
@@ -166,7 +164,7 @@ export function TaskEditor({
                 type="datetime-local"
                 value={deadline}
                 min="2000-01-01T00:00"
-                max={`${new Date(now).getUTCFullYear() + DEADLINE_YEARS_AHEAD}-12-31T23:59`}
+                max={`${deadlineMaxYear(now)}-12-31T23:59`}
                 aria-invalid={deadlineError ? true : undefined}
                 onChange={(e) => {
                   setDeadline(e.target.value);
