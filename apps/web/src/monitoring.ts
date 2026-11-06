@@ -3,14 +3,29 @@
 
 type Capture = (e: unknown, extra?: Record<string, string>) => void;
 let capture: Capture | null = null;
-/** Set while the SDK loads: reports wait here (a render error can come before it). */
+/**
+ * Reports made before the SDK is up (a render error can come first). Kept across a
+ * failed start, so a later try still sends them.
+ */
 let waiting: [unknown, Record<string, string> | undefined][] | null = null;
 const WAIT_MAX = 20;
+let loading = false;
 
 export async function startMonitoring(): Promise<void> {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn || capture || waiting) return;
-  waiting = [];
+  if (!dsn || capture || loading) return;
+  waiting ??= [];
+  loading = true;
+  try {
+    await load(dsn);
+  } catch {
+    // Offline, or blocked: the reports keep waiting for the next start.
+  } finally {
+    loading = false;
+  }
+}
+
+async function load(dsn: string) {
   const Sentry = await import("@sentry/browser");
   Sentry.init({
     dsn,

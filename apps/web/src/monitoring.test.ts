@@ -31,6 +31,24 @@ describe("monitoring", () => {
     vi.unstubAllEnvs();
   });
 
+  it("keeps the waiting reports when the start fails, and sends them on the next try", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    sentry.init.mockImplementationOnce(() => {
+      throw new Error("blocked");
+    });
+    const m = await import("./monitoring.js");
+    const first = m.startMonitoring();
+    const early = new Error("before Sentry");
+    m.reportError(early);
+    await first;
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    await m.startMonitoring();
+    expect(sentry.captureException).toHaveBeenCalledWith(early, undefined);
+    vi.unstubAllEnvs();
+  });
+
   it("reports errors without personal data once configured", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
     vi.resetModules();

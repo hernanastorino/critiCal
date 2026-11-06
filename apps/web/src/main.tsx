@@ -13,6 +13,8 @@ for (const type of ["gesturestart", "gesturechange"]) {
 }
 
 void startMonitoring();
+// A start that failed offline tries again when the connection is back.
+window.addEventListener("online", () => void startMonitoring());
 watchUpdates();
 
 const root = document.getElementById("root");
