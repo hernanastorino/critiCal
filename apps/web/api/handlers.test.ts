@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
+let invited = true;
+let inviteError: Error | null = null;
 const tables: Record<string, unknown> = {};
 const writes: { table: string; op: string; payload?: unknown }[] = [];
 
@@ -34,7 +36,11 @@ vi.mock("@supabase/supabase-js", () => ({
           ? { data: { user: { id: "u1" } }, error: null }
           : { data: { user: null }, error: new Error("bad") },
     },
-    rpc,
+    // Everyone in these tests is invited unless a test says otherwise.
+    rpc: (name: string, args: unknown) =>
+      name === "user_invited"
+        ? Promise.resolve({ data: inviteError ? null : invited, error: inviteError })
+        : rpc(name, args),
     from: query,
   }),
 }));
@@ -61,6 +67,8 @@ const req = (token?: string, body: object = {}) =>
   });
 
 beforeEach(() => {
+  invited = true;
+  inviteError = null;
   rpc.mockReset();
   writes.length = 0;
   for (const k of Object.keys(tables)) delete tables[k];
@@ -68,6 +76,18 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals());
 
 describe("server", () => {
+  it("turns away a signed-in account that is not invited", async () => {
+    invited = false;
+    const res = await google(req("good"), env);
+    expect(res.status).toBe(403);
+    expect(await res.json()).toEqual({ error: "not_invited" });
+    // The list could not be read: a server failure, not a refusal.
+    inviteError = new Error("db down");
+    const failed = await google(req("good"), env);
+    expect(failed.status).toBe(503);
+    expect(await failed.json()).toEqual({ error: "access_check_failed" });
+  });
+
   it("reads the environment itself, ignoring Vercel's extra argument", async () => {
     vi.stubEnv("SUPABASE_URL", "");
     vi.stubEnv("VITE_SUPABASE_URL", "");

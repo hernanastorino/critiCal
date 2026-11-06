@@ -127,6 +127,35 @@ describe("sending", () => {
   it("lists each subscribed user once", async () => {
     expect(await subscribedUsers(admin(tables, () => true).client)).toEqual(["u1"]);
   });
+
+  it("leaves out users no longer invited", async () => {
+    const client = {
+      from: () => ({
+        select: async () => ({ data: [{ user_id: "u1" }, { user_id: "gone" }], error: null }),
+      }),
+      rpc: async (_n: string, a: { p_user: string }) => ({ data: a.p_user !== "gone" }),
+    };
+    expect(await subscribedUsers(client as never)).toEqual(["u1"]);
+  });
+
+  it("tries a failed invitation lookup again, and never lets an unknown answer through", async () => {
+    const calls: string[] = [];
+    const client = {
+      from: () => ({
+        select: async () => ({ data: [{ user_id: "flaky" }, { user_id: "down" }], error: null }),
+      }),
+      rpc: async (_n: string, a: { p_user: string }) => {
+        calls.push(a.p_user);
+        const first = calls.filter((c) => c === a.p_user).length === 1;
+        if (a.p_user === "down" || first) return { data: null, error: new Error("busy") };
+        return { data: true, error: null };
+      },
+    };
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await subscribedUsers(client as never)).toEqual(["flaky"]);
+    expect(log).toHaveBeenCalledWith("push invited lookup", "down", expect.any(Error));
+    log.mockRestore();
+  });
 });
 
 describe("error reports", () => {

@@ -1,5 +1,5 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
-import { type ReactNode, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
@@ -109,6 +109,72 @@ function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void
   );
 }
 
+/**
+ * Invitation only: an account not on the owner's list sees why, instead of an empty
+ * app. Invited accounts never wait for the answer; when it cannot be had (offline),
+ * the app opens as usual and the database still keeps others' data out.
+ */
+export function InviteGate({
+  client,
+  session,
+  onSignOut,
+  children,
+}: {
+  client: SupabaseClient;
+  session: Session;
+  onSignOut: () => void;
+  children: React.ReactNode;
+}) {
+  const [blocked, setBlocked] = useState(false);
+  const uid = session.user?.id;
+  // Only the latest question's answer counts: an older one arriving late is ignored.
+  const latest = useRef(0);
+  /** Asks whether this account is invited; returns a cancel for effects. */
+  const check = useCallback(() => {
+    let cancelled = false;
+    const asked = ++latest.current;
+    void Promise.resolve()
+      .then(() => client.rpc("my_access"))
+      .then(({ data, error }) => {
+        const invited = (data as { invited?: boolean } | null)?.invited;
+        if (cancelled || asked !== latest.current) return;
+        if (!error && typeof invited === "boolean") setBlocked(!invited);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [client]);
+  // Asked for each account signed in, and again on coming back to the app: an
+  // invitation given or taken away meanwhile shows up.
+  useEffect(() => (uid ? check() : undefined), [check, uid]);
+  useEffect(() => {
+    const again = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    document.addEventListener("visibilitychange", again);
+    return () => document.removeEventListener("visibilitychange", again);
+  }, [check]);
+  if (!blocked) return <>{children}</>;
+  return (
+    <main className="login">
+      <img src="/icon-192.png" alt="" />
+      <h1>critiCal</h1>
+      <p>Esta app es por invitación.</p>
+      <p className="meta">
+        {session.user?.email ? `${session.user.email} no está invitado. ` : ""}Pedile a quien te
+        pasó la app que te agregue.
+      </p>
+      <button type="button" className="btn primary" onClick={() => void check()}>
+        Volver a probar
+      </button>
+      <button type="button" className="btn" onClick={onSignOut}>
+        Salir
+      </button>
+    </main>
+  );
+}
+
 /** Signed-in mode when Supabase is configured and there is a session. */
 function useSession(client: SupabaseClient | null): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>(client ? undefined : null);
@@ -149,21 +215,29 @@ export function App({
 
   if (client && session === undefined) return <main className="login" />;
   if (client && session) {
+    const signOut = () => {
+      // Nothing of this account stays on the device.
+      // Unsubscribe first, while the session can still delete the device's row.
+      // Bounded: a stalled request must not keep the account signed in.
+      const unsubscribe = disablePush(client).catch(() => undefined);
+      const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
+      void Promise.race([unsubscribe, timeout])
+        .then(() => clearLocal())
+        .then(() => client.auth.signOut());
+    };
     return (
-      <Connected client={client} session={session}>
-        <Shell
-          onSignOut={() => {
-            // Nothing of this account stays on the device.
-            // Unsubscribe first, while the session can still delete the device's row.
-            // Bounded: a stalled request must not keep the account signed in.
-            const unsubscribe = disablePush(client).catch(() => undefined);
-            const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
-            void Promise.race([unsubscribe, timeout])
-              .then(() => clearLocal())
-              .then(() => client.auth.signOut());
-          }}
-        />
-      </Connected>
+      // Another account signing in starts from scratch: nothing of the previous one
+      // (its data, its invitation list) stays on screen.
+      <InviteGate
+        key={session.user?.id ?? "me"}
+        client={client}
+        session={session}
+        onSignOut={signOut}
+      >
+        <Connected client={client} session={session}>
+          <Shell onSignOut={signOut} />
+        </Connected>
+      </InviteGate>
     );
   }
   if (mode === "login") {
