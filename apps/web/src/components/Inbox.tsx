@@ -14,6 +14,7 @@ import { PlaceSearch } from "./PlaceSearch.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
+/** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox() {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, dispatch } = useStore();
   const offline = !!useSync()?.status.offline;

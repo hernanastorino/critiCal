@@ -63,6 +63,7 @@ const clock = (m: number) => {
   return m % 60 === 0 ? `${h}` : `${h}:${String(m % 60).padStart(2, "0")}`;
 };
 
+/** The week view: the plan and the calendar day by day, with drag-and-drop to pin blocks. */
 export function Week({ onSettings }: { onSettings: () => void }) {
   const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;

@@ -157,6 +157,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
 
+/** Applies `action` and records a plan version for the ones that can be undone. */
 export function reducer(data: AppData, action: Action): AppData {
   const next = versioned(data, action, apply(data, action));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
@@ -171,6 +172,7 @@ export function reducer(data: AppData, action: Action): AppData {
   return { ...next, applied: pruneApplied(next.applied, (id) => moved.has(id)) };
 }
 
+/** The data after `action`, planned again where it changes the plan. */
 function apply(data: AppData, action: Action): AppData {
   const now = action.now;
   switch (action.type) {
@@ -929,6 +931,7 @@ export function useNow(intervalMs = 60_000, fixed?: number): number {
   return now;
 }
 
+/** Holds the app data and what is derived from it (plan verdict, inbox, clashes). */
 export function StoreProvider({
   initial,
   fixedNow,
