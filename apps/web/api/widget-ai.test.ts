@@ -434,7 +434,7 @@ describe("own Gemini key", () => {
     );
 
     const ok = await syllabus.handle(bearer("jwt", { action: "set_key", key: ` ${key} ` }), env);
-    expect(await ok.json()).toEqual({ ok: true, own: true });
+    expect(await ok.json()).toEqual({ ok: true, own: true, fallback: true });
     expect(rpc).toHaveBeenCalledWith("store_oauth_token", {
       p_user: "u1",
       p_provider: "gemini",
@@ -451,7 +451,7 @@ describe("own Gemini key", () => {
     expect(await busy.json()).toEqual({ ok: false, error: "gemini_busy" });
 
     const cleared = await syllabus.handle(bearer("jwt", { action: "clear_key" }), env);
-    expect(await cleared.json()).toEqual({ ok: true, own: false });
+    expect(await cleared.json()).toEqual({ ok: true, own: false, fallback: true });
     expect(rpc).toHaveBeenCalledWith("delete_oauth_token", { p_user: "u1", p_provider: "gemini" });
   });
 });

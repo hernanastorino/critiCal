@@ -54,7 +54,10 @@ export function GeminiKey() {
       setError(ERRORS[r.error] ?? "No se pudo guardar. Probá más tarde.");
       return;
     }
+    // A status answer still on its way is older than this change: it must not count.
+    latest.current++;
     setOwn(r.own);
+    if (r.fallback !== undefined) setFallback(r.fallback);
     setKey("");
   };
 

@@ -57,7 +57,9 @@ async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>
       p_user: caller.uid,
       p_provider: "gemini",
     });
-    return error ? json({ ok: false, error: "key_failed" }, 500) : json({ ok: true, own: false });
+    return error
+      ? json({ ok: false, error: "key_failed" }, 500)
+      : json({ ok: true, own: false, fallback: !!env.geminiKey });
   }
   const key = typeof body.key === "string" ? body.key.trim() : "";
   // Key formats change (AIza…, AQ.…): only junk is turned away here; Gemini decides.
@@ -70,7 +72,9 @@ async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>
     p_provider: "gemini",
     p_token: key,
   });
-  return error ? json({ ok: false, error: "key_failed" }, 500) : json({ ok: true, own: true });
+  return error
+    ? json({ ok: false, error: "key_failed" }, 500)
+    : json({ ok: true, own: true, fallback: !!env.geminiKey });
 }
 
 export async function handle(req: Request, env: Env, now = Date.now()): Promise<Response> {

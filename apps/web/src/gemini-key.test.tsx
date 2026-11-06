@@ -81,4 +81,56 @@ describe("own Gemini key", () => {
     await act(async () => pending[1]?.(Response.json({ ok: true, own: false, fallback: true })));
     expect(screen.getByText(/Usás tu propia clave de Gemini/)).toBeTruthy();
   });
+
+  it("does not let a status answer older than a saved key undo it", async () => {
+    const db = client();
+    const pending: ((r: Response) => void)[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((url: string, init: RequestInit = {}) => {
+        if (!String(url).includes("/api/syllabus"))
+          return Promise.resolve(Response.json({ connected: true }));
+        const { action } = JSON.parse(String(init.body ?? "{}")) as { action?: string };
+        if (action === "set_key")
+          return Promise.resolve(Response.json({ ok: true, own: true, fallback: true }));
+        return new Promise<Response>((resolve) => pending.push(resolve));
+      }),
+    );
+    render(
+      <Connected client={db} session={{ user: { id: "u" } } as never}>
+        <GeminiKey />
+      </Connected>,
+    );
+    await waitFor(() => expect(pending.length).toBe(1));
+    fireEvent.change(screen.getByLabelText("Clave de Gemini"), {
+      target: { value: "fake-gemini-key-that-works-0001" },
+    });
+    fireEvent.click(screen.getByText("Guardar"));
+    expect(await screen.findByText(/Usás tu propia clave de Gemini/)).toBeTruthy();
+    // The status asked before saving answers now, with the old state.
+    await act(async () => pending[0]?.(Response.json({ ok: true, own: false, fallback: true })));
+    expect(screen.getByText(/Usás tu propia clave de Gemini/)).toBeTruthy();
+    expect(screen.getByText("Quitar mi clave")).toBeTruthy();
+  });
+
+  it("says when there is no key at all after removing one's own", async () => {
+    const db = client();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (url: string, init: RequestInit = {}) => {
+        if (!String(url).includes("/api/syllabus")) return Response.json({ connected: true });
+        const { action } = JSON.parse(String(init.body ?? "{}")) as { action?: string };
+        return action === "clear_key"
+          ? Response.json({ ok: true, own: false, fallback: false })
+          : new Response("down", { status: 500 });
+      }),
+    );
+    render(
+      <Connected client={db} session={{ user: { id: "u" } } as never}>
+        <GeminiKey />
+      </Connected>,
+    );
+    fireEvent.click(await screen.findByText("Quitar mi clave"));
+    expect(await screen.findByText(/No hay clave de Gemini/)).toBeTruthy();
+  });
 });
