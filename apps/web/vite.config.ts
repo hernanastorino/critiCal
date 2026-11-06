@@ -53,5 +53,7 @@ export default defineConfig({
     environment: "jsdom",
     include: ["src/**/*.test.{ts,tsx}"],
     setupFiles: ["src/test-setup.ts"],
+    // A developer's .env.local (local Supabase, invented providers) must not change tests.
+    env: { VITE_SUPABASE_URL: "", VITE_SUPABASE_PUBLISHABLE_KEY: "", VITE_FAKE_PROVIDERS: "" },
   },
 });
