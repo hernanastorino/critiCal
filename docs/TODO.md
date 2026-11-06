@@ -12,10 +12,10 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué | Estado | Qué falta |
-| --- | --- | --- |
+| Qué                                                                      | Estado                          | Qué falta                                                                              |
+| ------------------------------------------------------------------------ | ------------------------------- | -------------------------------------------------------------------------------------- |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, rebasado sobre `main` | **No mergear** hasta que el usuario lo pida. Si `main` cambia `Settings.tsx`, rebasar. |
-| `docs/TODO.md` (este archivo) | PR `claude/todo` | Mergear cuando CI y CodeRabbit terminen. |
+| `docs/TODO.md` (este archivo)                                            | PR `claude/todo`                | Mergear cuando CI y CodeRabbit terminen.                                               |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
