@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { DEFAULTS } from "../calendars.js";
-import type { Activity, DaySettings } from "../engine.js";
+import type { Activity, DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
-import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
+import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
 import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 
@@ -25,7 +25,6 @@ export function WeekSettings() {
   const { data, dispatch } = useStore();
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const first = data.settings.week[days[0] ?? 1] as DaySettings;
-  const [lunch, dinner] = first.meals;
   const [form, setForm] = useState(() => formOf(first));
   const [saved, setSaved] = useState(false);
 
@@ -42,12 +41,15 @@ export function WeekSettings() {
   };
 
   const save = () => {
+    const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
+      kind,
+      start: hhmmToMinutes(at),
+      end: hhmmToMinutes(at) + Math.max(0, Number(minutes) || 0),
+    });
     const meals = [
-      { start: hhmmToMinutes(form.lunch), end: hhmmToMinutes(form.lunch) + Number(form.lunchMin) },
-      {
-        start: hhmmToMinutes(form.dinner),
-        end: hhmmToMinutes(form.dinner) + Number(form.dinnerMin),
-      },
+      meal("desayuno", form.breakfast, form.breakfastMin),
+      meal("almuerzo", form.lunch, form.lunchMin),
+      meal("cena", form.dinner, form.dinnerMin),
     ].filter((m) => m.end > m.start);
     const day: DaySettings = {
       wake: hhmmToMinutes(form.wake),
@@ -85,7 +87,9 @@ export function WeekSettings() {
       </div>
       <div className="grid2">
         <Field label="Me levanto" type="time" value={form.wake} onChange={set("wake")} />
-        <Field label="Desayuno, traslado (min)" value={form.morning} onChange={set("morning")} />
+        <Field label="Arreglarse, traslado (min)" value={form.morning} onChange={set("morning")} />
+        <Field label="Desayuno" type="time" value={form.breakfast} onChange={set("breakfast")} />
+        <Field label="Dura (min)" value={form.breakfastMin} onChange={set("breakfastMin")} />
         <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
         <Field label="Dura (min)" value={form.lunchMin} onChange={set("lunchMin")} />
         <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
@@ -101,7 +105,15 @@ export function WeekSettings() {
       <p className="meta">
         No se planifica nada antes de{" "}
         {minutesToHhmm(hhmmToMinutes(form.wake) + (Number(form.morning) || 0))}
-        {lunch || dinner ? "" : " (sin comidas cargadas)"}.
+        {[form.breakfastMin, form.lunchMin, form.dinnerMin].some((m) => Number(m) > 0)
+          ? ""
+          : " (sin comidas cargadas)"}
+        .
+      </p>
+      <p className="meta">
+        Nunca va estudio encima de una comida. Si un evento fijo o un bloque 📌 cae a esa hora, la
+        comida se corre sola al hueco más cercano, hasta 1 h 30 antes o después. Con duración 0 no
+        hay esa comida.
       </p>
       <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
         {saved
@@ -113,10 +125,15 @@ export function WeekSettings() {
 }
 
 function formOf(d: DaySettings) {
-  const [lunch, dinner] = d.meals;
+  const meals = mealsOf(d);
+  const [breakfast, lunch, dinner] = (["desayuno", "almuerzo", "cena"] as const).map((k) =>
+    meals.find((m) => m.kind === k),
+  );
   return {
     wake: minutesToHhmm(d.wake),
     morning: String(d.morningMinutes ?? 0),
+    breakfast: minutesToHhmm(breakfast?.start ?? d.wake),
+    breakfastMin: String(breakfast ? breakfast.end - breakfast.start : 0),
     lunch: minutesToHhmm(lunch?.start ?? 780),
     lunchMin: String(lunch ? lunch.end - lunch.start : 0),
     dinner: minutesToHhmm(dinner?.start ?? 1260),

@@ -39,6 +39,7 @@ import {
   decisions,
   endOfDay,
   endOfWeek,
+  missedMeals,
   pendingConfirmations,
   pinBlock,
   pinClashes,
@@ -914,6 +915,8 @@ interface Store {
   pinShort: ReturnType<typeof pinShortfall>;
   /** Upcoming pins a calendar event overlaps. */
   clashes: ReturnType<typeof pinClashes>;
+  /** Meals of the coming week with no room near their time. */
+  missedMeals: ReturnType<typeof missedMeals>;
   inboxCount: number;
 }
 
@@ -979,6 +982,7 @@ export function StoreProvider({
     );
     const pinShort = pinShortfall(data, now, r.result);
     const clashes = pinClashes(data, now, r.input);
+    const meals = missedMeals(data, now);
     return {
       data,
       now,
@@ -994,6 +998,7 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       clashes,
+      missedMeals: meals,
       inboxCount:
         (data.movedEvents?.length ?? 0) +
         (lateNight(data, now) ? 1 : 0) +
@@ -1004,6 +1009,7 @@ export function StoreProvider({
         unsortedActivities(data).length +
         (pinShort.short.length > 0 ? 1 : 0) +
         clashes.length +
+        meals.length +
         pending.length +
         data.proposals.length +
         d.options.length +

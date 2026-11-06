@@ -1,4 +1,4 @@
-import { buildSlots, type Slot } from "./availability.js";
+import { buildSlots, placeMeals, type Slot } from "./availability.js";
 import { addDays, localParts } from "./time.js";
 import { type TravelOptions, travelBuffers } from "./travel.js";
 import {
@@ -7,6 +7,7 @@ import {
   type DayOverride,
   type Interval,
   type Level,
+  type MealTime,
   MINUTE,
   type PlanBlock,
   type Settings,
@@ -37,6 +38,8 @@ export interface ScheduleResult {
   /** Every minimum fits. */
   feasible: boolean;
   unresolvedLocations: string[];
+  /** Meals from `now` to the horizon, where the plan left room for them. */
+  meals: MealTime[];
 }
 
 // Scoring weights, in "minutes of badness".
@@ -128,7 +131,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     ...frozen,
   ];
   const board = new Board(
-    buildSlots(settings, input.overrides ?? [], now, input.horizonEnd, busy),
+    buildSlots(settings, input.overrides ?? [], now, input.horizonEnd, busy, input.events),
     slotMinutes,
   );
   // Frozen work still counts towards each day's subject cap and per-task cap.
@@ -339,6 +342,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     status,
     feasible: status.every((s) => s.minDeficit === 0),
     unresolvedLocations: travel.unresolved,
+    meals: placeMeals(settings, input.overrides ?? [], now, input.horizonEnd, busy, input.events),
   };
 }
 

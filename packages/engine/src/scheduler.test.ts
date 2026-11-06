@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { buildSlots } from "./availability.js";
+import { buildSlots, MEAL_RANGE } from "./availability.js";
 import { overlaps } from "./intervals.js";
 import { infeasibilityOptions, moveSpot, recommendations, targetOptions } from "./options.js";
 import { assignable, type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
@@ -603,6 +603,65 @@ describe("schedule invariants", () => {
         expect(r.feasible).toBe(r.status.every((s) => s.minDeficit === 0));
       }),
       { numRuns: 60 },
+    );
+  });
+
+  // Three meals, events and pins on 30-min marks so they can land right on a meal.
+  const meals = settings.week.map((d) => ({
+    ...d,
+    meals: [
+      { kind: "desayuno" as const, start: 8 * 60 + 30, end: 9 * 60 },
+      { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
+      { kind: "cena" as const, start: 21 * 60, end: 21 * 60 + 30 },
+    ],
+  }));
+  const halfHours = (from: number, max: number) =>
+    fc.integer({ min: from, max }).map((x) => x * 30);
+  const arbFixed = fc.record({ start: halfHours(1, 300), length: halfHours(1, 6) });
+  const arbMealInput = fc
+    .tuple(arbInput, fc.array(arbFixed, { maxLength: 8 }), fc.array(arbFixed, { maxLength: 4 }))
+    .map(([input, events, pins]) => ({
+      ...input,
+      settings: { ...settings, week: meals },
+      events: [
+        ...input.events,
+        ...events.map((e, i) =>
+          ev(`m${i}`, now + e.start * MINUTE, now + (e.start + e.length) * MINUTE),
+        ),
+      ],
+      frozen: pins.map((p, i) => ({
+        id: `pin${i}`,
+        taskId: "pinned",
+        activityId: "mate",
+        start: now + p.start * MINUTE,
+        end: now + (p.start + p.length) * MINUTE,
+      })),
+    }));
+
+  it("never plans study on top of a meal, and meals only move around what is fixed", () => {
+    fc.assert(
+      fc.property(arbMealInput, (input) => {
+        const r = schedule(input);
+        const fixed = [...input.events.filter((e) => e.busy), ...(input.frozen ?? [])];
+        const placed = r.meals.flatMap((m) => (m.at ? [m] : []));
+        for (const m of placed) {
+          const at = m.at as { start: number; end: number };
+          // Never on top of study…
+          for (const b of r.blocks.filter((x) => !x.frozen)) expect(overlaps(b, at)).toBe(false);
+          // …nor of an event, a pin or another meal.
+          expect(fixed.some((f) => overlaps(f, at))).toBe(false);
+          for (const o of placed) if (o !== m) expect(overlaps(o.at as typeof at, at)).toBe(false);
+          // Same length, near its time (breakfast: near waking up, at 8:00 here).
+          expect(at.end - at.start).toBe(m.preferred.end - m.preferred.start);
+          const pref =
+            m.kind === "desayuno" ? Math.max(m.preferred.start, at.start) : m.preferred.start;
+          expect(Math.abs(at.start - pref)).toBeLessThanOrEqual(MEAL_RANGE);
+          // Untouched when nothing fixed is in the way.
+          if (!fixed.some((f) => overlaps(f, m.preferred)) && m.kind !== "desayuno")
+            expect(at).toEqual(m.preferred);
+        }
+      }),
+      { numRuns: 80 },
     );
   });
 

@@ -38,6 +38,7 @@ El plan es **dato derivado**: se puede recalcular entero en cualquier momento de
 - **Hábito**: gym, etc. Frecuencia semanal, duración, franja preferida, mínimo.
 - **Evento fijo**: viene del calendario (clases, cumpleaños, juntadas, familia).
 - **Evento tentativo**: reserva el lugar; el motor mantiene un plan B.
+- **Comidas**: desayuno, almuerzo y cena de cada día de la rutina, cada una con hora preferida y duración (0 = sin esa comida). Rutinas guardadas antes del desayuno (solo almuerzo y cena) toman un desayuno de 30 min al levantarse. Un evento cuyo título dice que es una comida («Almuerzo con la abuela») es esa comida ese día.
 - **Registro (append-only)**: por bloque, ✓ / ✗ / parcial + unidades completadas + timestamp. Nunca se edita, solo se agregan correcciones.
 - **Ajuste del día**: "me levanté a las X" / "me acuesto a las X".
 - **Lugares guardados**: casa, facu, gym, familia… con tiempos de viaje fijados a mano.
@@ -45,13 +46,14 @@ El plan es **dato derivado**: se puede recalcular entero en cualquier momento de
 
 ## 4. Parámetros fijos (configurables)
 
-Sueño (hora de acostarse/levantarse), almuerzo y cena, traslados, **franja libre** (ej. después de 19:30, límite _blando_: solo se usa como opción explícita cuando algo crítico no entra; los eventos fijos como clases pasadas las 19:30 se respetan siempre).
+Sueño (hora de acostarse/levantarse), un rato para arreglarse y trasladarse al levantarse, desayuno, almuerzo y cena (hora y duración), traslados, **franja libre** (ej. después de 19:30, límite _blando_: solo se usa como opción explícita cuando algo crítico no entra; los eventos fijos como clases pasadas las 19:30 se respetan siempre).
 
 ## 5. Motor de planificación (sin IA, TypeScript puro)
 
 Paquete independiente, determinista, que corre igual en el cliente y en Edge Functions.
 
 1. **Capacidad**: grilla de bloques de 30 min (registro con granularidad de 15). Se restan sueño, comidas, eventos ocupados, traslados (+10 min de margen) y franja libre.
+   - **Comidas fijas**: nunca va estudio ni entregas encima. Cada comida queda a su hora mientras esté libre; solo se corre si a esa hora hay un evento fijo (gris u «Ocupado»), su traslado, un bloque 📌 (también uno que acabo de soltar ahí) u otra comida del día ya ubicada (se ubican en orden: desayuno, almuerzo, cena): primero justo al salir de la clase que la pisa, si termina cerca; si no, al hueco libre más cercano, antes o después, empezando a lo sumo 1 h 30 de su hora (el desayuno, contado desde que me levanto si me levanté más tarde). Nunca antes de levantarme ni pasada la hora de dormir, ni encima de otra comida. Si no hay hueco, la **bandeja** avisa («Sin lugar para almorzar · mar 10/11») con un botón para ver ese día, durante la semana que viene; el aviso se va solo cuando vuelve a haber lugar.
 2. **Factibilidad (EDF)**: por deadline creciente, `demanda mínima acumulada ≤ capacidad acumulada`.
 3. **Holgura** = tiempo libre hasta el deadline − mínimo restante.
    - 🟢 margen · 🟡 holgura < 1 día de capacidad · 🔴 si salteás este bloque no llegás al mínimo.
@@ -77,7 +79,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 ## 7. Pantallas
 
 - **Bandeja** (se abre al entrar): bloques por confirmar · cambios propuestos para hoy · decisiones de infactibilidad · eventos sin ubicación · entregas detectadas.
-- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades.
+- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. No se arrastran: se mueven solas. No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
 - **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.

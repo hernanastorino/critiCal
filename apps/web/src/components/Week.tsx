@@ -1,10 +1,18 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isTentative, visibleEvents } from "../calendars.js";
 import { dropTarget, nearestFree } from "../drag.js";
-import { localParts, MINUTE, overlaps, type PlanBlock, zonedInstant } from "../engine.js";
+import {
+  addDays,
+  localParts,
+  type MealTime,
+  MINUTE,
+  overlaps,
+  type PlanBlock,
+  zonedInstant,
+} from "../engine.js";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
 import type { AppEvent, PlanVersion } from "../model.js";
-import { isPinned, pinId, progress, weekDates } from "../planning.js";
+import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
@@ -36,6 +44,16 @@ interface Bubble {
   y: number;
 }
 
+/** A meal that the plan placed, as tapped on the calendar. */
+interface MealBubble {
+  meal: MealTime & { at: { start: number; end: number } };
+  x: number;
+  y: number;
+}
+
+const mealName = (m: MealTime) => (m.kind ? MEAL_NAMES[m.kind] : "Comida");
+const mealKey = (m: MealTime) => `meal:${m.date}:${m.kind ?? m.preferred.start}`;
+
 const DAY_MS = 86_400_000;
 /** Hold this long on a block to start dragging it outside edit mode. */
 const LONG_PRESS_MS = 400;
@@ -64,10 +82,19 @@ const clock = (m: number) => {
 };
 
 /** The week view: the plan and the calendar day by day, with drag-and-drop to pin blocks. */
-export function Week({ onSettings }: { onSettings: () => void }) {
+export function Week({ day, onSettings }: { day?: string; onSettings: () => void }) {
   const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;
-  const [offset, setOffset] = useState(0);
+  // Opens on the week of `day` (weeks start on the same weekday as `weekDates`).
+  const [offset, setOffset] = useState(() =>
+    day
+      ? Math.round(
+          (zonedInstant(tz, weekDates(tz, zonedInstant(tz, day, 720))[0] as string, 720) -
+            zonedInstant(tz, weekDates(tz, now)[0] as string, 720)) /
+            (7 * DAY_MS),
+        )
+      : 0,
+  );
   const [replanning, setReplanning] = useState(false);
   const [replanned, setReplanned] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -101,6 +128,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   const [spoken, setSpoken] = useState("");
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
+  const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
 
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -206,6 +234,19 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     ];
     return all;
   }, [data]);
+
+  // Meals of the week shown, placed around fixed events and pins as the planner does.
+  const firstDay = dates[0] as string;
+  const meals = useMemo(
+    () =>
+      mealTimes(
+        data,
+        now,
+        zonedInstant(tz, firstDay, 0),
+        zonedInstant(tz, addDays(firstDay, 7), 0),
+      ).filter((m): m is MealBubble["meal"] => m.at !== null),
+    [data, now, tz, firstDay],
+  );
 
   const colorOf = (b: PlanBlock) =>
     data.activities.find((a) => a.id === b.activityId)?.color ?? "#888";
@@ -417,6 +458,25 @@ export function Week({ onSettings }: { onSettings: () => void }) {
         </div>
         {dates.map((d) => (
           <div key={d} className="day" data-date={d}>
+            {meals.map((m) => {
+              const style = position(d, m.at);
+              if (!style) return null;
+              const key = mealKey(m);
+              const moved = m.at.start !== m.preferred.start;
+              return (
+                <button
+                  key={`${d}-${key}`}
+                  type="button"
+                  aria-label={`${mealName(m)}, ${time(tz, m.at.start)}${moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}`}
+                  className={`pill meal${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
+                  style={style}
+                  onClick={(e) => {
+                    setBubble(null);
+                    setMealBubble({ meal: m, x: e.clientX, y: e.clientY });
+                  }}
+                />
+              );
+            })}
             {items.map((item) => {
               const style = position(d, item);
               if (!style) return null;
@@ -597,6 +657,7 @@ export function Week({ onSettings }: { onSettings: () => void }) {
           minutes={drag.minutes}
           color={colorOf(draggedBlock)}
           items={items.filter((i) => i.id !== drag.id)}
+          meals={meals}
           colorOf={colorOf}
         />
       )}
@@ -664,6 +725,23 @@ export function Week({ onSettings }: { onSettings: () => void }) {
           />
         </>
       )}
+      {mealBubble && (
+        <>
+          <button
+            type="button"
+            className="scrim"
+            aria-label="Cerrar"
+            onClick={() => setMealBubble(null)}
+          />
+          <MealCard
+            bubble={mealBubble}
+            onSettings={() => {
+              setMealBubble(null);
+              onSettings();
+            }}
+          />
+        </>
+      )}
       {open && <BlockSheet item={open} onClose={() => setOpen(null)} />}
     </div>
   );
@@ -690,6 +768,7 @@ function Loupe(props: {
   minutes: number;
   color: string;
   items: Item[];
+  meals: MealBubble["meal"][];
   colorOf: (b: PlanBlock) => string;
 }) {
   const { data } = useStore();
@@ -728,6 +807,16 @@ function Loupe(props: {
             <span>{clock(m)}</span>
           </div>
         ))}
+        {props.meals.map((m) => {
+          const b = box((m.at.start - midnight) / MINUTE, (m.at.end - midnight) / MINUTE);
+          return (
+            b && (
+              <div key={mealKey(m)} className="loupe-item meal" style={b}>
+                {mealName(m)}
+              </div>
+            )
+          );
+        })}
         {props.items.map((i) => {
           const b = box((i.start - midnight) / MINUTE, (i.end - midnight) / MINUTE);
           if (!b) return null;
@@ -820,6 +909,32 @@ function BubbleCard({
           </button>
         </div>
       )}
+    </div>
+  );
+}
+
+/** A meal's time, why it moved, and where to change it. */
+function MealCard({ bubble, onSettings }: { bubble: MealBubble; onSettings: () => void }) {
+  const { data } = useStore();
+  const tz = data.settings.timezone;
+  const { meal } = bubble;
+  const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
+  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 150 : bubble.y + 14;
+  return (
+    <div className="bubble-card" style={{ left, top, ["--c" as string]: "var(--meal)" }}>
+      <button type="button" className="bubble" onClick={onSettings}>
+        <h3>{mealName(meal)}</h3>
+        <p>
+          {dayAndTime(tz, meal.at.start)} – {time(tz, meal.at.end)}
+        </p>
+        {meal.at.start !== meal.preferred.start && (
+          <p>
+            Corrido de las {time(tz, meal.preferred.start)}: a esa hora hay algo fijo o un bloque
+            fijado.
+          </p>
+        )}
+        <p className="more">Cambiar hora y duración ›</p>
+      </button>
     </div>
   );
 }

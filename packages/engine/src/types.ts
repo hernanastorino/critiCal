@@ -14,14 +14,33 @@ export interface MinuteRange {
   end: number;
 }
 
+export type MealKind = "desayuno" | "almuerzo" | "cena";
+
+/** A meal's preferred time and length; the planner moves it around fixed events. */
+export interface Meal extends MinuteRange {
+  /** Unset in settings from before breakfast was a meal (then: lunch, dinner). */
+  kind?: MealKind;
+}
+
+/** Where a day's meal ended up: `at` is null when nothing fits near `preferred`. */
+export interface MealTime {
+  /** Logical day (the wake-up date), YYYY-MM-DD. */
+  date: string;
+  kind?: MealKind;
+  preferred: Interval;
+  at: Interval | null;
+  /** The latest start the meal may still have (1 h 30 after its time, before bedtime). */
+  latest: number;
+}
+
 export interface DaySettings {
   /** Usual wake-up time. */
   wake: number;
-  /** Minutes after waking that are never planned (breakfast, getting ready, commute). */
+  /** Minutes after waking that are never planned (getting ready, commute). */
   morningMinutes?: number;
   /** Usual bedtime; ≤ wake means after midnight. */
   bed: number;
-  meals: MinuteRange[];
+  meals: Meal[];
   /** From this minute on, academic work is free time (soft limit). */
   freeFrom: number;
 }
@@ -109,6 +128,8 @@ export interface CalendarEvent {
   allDay?: boolean;
   /** May be moved to another time when the minimums do not fit (#flex). */
   flexible?: boolean;
+  /** The event is this meal (a lunch out): that day's meal is eaten there. */
+  meal?: MealKind;
 }
 
 export type Level = "ok" | "warn" | "critical";

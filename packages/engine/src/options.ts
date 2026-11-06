@@ -265,10 +265,14 @@ function freeSpot(
     ...(input.frozen ?? []),
   ];
   // The trips to the other events are taken too, as schedule() counts them.
-  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, [
-    ...taken,
-    ...trips,
-  ]).filter((s) => !s.soft);
+  const slots = buildSlots(
+    input.settings,
+    input.overrides ?? [],
+    from,
+    to,
+    [...taken, ...trips],
+    others,
+  ).filter((s) => !s.soft);
   // The event's own trips there must fit too. Not checked against the other trips:
   // placing the event may change those very trips.
   const tripsFit = (spot: Interval) => {

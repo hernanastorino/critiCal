@@ -43,6 +43,8 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
   const [settings, setSettings] = useState(false);
+  /** A day to open the week on, picked from the inbox. */
+  const [day, setDay] = useState<string>();
   const tabs: { id: Tab; label: string; icon: ReactNode }[] = [
     { id: "week", label: "Semana", icon: <WeekIcon /> },
     { id: "silos", label: "Silos", icon: <SiloIcon /> },
@@ -50,16 +52,26 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
   ];
   return (
     <div className="app">
-      {tab === "week" && <Week onSettings={() => setSettings(true)} />}
+      {tab === "week" && <Week day={day} onSettings={() => setSettings(true)} />}
       {tab === "silos" && <Silos />}
-      {tab === "inbox" && <Inbox />}
+      {tab === "inbox" && (
+        <Inbox
+          onDay={(date) => {
+            setDay(date);
+            setTab("week");
+          }}
+        />
+      )}
       <nav className="tabs">
         {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
             aria-current={tab === t.id ? "page" : undefined}
-            onClick={() => setTab(t.id)}
+            onClick={() => {
+              setTab(t.id);
+              setDay(undefined);
+            }}
           >
             {t.icon}
             {t.label}

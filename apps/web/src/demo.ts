@@ -10,12 +10,18 @@ const weekday: DaySettings = {
   morningMinutes: 30,
   bed: 0,
   meals: [
-    { start: 13 * 60, end: 14 * 60 },
-    { start: 21 * 60, end: 21 * 60 + 30 },
+    { kind: "desayuno", start: 7 * 60 + 30, end: 8 * 60 },
+    { kind: "almuerzo", start: 13 * 60, end: 14 * 60 },
+    { kind: "cena", start: 21 * 60, end: 21 * 60 + 30 },
   ],
   freeFrom: 19 * 60 + 30,
 };
-const weekend: DaySettings = { ...weekday, wake: 9 * 60, freeFrom: 18 * 60 };
+const weekend: DaySettings = {
+  ...weekday,
+  wake: 9 * 60,
+  meals: [{ kind: "desayuno", start: 9 * 60, end: 9 * 60 + 30 }, ...weekday.meals.slice(1)],
+  freeFrom: 18 * 60,
+};
 
 export const defaultSettings: Settings = {
   timezone: TIMEZONE,
