@@ -64,7 +64,7 @@ const clock = (m: number) => {
 };
 
 export function Week({ onSettings }: { onSettings: () => void }) {
-  const { data, now, result, pinShort, dispatch } = useStore();
+  const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [offset, setOffset] = useState(0);
   const [replanning, setReplanning] = useState(false);
@@ -111,18 +111,17 @@ export function Week({ onSettings }: { onSettings: () => void }) {
   };
 
   /**
-   * A pin just made, to tell right away if it puts a minimum out of reach, and what it
-   * landed on (`note`).
+   * A pin just made, to tell right away if it puts a minimum out of reach, which pins it
+   * gave back to the plan (`note`) and which flexible event it landed on.
    */
   const watch = useRef<{
     id: string;
     before: Map<string, number>;
     undo: () => void;
-    /** `undo` restores the plan version this pin saved. */
-    restores: boolean;
     note?: string;
+    flexible?: string;
   } | null>(null);
-  // An undo of the plan version a drop saved would undo whatever came after instead.
+  // Once the plan changes again, a drop's undo would take back the wrong thing.
   const latest = data.planHistory?.at(-1);
   useEffect(() => {
     if (toast?.version && toast.version !== latest) setToast(null);
@@ -134,12 +133,17 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     // A drop the store turned down left nothing to tell.
     if (!data.pins?.some((p) => p.id === w.id)) return;
     const worse = pinShort.short.filter((s) => s.minutes > (w.before.get(s.taskId) ?? 0));
+    // Offered to move only when the inbox has somewhere to move it (not under way, room).
+    const offer = clashes.some((c) => c.pin.id === w.id && c.moveTo);
     const said = [
       w.note,
+      w.flexible &&
+        `Quedó sobre ${w.flexible}: ${offer ? "en la Bandeja te propongo moverlo" : "revisá el choque en la Bandeja"}`,
       worse.length > 0 &&
         `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
     ].filter(Boolean);
-    if (said.length > 0) flash(said.join(" · "), w.undo, w.restores ? latest : undefined);
+    // The pin itself saved the latest plan version.
+    if (said.length > 0) flash(said.join(" · "), w.undo, latest);
   });
 
   /** Pins `block` at `start`, offering to put it back if that breaks a minimum. */
@@ -154,18 +158,14 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     const flexible = items.find(
       (i) => i.kind === "event" && i.event.busy && i.event.flexible && overlaps(i, spot),
     );
-    const notes = [
-      freed.length > 0 &&
-        `${freed.map((p) => `📌 ${titleOfTask(p.taskId)}`).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`,
-      flexible?.kind === "event" &&
-        // One already under way is not offered to move, only shown as a clash.
-        `Quedó sobre ${flexible.event.title}: ${flexible.start > now ? "en la Bandeja te propongo moverlo" : "revisá el choque en la Bandeja"}`,
-    ].filter((n): n is string => !!n);
     watch.current = {
       id: moved,
       before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
-      restores: freed.length > 0,
-      note: notes.join(" · ") || undefined,
+      note:
+        freed.length > 0
+          ? `${freed.map((p) => `📌 ${titleOfTask(p.taskId)}`).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`
+          : undefined,
+      flexible: flexible?.kind === "event" ? flexible.event.title : undefined,
       undo: () => {
         setToast(null);
         // The pins it freed come back with the plan as it was.

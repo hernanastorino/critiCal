@@ -541,6 +541,36 @@ describe("edit mode", () => {
     expect(screen.queryByRole("button", { name: "Mover Gym #flex" })).toBeNull();
   });
 
+  it("does not promise to move a flexible event with nowhere to go", () => {
+    const tz = demoData(NOW).settings.timezone;
+    const at = zonedInstant(tz, "2026-11-07", 750);
+    // Longer than any waking day: there is no spot for it.
+    const trip = {
+      id: "trip",
+      title: "Paseo #flex",
+      start: zonedInstant(tz, "2026-11-07", 360),
+      end: zonedInstant(tz, "2026-11-07", 360) + 20 * 3_600_000,
+      busy: true,
+      source: "demo" as const,
+    };
+    const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, trip] });
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Modo edición"));
+    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const { x, y } = spot(initial(NOW), at);
+    fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
+    fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
+    fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 4 });
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins?.[0]?.start).toBe(at);
+    expect(
+      screen.getByText(/Quedó sobre Paseo #flex: revisá el choque en la Bandeja/),
+    ).toBeTruthy();
+    // Its undo goes too once the plan changes again.
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
+  });
+
   it("drops over the plan's blocks, warns when a minimum breaks and undoes it", () => {
     const d = reducer(tight(NOW), { type: "refresh", now: NOW });
     const tz = d.settings.timezone;
