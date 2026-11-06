@@ -4,6 +4,7 @@ import { localParts } from "../engine.js";
 import { type AppData, CRITICAL } from "../model.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
+import { useToast } from "./Toast.js";
 
 /** Saves everything as a JSON file named after today. */
 export function downloadJson(data: AppData, now: number) {
@@ -21,6 +22,7 @@ export function Backup() {
   const { data, now, dispatch } = useStore();
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const toast = useToast();
 
   const download = () => downloadJson(data, now);
 
@@ -81,7 +83,8 @@ export function Backup() {
     }
     if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
     dispatch({ type: "replace", data: restored });
-    setMessage({ text: "Datos importados ✓" });
+    setMessage(null);
+    toast.show("Datos importados");
   };
 
   return (

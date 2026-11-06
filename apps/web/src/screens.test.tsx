@@ -4,6 +4,7 @@ import { App } from "./App.js";
 import { exportJson, parseBackup } from "./backup.js";
 import { Backup } from "./components/Backup.js";
 import { Semester } from "./components/Semester.js";
+import { ToastProvider } from "./components/Toast.js";
 import { diffData } from "./data.js";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -415,10 +416,12 @@ describe("backup", () => {
       ],
     });
     render(
-      <StoreProvider initial={withLog} persist={false} fixedNow={now}>
-        <Backup />
-        <Probe />
-      </StoreProvider>,
+      <ToastProvider>
+        <StoreProvider initial={withLog} persist={false} fixedNow={now}>
+          <Backup />
+          <Probe />
+        </StoreProvider>
+      </ToastProvider>,
     );
     fireEvent.click(screen.getByText("Exportar JSON"));
     expect(created).toHaveBeenCalled();
@@ -427,7 +430,7 @@ describe("backup", () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
     });
-    await waitFor(() => expect(screen.getByText("Datos importados ✓")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText("Datos importados")).toBeTruthy());
     expect(state().tasks.length).toBe(full.tasks.length - 1);
     expect(state().checkIns).toEqual(["later"]);
     expect(state().doneUnits).toEqual(["new-unit"]);

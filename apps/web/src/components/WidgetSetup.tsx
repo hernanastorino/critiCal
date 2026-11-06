@@ -4,12 +4,14 @@ import { CRITICAL } from "../model.js";
 import { widgetToken } from "../remote.js";
 import { widgetScript } from "../widget-script.js";
 import { Section } from "./Section.js";
+import { useToast } from "./Toast.js";
 
 /** Scriptable widget: a personal token and the script to paste in Scriptable. */
 export function WidgetSetup() {
   const sync = useSync();
   const [script, setScript] = useState<string | null>(null);
-  const [state, setState] = useState<"idle" | "busy" | "copied" | "error" | "revoked">("idle");
+  const [state, setState] = useState<"idle" | "busy" | "error" | "revoked">("idle");
+  const toast = useToast();
   // One token request at a time: a revoke racing a create could leave either outcome.
   const inFlight = useRef(false);
   if (!sync) return null;
@@ -31,6 +33,7 @@ export function WidgetSetup() {
       } else {
         setScript(null);
         setState("revoked");
+        toast.show("Widget desactivado");
       }
     } finally {
       inFlight.current = false;
@@ -60,11 +63,14 @@ export function WidgetSetup() {
               onClick={() =>
                 void navigator.clipboard
                   ?.writeText(script)
-                  .then(() => setState("copied"))
+                  .then(() => {
+                    setState("idle");
+                    toast.show("Script copiado");
+                  })
                   .catch(() => setState("error"))
               }
             >
-              {state === "copied" ? "Copiado ✓" : "Copiar script"}
+              Copiar script
             </button>
           </div>
         </>
@@ -94,7 +100,6 @@ export function WidgetSetup() {
           No se pudo. Probá de nuevo.
         </p>
       )}
-      {state === "revoked" && <p className="meta">Widget desactivado ✓</p>}
     </Section>
   );
 }

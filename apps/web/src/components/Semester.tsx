@@ -7,6 +7,7 @@ import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, subjectsOf } from "../subjects.js";
 import { Section, useSectionOpen } from "./Section.js";
+import { useToast } from "./Toast.js";
 
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
@@ -19,7 +20,7 @@ export function Semester() {
   const [subject, setSubject] = useState("");
   const [weekly, setWeekly] = useState("");
   const [exam, setExam] = useState({ activityId: "", title: "Parcial", date: "" });
-  const [saved, setSaved] = useState<string | null>(null);
+  const toast = useToast();
   // The calendar's titles are only worked out once its screen is on view.
   const open = useSectionOpen();
   const holidaysOn = data.preferences?.holidaysOff !== false;
@@ -65,7 +66,7 @@ export function Semester() {
     }
     setSubject("");
     setWeekly("");
-    setSaved(`${name} agregada`);
+    toast.show(`${name} agregada`);
   };
 
   const addExam = () => {
@@ -87,7 +88,7 @@ export function Semester() {
     };
     dispatch({ type: "saveTask", task });
     setExam({ ...exam, date: "" });
-    setSaved(`${task.title} agregado`);
+    toast.show(`${task.title} agregado`);
   };
 
   return (
@@ -111,7 +112,7 @@ export function Semester() {
             disabled={!start || !end || end < start}
             onClick={() => {
               prefs({ semester: { start, end } });
-              setSaved("Fechas guardadas");
+              toast.show("Fechas guardadas");
             }}
           >
             Guardar fechas
@@ -218,7 +219,6 @@ export function Semester() {
               </button>
             </>
           )}
-          {saved && <p className="meta">{saved} ✓</p>}
         </>
       )}
     </Section>

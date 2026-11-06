@@ -393,7 +393,8 @@ textarea {
   align-items: flex-start;
   gap: 6px;
   pointer-events: none;
-  z-index: 15;
+  /* Above sheets (41) and action sheets (51): a notice from Ajustes shows over it. */
+  z-index: 60;
 }
 
 .snack {
