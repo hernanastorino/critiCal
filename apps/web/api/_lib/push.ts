@@ -98,5 +98,19 @@ async function send(
 /** Users with at least one device subscribed. */
 export async function subscribedUsers(admin: SupabaseClient): Promise<string[]> {
   const { data } = await admin.from("push_subscriptions").select("user_id");
-  return [...new Set((data ?? []).map((r) => r.user_id as string))];
+  const users = [...new Set((data ?? []).map((r) => r.user_id as string))];
+  // Someone no longer invited gets no notifications (their titles stay unread). A
+  // lookup that fails is tried once more; if it still fails that user is skipped this
+  // time (never let through) and the failure is logged.
+  const invited = await Promise.all(
+    users.map(async (uid) => {
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const { data: ok, error } = await admin.rpc("user_invited", { p_user: uid });
+        if (!error) return ok === true;
+        if (attempt === 1) console.error("push invited lookup", uid, error);
+      }
+      return false;
+    }),
+  );
+  return users.filter((_, i) => invited[i]);
 }

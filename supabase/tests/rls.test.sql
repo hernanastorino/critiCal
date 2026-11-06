@@ -5,6 +5,11 @@ select plan(14);
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'a@test.local'),
   ('00000000-0000-0000-0000-00000000000b', 'b@test.local');
+-- The first account owns the app; the second needs an invitation, matched to its
+-- Google identity.
+insert into auth.identities (provider_id, user_id, identity_data, provider) values
+  ('google-b', '00000000-0000-0000-0000-00000000000b', '{"email": "b@test.local"}', 'google');
+insert into public.invites (email) values ('b@test.local');
 
 -- User A creates data.
 set local role authenticated;

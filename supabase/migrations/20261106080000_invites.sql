@@ -12,19 +12,37 @@ insert into private.app_config (key, value)
 select 'owner', id::text from auth.users order by created_at limit 1
 on conflict (key) do nothing;
 
--- Accounts that already exist stay invited.
+-- Accounts that already exist (all signed in with Google) stay invited.
 insert into public.invites (email)
-select distinct lower(btrim(email)) from auth.users where email like '%_@_%'
+select distinct lower(btrim(identity_data ->> 'email')) from auth.identities
+where provider = 'google' and identity_data ->> 'email' like '%_@_%'
 on conflict (email) do nothing;
 
-/** Whether a user may use the app: the owner, an invited email, or anyone while no owner exists yet. */
+-- On a database without accounts yet, the first one created becomes the owner, before
+-- it can do anything: there is never a moment when access is open to everyone.
+create function private.claim_owner()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  insert into private.app_config (key, value) values ('owner', new.id::text)
+  on conflict (key) do nothing;
+  return new;
+end $$;
+create trigger first_account_owns_the_app
+  after insert on auth.users
+  for each row execute function private.claim_owner();
+
+/**
+ * Whether a user may use the app: the owner, or an invited email that Google verified
+ * for this account (the app only signs in with Google). An email typed into another
+ * sign-up method proves nothing, so it never matches an invitation.
+ */
 create function private.invited(p_user uuid)
 returns boolean language sql stable security definer set search_path = '' as $$
-  select not exists (select 1 from private.app_config where key = 'owner')
-    or exists (select 1 from private.app_config where key = 'owner' and value = p_user::text)
+  select exists (select 1 from private.app_config where key = 'owner' and value = p_user::text)
     or exists (
-      select 1 from auth.users u join public.invites i on i.email = lower(btrim(u.email))
-      where u.id = p_user
+      select 1 from auth.identities a
+      join public.invites i on i.email = lower(btrim(a.identity_data ->> 'email'))
+      where a.user_id = p_user and a.provider = 'google'
     );
 $$;
 revoke execute on function private.invited(uuid) from public, anon, authenticated;
@@ -47,20 +65,14 @@ returns boolean language sql stable security definer set search_path = '' as $$
   select private.invited(p_user);
 $$;
 
-/**
- * What the app asks after signing in. On a database without an owner yet, the first
- * account to ask becomes it.
- */
+/** What the app asks after signing in. */
 create function public.my_access()
-returns json language plpgsql security definer set search_path = '' as $$
-begin
-  if auth.uid() is null then
-    return json_build_object('invited', false, 'owner', false);
-  end if;
-  insert into private.app_config (key, value) values ('owner', auth.uid()::text)
-  on conflict (key) do nothing;
-  return json_build_object('invited', private.invited(auth.uid()), 'owner', public.is_owner());
-end $$;
+returns json language sql stable security definer set search_path = '' as $$
+  select json_build_object(
+    'invited', coalesce(private.invited(auth.uid()), false),
+    'owner', public.is_owner()
+  );
+$$;
 
 revoke execute on function public.is_invited() from public, anon;
 revoke execute on function public.is_owner() from public, anon;
@@ -71,7 +83,8 @@ grant execute on function public.my_access() to authenticated;
 revoke execute on function public.user_invited(uuid) from public, anon, authenticated;
 grant execute on function public.user_invited(uuid) to service_role;
 
--- Only the owner sees and edits the list.
+-- Only the owner sees and edits the list (privileges here, the owner check in RLS).
+grant select, insert, update, delete on public.invites to authenticated, service_role;
 alter table public.invites enable row level security;
 create policy owner_only on public.invites for all to authenticated
   using ((select public.is_owner())) with check ((select public.is_owner()));
@@ -92,7 +105,7 @@ begin
   end loop;
 end $$;
 
--- Background work (cron, Google webhooks, the widget) skips users no longer invited.
+-- Background work (cron, Google webhooks, the widget, push) skips users no longer invited.
 create or replace function public.connected_users()
 returns setof uuid language sql security definer stable set search_path = '' as $$
   select distinct user_id from private.oauth_tokens where private.invited(user_id);
