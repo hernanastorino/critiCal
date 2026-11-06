@@ -1,6 +1,13 @@
 import { merge, subtract } from "./intervals.js";
 import { addDays, localDates, weekdayOf, zonedInstant } from "./time.js";
-import { type DayOverride, type Interval, MINUTE, type Settings } from "./types.js";
+import {
+  type DayOverride,
+  type Interval,
+  type MealKind,
+  type MealTime,
+  MINUTE,
+  type Settings,
+} from "./types.js";
 
 export interface Slot {
   start: number;
@@ -18,7 +25,7 @@ interface DayWindow {
   midnight: number;
   awake: Interval[];
   /** Preferred meal times; placed around fixed events by `placeMeal`. */
-  meals: Interval[];
+  meals: (Interval & { kind?: MealKind })[];
   wakeAt: number;
   bedAt: number;
   freeFrom: number;
@@ -42,6 +49,7 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
     meals: base.meals.map((m) => ({
       start: zonedInstant(tz, date, m.start),
       end: zonedInstant(tz, date, m.end),
+      ...(m.kind ? { kind: m.kind } : {}),
     })),
     wakeAt,
     bedAt,
@@ -49,56 +57,112 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
   };
 }
 
-/** A class ending this long before the preferred time still means "eat right after". */
+/** A class in the way ending this long before the preferred time still means "eat right after". */
 const EARLY = 45 * MINUTE;
-/** Eating later than this after the preferred time is too late: eat before the class instead. */
+/** Right after a class ending up to this long after the preferred time beats eating before. */
 const LATE = 60 * MINUTE;
+/** A meal never starts further than this from its preferred time. */
+export const MEAL_RANGE = 90 * MINUTE;
 
 /**
- * Where a meal really happens given the day's fixed events. The configured time
- * is a preference: right after a class that ends close to it (up to 45 min
- * before or 60 min after) you eat then; if the preferred time is free you eat
- * then; if the only "after" is too late (or runs into bedtime) you eat before
- * the class. Never before waking up or into bedtime. Returns null when nothing fits.
+ * Where a meal really happens given the day's fixed events (and pinned blocks). The
+ * configured time is kept while it is free. Otherwise: right after the class in the
+ * way if it ends close to it (up to 45 min before or 60 min after), or else at the
+ * free time closest to it, before or after, starting at most 1 h 30 away. Never before waking up or into bedtime. `onWaking` (breakfast) moves
+ * the preference to waking up when that is later. Returns null when nothing fits.
  */
 export function placeMeal(
   pref: Interval,
   busy: readonly Interval[],
   bedAt: number,
   wakeAt = Number.NEGATIVE_INFINITY,
+  onWaking = false,
 ): Interval | null {
   const length = pref.end - pref.start;
-  const p = pref.start;
+  const p = onWaking ? Math.max(pref.start, wakeAt) : pref.start;
+  const lo = Math.max(p - MEAL_RANGE, wakeAt);
+  const hi = Math.min(p + MEAL_RANGE, bedAt - length);
   const blocks = merge(busy);
   const fits = (start: number) =>
-    start >= wakeAt &&
-    start + length <= bedAt &&
-    !blocks.some((b) => b.start < start + length && start < b.end);
+    start >= lo && start <= hi && !blocks.some((b) => b.start < start + length && start < b.end);
   const at = (start: number) => ({ start, end: start + length });
+  const closest = (a: number, b: number) => Math.abs(a - p) - Math.abs(b - p) || b - a;
 
-  // Right after a class ending near the preferred time.
+  if (fits(p)) return at(p);
+  // Right after the class in the way, if it ends near the preferred time.
   const afterClass = blocks
     .map((b) => b.end)
     .filter((end) => end >= p - EARLY && end <= p + LATE)
-    .sort((a, b) => Math.abs(a - p) - Math.abs(b - p));
+    .sort(closest);
   for (const start of afterClass) if (fits(start)) return at(start);
-  if (fits(p)) return at(p);
-  // Woke up in the middle of the meal time: eat on waking.
-  if (p < wakeAt && wakeAt < p + LATE && fits(wakeAt)) return at(wakeAt);
+  // The closest free time sits at an edge of the range or of a busy stretch.
+  const edges = [lo, hi, ...blocks.flatMap((b) => [b.end, b.start - length])];
+  const start = edges.filter(fits).sort(closest)[0];
+  return start === undefined ? null : at(start);
+}
 
-  // Too late after: eat before the class that covers the preferred time.
-  const before = blocks
-    .filter((b) => b.start <= p + LATE && b.end > p - EARLY)
-    .map((b) => b.start - length)
-    .filter((start) => start >= p - 3 * LATE)
-    .sort((a, b) => Math.abs(a - p) - Math.abs(b - p));
-  for (const start of before) if (fits(start)) return at(start);
-  return null;
+/** An event that is a meal (a lunch out), which then needs no time of its own. */
+export type MealEvent = Interval & { meal?: MealKind };
+
+/**
+ * The day's meals placed one after the other, each around the fixed events and the
+ * meals already placed (so two meals never overlap). A meal that an event near its
+ * time already is (`meal` of the same kind) is left out.
+ */
+function placeDayMeals(
+  window: DayWindow,
+  busy: readonly Interval[],
+  eaten: readonly MealEvent[],
+): MealTime[] {
+  const taken: Interval[] = [...busy];
+  const near = (pref: Interval) => ({
+    start: pref.start - MEAL_RANGE,
+    end: pref.end + MEAL_RANGE,
+  });
+  return window.meals.flatMap(({ kind, ...preferred }) => {
+    const around = near(preferred);
+    const out = (e: MealEvent) => !!kind && e.meal === kind;
+    if (eaten.some((e) => out(e) && e.start < around.end && around.start < e.end)) return [];
+    const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, kind === "desayuno");
+    if (at) taken.push(at);
+    return [{ date: window.date, ...(kind ? { kind } : {}), preferred, at }];
+  });
+}
+
+/** Days (wake-up dates) that may have time between `from` and `to`, the one before included. */
+function windowsBetween(
+  settings: Settings,
+  overrides: readonly DayOverride[],
+  from: number,
+  to: number,
+): DayWindow[] {
+  const byDate = new Map(overrides.map((o) => [o.date, o]));
+  const first = localDates(settings.timezone, from, from + 1)[0] as string;
+  const dates = [addDays(first, -1), ...localDates(settings.timezone, from, to)];
+  return dates.map((date) => dayWindow(settings, date, byDate.get(date)));
+}
+
+/**
+ * Where each meal between `from` and `to` happens around `busy` (fixed events, travel
+ * and pinned blocks): see `placeMeal`. Meals with no room are kept with `at: null`;
+ * meals that one of the `eaten` events already is are left out.
+ */
+export function placeMeals(
+  settings: Settings,
+  overrides: readonly DayOverride[],
+  from: number,
+  to: number,
+  busy: readonly Interval[],
+  eaten: readonly MealEvent[] = [],
+): MealTime[] {
+  return windowsBetween(settings, overrides, from, to)
+    .flatMap((w) => placeDayMeals(w, busy, eaten))
+    .filter((m) => (m.at ?? m.preferred).end > from && m.preferred.start < to);
 }
 
 /**
  * Free slots on a fixed grid between `from` and `to`: awake, not eating and not
- * overlapping `busy`.
+ * overlapping `busy`. `eaten`: events that are a meal (see `placeMeals`).
  */
 export function buildSlots(
   settings: Settings,
@@ -106,19 +170,14 @@ export function buildSlots(
   from: number,
   to: number,
   busy: readonly Interval[],
+  eaten: readonly MealEvent[] = [],
 ): Slot[] {
   const step = settings.slotMinutes * MINUTE;
-  const byDate = new Map(overrides.map((o) => [o.date, o]));
-  const first = localDates(settings.timezone, from, from + 1)[0] as string;
-  const dates = [addDays(first, -1), ...localDates(settings.timezone, from, to)];
   const slots: Slot[] = [];
 
-  for (const date of dates) {
-    const window = dayWindow(settings, date, byDate.get(date));
-    const meals = window.meals.flatMap((m) => {
-      const placed = placeMeal(m, busy, window.bedAt, window.wakeAt);
-      return placed ? [placed] : [];
-    });
+  for (const window of windowsBetween(settings, overrides, from, to)) {
+    const { date } = window;
+    const meals = placeDayMeals(window, busy, eaten).flatMap((m) => (m.at ? [m.at] : []));
     for (const free of subtract(window.awake, [...busy, ...meals])) {
       // Grid anchored to the logical day's local midnight, not the UTC epoch.
       const offset = Math.max(free.start, from) - window.midnight;

@@ -38,6 +38,7 @@ import {
   decisions,
   endOfDay,
   endOfWeek,
+  missedMeals,
   pendingConfirmations,
   pinBlock,
   pinShortfall,
@@ -885,6 +886,8 @@ interface Store {
   unlocated: ReturnType<typeof unlocated>;
   /** Minimums the upcoming pins put out of reach, and those pins. */
   pinShort: ReturnType<typeof pinShortfall>;
+  /** Meals of the coming week with no room near their time. */
+  missedMeals: ReturnType<typeof missedMeals>;
   inboxCount: number;
 }
 
@@ -948,6 +951,7 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
+    const meals = missedMeals(data, now);
     return {
       data,
       now,
@@ -962,6 +966,7 @@ export function StoreProvider({
       result: r.result,
       unlocated: where,
       pinShort,
+      missedMeals: meals,
       inboxCount:
         (data.movedEvents?.length ?? 0) +
         (lateNight(data, now) ? 1 : 0) +
@@ -971,6 +976,7 @@ export function StoreProvider({
         unassignedTasks(data).length +
         unsortedActivities(data).length +
         (pinShort.short.length > 0 ? 1 : 0) +
+        meals.length +
         pending.length +
         data.proposals.length +
         d.options.length +

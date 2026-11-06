@@ -1,22 +1,30 @@
-import { eventRole, visibleEvents } from "./calendars.js";
+import { eventRole, normalize, visibleEvents } from "./calendars.js";
 import {
   type Activity,
   addDays,
+  type CalendarEvent,
+  type DaySettings,
   effortRatio,
   infeasibilityOptions,
   localParts,
+  type Meal,
+  type MealKind,
+  type MealTime,
   MINUTE,
   overlaps,
   type PlanBlock,
   type PlanOption,
+  placeMeals,
   type Recommendation,
   recommendations,
   remainingFromUnits,
   type ScheduleInput,
   type ScheduleResult,
+  type Settings,
   schedule,
   type Task,
   targetOptions,
+  travelBuffers,
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
@@ -261,6 +269,90 @@ function isExam(data: AppData, task: AppTask): boolean {
   return EXAM.test(title);
 }
 
+export const MEAL_NAMES: Record<MealKind, string> = {
+  desayuno: "Desayuno",
+  almuerzo: "Almuerzo",
+  cena: "Cena",
+};
+
+/** Default breakfast for routines from before it was a meal: on waking, 30 min. */
+const BREAKFAST_MINUTES = 30;
+
+/**
+ * A day's meals, each with its kind. Routines saved before breakfast was a meal list
+ * lunch and dinner only (in that order): they get a breakfast on waking.
+ */
+export function mealsOf(day: DaySettings): Meal[] {
+  if (day.meals.some((m) => m.kind)) return day.meals;
+  const kinds: MealKind[] = ["almuerzo", "cena"];
+  return [
+    { kind: "desayuno", start: day.wake, end: day.wake + BREAKFAST_MINUTES },
+    ...day.meals.map((m, i) => ({ ...m, ...(kinds[i] ? { kind: kinds[i] } : {}) })),
+  ];
+}
+
+/** The settings as the planner reads them: every day's meals with their kind. */
+export const withMeals = (settings: Settings): Settings => ({
+  ...settings,
+  week: settings.week.map((d) => ({ ...d, meals: mealsOf(d) })),
+});
+
+const MEAL_WORDS: [MealKind, RegExp][] = [
+  ["desayuno", /\bdesayun/],
+  ["almuerzo", /\b(almuerz|almorz)/],
+  ["cena", /\b(cena|cenar|cenamos)\b/],
+];
+
+/** Events whose title says they are a meal ("Almuerzo con la abuela"), marked as that meal. */
+function withMealEvents<E extends CalendarEvent>(events: E[]): E[] {
+  return events.map((e) => {
+    const title = normalize(e.title);
+    const meal = MEAL_WORDS.find(([, word]) => word.test(title))?.[0];
+    return meal ? { ...e, meal } : e;
+  });
+}
+
+/** The events the planner reads: visible ones, with their places and meals. */
+const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visibleEvents(data)));
+
+/** The day overrides the planner uses: late nights and, unless turned off, holidays. */
+function overridesFor(data: AppData, now: number, from: number, to: number) {
+  return data.preferences?.holidaysOff === false
+    ? withLateNight(data, now)
+    : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
+}
+
+/**
+ * Where each meal between `from` and `to` happens: at its time unless a fixed event,
+ * its travel or a block pinned by hand is there, then at the closest free time.
+ */
+export function mealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
+  const events = plannerEvents(data);
+  const travel = travelOptions(data);
+  const busy = [
+    ...events.filter((e) => e.busy && !e.allDay),
+    ...(travel ? travelBuffers(events, travel).busy : []),
+    ...(data.pins ?? []).filter((p) =>
+      data.tasks.some((t) => t.id === p.taskId && isRunning(t, now)),
+    ),
+  ];
+  return placeMeals(
+    withMeals(data.settings),
+    overridesFor(data, now, from, to),
+    from,
+    to,
+    busy,
+    events,
+  );
+}
+
+/** Upcoming meals within the next week that have no room near their time. */
+export function missedMeals(data: AppData, now: number): MealTime[] {
+  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter(
+    (m) => !m.at && m.preferred.start > now,
+  );
+}
+
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
   const tasks = toEngineTasks(data, now);
   // Reach the furthest deadline so its capacity (and slack) is complete.
@@ -271,16 +363,13 @@ export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): 
   return {
     now,
     horizonEnd,
-    settings: data.settings,
+    settings: withMeals(data.settings),
     activities: data.activities,
     tasks,
-    events: withPlaces(data, visibleEvents(data)),
+    events: plannerEvents(data),
     travel: travelOptions(data),
     frozen,
-    overrides:
-      data.preferences?.holidaysOff === false
-        ? withLateNight(data, now)
-        : withHolidays(withLateNight(data, now), data.settings.timezone, now, horizonEnd),
+    overrides: overridesFor(data, now, now, horizonEnd),
     allowFreeTime: (data.freeTimeUntil ?? 0) > now,
     maxActivitiesPerDay: (data.relaxContextUntil ?? 0) > now ? Number.POSITIVE_INFINITY : undefined,
   };

@@ -20,9 +20,10 @@ describe("fixed settings", () => {
   it("edits the weekly routine for the chosen days", () => {
     fireEvent.click(screen.getByLabelText("Día S"));
     fireEvent.click(screen.getByLabelText("Día L"));
-    fireEvent.change(screen.getByLabelText("Desayuno, traslado (min)"), {
+    fireEvent.change(screen.getByLabelText("Arreglarse, traslado (min)"), {
       target: { value: "45" },
     });
+    fireEvent.change(screen.getByLabelText("Desayuno"), { target: { value: "08:00" } });
     fireEvent.change(screen.getByLabelText("Almuerzo"), { target: { value: "12:30" } });
     fireEvent.change(screen.getByLabelText("Nada de estudio desde"), {
       target: { value: "19:00" },
@@ -32,13 +33,17 @@ describe("fixed settings", () => {
     const week = stored().settings.week;
     expect(week[1].morningMinutes).toBe(30);
     expect(week[2]).toMatchObject({ morningMinutes: 45, freeFrom: 1140 });
-    expect(week[2].meals[0]).toEqual({ start: 750, end: 810 });
+    expect(week[2].meals).toEqual([
+      { kind: "desayuno", start: 480, end: 510 },
+      { kind: "almuerzo", start: 750, end: 810 },
+      { kind: "cena", start: 1260, end: 1290 },
+    ]);
     expect(week[6].morningMinutes).toBe(45);
     expect(screen.getByText("Guardado ✓")).toBeTruthy();
   });
 
   it("clamps a negative morning and shows the saved value", () => {
-    const field = screen.getByLabelText("Desayuno, traslado (min)") as HTMLInputElement;
+    const field = screen.getByLabelText("Arreglarse, traslado (min)") as HTMLInputElement;
     fireEvent.change(field, { target: { value: "-60" } });
     fireEvent.click(screen.getByText(/^Guardar para/));
     expect(stored().settings.week[1].morningMinutes).toBe(0);
@@ -50,10 +55,35 @@ describe("fixed settings", () => {
       fireEvent.click(screen.getAllByLabelText(`Día ${d}`)[0] as HTMLElement);
     fireEvent.click(screen.getAllByLabelText("Día M")[1] as HTMLElement);
     expect(screen.getAllByLabelText("Día M")[1]?.getAttribute("aria-pressed")).toBe("true");
-    const [, dinnerMin] = screen.getAllByLabelText("Dura (min)");
+    const [breakfastMin, , dinnerMin] = screen.getAllByLabelText("Dura (min)");
     fireEvent.change(dinnerMin as HTMLElement, { target: { value: "0" } });
+    fireEvent.change(breakfastMin as HTMLElement, { target: { value: "0" } });
     fireEvent.click(screen.getByText(/^Guardar para/));
-    expect(stored().settings.week[3].meals).toHaveLength(1);
+    expect(stored().settings.week[3].meals).toEqual([{ kind: "almuerzo", start: 780, end: 840 }]);
+  });
+
+  it("shows a breakfast on waking for routines saved before breakfast was a meal", () => {
+    cleanup();
+    localStorage.clear();
+    localStorage.setItem("critical.mode", "demo");
+    const initial = (now: number) => {
+      const data = demoData(now);
+      const week = data.settings.week.map((d) => ({
+        ...d,
+        wake: 420,
+        meals: [
+          { start: 780, end: 840 },
+          { start: 1260, end: 1290 },
+        ],
+      }));
+      return { ...data, settings: { ...data.settings, week } };
+    };
+    render(<App fixedNow={NOW} initial={initial} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    expect((screen.getByLabelText("Desayuno") as HTMLInputElement).value).toBe("07:00");
+    expect((screen.getByLabelText("Cena") as HTMLInputElement).value).toBe("21:00");
+    const [breakfastMin] = screen.getAllByLabelText("Dura (min)") as HTMLInputElement[];
+    expect(breakfastMin?.value).toBe("30");
   });
 
   it("saves planning rules", () => {

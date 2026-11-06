@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildSlots, placeMeal } from "./availability.js";
+import { buildSlots, placeMeal, placeMeals } from "./availability.js";
 import { merge, minutes, overlaps, subtract } from "./intervals.js";
 import { effortRatio, remainingFromUnits } from "./learning.js";
 import { at, settings, TZ } from "./testing.js";
@@ -165,14 +165,28 @@ describe("buildSlots", () => {
     const bed = at("2026-11-03", "00:00");
     // No class nearby: preferred time.
     expect(placeMeal(lunch, [], bed)).toEqual(lunch);
-    // Class ends 12:30 → eat at 12:30; ends 13:20 → eat at 13:20.
-    expect(placeMeal(lunch, [{ start: t("10:00"), end: t("12:30") }], bed)?.start).toBe(t("12:30"));
+    // Class ends 12:30 → lunch stays at 13:00 (it only moves when something is in the
+    // way); ends 13:20 → eat at 13:20.
+    expect(placeMeal(lunch, [{ start: t("10:00"), end: t("12:30") }], bed)?.start).toBe(t("13:00"));
     expect(placeMeal(lunch, [{ start: t("11:30"), end: t("13:20") }], bed)?.start).toBe(t("13:20"));
-    // Class until 22:30 → dinner before it, not at 22:30.
+    // Class until 22:30 → dinner right after it, still within 1 h 30 of 21:00.
     expect(placeMeal(dinner, [{ start: t("19:00"), end: t("22:30") }], bed)).toEqual({
-      start: t("18:30"),
-      end: t("19:00"),
+      start: t("22:30"),
+      end: t("23:00"),
     });
+    // Until 23:00 → too late, and 18:30 (before it) is too early: no room.
+    expect(placeMeal(dinner, [{ start: t("19:00"), end: t("23:00") }], bed)).toBeNull();
+    // A class over the preferred time and one right after: eat before, the closest free time.
+    const tight = [
+      { start: t("12:30"), end: t("14:00") },
+      { start: t("14:00"), end: t("16:00") },
+    ];
+    expect(placeMeal(lunch, tight, bed)?.start).toBe(t("11:30"));
+    // A pin (or event) over part of lunch: the later gap is closer than the earlier one.
+    expect(placeMeal(lunch, [{ start: t("12:00"), end: t("13:30") }], bed)?.start).toBe(t("13:30"));
+    // Equally close before and after: after.
+    const middle = [{ start: t("12:00"), end: t("14:30") }];
+    expect(placeMeal({ start: t("13:00"), end: t("13:30") }, middle, bed)?.start).toBe(t("14:30"));
     // A class far from the meal changes nothing.
     expect(placeMeal(lunch, [{ start: t("08:00"), end: t("10:00") }], bed)).toEqual(lunch);
     // Nothing fits.
@@ -184,6 +198,41 @@ describe("buildSlots", () => {
     expect(placeMeal(breakfast, early, bed)?.start).toBe(t("07:30"));
     // Woke up mid-lunch: eat on waking rather than skip the meal.
     expect(placeMeal(lunch, [], bed, t("13:30"))?.start).toBe(t("13:30"));
+    // Breakfast follows a late wake-up however late it is.
+    expect(placeMeal(breakfast, [], bed, t("11:00"), true)?.start).toBe(t("11:00"));
+    expect(placeMeal(breakfast, [], bed, t("11:00"))).toBeNull();
+  });
+
+  it("places each day's meals without overlapping each other and reports the missing ones", () => {
+    const meals = [
+      { kind: "desayuno" as const, start: 8 * 60, end: 8 * 60 + 30 },
+      { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
+      { kind: "cena" as const, start: 13 * 60 + 30, end: 14 * 60 },
+    ];
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, meals })) };
+    const day = placeMeals(odd, [], from, at("2026-11-03", "00:00"), [
+      { start: at("2026-11-02", "06:00"), end: at("2026-11-02", "10:00") },
+    ]).filter((m) => m.date === "2026-11-02");
+    expect(day.map((m) => m.kind)).toEqual(["desayuno", "almuerzo", "cena"]);
+    // Busy until 10:00, breakfast at 8:00 → 10:00 is more than 1 h 30 away.
+    expect(day[0]?.at).toBeNull();
+    expect(day[0]?.preferred).toEqual({
+      start: at("2026-11-02", "08:00"),
+      end: at("2026-11-02", "08:30"),
+    });
+    expect(day[1]?.at?.start).toBe(at("2026-11-02", "13:00"));
+    expect(day[2]?.at?.start).toBe(at("2026-11-02", "14:00"));
+    // A lunch out near lunchtime is that day's lunch: no other one, and no warning.
+    const out = { start: at("2026-11-02", "12:30"), end: at("2026-11-02", "15:30") };
+    const withOut = placeMeals(
+      odd,
+      [],
+      from,
+      at("2026-11-03", "00:00"),
+      [out],
+      [{ ...out, meal: "almuerzo" }],
+    ).filter((m) => m.date === "2026-11-02");
+    expect(withOut.map((m) => m.kind)).toEqual(["desayuno", "cena"]);
   });
 
   it("frees the preferred meal slot when the meal moves", () => {

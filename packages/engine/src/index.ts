@@ -1,5 +1,5 @@
-export type { Slot } from "./availability.js";
-export { buildSlots } from "./availability.js";
+export type { MealEvent, Slot } from "./availability.js";
+export { buildSlots, MEAL_RANGE, placeMeals } from "./availability.js";
 export type { Demand, FeasibilityResult } from "./feasibility.js";
 export { checkFeasibility } from "./feasibility.js";
 export { merge, minutes, overlaps, subtract } from "./intervals.js";

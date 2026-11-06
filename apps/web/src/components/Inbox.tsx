@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
-import { MINUTE, type PlanBlock } from "../engine.js";
-import { dayAndTime, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
+import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
+import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
@@ -14,8 +14,14 @@ import { PlaceSearch } from "./PlaceSearch.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
-export function Inbox() {
-  const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
+const EAT: Record<MealKind, string> = {
+  desayuno: "desayunar",
+  almuerzo: "almorzar",
+  cena: "cenar",
+};
+
+export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
+  const { data, now, pending, decisions, unlocated, pinShort, missedMeals, dispatch } = useStore();
   const offline = !!useSync()?.status.offline;
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
@@ -41,6 +47,7 @@ export function Inbox() {
       pending.length +
       clashes.length +
       pinShort.short.length +
+      missedMeals.length +
       data.proposals.length +
       decisions.options.length +
       decisions.recommendations.length +
@@ -305,6 +312,29 @@ export function Inbox() {
             </div>
           </>
         )}
+
+        {missedMeals.length > 0 && <div className="section-title">Comidas sin lugar</div>}
+        {missedMeals.map((m) => (
+          <div
+            key={`${m.date}-${m.kind ?? m.preferred.start}`}
+            className="card"
+            style={{ ["--c" as string]: "var(--meal)" }}
+          >
+            <div className="title">
+              Sin lugar para {m.kind ? EAT[m.kind] : "comer"} · {dayDate(tz, m.preferred.start)}
+            </div>
+            <p className="meta">
+              Entre las {time(tz, m.preferred.start - MEAL_RANGE)} y las{" "}
+              {time(tz, m.preferred.end + MEAL_RANGE)} todo está ocupado por eventos fijos o bloques
+              📌. Cuando se libere un rato, esto desaparece solo.
+            </p>
+            {onDay && (
+              <button type="button" className="btn small" onClick={() => onDay(m.date)}>
+                Ver el día
+              </button>
+            )}
+          </div>
+        ))}
 
         {decisions.options.length > 0 && (
           <>

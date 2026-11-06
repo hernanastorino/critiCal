@@ -255,7 +255,7 @@ function freeSpot(
     ...result.blocks,
     ...(input.frozen ?? []),
   ];
-  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, busy).filter(
+  const slots = buildSlots(input.settings, input.overrides ?? [], from, to, busy, others).filter(
     (s) => !s.soft,
   );
   let best: Interval | null = null;
