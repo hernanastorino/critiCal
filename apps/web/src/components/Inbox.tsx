@@ -6,7 +6,7 @@ import { dayAndTime, hhmmToMinutes, hours, minutesToHhmm, time } from "../format
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
-import { endOfDay, pinClashes } from "../planning.js";
+import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -14,8 +14,9 @@ import { PlaceSearch } from "./PlaceSearch.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 
+/** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox() {
-  const { data, now, pending, decisions, unlocated, pinShort, dispatch } = useStore();
+  const { data, now, pending, decisions, unlocated, pinShort, clashes, dispatch } = useStore();
   const offline = !!useSync()?.status.offline;
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
@@ -23,7 +24,6 @@ export function Inbox() {
   const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
-  const clashes = pinClashes(data, now);
   const moves = (data.movedEvents ?? []).flatMap((m) => {
     const event = data.events.find((e) => e.id === m.eventId);
     return event ? [{ ...m, event }] : [];
@@ -256,21 +256,34 @@ export function Inbox() {
         ))}
 
         {clashes.length > 0 && <div className="section-title">Fijados que chocan</div>}
-        {clashes.map(({ pin, event }) => (
+        {clashes.map(({ pin, event, moveTo }) => (
           <div key={pin.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
             <div className="title">
               📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
             </div>
             <p className="meta">
-              Choca con {event.title}. Lo dejé donde lo pusiste; movelo o soltalo.
+              {moveTo
+                ? `Está sobre ${event.title}, que se puede mover. ¿Lo paso al ${dayAndTime(tz, moveTo.start)}?`
+                : `Choca con ${event.title}. Lo dejé donde lo pusiste; movelo o soltalo.`}
             </p>
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
-            >
-              Soltar (que el plan decida)
-            </button>
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
+              >
+                Soltar (que el plan decida)
+              </button>
+              {moveTo && (
+                <button
+                  type="button"
+                  className="btn small primary"
+                  onClick={() => dispatch({ type: "moveEvent", eventId: event.id, ...moveTo })}
+                >
+                  Mover {event.title}
+                </button>
+              )}
+            </div>
           </div>
         ))}
 

@@ -6,7 +6,7 @@ export { merge, minutes, overlaps, subtract } from "./intervals.js";
 export type { EffortSample, Unit } from "./learning.js";
 export { effortRatio, remainingFromUnits } from "./learning.js";
 export type { OptionKind, PlanOption, Recommendation } from "./options.js";
-export { infeasibilityOptions, recommendations, targetOptions } from "./options.js";
+export { infeasibilityOptions, moveSpot, recommendations, targetOptions } from "./options.js";
 export type { ScheduleInput, ScheduleResult } from "./scheduler.js";
 export { schedule } from "./scheduler.js";
 export { addDays, localDates, localParts, weekdayOf, zonedInstant } from "./time.js";

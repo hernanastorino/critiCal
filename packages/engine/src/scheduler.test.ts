@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { buildSlots } from "./availability.js";
 import { overlaps } from "./intervals.js";
-import { infeasibilityOptions, recommendations, targetOptions } from "./options.js";
+import { infeasibilityOptions, moveSpot, recommendations, targetOptions } from "./options.js";
 import { assignable, type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
 import { activity, at, settings, task } from "./testing.js";
 import { type CalendarEvent, MINUTE, type PlanBlock } from "./types.js";
@@ -668,6 +668,38 @@ describe("more ways out", () => {
     // There is room elsewhere, so a move is offered, and never into the trip.
     expect(move?.moveTo).toBeDefined();
     expect(overlaps(move?.moveTo as { start: number; end: number }, trip)).toBe(false);
+  });
+
+  it("moves a flexible event off a pin with its trips clear of the pin too", () => {
+    const gym = ev("Gym #flex", at("2026-11-03", "12:00"), at("2026-11-03", "13:00"), {
+      flexible: true,
+      location: "Gym",
+    });
+    const pin: PlanBlock = {
+      id: "pin",
+      taskId: "m",
+      activityId: "mate",
+      start: gym.start,
+      end: gym.end,
+    };
+    const travel = {
+      home: "home",
+      resolvePlace: (l: string) => (l === "Gym" ? "gym" : undefined),
+      travelMinutes: () => 60,
+      marginMinutes: 10,
+      returnHomeAfterMinutes: 120,
+    };
+    const input = base({
+      tasks: [task("m", "mate", horizonEnd, { remainingMinutes: 60, minRemainingMinutes: 60 })],
+      events: [gym],
+      frozen: [pin],
+      travel,
+    });
+    const to = moveSpot(input, gym);
+    expect(to).not.toBeNull();
+    // 11:00 or 13:00 would fit the event, but not the trip back or there.
+    const there = { start: (to?.start ?? 0) - 70 * MINUTE, end: (to?.end ?? 0) + 60 * MINUTE };
+    expect(overlaps(there, pin)).toBe(false);
   });
 
   it("leaves out an exam's lightest units, never the heaviest", () => {
