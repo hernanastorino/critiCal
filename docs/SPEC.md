@@ -129,7 +129,7 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 
 ## 13. Estado (noviembre 2026)
 
-Hecho y en producción, además de las fases 0–4:
+Hecho y en producción, además de las fases 0–5 (incluidos el widget de Scriptable y la IA para cargar programas):
 
 - **Descansos por materia**: estudio + descanso (50/10 por defecto, editable). El plan reserva bloques con el descanso incluido; los registros guardan el factor con que se hicieron.
 - **Repaso espaciado** antes de parciales (7, 3 y 1 días antes) y opción «día anterior solo para esta materia»; un bloque de otra materia en ese día pasa a propuesta.
