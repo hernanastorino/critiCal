@@ -12,6 +12,7 @@ import { Calendars, describe, healthy } from "./Calendars.js";
 import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
 import { ChevronLeft, ChevronRight, SettingsIcons as I } from "./icons.js";
+import { useModal } from "./modal.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
 import {
@@ -64,11 +65,11 @@ interface Notice {
   title: string;
   text: string;
   action: string;
-  run: () => void;
+  run: (from: HTMLElement) => void;
 }
 
 /** Only what asks for something: nothing shows while all is well. */
-function Notices({ onOpen }: { onOpen: (id: PageId) => void }) {
+function Notices({ onOpen }: { onOpen: (id: PageId, from?: HTMLElement) => void }) {
   const sync = useSync();
   const { data } = useStore();
   const tz = data.settings.timezone;
@@ -81,7 +82,7 @@ function Notices({ onOpen }: { onOpen: (id: PageId) => void }) {
       text: describe(google, tz),
       ...(reconnects(google)
         ? { action: "Reconectar Google", run: sync.reconnectGoogle }
-        : { action: "Ver Calendarios", run: () => onOpen("calendars") }),
+        : { action: "Ver Calendarios", run: (from) => onOpen("calendars", from) }),
     });
   }
   const icloud = sync?.status.icloud;
@@ -91,7 +92,7 @@ function Notices({ onOpen }: { onOpen: (id: PageId) => void }) {
       title: "iCloud no se sincroniza",
       text: describe(icloud, tz),
       action: "Ver Calendarios",
-      run: () => onOpen("calendars"),
+      run: (from) => onOpen("calendars", from),
     });
   }
   if (!home(data)) {
@@ -100,7 +101,7 @@ function Notices({ onOpen }: { onOpen: (id: PageId) => void }) {
       title: "Falta tu casa",
       text: "Sin tu casa guardada no se calculan los traslados.",
       action: "Agregar casa",
-      run: () => onOpen("places"),
+      run: (from) => onOpen("places", from),
     });
   }
   if (notices.length === 0) return null;
@@ -113,7 +114,7 @@ function Notices({ onOpen }: { onOpen: (id: PageId) => void }) {
             {n.title}
           </div>
           <p>{n.text}</p>
-          <button type="button" className="btn small" onClick={n.run}>
+          <button type="button" className="btn small" onClick={(e) => n.run(e.currentTarget)}>
             {n.action}
           </button>
         </div>
@@ -211,28 +212,6 @@ export function Settings({
 
   const sheet = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState<PageId | null>(initialPage ?? null);
-  // A real modal: the screen behind is inert while Ajustes is open, and focus comes back
-  // to whatever opened it (the gear) on closing.
-  useEffect(() => {
-    const el = sheet.current;
-    const behind = el?.parentElement
-      ? [...el.parentElement.children].filter(
-          (c): c is HTMLElement =>
-            c instanceof HTMLElement && c !== el && !c.classList.contains("scrim"),
-        )
-      : [];
-    const was = behind.map((c) => c.inert);
-    for (const c of behind) c.inert = true;
-    const opener = document.activeElement as HTMLElement | null;
-    if (!initialPage)
-      el?.querySelector<HTMLElement>(".settings-list h2")?.focus({ preventScroll: true });
-    return () => {
-      behind.forEach((c, i) => {
-        c.inert = was[i] ?? false;
-      });
-      opener?.focus?.({ preventScroll: true });
-    };
-  }, [initialPage]);
   const back = useRef<HTMLButtonElement>(null);
   const rows = useRef(new Map<PageId, HTMLButtonElement>());
   /** Where the list was scrolled when a screen opened, to come back to it. */
@@ -240,12 +219,20 @@ export function Settings({
   // Opened straight on a screen (a meal's «Mi semana»): Back still lands on its row.
   const opened = useRef<PageId | null>(initialPage ?? null);
 
-  const open = (id: PageId) => {
+  /**
+   * What was tapped to open a screen (a notice's button; rows are found by id), to
+   * focus it again. Passed in: Safari does not focus a button that is tapped.
+   */
+  const trigger = useRef<HTMLElement | null>(null);
+  const open = (id: PageId, from?: HTMLElement) => {
+    trigger.current = from ?? null;
     listScroll.current = sheet.current?.scrollTop ?? 0;
     opened.current = id;
     setPage(id);
   };
   const close = () => setPage(null);
+  // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
+  const justOpened = useModal(sheet, () => (page ? close() : onClose()), !initialPage);
 
   // Focus follows the screen: «Ajustes» on a section, its row again on the way back.
   useEffect(() => {
@@ -258,7 +245,10 @@ export function Settings({
     if (!id) return;
     opened.current = null;
     if (sheet.current) sheet.current.scrollTop = listScroll.current;
-    rows.current.get(id)?.focus({ preventScroll: true });
+    const target = trigger.current?.isConnected ? trigger.current : rows.current.get(id);
+    trigger.current = null;
+    target?.focus({ preventScroll: true });
+    target?.scrollIntoView?.({ block: "nearest" });
   }, [page]);
 
   const routines = data.activities.filter((a) => a.kind === "rutina").length;
@@ -390,18 +380,15 @@ export function Settings({
         className="scrim dim"
         aria-hidden="true"
         tabIndex={-1}
-        onClick={onClose}
+        onClick={() => {
+          // The second tap of a double tap on the gear lands here: not a close.
+          if (!justOpened()) onClose();
+        }}
       />
       <div
         ref={sheet}
         className="sheet settings"
         role="dialog"
-        onKeyDown={(e) => {
-          if (e.key !== "Escape") return;
-          e.preventDefault();
-          if (page) close();
-          else onClose();
-        }}
         aria-modal="true"
         aria-label={current ? current.title : "Ajustes"}
       >
@@ -476,6 +463,7 @@ export function Settings({
                   {g.label === "Cuenta" && (
                     <a
                       className="settings-row"
+                      aria-label="Política de privacidad (se abre en otra pestaña)"
                       href="/privacy.html"
                       target="_blank"
                       rel="noreferrer"

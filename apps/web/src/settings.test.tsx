@@ -65,8 +65,12 @@ describe("Ajustes as a grouped list", () => {
     renderDemo();
     const notices = screen.getByRole("region", { name: "Avisos" });
     expect(within(notices).getByText("Falta tu casa")).toBeTruthy();
-    fireEvent.click(within(notices).getByRole("button", { name: "Agregar casa" }));
+    const add = within(notices).getByRole("button", { name: "Agregar casa" });
+    fireEvent.click(add);
     expect(screen.getByRole("dialog", { name: "Lugares y traslados" })).toBeTruthy();
+    // Back lands on what was tapped, not on a row further down out of view.
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(document.activeElement).toBe(add);
   });
 
   it("keeps the account's own actions in the Cuenta group", () => {

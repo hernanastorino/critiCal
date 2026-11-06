@@ -117,7 +117,18 @@ export function WeekSettings() {
         comida se corre sola al hueco más cercano, hasta 1 h 30 antes o después. Con duración 0 no
         hay esa comida.
       </p>
-      <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
+      <button
+        type="button"
+        className="btn primary"
+        style={{ width: "100%" }}
+        // «Guardar para L M M J V» reads as loose letters: VoiceOver gets the day names.
+        aria-label={
+          saved
+            ? undefined
+            : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAY_NAMES[d]).join(", ")}`
+        }
+        onClick={save}
+      >
         {saved
           ? "Guardado ✓"
           : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}

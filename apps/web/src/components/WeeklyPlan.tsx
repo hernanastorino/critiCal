@@ -1,7 +1,9 @@
+import { useRef } from "react";
 import { zonedInstant } from "../engine.js";
 import { dayAndTime, dayDate, hours } from "../format.js";
 import { useStore } from "../store.js";
 import { weekPlan, weekToPlan } from "../week-review.js";
+import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
 export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox: () => void }) {
@@ -18,15 +20,36 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
   const pendingDecisions = decisions.options.length + decisions.recommendations.length;
   const max = Math.max(60, ...days.map((d) => d.minutes));
+  const sheet = useRef<HTMLDivElement>(null);
+
+  // Opened from an Ajustes row that is gone by then: focus goes back to the gear.
+  const justOpened = useModal(sheet, onClose, true, () =>
+    document.querySelector<HTMLElement>('[aria-label="Ajustes"]'),
+  );
 
   return (
     <>
-      <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label="Planificación semanal">
+      {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}
+      <button
+        type="button"
+        className="scrim dim"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => {
+          if (!justOpened()) onClose();
+        }}
+      />
+      <div
+        ref={sheet}
+        className="sheet"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Planificación semanal"
+      >
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
           ✕
         </button>
-        <h2>Planificación semanal</h2>
+        <h2 tabIndex={-1}>Planificación semanal</h2>
         <p className="meta">
           {hours(days.reduce((s, d) => s + d.minutes, 0))} planificadas · {critical.length} bloques
           críticos
