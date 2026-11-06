@@ -24,7 +24,10 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
 
   // Opened from an Ajustes row that is gone by then: focus goes back to the gear.
   const justOpened = useModal(sheet, onClose, true, () =>
-    document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
+    document.querySelector<HTMLElement>(
+      // Without the week on screen (opened from a notification on the inbox), its tab.
+      'button[aria-label="Ajustes"], nav.tabs button[aria-current="page"]',
+    ),
   );
 
   return (
