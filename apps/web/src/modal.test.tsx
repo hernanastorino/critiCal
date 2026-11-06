@@ -79,6 +79,23 @@ describe("focus after a tap", () => {
   });
 });
 
+function Unnamed() {
+  const ref = useRef<HTMLDivElement>(null);
+  useModal(ref, () => {});
+  return (
+    <div ref={ref} role="dialog">
+      <h2>Gym</h2>
+    </div>
+  );
+}
+
+describe("sheet names", () => {
+  it("names a sheet without a label after its heading", () => {
+    render(<Unnamed />);
+    expect(screen.getByRole("dialog", { name: "Gym" })).toBeTruthy();
+  });
+});
+
 describe("action sheet", () => {
   it("starts on its first option, and Escape cancels", () => {
     const onCancel = vi.fn();
@@ -89,7 +106,8 @@ describe("action sheet", () => {
         onCancel={onCancel}
       />,
     );
-    expect(document.activeElement?.textContent).toContain("Eliminar todo");
+    // On «Cancelar»: an extra Enter must not delete anything.
+    expect(document.activeElement?.textContent).toBe("Cancelar");
     fireEvent.keyDown(document.body, { key: "Escape" });
     expect(onCancel).toHaveBeenCalledOnce();
   });

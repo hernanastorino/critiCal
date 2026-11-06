@@ -50,6 +50,11 @@ if (typeof document !== "undefined") {
     (e) => {
       const t =
         e.target instanceof Element ? e.target.closest<HTMLElement>("button, a, [tabindex]") : null;
+      // A backdrop never takes focus (the second tap of a double tap lands there).
+      if (t?.classList.contains("scrim")) {
+        e.preventDefault();
+        return;
+      }
       if (t) lastTapped = t;
     },
     true,
@@ -102,10 +107,19 @@ export function useModal(
     const focused = document.activeElement as HTMLElement | null;
     const opener = focused && focused !== document.body ? focused : lastTapped;
     if (focusFirst) {
-      // Its heading, or its first option when it has none (an action sheet).
-      const first = el.querySelector<HTMLElement>("h2") ?? el.querySelector<HTMLElement>("button");
+      // Where it asks to start ([data-autofocus]), else its heading, else its first control.
+      const first =
+        el.querySelector<HTMLElement>("[data-autofocus]") ??
+        el.querySelector<HTMLElement>("h2") ??
+        el.querySelector<HTMLElement>("button");
       if (first && first.tagName === "H2" && !first.hasAttribute("tabindex")) first.tabIndex = -1;
       first?.focus({ preventScroll: true });
+    }
+    // A sheet without a name of its own is named by its heading for VoiceOver.
+    const heading = el.querySelector<HTMLElement>("h2");
+    if (heading && !el.hasAttribute("aria-label") && !el.hasAttribute("aria-labelledby")) {
+      heading.id ||= `sheet-title-${Math.random().toString(36).slice(2)}`;
+      el.setAttribute("aria-labelledby", heading.id);
     }
     return () => {
       observer.disconnect();

@@ -6,9 +6,18 @@ import { useStore } from "../store.js";
 import { useModal } from "./modal.js";
 import type { Item } from "./Week.js";
 
-export function BlockSheet({ item, onClose }: { item: Item; onClose: () => void }) {
+export function BlockSheet({
+  item,
+  onClose,
+  returnTo,
+}: {
+  item: Item;
+  onClose: () => void;
+  /** Where focus goes on closing when what opened it is gone. */
+  returnTo?: () => HTMLElement | null;
+}) {
   const sheet = useRef<HTMLDivElement>(null);
-  const justOpened = useModal(sheet, onClose);
+  const justOpened = useModal(sheet, onClose, true, returnTo);
   return (
     <>
       {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}

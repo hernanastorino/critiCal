@@ -52,7 +52,8 @@ export function ActionSheet({
             </button>
           ))}
         </div>
-        <button type="button" className="action cancel" onClick={onCancel}>
+        {/* Focus starts here: an extra Enter must not delete anything. */}
+        <button type="button" className="action cancel" data-autofocus onClick={onCancel}>
           Cancelar
         </button>
       </div>
