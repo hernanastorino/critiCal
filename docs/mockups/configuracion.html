@@ -319,7 +319,7 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
         <div class="island"></div><div class="status"><span>9:41</span><span>●●●</span></div>
         <div class="view" id="B-root"></div>
         <button type="button" class="scrim" id="B-scrim" aria-label="Cerrar"></button>
-        <div class="psheet" id="B-sheet" role="dialog" aria-modal="true"></div>
+        <div class="psheet" id="B-sheet" role="dialog"></div>
       </div></div>
       <div class="tryit">Escribí «almuerzo», «margen» o «icloud». Tocá una tarjeta.</div>
     </div>
@@ -360,7 +360,7 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
         <div class="view" id="C-root"></div>
         <div class="view off" id="C-sub"></div>
         <button type="button" class="scrim" id="C-scrim" aria-label="Cerrar"></button>
-        <div class="psheet" id="C-sheet" role="dialog" aria-modal="true"></div>
+        <div class="psheet" id="C-sheet" role="dialog"></div>
       </div></div>
       <div class="tryit">Tocá «Reconectar Google», una baldosa o «Más ajustes».</div>
     </div>
@@ -512,9 +512,12 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
     const views = [...sheet.parentElement.querySelectorAll(".view")];
     let trigger = null;
     let before = [];
+    // Closed, neither the sheet nor its backdrop can be reached or read as a dialog.
+    const shut = () => { sheet.inert = true; scrim.inert = true; sheet.removeAttribute("aria-modal"); };
+    shut();
     const close = () => {
       if (!sheet.classList.contains("on")) return;
-      sheet.classList.remove("on"); scrim.classList.remove("on");
+      sheet.classList.remove("on"); scrim.classList.remove("on"); shut();
       views.forEach((v, i) => { v.inert = before[i]; });
       if (trigger) trigger.focus({ preventScroll: true });
     };
@@ -527,6 +530,7 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
       sheet.querySelector("[data-close]").onclick = close;
       before = views.map((v) => v.inert);
       views.forEach((v) => { v.inert = true; });
+      sheet.inert = false; scrim.inert = false; sheet.setAttribute("aria-modal", "true");
       sheet.scrollTop = 0; sheet.classList.add("on"); scrim.classList.add("on");
       sheet.querySelector("[data-close]").focus({ preventScroll: true });
     };
