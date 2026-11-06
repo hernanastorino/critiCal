@@ -3,6 +3,7 @@ import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { useStore } from "../store.js";
+import { Account } from "./Account.js";
 import { Backup } from "./Backup.js";
 import { Calendars } from "./Calendars.js";
 import { GeminiKey } from "./GeminiKey.js";
@@ -126,6 +127,12 @@ export function Settings({
             </button>
           )}
         </div>
+        <Account onDeleted={onSignOut} />
+        <p className="meta">
+          <a href="/privacy.html" target="_blank" rel="noreferrer">
+            Política de privacidad
+          </a>
+        </p>
       </div>
     </>
   );
