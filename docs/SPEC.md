@@ -83,7 +83,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 - **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
 - **Inicio de cuatrimestre**: materias, fechas, feriados.
 - **Ajustes**: parámetros fijos, reglas, lugares, conexiones, exportar/importar JSON.
-- Diseño visual: lo provee el usuario.
+- Diseño visual: lo provee el usuario, siguiendo las guías del §14.
 
 ## 8. IA (opcional, v2)
 
@@ -143,7 +143,59 @@ Hecho y en producción, además de las fases 0–5 (incluidos el widget de Scrip
 - **Solo por invitación**: la cuenta dueña (la primera) maneja en Preferencias la lista de emails invitados; las cuentas que ya existían quedan invitadas. Quien entra sin invitación ve «Esta app es por invitación»: la base no le deja leer ni escribir nada y el servidor (funciones, cron, webhooks, widget) lo saltea.
 - **Gemini propio**: cada usuario puede cargar su clave de Google AI Studio en Preferencias («Tu IA (Gemini)»); se valida, se guarda cifrada en el servidor y nunca vuelve al navegador. Sin clave propia se usa la de critiCal.
 
-## 14. Futuro
+## 14. Guías de UI/UX
+
+Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden implementar de a una, en un PR por grupo. Entre paréntesis está lo que falta hoy (noviembre 2026).
+
+### Mensajes y esperas
+
+- **Éxito**: un solo aviso para toda la app (toast), con el mismo tono y duración. (Hoy cada pantalla dice algo distinto: «Guardado ✓», «Listo», «Fechas guardadas»).
+- **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
+- **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. (Hoy no avisan ni la sincronización, ni la IA, ni los traslados).
+- **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.
+
+### Formularios y botones
+
+- Texto de ayuda debajo de los campos que no son obvios (formato, para qué sirve, ejemplo).
+- Botones con un verbo concreto («Guardar reglas», «Conectar iCloud»), nunca «OK», «Listo» o «Aceptar» sueltos.
+- Cada sección termina con una acción clara: el siguiente paso o el botón para crear lo primero.
+- No pedir dos veces el mismo dato: lo que ya se sabe (lugares, materias, horarios) se propone precargado.
+- **Estados vacíos útiles**: explican qué iría ahí y tienen el botón para crear lo primero.
+
+### Privacidad y cuenta
+
+- Link a la política de privacidad (`privacy.html`) en Ajustes y en la pantalla de login. (Hoy existe la página, pero la app no la enlaza).
+- Los permisos (notificaciones, ubicación, fotos, archivos) se piden solo al usar la función que los necesita y explicando para qué, nunca al abrir la app. (Hoy ya se cumple).
+- **Revocar todo y borrar la cuenta** en Ajustes, en un solo lugar y con un paso de confirmación escribiendo algo: revoca los tokens de Google, borra la contraseña de iCloud del Vault, borra el calendario «📚 Plan» si el usuario quiere y elimina la cuenta con todos sus datos. Ofrece antes exportar el JSON. (Hoy solo existe «Desconectar iCloud»).
+
+### Consistencia visual
+
+- **Íconos**: todos de línea de 2px, con extremos redondeados y del mismo tamaño, desde `icons.tsx`; los emojis no se usan como íconos de interfaz (sí en los datos, como «📚 Plan» o `📝`). (Hoy el ícono de critiCal es relleno y quedan emojis en algunos componentes).
+- **Escala de diseño**: espaciados múltiplos de 4/8, pocas medidas de texto y radios fijos, todo desde los tokens de `styles.css`, sin valores sueltos.
+- **Toques y bordes de iPhone**: zonas táctiles de al menos 44pt y safe areas respetadas. La barra de pestañas queda pegada al borde de abajo, como está.
+- **Números que se animan**: las horas de los silos y los totales cuentan hasta el valor nuevo al cambiar, con números tabulares para que no salten.
+- **Filtros**: si alguna vez hay filtros, siempre con un botón «Limpiar filtros».
+
+### Interacción y animaciones
+
+- **Transiciones con resorte** (200–300 ms) en hojas, pestañas, bloques que cambian de lugar y avisos. Con «reducir movimiento» pasan a un fundido corto o a nada.
+- **Respuesta optimista**: marcar ✓/✗, mover o editar se ve al instante; si el servidor falla, se revierte con un aviso que dice qué no se guardó.
+- **Deshacer en vez de confirmar**: las acciones destructivas (borrar, abandonar una entrega, rechazar una propuesta) se hacen al toque y muestran un aviso con «Deshacer». El aviso se anuncia a VoiceOver, se alcanza con el teclado, no se va mientras tiene el foco o el puntero encima, y lo deshecho también se puede recuperar después desde el historial de «Deshacer» (§13). Solo borrar la cuenta pide confirmación.
+- **Gestos**: deslizar un bloque para marcarlo hecho o salteado, y deslizar horizontalmente para cambiar de día o semana. Siempre con un botón equivalente.
+- **Vibración háptica** al marcar un bloque y al soltar un arrastre, donde el navegador la soporte (Safari en iPhone casi no la soporta: es un extra, no puede ser la única señal).
+
+### Accesibilidad
+
+- Contraste AA en texto y en los colores de criticidad (además del color, un ícono o una palabra).
+- Etiquetas para VoiceOver en todo lo que se toca, incluidos los bloques del calendario y los silos.
+- El texto respeta el tamaño de letra del sistema sin romper la grilla.
+- Foco visible y uso completo con teclado en la Mac.
+
+### Primer uso guiado
+
+- La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
+
+## 15. Futuro
 
 ### Traslados en ómnibus (Montevideo y Canelones)
 
