@@ -1,15 +1,27 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { isPinned, progress } from "../planning.js";
 import { useStore } from "../store.js";
+import { useModal } from "./modal.js";
 import type { Item } from "./Week.js";
 
 export function BlockSheet({ item, onClose }: { item: Item; onClose: () => void }) {
+  const sheet = useRef<HTMLDivElement>(null);
+  const justOpened = useModal(sheet, onClose);
   return (
     <>
-      <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true">
+      {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}
+      <button
+        type="button"
+        className="scrim dim"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => {
+          if (!justOpened()) onClose();
+        }}
+      />
+      <div ref={sheet} className="sheet" role="dialog" aria-modal="true">
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
           ✕
         </button>

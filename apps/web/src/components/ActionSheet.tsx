@@ -1,3 +1,6 @@
+import { useRef } from "react";
+import { useModal } from "./modal.js";
+
 export interface SheetOption {
   label: string;
   detail?: string;
@@ -17,10 +20,21 @@ export function ActionSheet({
   options: SheetOption[];
   onCancel: () => void;
 }) {
+  const sheet = useRef<HTMLDivElement>(null);
+  const justOpened = useModal(sheet, onCancel);
   return (
     <>
-      <button type="button" className="scrim dim top" aria-label="Cancelar" onClick={onCancel} />
-      <div className="action-sheet" role="dialog" aria-modal="true" aria-label={title}>
+      {/* For taps; the keyboard and VoiceOver have «Cancelar» and Escape. */}
+      <button
+        type="button"
+        className="scrim dim top"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => {
+          if (!justOpened()) onCancel();
+        }}
+      />
+      <div ref={sheet} className="action-sheet" role="dialog" aria-modal="true" aria-label={title}>
         <div className="action-group">
           <div className="action-head">
             <b className="action-title">{title}</b>

@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { dayAndTime, dayDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
+import { useModal } from "./modal.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 const MAX_TOPICS = 200;
@@ -37,13 +38,24 @@ export function TaskDetail({
     : (live.skipUntil ?? 0) > now
       ? `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`
       : null;
+  const sheet = useRef<HTMLDivElement>(null);
+  const justOpened = useModal(sheet, onClose);
   const pending = task.units.filter((u) => !u.doneAt);
   const done = task.units.length - pending.length;
 
   return (
     <>
-      <button type="button" className="scrim dim" aria-label="Cerrar" onClick={onClose} />
-      <div className="sheet" role="dialog" aria-modal="true" aria-label={task.title}>
+      {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}
+      <button
+        type="button"
+        className="scrim dim"
+        aria-hidden="true"
+        tabIndex={-1}
+        onClick={() => {
+          if (!justOpened()) onClose();
+        }}
+      />
+      <div ref={sheet} className="sheet" role="dialog" aria-modal="true" aria-label={task.title}>
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
           ✕
         </button>

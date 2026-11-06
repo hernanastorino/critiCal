@@ -13,13 +13,19 @@ const stack: Open[] = [];
 /** The inert value each element had before any sheet covered it. */
 const original = new Map<HTMLElement, boolean>();
 
-/** Everything but the top sheet (and the backdrops) is inert; the rest is put back. */
+/**
+ * Everything but the top sheet is inert, and the rest is put back. The sheet may sit
+ * inside another one (a silo's detail inside Ajustes), so this walks up from it to the
+ * body covering every sibling on the way; its own backdrop stays tappable.
+ */
 function cover() {
   const top = stack[stack.length - 1]?.sheet;
   const want = new Set<HTMLElement>();
-  for (const { sheet } of stack) {
-    for (const c of sheet.parentElement ? [...sheet.parentElement.children] : []) {
-      if (c instanceof HTMLElement && c !== top && !c.classList.contains("scrim")) want.add(c);
+  for (let n: Element | null = top ?? null; n && n !== document.body; n = n.parentElement) {
+    for (const c of n.parentElement ? [...n.parentElement.children] : []) {
+      if (!(c instanceof HTMLElement) || c === n) continue;
+      if (c.classList.contains("scrim") && c.nextElementSibling === top) continue;
+      want.add(c);
     }
   }
   for (const c of want) {
@@ -31,6 +37,23 @@ function cover() {
     c.inert = inert;
     original.delete(c);
   }
+}
+
+/**
+ * The control last tapped. Safari does not focus a tapped button, so this is what
+ * opened a sheet when nothing has focus, and where focus goes back on closing.
+ */
+let lastTapped: HTMLElement | null = null;
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      const t =
+        e.target instanceof Element ? e.target.closest<HTMLElement>("button, a, [tabindex]") : null;
+      if (t) lastTapped = t;
+    },
+    true,
+  );
 }
 
 // One listener for every sheet, so Escape works even after a tap left focus on the page.
@@ -73,10 +96,17 @@ export function useModal(
     if (stack.length === 0) document.addEventListener("keydown", onKey);
     stack.push(me);
     cover();
+    // Whatever mounts later around it (a tab a notification switches to) is covered too.
     const observer = new MutationObserver(cover);
-    if (el.parentElement) observer.observe(el.parentElement, { childList: true });
-    const opener = document.activeElement as HTMLElement | null;
-    if (focusFirst) el.querySelector<HTMLElement>("h2")?.focus({ preventScroll: true });
+    observer.observe(document.body, { childList: true, subtree: true });
+    const focused = document.activeElement as HTMLElement | null;
+    const opener = focused && focused !== document.body ? focused : lastTapped;
+    if (focusFirst) {
+      // Its heading, or its first option when it has none (an action sheet).
+      const first = el.querySelector<HTMLElement>("h2") ?? el.querySelector<HTMLElement>("button");
+      if (first && first.tagName === "H2" && !first.hasAttribute("tabindex")) first.tabIndex = -1;
+      first?.focus({ preventScroll: true });
+    }
     return () => {
       observer.disconnect();
       const wasTop = stack[stack.length - 1] === me;
@@ -88,7 +118,9 @@ export function useModal(
       const usable = (n: HTMLElement | null | undefined) =>
         !!n && n.isConnected && n !== document.body && !n.closest("[inert]");
       // With another sheet still open, focus goes back into it.
-      const below = stack[stack.length - 1]?.sheet.querySelector<HTMLElement>("h2");
+      const lower = stack[stack.length - 1]?.sheet;
+      const below =
+        lower?.querySelector<HTMLElement>("h2") ?? lower?.querySelector<HTMLElement>("button");
       const to = usable(opener) ? opener : (below ?? back.current?.());
       to?.focus({ preventScroll: true });
     };
