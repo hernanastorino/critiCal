@@ -13,6 +13,24 @@ describe("monitoring", () => {
     expect(sentry.init).not.toHaveBeenCalled();
   });
 
+  it("keeps a report made while the SDK loads and sends it once ready", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.captureException.mockClear();
+    const m = await import("./monitoring.js");
+    const ready = m.startMonitoring();
+    const early = new Error("render failed before Sentry");
+    m.reportError(early, { componentStack: "in App" });
+    m.reportError(new Error("Failed to fetch"));
+    expect(sentry.captureException).not.toHaveBeenCalled();
+    await ready;
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
+    expect(sentry.captureException).toHaveBeenCalledWith(early, {
+      extra: { componentStack: "in App" },
+    });
+    vi.unstubAllEnvs();
+  });
+
   it("reports errors without personal data once configured", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
     vi.resetModules();

@@ -3,10 +3,14 @@
 
 type Capture = (e: unknown, extra?: Record<string, string>) => void;
 let capture: Capture | null = null;
+/** Set while the SDK loads: reports wait here (a render error can come before it). */
+let waiting: [unknown, Record<string, string> | undefined][] | null = null;
+const WAIT_MAX = 20;
 
 export async function startMonitoring(): Promise<void> {
   const dsn = import.meta.env.VITE_SENTRY_DSN as string | undefined;
-  if (!dsn || capture) return;
+  if (!dsn || capture || waiting) return;
+  waiting = [];
   const Sentry = await import("@sentry/browser");
   Sentry.init({
     dsn,
@@ -16,6 +20,14 @@ export async function startMonitoring(): Promise<void> {
     tracesSampleRate: 0,
   });
   capture = (e, extra) => Sentry.captureException(e, extra ? { extra } : undefined);
+  for (const [e, extra] of waiting ?? []) capture(e, extra);
+  waiting = null;
+}
+
+/** To Sentry now, or once it has loaded; nowhere without a DSN. */
+function send(e: unknown, extra?: Record<string, string>) {
+  if (capture) capture(e, extra);
+  else if (waiting && waiting.length < WAIT_MAX) waiting.push([e, extra]);
 }
 
 // Whole phrases only ("Upload failed: …" is a real error, not a dropped connection).
@@ -38,7 +50,7 @@ export function isNetworkFailure(e: unknown): boolean {
 
 /** Reports a handled error (one the app shows instead of crashing), with optional context. */
 export function reportError(e: unknown, context?: Record<string, string>): void {
-  if (!capture || isNetworkFailure(e)) return;
+  if ((!capture && !waiting) || isNetworkFailure(e)) return;
   // Supabase errors are plain objects: an Error keeps their message as the title.
   if (!(e instanceof Error) && typeof e === "object" && e && "message" in e) {
     const o = e as { message: unknown; code?: unknown; details?: unknown; hint?: unknown };
@@ -50,8 +62,8 @@ export function reportError(e: unknown, context?: Record<string, string>): void 
         .filter((k) => typeof o[k] === "string" && o[k])
         .map((k) => [k, String(o[k]).slice(0, 500)]),
     );
-    capture(err, { ...extra, ...context });
+    send(err, { ...extra, ...context });
     return;
   }
-  capture(e, context);
+  send(e, context);
 }
