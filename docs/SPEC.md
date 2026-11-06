@@ -195,12 +195,42 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 - La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
 
-## 15. Futuro
-
-### Traslados en ómnibus (Montevideo y Canelones)
+## 15. Traslados en ómnibus (Montevideo y Canelones) — pendiente
 
 - Elegir por traslado (o por par de lugares) entre **auto** y **ómnibus**.
 - Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas reales por parada, **esperas** y **transbordos**.
 - Sugerir qué ómnibus tomar para minimizar el tiempo puerta a puerta.
 - **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
-- Antes de implementarlo: definir fuentes de datos (datos abiertos de la IM / GTFS del STM, líneas de Canelones), cada cuánto refrescar el caché y cómo se elige el modo en la interfaz.
+- Decisiones (noviembre 2026, tomadas por Claude a pedido del usuario; se pueden revisar):
+  - **Fuentes**: GTFS del STM publicado en el catálogo de datos abiertos de la IM (incluye las líneas metropolitanas que entran a Canelones) y, si está disponible, el tiempo real de pasadas por parada de la API de la IM. Si alguna línea de Canelones no figura, se usa su horario publicado y se marca como «horario teórico».
+  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y solo se recalculan si cambia el GTFS o el usuario lo pide.
+  - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
+  - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
+
+## 16. Rediseño de Configuración (pendiente)
+
+Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las secciones no tienen borde y se pierden; abrir una sección empuja todo el resto y abrir y cerrar secciones se siente tosco.
+
+- Hacer **3 mockups** bien distintos del panel de Configuración (por ejemplo: lista agrupada estilo Ajustes de iOS que navega a subpantallas; buscador con secciones en tarjetas; resumen con lo importante arriba y lo avanzado aparte). Cada uno se evalúa con criterio: ¿está muy cargado?, ¿se entiende qué hace cada botón sin leer de más?, ¿es lo más rápido y cómodo para las tareas frecuentes?, ¿se puede aliviar?, y cómo cumple las guías del §14.
+- Entrega: una presentación corta y navegable con una pantalla por mockup, renderizada como en el iPhone, con sus pros y contras. Se publica en un link privado de claude.ai para mostrarla a otras personas, y una copia HTML queda en `docs/mockups/`.
+- El usuario y las personas que consulte eligen uno. **Se implementa recién cuando el usuario lo elige**, en un PR aparte, y después se vuelve a pasar por el ciclo del §17.
+- Se empieza recién cuando los cambios de UI en curso estén terminados, validados, mergeados y desplegados en producción.
+
+## 17. Hasta producción: orden de trabajo y ciclo de validación
+
+Orden:
+
+1. Terminar, mergear y desplegar lo que está en curso.
+2. Hacer los mockups del §16.
+3. Implementar todo lo que el proyecto tiene pendiente: las guías del §14 que no tienen ✅, los traslados en ómnibus del §15 y cualquier TODO que haya en el código. Un PR por tema.
+4. Correr el ciclo de validación hasta que quede limpio.
+
+**Ciclo de validación** (se repite entero después de cada arreglo):
+
+1. Todo mergeado y desplegado en producción, con el CI en verde y CodeRabbit sin comentarios pendientes.
+2. Sentry sin errores nuevos ni problemas de seguridad abiertos. Los que haya se arreglan.
+3. Claude abre la app en el simulador de iPhone y prueba **todas** las funciones, con los caminos felices y los de error. Usa el modo demo y, para lo que necesita cuenta, una **cuenta de prueba local** (email y contraseña que solo existe en Supabase local en Docker, con datos inventados; Google e iCloud reales no se prueban así). Anota lo que falle y lo arregla.
+4. Un agente sin contexto técnico de la app usa la interfaz de iPhone con un solo objetivo: encontrar todas las vulnerabilidades que pueda y romper todas las funciones posibles, y reportarlas. Ataca primero el entorno **local** y después repite en **staging** solo las pruebas que no rompen datos. Nunca ataca producción.
+5. Todo lo reportado se arregla automáticamente y se vuelve al paso 1.
+
+El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
