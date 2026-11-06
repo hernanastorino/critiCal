@@ -87,6 +87,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 - El gesto o botón «atrás» del sistema no vuelve de una subpantalla de Ajustes (no hay estado en el historial).
 - Validar `settings.data` en el servidor, con cuidado: filas viejas de producción podrían no cumplir una restricción nueva. Hacerlo con `NOT VALID` o como validación en `/api`.
 - Rutinas con nombre repetido al **renombrar** una materia existente (al agregar ya se impide).
+- Avisos (agente atacante sobre #73): después de «Deshacer» el foco queda en `<body>` (debería volver al bloque restaurado); «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante; el `aria-label` de los bloques no dice el día.
 
 ## 6. Hecho recientemente (noviembre 2026)
 
