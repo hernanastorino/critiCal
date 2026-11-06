@@ -43,7 +43,9 @@ function cover() {
  * The control last tapped. Safari does not focus a tapped button, so this is what
  * opened a sheet when nothing has focus, and where focus goes back on closing.
  */
-let lastTapped: HTMLElement | null = null;
+let lastTapped: { el: HTMLElement; at: number } | null = null;
+/** A tap counts as what opened a sheet only this soon before it (a notification may open one later). */
+const TAP_OPENS_MS = 1000;
 if (typeof document !== "undefined") {
   document.addEventListener(
     "pointerdown",
@@ -55,7 +57,7 @@ if (typeof document !== "undefined") {
         e.preventDefault();
         return;
       }
-      if (t) lastTapped = t;
+      if (t) lastTapped = { el: t, at: Date.now() };
     },
     true,
   );
@@ -105,7 +107,15 @@ export function useModal(
     const observer = new MutationObserver(cover);
     observer.observe(document.body, { childList: true, subtree: true });
     const focused = document.activeElement as HTMLElement | null;
-    const opener = focused && focused !== document.body ? focused : lastTapped;
+    const tapped = lastTapped && Date.now() - lastTapped.at < TAP_OPENS_MS ? lastTapped.el : null;
+    const opener = focused && focused !== document.body ? focused : tapped;
+    // A sheet without a name of its own is named by its heading for VoiceOver, before
+    // focus moves in, so it is announced with it.
+    const heading = el.querySelector<HTMLElement>("h2");
+    if (heading && !el.hasAttribute("aria-label") && !el.hasAttribute("aria-labelledby")) {
+      heading.id ||= `sheet-title-${Math.random().toString(36).slice(2)}`;
+      el.setAttribute("aria-labelledby", heading.id);
+    }
     if (focusFirst) {
       // Where it asks to start ([data-autofocus]), else its heading, else its first control.
       const first =
@@ -114,12 +124,6 @@ export function useModal(
         el.querySelector<HTMLElement>("button");
       if (first && first.tagName === "H2" && !first.hasAttribute("tabindex")) first.tabIndex = -1;
       first?.focus({ preventScroll: true });
-    }
-    // A sheet without a name of its own is named by its heading for VoiceOver.
-    const heading = el.querySelector<HTMLElement>("h2");
-    if (heading && !el.hasAttribute("aria-label") && !el.hasAttribute("aria-labelledby")) {
-      heading.id ||= `sheet-title-${Math.random().toString(36).slice(2)}`;
-      el.setAttribute("aria-labelledby", heading.id);
     }
     return () => {
       observer.disconnect();

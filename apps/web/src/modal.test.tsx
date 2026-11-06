@@ -89,6 +89,26 @@ function Unnamed() {
   );
 }
 
+describe("an old tap", () => {
+  it("is not taken for what opened a sheet much later", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    const view = (open: boolean) => (
+      <div className="app">
+        <button type="button">Antes</button>
+        {open && <Sheet name="Plan" onClose={() => {}} />}
+      </div>
+    );
+    const { rerender } = render(view(false));
+    fireEvent.pointerDown(screen.getByText("Antes"));
+    vi.setSystemTime(Date.now() + 5000);
+    (document.activeElement as HTMLElement | null)?.blur();
+    rerender(view(true));
+    rerender(view(false));
+    expect(document.activeElement).not.toBe(screen.getByText("Antes"));
+    vi.useRealTimers();
+  });
+});
+
 describe("sheet names", () => {
   it("names a sheet without a label after its heading", () => {
     render(<Unnamed />);

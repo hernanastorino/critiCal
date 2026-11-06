@@ -771,7 +771,12 @@ export function Week({
           item={open}
           onClose={() => setOpen(null)}
           // The bubble that opened it is gone by then: back to its block.
-          returnTo={() => (bubbleFrom.current?.isConnected ? bubbleFrom.current : null)}
+          // If replanning took the block away («Soltar»), to the gear: always there.
+          returnTo={() =>
+            bubbleFrom.current?.isConnected
+              ? bubbleFrom.current
+              : document.querySelector<HTMLElement>('button[aria-label="Ajustes"]')
+          }
         />
       )}
     </div>
