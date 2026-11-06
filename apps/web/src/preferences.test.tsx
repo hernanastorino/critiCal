@@ -62,6 +62,21 @@ describe("fixed settings", () => {
     expect(stored().settings.week[3].meals).toEqual([{ kind: "almuerzo", start: 780, end: 840 }]);
   });
 
+  it("keeps a day with every meal turned off without meals", () => {
+    for (const field of screen.getAllByLabelText("Dura (min)"))
+      fireEvent.change(field, { target: { value: "0" } });
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(stored().settings.week[1].meals).toEqual([]);
+    // Reopened, breakfast is still off rather than back on waking.
+    cleanup();
+    const saved = stored().settings;
+    render(<App fixedNow={NOW} initial={(now) => ({ ...demoData(now), settings: saved })} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    const [breakfastMin] = screen.getAllByLabelText("Dura (min)") as HTMLInputElement[];
+    expect(breakfastMin?.value).toBe("0");
+    expect(screen.getByText(/sin comidas cargadas/)).toBeTruthy();
+  });
+
   it("shows a breakfast on waking for routines saved before breakfast was a meal", () => {
     cleanup();
     localStorage.clear();

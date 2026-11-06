@@ -282,10 +282,11 @@ const BREAKFAST_MINUTES = 30;
 
 /**
  * A day's meals, each with its kind. Routines saved before breakfast was a meal list
- * lunch and dinner only (in that order): they get a breakfast on waking.
+ * lunch and dinner only (in that order, at least one): they get a breakfast on waking.
  */
 export function mealsOf(day: DaySettings): Meal[] {
-  if (day.meals.some((m) => m.kind)) return day.meals;
+  // No meals at all is a choice (every duration at 0), not an old routine.
+  if (day.meals.length === 0 || day.meals.some((m) => m.kind)) return day.meals;
   const kinds: MealKind[] = ["almuerzo", "cena"];
   return [
     { kind: "desayuno", start: day.wake, end: day.wake + BREAKFAST_MINUTES },
