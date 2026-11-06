@@ -207,9 +207,9 @@ function MinutesInput({
   };
   return (
     <input
-      type="number"
-      inputMode="numeric"
-      min={0}
+      // Text, not number: Safari drops a decimal comma from number fields (12,5 → 125).
+      type="text"
+      inputMode="decimal"
       aria-label={label}
       style={{ width: 72 }}
       value={draft ?? value ?? ""}

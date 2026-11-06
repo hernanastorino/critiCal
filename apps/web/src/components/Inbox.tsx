@@ -479,8 +479,9 @@ function WhereCard({
   const [save, setSave] = useState(false);
   const [name, setName] = useState("");
   const failed = spotFor(data, item.event.location)?.failed;
-  const typed = Number(minutes);
-  const valid = minutes !== "" && Number.isInteger(typed) && typed >= 0 && typed <= 1440;
+  // «12,5» and «12.5» are both 13 minutes.
+  const typed = Math.round(Number(minutes.replace(",", ".")));
+  const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
   return (
     <div className="card">
       <div className="title">{item.event.title}</div>
@@ -498,10 +499,8 @@ function WhereCard({
         <label className="field" style={{ flex: 1, marginBottom: 0 }}>
           <span>O minutos desde casa</span>
           <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={1440}
+            type="text"
+            inputMode="decimal"
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
           />

@@ -380,6 +380,18 @@ export function DetectedDefaults() {
             }),
           );
           dispatch({ type: "preferences", preferences: { ...data.preferences, importDefaults } });
+          // Show what was saved: 2000 h becomes 200, a minimum above the hours becomes them.
+          setForm(
+            Object.fromEntries(
+              KINDS.map(({ kind }) => [
+                kind,
+                {
+                  estimate: toHours(importDefaults[kind]?.estimate ?? 0),
+                  min: toHours(importDefaults[kind]?.min ?? 0),
+                },
+              ]),
+            ),
+          );
           setSaved(true);
         }}
       >
