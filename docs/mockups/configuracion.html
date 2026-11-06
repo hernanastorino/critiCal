@@ -486,24 +486,38 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
   const rowHtml = (k) => `<button class="row${S[k].danger ? " danger" : ""}" type="button" data-open="${k}">${ic(S[k].icon)}<span class="lbl">${S[k].t}</span><span class="val">${S[k].sum}</span><span class="chev">${svg("chev")}</span></button>`;
   const subHtml = (k, backLabel) => `<div class="inner"><div class="nav"><button class="back" type="button" data-back>${svg("back")} ${backLabel}</button></div><h3 class="large">${S[k].t}</h3>${S[k].body}</div>`;
 
-  // Push navigation with a spring (A and C).
+  // Push navigation with a spring (A and C). The covered view is inert and focus
+  // moves to the view on top, then back to the row that opened it.
+  function enter(root, sub) {
+    sub.classList.remove("off"); sub.inert = false;
+    root.classList.add("under"); root.inert = true;
+    sub.querySelector("[data-back]").focus({ preventScroll: true });
+  }
+  function leave(root, sub, trigger) {
+    sub.classList.add("off"); sub.inert = true;
+    root.classList.remove("under"); root.inert = false;
+    if (trigger) trigger.focus({ preventScroll: true });
+  }
   function pushNav(root, sub, back) {
-    return (k, label = back) => {
-      sub.innerHTML = subHtml(k, label);
+    sub.inert = true;
+    return (k, trigger) => {
+      sub.innerHTML = subHtml(k, back);
       sub.scrollTop = 0;
-      sub.classList.remove("off"); root.classList.add("under");
-      sub.querySelector("[data-back]").onclick = () => { sub.classList.add("off"); root.classList.remove("under"); };
-      sub.querySelector("[data-back]").focus({ preventScroll: true });
+      sub.querySelector("[data-back]").onclick = () => leave(root, sub, trigger);
+      enter(root, sub);
     };
   }
   function sheetNav(sheet, scrim) {
-    const close = () => { sheet.classList.remove("on"); scrim.classList.remove("on"); };
+    let trigger = null;
+    const close = () => { sheet.classList.remove("on"); scrim.classList.remove("on"); if (trigger) trigger.focus({ preventScroll: true }); };
     scrim.onclick = close;
-    return (k) => {
+    return (k, from) => {
+      trigger = from || null;
       sheet.innerHTML = `<div class="grab"></div><div class="inner"><div class="nav"><h3 class="large" style="font-size:22px">${S[k].t}</h3><button class="done" type="button" data-close>Cerrar</button></div>${S[k].body}</div>`;
       sheet.setAttribute("aria-label", S[k].t);
       sheet.querySelector("[data-close]").onclick = close;
       sheet.scrollTop = 0; sheet.classList.add("on"); scrim.classList.add("on");
+      sheet.querySelector("[data-close]").focus({ preventScroll: true });
     };
   }
 
@@ -513,7 +527,7 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
     <div class="card"><h4>${svg("sun")} Hoy</h4>${S.hoy.body}</div>
     ${order.map((g) => `<div class="group-label">${g}</div><div class="list">${ids(g).map(rowHtml).join("")}</div>`).join("")}</div>`;
   const openA = pushNav(Aroot, Asub, "Ajustes");
-  Aroot.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openA(b.dataset.open)));
+  Aroot.querySelectorAll("[data-open]").forEach((b) => { b.onclick = () => openA(b.dataset.open, b); });
 
   // B — search + cards
   const Broot = document.getElementById("B-root");
@@ -524,6 +538,7 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
     <label class="search">${svg("search")}<input id="B-q" type="search" placeholder="Buscar: almuerzo, margen, iCloud…" aria-label="Buscar un ajuste"></label>
     <div class="chips" id="B-chips">${cats.map((c) => `<button class="chip" type="button" aria-pressed="false" data-cat="${c}">${c}</button>`).join("")}</div>
     <div id="B-list" style="display:grid;gap:10px"></div></div>`;
+  const esc = (t) => t.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]);
   const norm = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   function renderB() {
     const list = document.getElementById("B-list");
@@ -531,20 +546,20 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
     const hoy = !q && !cat ? `<div class="card"><h4>${svg("sun")} Hoy</h4>${S.hoy.body}</div>` : "";
     const clear = q || cat ? `<button class="btn small" type="button" id="B-clear" style="justify-self:start">Limpiar filtros</button>` : "";
     list.innerHTML = hoy + clear + (keys.length ? keys.map((k) => `<button class="card scard" type="button" data-open="${k}"><h4>${svg(S[k].icon)} ${S[k].t}<span class="go">Abrir ${svg("chev")}</span></h4>${S[k].sum ? `<div class="sumline"><b>${S[k].sum}</b></div>` : ""}</button>`).join("")
-      : `<div class="empty">No hay ningún ajuste con «${q}».<br>Probá con otra palabra o mirá todos.<button class="btn small" type="button" id="B-clear2" style="justify-self:center">Ver todos los ajustes</button></div>`);
-    list.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openB(b.dataset.open)));
+      : `<div class="empty">No hay ningún ajuste con «${esc(q)}».<br>Probá con otra palabra o mirá todos.<button class="btn small" type="button" id="B-clear2" style="justify-self:center">Ver todos los ajustes</button></div>`);
+    list.querySelectorAll("[data-open]").forEach((b) => { b.onclick = () => openB(b.dataset.open, b); });
     const reset = () => { q = ""; cat = null; document.getElementById("B-q").value = ""; syncChips(); renderB(); };
     ["B-clear", "B-clear2"].forEach((id) => { const b = document.getElementById(id); if (b) b.onclick = reset; });
   }
-  function syncChips() { document.querySelectorAll("#B-chips .chip").forEach((c) => c.setAttribute("aria-pressed", String(c.dataset.cat === cat))); }
+  function syncChips() { document.querySelectorAll("#B-chips .chip").forEach((c) => { c.setAttribute("aria-pressed", String(c.dataset.cat === cat)); }); }
   document.getElementById("B-q").addEventListener("input", (e) => { q = e.target.value.trim(); renderB(); });
-  document.querySelectorAll("#B-chips .chip").forEach((c) => (c.onclick = () => { cat = cat === c.dataset.cat ? null : c.dataset.cat; syncChips(); renderB(); }));
+  document.querySelectorAll("#B-chips .chip").forEach((c) => { c.onclick = () => { cat = cat === c.dataset.cat ? null : c.dataset.cat; syncChips(); renderB(); }; });
   renderB();
 
   // C — summary first
   const Croot = document.getElementById("C-root"), Csub = document.getElementById("C-sub");
   const openC = sheetNav(document.getElementById("C-sheet"), document.getElementById("C-scrim"));
-  const pushC = pushNav(Croot, Csub, "Ajustes");
+  Csub.inert = true;
   const advanced = ["cuatri", "programa", "rutinas", "reglas", "detecta", "notif", "widget", "ia", "invita", "respaldo", "privacidad", "salir", "borrar"];
   let googleOk = false;
   function renderC() {
@@ -559,14 +574,15 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
       <div class="group-label">Este cuatrimestre</div>
       <div class="tiles">${["materias", "misemana", "lugares", "calendarios"].map((k) => `<button class="tile" type="button" data-open="${k}">${ic(S[k].icon)}<b>${S[k].t.replace(" y traslados", "")}</b><span>${S[k].sum}</span></button>`).join("")}</div>
       <div class="list"><button class="row" type="button" id="C-more">${ic("more")}<span class="lbl">Más ajustes</span><span class="val">13</span><span class="chev">${svg("chev")}</span></button></div></div>`;
-    Croot.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openC(b.dataset.open)));
+    Croot.querySelectorAll("[data-open]").forEach((b) => { b.onclick = () => openC(b.dataset.open, b); });
     const fix = document.getElementById("C-fix");
     if (fix) fix.onclick = () => { googleOk = true; renderC(); };
-    document.getElementById("C-more").onclick = () => {
+    const more = document.getElementById("C-more");
+    more.onclick = () => {
       Csub.innerHTML = `<div class="inner"><div class="nav"><button class="back" type="button" data-back>${svg("back")} Ajustes</button></div><h3 class="large">Más ajustes</h3><div class="list">${advanced.map(rowHtml).join("")}</div></div>`;
-      Csub.classList.remove("off"); Croot.classList.add("under");
-      Csub.querySelector("[data-back]").onclick = () => { Csub.classList.add("off"); Croot.classList.remove("under"); };
-      Csub.querySelectorAll("[data-open]").forEach((b) => (b.onclick = () => openC(b.dataset.open)));
+      Csub.querySelector("[data-back]").onclick = () => leave(Croot, Csub, more);
+      Csub.querySelectorAll("[data-open]").forEach((b) => { b.onclick = () => openC(b.dataset.open, b); });
+      enter(Croot, Csub);
     };
   }
   renderC();
@@ -576,13 +592,13 @@ svg.i { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-widt
   let cur = 0;
   function go(i) {
     cur = Math.max(0, Math.min(names.length - 1, i));
-    document.querySelectorAll("[data-slide]").forEach((s) => (s.hidden = s.dataset.slide !== names[cur]));
-    document.querySelectorAll("[data-go]").forEach((b) => b.setAttribute("aria-current", String(b.dataset.go === names[cur])));
+    document.querySelectorAll("[data-slide]").forEach((s) => { s.hidden = s.dataset.slide !== names[cur]; });
+    document.querySelectorAll("[data-go]").forEach((b) => { b.setAttribute("aria-current", String(b.dataset.go === names[cur])); });
     document.getElementById("prev").disabled = cur === 0;
     document.getElementById("next").disabled = cur === names.length - 1;
     try { history.replaceState(null, "", "#" + names[cur]); } catch (e) {}
   }
-  document.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { go(names.indexOf(b.dataset.go)); window.scrollTo(0, 0); }));
+  document.querySelectorAll("[data-go]").forEach((b) => { b.onclick = () => { go(names.indexOf(b.dataset.go)); window.scrollTo(0, 0); }; });
   document.getElementById("prev").onclick = () => { go(cur - 1); window.scrollTo(0, 0); };
   document.getElementById("next").onclick = () => { go(cur + 1); window.scrollTo(0, 0); };
   document.addEventListener("keydown", (e) => {
