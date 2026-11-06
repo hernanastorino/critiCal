@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -481,11 +481,14 @@ function WhereCard({
   const { data, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [minutes, setMinutes] = useState("");
+  // An id without spaces: «Instituto Anglo» would split aria-describedby in two.
+  const helpId = useId();
   const [save, setSave] = useState(false);
   const [name, setName] = useState("");
   const failed = spotFor(data, item.event.location)?.failed;
-  const typed = Number(minutes);
-  const valid = minutes !== "" && Number.isInteger(typed) && typed >= 0 && typed <= 1440;
+  // «12,5» and «12.5» are both 13 minutes.
+  const typed = Math.round(Number(minutes.replace(",", ".")));
+  const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
   return (
     <div className="card">
       <div className="title">{item.event.title}</div>
@@ -503,11 +506,11 @@ function WhereCard({
         <label className="field" style={{ flex: 1, marginBottom: 0 }}>
           <span>O minutos desde casa</span>
           <input
-            type="number"
-            inputMode="numeric"
-            min={0}
-            max={1440}
+            type="text"
+            inputMode="decimal"
             value={minutes}
+            aria-invalid={minutes.trim() !== "" && !valid ? true : undefined}
+            aria-describedby={helpId}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
@@ -523,6 +526,16 @@ function WhereCard({
           Usar
         </button>
       </div>
+      <p
+        className="meta"
+        id={helpId}
+        role={minutes.trim() !== "" && !valid ? "alert" : undefined}
+        style={minutes.trim() !== "" && !valid ? { color: "var(--critical)" } : undefined}
+      >
+        {minutes.trim() !== "" && !valid
+          ? "Poné minutos de 0 a 1440, solo cifras (12,5 se guarda como 13)."
+          : "Minutos de 0 a 1440; con coma o punto se redondea."}
+      </p>
       <label className="check">
         <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
         <span>Guardar como lugar</span>

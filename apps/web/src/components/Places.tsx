@@ -200,15 +200,16 @@ function MinutesInput({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    if (draft !== null && draft !== "" && Number(draft) >= 0 && Number(draft) !== value)
-      onCommit(Number(draft));
+    // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
+    const n = Math.min(1440, Math.round(Number(draft?.replace(",", "."))));
+    if (draft !== null && /^\s*\d+(?:[.,]\d+)?\s*$/.test(draft) && n !== value) onCommit(n);
     setDraft(null);
   };
   return (
     <input
-      type="number"
-      inputMode="numeric"
-      min={0}
+      // Text, not number: Safari drops a decimal comma from number fields (12,5 → 125).
+      type="text"
+      inputMode="decimal"
       aria-label={label}
       style={{ width: 72 }}
       value={draft ?? value ?? ""}
@@ -276,10 +277,14 @@ function PlaceForm({
               ...(address.trim() !== (place.address ?? "")
                 ? { lat: undefined, lon: undefined }
                 : {}),
+              // «casa, CASA, casa» is one alias.
               aliases: aliases
                 .split(",")
                 .map((a) => a.trim())
-                .filter(Boolean),
+                .filter(
+                  (a, i, all) =>
+                    a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
+                ),
               isHome: isHome || undefined,
             })
           }

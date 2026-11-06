@@ -411,6 +411,28 @@ describe("places screens", () => {
     expect(screen.getByTestId("places").textContent).toContain("Instituto Anglo");
   });
 
+  it("explains the minutes format, and why «Usar» is off for 1441", () => {
+    render(
+      <StoreProvider
+        initial={() => data({ events: [event("x", "Inglés", 10, "Instituto Anglo")] })}
+        fixedNow={NOW}
+      >
+        <Inbox />
+      </StoreProvider>,
+    );
+    const field = screen.getByLabelText("O minutos desde casa");
+    // Described by its help text, even for a place name with spaces.
+    expect(field.getAttribute("aria-describedby")).not.toMatch(/\s/);
+    expect(
+      document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toMatch(/Minutos de 0 a 1440/);
+    fireEvent.change(field, { target: { value: "1441" } });
+    expect(screen.getByRole("alert").textContent).toMatch(/de 0 a 1440/);
+    expect((screen.getByRole("button", { name: "Usar" }) as HTMLButtonElement).disabled).toBe(true);
+    fireEvent.change(field, { target: { value: "12,5" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("takes minutes for an event and saves the place only if asked", async () => {
     localStorage.clear();
     render(

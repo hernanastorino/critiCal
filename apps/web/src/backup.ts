@@ -1,6 +1,7 @@
 // Export and import of everything as one JSON file (also a manual backup).
 import type { AppData } from "./model.js";
-import { markLegacyStudy } from "./subjects.js";
+
+import { markLegacyStudy, validRoutine } from "./subjects.js";
 
 /** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
 export const BACKUP_VERSION = 2;
@@ -45,14 +46,44 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   const validUnit = (u: unknown) =>
     isObject(u) && str(u.id) && str(u.title) && num(u.estimateMinutes);
+  // An instant Date can represent (toISOString would throw otherwise).
+  const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
+  const opt = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
+  const routineIds = new Set(
+    (Array.isArray(d.activities) ? d.activities : [])
+      .filter((a) => isObject(a) && a.kind === "rutina")
+      .map((a) => (a as { id: unknown }).id),
+  );
+  // A hand-edited deadline («mañana») would blank Silos on every visit.
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
     str(t.activityId) &&
     Array.isArray(t.units) &&
-    t.units.every(validUnit);
-  // An instant Date can represent (toISOString would throw otherwise).
-  const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
+    t.units.every(validUnit) &&
+    opt(t.deadline, instant) &&
+    // Without its durations the planner gets NaN and leaves it unplanned.
+    between(t.estimateMinutes, 0, 100_000) &&
+    between(t.minMinutes, 0, 100_000) &&
+    opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
+    opt(t.sessionMinutes, (v) => between(v, 1, 1440)) &&
+    // A routine's habit as Rutinas allows it (6 h a time, 40 h a week); other habits,
+    // saved from the editor, keep their own limits.
+    (!routineIds.has(t.activityId as string) ||
+      t.sessionsPerWeek === undefined ||
+      validRoutine(t.sessionsPerWeek as number, (t.sessionMinutes as number) ?? 0));
+  const validActivity = (a: unknown) =>
+    isObject(a) &&
+    str(a.id) &&
+    // Both limits, and the block within the session (as the form requires).
+    between(a.maxSessionMinutes, 1, 1440) &&
+    between(a.minBlockMinutes, 1, 1440) &&
+    (a.minBlockMinutes as number) <= (a.maxSessionMinutes as number) &&
+    opt(
+      a.preferred,
+      (p) =>
+        isObject(p) && minute(p.start) && minute(p.end) && (p.end as number) > (p.start as number),
+    );
   const validCheckIn = (c: unknown) =>
     isObject(c) &&
     str(c.id) &&
@@ -229,7 +260,17 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     week.length !== 7 ||
     !week.every(validDay) ||
     lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject)) ||
-    !(d.activities as unknown[]).every((a) => isObject(a) && str(a.id)) ||
+    // A colour goes into style attributes: only #rrggbb. A materia needs a name to be told apart.
+    !(d.activities as unknown[]).every(
+      (a) =>
+        validActivity(a) &&
+        isObject(a) &&
+        str(a.id) &&
+        typeof a.name === "string" &&
+        a.name.trim() !== "" &&
+        typeof a.color === "string" &&
+        /^#[0-9a-f]{6}$/i.test(a.color),
+    ) ||
     !(d.tasks as unknown[]).every(validTask) ||
     !(d.checkIns as unknown[]).every(validCheckIn) ||
     !(d.overrides as unknown[]).every(validOverride) ||

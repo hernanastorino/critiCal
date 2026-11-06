@@ -212,6 +212,7 @@ export function Settings({
 
   const sheet = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState<PageId | null>(initialPage ?? null);
+  const replanned = useRef(false);
   const back = useRef<HTMLButtonElement>(null);
   const rows = useRef(new Map<PageId, HTMLButtonElement>());
   /** Where the list was scrolled when a screen opened, to come back to it. */
@@ -427,6 +428,9 @@ export function Settings({
               className="btn primary"
               style={{ width: "100%" }}
               onClick={() => {
+                // A double tap would apply it twice (two «Deshacer» for one change).
+                if (replanned.current) return;
+                replanned.current = true;
                 dispatch({
                   type: "override",
                   // Keep whatever else today's override says (its routine).

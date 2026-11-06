@@ -94,7 +94,9 @@ export const validRoutine = (times: number, minutes: number) =>
   Math.round(times) >= 1 &&
   Math.round(times) <= 14 &&
   Math.round(minutes) >= 1 &&
-  Math.round(minutes) <= 1440;
+  // At most 6 h a time and 40 h a week: 14 × 999 min could never be planned.
+  Math.round(minutes) <= 360 &&
+  Math.round(times) * Math.round(minutes) <= 40 * 60;
 
 /** Title of a materia's weekly study silo (Inicio de cuatrimestre uses it too). */
 export const studyTitle = (a: Activity) => `Estudio ${a.name}`;

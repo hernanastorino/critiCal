@@ -46,6 +46,11 @@ export function Invites() {
       setError("Ese email no parece válido.");
       return;
     }
+    const { data: me } = await client.auth.getSession();
+    if (me.session?.user?.email?.toLowerCase() === value) {
+      setError("Ese es tu propio email: como dueña de la app ya tenés acceso.");
+      return;
+    }
     setError(null);
     const { error } = await client.from("invites").upsert({ email: value });
     if (error) return setError(errorMessage(error));
@@ -56,6 +61,8 @@ export function Invites() {
   const remove = async (value: string) => {
     const { error } = await client.from("invites").delete().eq("email", value);
     if (error) return setError(errorMessage(error));
+    // An earlier «Ese email no parece válido.» no longer applies.
+    setError(null);
     await load();
   };
 

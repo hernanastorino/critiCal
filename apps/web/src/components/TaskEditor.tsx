@@ -4,6 +4,7 @@ import { minutesToHhmm } from "../format.js";
 import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { useStore } from "../store.js";
+import { validRoutine } from "../subjects.js";
 import { useModal } from "./modal.js";
 
 const toLocalInput = (tz: string, t: number) => {
@@ -48,6 +49,7 @@ export function TaskEditor({
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  const [habitError, setHabitError] = useState<string | null>(null);
 
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
@@ -58,6 +60,25 @@ export function TaskEditor({
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
       return;
     }
+    // A routine's habit keeps Rutinas' limits, or its backup could not be restored.
+    const routine = data.activities.find((a) => a.id === activityId)?.kind === "rutina";
+    if (kind === "habit" && routine && !validRoutine(Number(sessions), Number(sessionMin))) {
+      setHabitError(
+        "Una rutina va de 1 a 14 veces por semana, hasta 6 h por vez y 40 h por semana.",
+      );
+      return;
+    }
+    // Any habit: whole times a week and minutes a session that a backup can hold.
+    const times = Number(sessions);
+    const length = Number(sessionMin);
+    const whole = (n: number, max: number) => Number.isInteger(n) && n >= 1 && n <= max;
+    if (kind === "habit" && !(whole(times, 14) && whole(length, 1440))) {
+      setHabitError(
+        "Poné de 1 a 14 veces por semana y de 1 a 1440 minutos por vez, en cifras enteras.",
+      );
+      return;
+    }
+    setHabitError(null);
     let actId = activityId;
     let activity: Activity | undefined;
     if (actId === "new") {
@@ -349,6 +370,11 @@ export function TaskEditor({
             Guardar
           </button>
         </div>
+        {habitError && (
+          <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+            {habitError}
+          </p>
+        )}
       </div>
     </>
   );
