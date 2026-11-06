@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { demoData } from "./demo.js";
 import {
   applyWrites,
+  DELETE_BATCH,
   diffData,
   isMissingParent,
   loadData,
@@ -250,6 +251,19 @@ describe("remote", () => {
       "delete:task_units",
       "delete:plan_blocks",
     ]);
+  });
+
+  it("deletes many rows in batches short enough for the URL", async () => {
+    const ids = Array.from({ length: DELETE_BATCH * 2 + 5 }, (_, i) => `task-${i}@1794000000000`);
+    const { client, calls } = fakeClient({});
+    await applyWrites(client, {
+      upserts: [],
+      inserts: [],
+      deletes: [{ table: "plan_blocks", ids }],
+    });
+    const batches = calls.map((c) => c.payload as string[]);
+    expect(batches.map((b) => b.length)).toEqual([DELETE_BATCH, DELETE_BATCH, 5]);
+    expect(batches.flat()).toEqual(ids);
   });
 
   it("loads all tables and calls the sync function", async () => {

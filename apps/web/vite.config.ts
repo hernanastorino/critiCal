@@ -1,10 +1,30 @@
+import { join } from "node:path";
 import react from "@vitejs/plugin-react";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
+import { apiMiddleware, enableFakeProviders } from "./api/_lib/dev-api.js";
 
 export default defineConfig({
   plugins: [
     react(),
+    {
+      // `npm run dev` serves /api like Vercel does; never part of a build.
+      name: "critical-dev-api",
+      apply: "serve",
+      configureServer(server) {
+        const { mode, envDir, root } = server.config;
+        for (const [k, v] of Object.entries(loadEnv(mode, envDir || root, ""))) {
+          process.env[k] ??= v;
+        }
+        if (enableFakeProviders(process.env)) {
+          server.config.logger.info("critiCal: Google, iCloud, mapas y Gemini simulados");
+        }
+        server.middlewares.use(
+          "/api",
+          apiMiddleware(join(root, "api"), (file) => server.ssrLoadModule(file)),
+        );
+      },
+    },
     VitePWA({
       // Our own worker (sw/sw.ts): precache plus Web Push.
       strategies: "injectManifest",

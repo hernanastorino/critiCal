@@ -872,6 +872,20 @@ textarea {
   flex: none;
 }
 
+/* Development only: the local test account's form. */
+.dev-login {
+  width: 260px;
+  display: grid;
+  gap: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+}
+
+.dev-login p {
+  margin: 0;
+}
+
 /* ---------- Sync status ---------- */
 
 .sync-dot {

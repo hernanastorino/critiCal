@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { errorMessage, reportError } from "./monitoring.js";
@@ -16,6 +17,7 @@ import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from ".
 import { home } from "./places.js";
 import {
   applyWrites,
+  connectFakeGoogle,
   diffData,
   isMissingParent,
   loadData,
@@ -428,7 +430,10 @@ function SyncProvider({
       status,
       syncNow,
       flush,
-      reconnectGoogle: () => void signInWithGoogle(client),
+      // In development with invented providers, "Reconectar" stays in the app.
+      reconnectGoogle: fakeProviders
+        ? () => void connectFakeGoogle(client, FAKE_GOOGLE_REFRESH).then(() => syncNow())
+        : () => void signInWithGoogle(client),
       connectICloud: async (appleId, appPassword) => {
         setStatus((s) => ({ ...s, busy: true }));
         const r = await syncICloud(client, { action: "connect", appleId, appPassword });
