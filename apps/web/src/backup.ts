@@ -229,7 +229,16 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     week.length !== 7 ||
     !week.every(validDay) ||
     lists.some((k) => !Array.isArray(d[k]) || !(d[k] as unknown[]).every(isObject)) ||
-    !(d.activities as unknown[]).every((a) => isObject(a) && str(a.id)) ||
+    // A colour goes into style attributes: only #rrggbb. A materia needs a name to be told apart.
+    !(d.activities as unknown[]).every(
+      (a) =>
+        isObject(a) &&
+        str(a.id) &&
+        typeof a.name === "string" &&
+        a.name.trim() !== "" &&
+        typeof a.color === "string" &&
+        /^#[0-9a-f]{6}$/i.test(a.color),
+    ) ||
     !(d.tasks as unknown[]).every(validTask) ||
     !(d.checkIns as unknown[]).every(validCheckIn) ||
     !(d.overrides as unknown[]).every(validOverride) ||

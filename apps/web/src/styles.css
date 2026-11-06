@@ -613,6 +613,18 @@ textarea {
   margin-bottom: 4px;
 }
 
+/* A routine in Rutinas: tapping it opens its silo (edit, pause, delete). */
+.routine-row {
+  width: 100%;
+  min-height: 44px;
+  background: none;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
 .check {
   display: flex;
   gap: 10px;

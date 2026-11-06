@@ -496,12 +496,21 @@ function apply(data: AppData, action: Action): AppData {
         ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
         : [...data.activities, action.activity];
       // A renamed materia keeps its weekly study: the silo is found by its title.
-      const study = old && old.name !== action.activity.name ? studyOf(data, old) : undefined;
-      const tasks = study
-        ? data.tasks.map((t) =>
-            t.id === study.id ? { ...t, title: studyTitle(action.activity) } : t,
-          )
-        : data.tasks;
+      const renamed = !!old && old.name !== action.activity.name;
+      const study = renamed && old ? studyOf(data, old) : undefined;
+      const tasks = data.tasks.map((t) => {
+        if (study && t.id === study.id) return { ...t, title: studyTitle(action.activity) };
+        // A routine's silo carries its name: renaming the routine renames it.
+        if (
+          renamed &&
+          old?.kind === "rutina" &&
+          t.activityId === old.id &&
+          t.kind === "habit" &&
+          t.title === old.name
+        )
+          return { ...t, title: action.activity.name };
+        return t;
+      });
       return refresh({ ...data, activities, tasks }, now);
     }
     case "savePlace": {

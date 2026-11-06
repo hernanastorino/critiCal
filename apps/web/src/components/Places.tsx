@@ -276,10 +276,14 @@ function PlaceForm({
               ...(address.trim() !== (place.address ?? "")
                 ? { lat: undefined, lon: undefined }
                 : {}),
+              // «casa, CASA, casa» is one alias.
               aliases: aliases
                 .split(",")
                 .map((a) => a.trim())
-                .filter(Boolean),
+                .filter(
+                  (a, i, all) =>
+                    a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
+                ),
               isHome: isHome || undefined,
             })
           }
