@@ -17,7 +17,8 @@ export function BlockSheet({
   returnTo?: () => HTMLElement | null;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
-  const justOpened = useModal(sheet, onClose, true, returnTo);
+  // Back to the block it shows, even if the keyboard left focus on another one.
+  const justOpened = useModal(sheet, onClose, true, returnTo, !!returnTo);
   return (
     <>
       {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}

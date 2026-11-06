@@ -109,6 +109,33 @@ describe("an old tap", () => {
   });
 });
 
+function Returns({ to }: { to: () => HTMLElement | null }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useModal(ref, () => {}, true, to, true);
+  return (
+    <div ref={ref} role="dialog" aria-label="Bloque">
+      <h2>Bloque</h2>
+    </div>
+  );
+}
+
+describe("a preferred place to return to", () => {
+  it("wins over what had focus when the sheet opened", () => {
+    const view = (open: boolean) => (
+      <div className="app">
+        <button type="button">Otro bloque</button>
+        <button type="button">Este bloque</button>
+        {open && <Returns to={() => screen.getByText("Este bloque")} />}
+      </div>
+    );
+    const { rerender } = render(view(false));
+    screen.getByText("Otro bloque").focus();
+    rerender(view(true));
+    rerender(view(false));
+    expect(document.activeElement).toBe(screen.getByText("Este bloque"));
+  });
+});
+
 describe("sheet names", () => {
   it("names a sheet without a label after its heading", () => {
     render(<Unnamed />);

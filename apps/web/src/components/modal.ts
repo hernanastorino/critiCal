@@ -89,6 +89,8 @@ export function useModal(
   onEscape: () => void,
   focusFirst = true,
   fallback?: () => HTMLElement | null,
+  /** The fallback wins over what had focus (a block's detail goes back to that block). */
+  preferFallback = false,
 ): () => boolean {
   const onEsc = useRef(onEscape);
   onEsc.current = onEscape;
@@ -139,10 +141,15 @@ export function useModal(
       const lower = stack[stack.length - 1]?.sheet;
       const below =
         lower?.querySelector<HTMLElement>("h2") ?? lower?.querySelector<HTMLElement>("button");
-      const to = usable(opener) ? opener : (below ?? back.current?.());
+      const preferred = preferFallback ? back.current?.() : null;
+      const to = usable(preferred)
+        ? preferred
+        : usable(opener)
+          ? opener
+          : (below ?? back.current?.());
       to?.focus({ preventScroll: true });
     };
-  }, [sheet, focusFirst]);
+  }, [sheet, focusFirst, preferFallback]);
 
   return () => Date.now() - openedAt.current < OPEN_GRACE_MS;
 }
