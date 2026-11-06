@@ -169,6 +169,42 @@ describe("sheets on top of each other", () => {
   });
 });
 
+describe("searching Ajustes", () => {
+  it("finds a section by a field it holds, without accents, and clears", () => {
+    renderDemo(withHome);
+    const search = screen.getByRole("searchbox", { name: "Buscar un ajuste" });
+    fireEvent.change(search, { target: { value: "ALMUERZO" } });
+    const results = screen.getByRole("region", { name: "Resultados" });
+    expect(
+      within(results)
+        .getAllByRole("button")
+        .map((b) => b.textContent),
+    ).toEqual(["Limpiar búsqueda", "Mi semana07:30 – 00:00"]);
+    // The groups give way to the results.
+    expect(screen.queryByRole("button", { name: "Reacomodar hoy" })).toBeNull();
+    fireEvent.change(search, { target: { value: "contraseña icloud" } });
+    expect(
+      within(screen.getByRole("region", { name: "Resultados" })).queryByText(/Calendarios/),
+    ).toBeNull();
+    fireEvent.change(search, { target: { value: "dias de la semana" } });
+    fireEvent.click(screen.getByRole("button", { name: /Mi semana/ }));
+    expect(screen.getByRole("dialog", { name: "Mi semana" })).toBeTruthy();
+    fireEvent.click(document.activeElement as HTMLElement);
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+  });
+
+  it("says when nothing matches and offers every setting", () => {
+    renderDemo(withHome);
+    fireEvent.change(screen.getByRole("searchbox", { name: "Buscar un ajuste" }), {
+      target: { value: "xyzzy" },
+    });
+    expect(screen.getByText("No hay ningún ajuste con «xyzzy».")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ver todos los ajustes" }));
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+  });
+});
+
 describe("Ajustes for a signed-in account", () => {
   function client(owner: boolean) {
     const ok = Promise.resolve({ data: [], error: null });

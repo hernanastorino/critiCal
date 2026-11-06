@@ -123,3 +123,5 @@ export const SettingsIcons = {
   trash: line("M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"),
   warn: line("M12 3l10 18H2zM12 10v5M12 18h.01"),
 };
+
+export const SearchIcon = line("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4");
