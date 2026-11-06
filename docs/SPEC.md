@@ -203,7 +203,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 - **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
 - Decisiones (noviembre 2026, tomadas por Claude a pedido del usuario; se pueden revisar):
   - **Fuentes**: GTFS del STM publicado en el catálogo de datos abiertos de la IM (incluye las líneas metropolitanas que entran a Canelones) y, si está disponible, el tiempo real de pasadas por parada de la API de la IM. Si alguna línea de Canelones no figura, se usa su horario publicado y se marca como «horario teórico».
-  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y solo se recalculan si cambia el GTFS o el usuario lo pide.
+  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y se recalculan si cambia el GTFS, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (feriado, fin de semana, horario de verano) o si el usuario lo pide. Antes de salir, si hay pasadas en tiempo real, se usan para avisar si el ómnibus elegido ya no llega y proponer otro.
   - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
   - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
 
@@ -225,12 +225,14 @@ Orden:
 3. Implementar todo lo que el proyecto tiene pendiente: las guías del §14 que no tienen ✅, los traslados en ómnibus del §15 y cualquier TODO que haya en el código. Un PR por tema.
 4. Correr el ciclo de validación hasta que quede limpio.
 
-**Ciclo de validación** (se repite entero después de cada arreglo):
+**Cuenta de prueba local**: un usuario con email y contraseña inventados, creado por el seed de Supabase local (`supabase/seed.sql`, activado en `[db.seed]` de `config.toml`). La pantalla de login muestra un formulario de email y contraseña **solo** cuando la app corre en desarrollo (`import.meta.env.DEV`) contra el Supabase local (URL `127.0.0.1`/`localhost`); en staging y producción ese formulario no existe y el proveedor de email está apagado. Las credenciales quedan en el seed y en `.env.example`, nunca en el chat. Google e iCloud reales no se prueban con esta cuenta.
 
-1. Todo mergeado y desplegado en producción, con el CI en verde y CodeRabbit sin comentarios pendientes.
-2. Sentry sin errores nuevos ni problemas de seguridad abiertos. Los que haya se arreglan.
-3. Claude abre la app en el simulador de iPhone y prueba **todas** las funciones, con los caminos felices y los de error. Usa el modo demo y, para lo que necesita cuenta, una **cuenta de prueba local** (email y contraseña que solo existe en Supabase local en Docker, con datos inventados; Google e iCloud reales no se prueban así). Anota lo que falle y lo arregla.
-4. Un agente sin contexto técnico de la app usa la interfaz de iPhone con un solo objetivo: encontrar todas las vulnerabilidades que pueda y romper todas las funciones posibles, y reportarlas. Ataca primero el entorno **local** y después repite en **staging** solo las pruebas que no rompen datos. Nunca ataca producción.
-5. Todo lo reportado se arregla automáticamente y se vuelve al paso 1.
+**Ciclo de validación**: se valida **antes** de mergear, porque cada merge a `main` termina desplegado en producción. Se repite entero después de cada arreglo:
+
+1. **Local**: Claude abre la app del PR en el simulador de iPhone (dev server y Supabase local en Docker) y prueba **todas** las funciones, con los caminos felices y los de error, en modo demo y con la cuenta de prueba local. Anota lo que falle.
+2. **Agente atacante**: un agente sin contexto técnico de la app usa la interfaz de iPhone con un solo objetivo: encontrar todas las vulnerabilidades que pueda y romper todas las funciones posibles, y reportarlas. Ataca primero el entorno **local** y después repite en la **preview del PR** (con el Supabase de staging) solo las pruebas que no rompen datos. Nunca ataca producción.
+3. Todo lo reportado se arregla en el mismo PR y se vuelve al paso 1.
+4. Con una vuelta limpia, el CI en verde y CodeRabbit sin pendientes, se mergea; staging y producción se despliegan solos.
+5. **Producción**: Sentry sin errores nuevos ni problemas de seguridad abiertos después del deploy, más una prueba rápida de la app desplegada en el simulador (modo demo). Si algo falla, se abre un PR con el arreglo y vuelve al paso 1.
 
 El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
