@@ -15,8 +15,10 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     return { failed: true };
   }
 
-  override componentDidCatch(error: Error, info: ErrorInfo) {
-    reportError(Object.assign(error, { componentStack: info.componentStack }));
+  // Anything can be thrown (even null): it is reported as an Error, with where it broke.
+  override componentDidCatch(error: unknown, info: ErrorInfo) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    reportError(err, { componentStack: (info.componentStack ?? "").slice(0, 2000) });
   }
 
   override render() {

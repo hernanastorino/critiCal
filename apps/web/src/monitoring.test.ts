@@ -26,6 +26,14 @@ describe("monitoring", () => {
     const e = new Error("boom");
     m.reportError(e);
     expect(sentry.captureException).toHaveBeenCalledWith(e, undefined);
+    // Context (a render error's component stack) travels as Sentry extra.
+    sentry.captureException.mockClear();
+    m.reportError(e, { componentStack: "in Silos" });
+    expect(sentry.captureException).toHaveBeenCalledWith(e, {
+      extra: { componentStack: "in Silos" },
+    });
+    m.reportError(new Error("Failed to fetch"), { componentStack: "in Silos" });
+    expect(sentry.captureException).toHaveBeenCalledTimes(1);
     // A dropped connection is not a bug; a Supabase error object becomes an Error.
     sentry.captureException.mockClear();
     m.reportError({ code: "", message: "TypeError: Load failed (x.supabase.co)" });

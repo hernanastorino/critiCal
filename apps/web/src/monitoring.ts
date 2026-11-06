@@ -36,8 +36,8 @@ export function isNetworkFailure(e: unknown): boolean {
   return NETWORK.test(errorMessage(e));
 }
 
-/** Reports a handled error (one the app shows instead of crashing). */
-export function reportError(e: unknown): void {
+/** Reports a handled error (one the app shows instead of crashing), with optional context. */
+export function reportError(e: unknown, context?: Record<string, string>): void {
   if (!capture || isNetworkFailure(e)) return;
   // Supabase errors are plain objects: an Error keeps their message as the title.
   if (!(e instanceof Error) && typeof e === "object" && e && "message" in e) {
@@ -50,8 +50,8 @@ export function reportError(e: unknown): void {
         .filter((k) => typeof o[k] === "string" && o[k])
         .map((k) => [k, String(o[k]).slice(0, 500)]),
     );
-    capture(err, extra);
+    capture(err, { ...extra, ...context });
     return;
   }
-  capture(e);
+  capture(e, context);
 }
