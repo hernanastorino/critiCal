@@ -1,7 +1,7 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isTentative, visibleEvents } from "../calendars.js";
 import { dropTarget, nearestFree } from "../drag.js";
-import { localParts, MINUTE, type PlanBlock, zonedInstant } from "../engine.js";
+import { localParts, MINUTE, overlaps, type PlanBlock, zonedInstant } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
 import type { AppEvent } from "../model.js";
 import { isPinned, pinId, progress, weekDates } from "../planning.js";
@@ -108,29 +108,59 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 2500);
   };
 
-  /** A pin just made, to tell right away if it puts a minimum out of reach. */
-  const watch = useRef<{ before: Map<string, number>; undo: () => void } | null>(null);
+  /**
+   * A pin just made, to tell right away if it puts a minimum out of reach, and what it
+   * landed on (`note`).
+   */
+  const watch = useRef<{
+    id: string;
+    before: Map<string, number>;
+    undo: () => void;
+    note?: string;
+  } | null>(null);
   useEffect(() => {
     const w = watch.current;
     if (!w) return;
     watch.current = null;
+    // A drop the store turned down left nothing to tell.
+    if (!data.pins?.some((p) => p.id === w.id)) return;
     const worse = pinShort.short.filter((s) => s.minutes > (w.before.get(s.taskId) ?? 0));
-    if (worse.length === 0) return;
-    flash(
-      `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
-      w.undo,
-    );
+    const said = [
+      w.note,
+      worse.length > 0 &&
+        `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
+    ].filter(Boolean);
+    if (said.length > 0) flash(said.join(" · "), w.undo);
   });
 
   /** Pins `block` at `start`, offering to put it back if that breaks a minimum. */
   const pinAt = (block: PlanBlock, start: number) => {
     const moved = pinId(block.taskId, start);
+    const spot = { start, end: start + (block.end - block.start) };
+    // What it lands on that is not fixed: other pins go back to the plan, and a
+    // flexible event is offered to move in the inbox.
+    const freed = (data.pins ?? []).filter(
+      (p) => p.id !== block.id && p.start > now && overlaps(p, spot),
+    );
+    const flexible = items.find(
+      (i) => i.kind === "event" && i.event.busy && i.event.flexible && overlaps(i, spot),
+    );
+    const notes = [
+      freed.length > 0 &&
+        `${freed.map((p) => `📌 ${titleOfTask(p.taskId)}`).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`,
+      flexible?.kind === "event" &&
+        `Quedó sobre ${flexible.event.title}: en la Bandeja te propongo moverlo`,
+    ].filter((n): n is string => !!n);
     watch.current = {
+      id: moved,
       before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
+      note: notes.join(" · ") || undefined,
       undo: () => {
         setToast(null);
+        // The pins it freed come back with the plan as it was.
+        if (freed.length > 0) dispatch({ type: "undoPlan" });
         // A block placed by the plan goes back to the plan; a pinned one to its old spot.
-        if (isPinned(block)) dispatch({ type: "pin", blockId: moved, start: block.start });
+        else if (isPinned(block)) dispatch({ type: "pin", blockId: moved, start: block.start });
         else dispatch({ type: "unpin", blockId: moved });
       },
     };
@@ -189,7 +219,11 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     drag?.active && drag.target ? [drag.target.minute, drag.target.minute + drag.minutes] : [];
   const draggedBlock = drag ? data.plan.find((b) => b.id === drag.id) : undefined;
 
-  /** Snapped landing slot under the finger, moved off fixed events and other pins. */
+  /**
+   * Snapped landing slot under the finger, moved off what is fixed: busy events that are
+   * not flexible, and blocks already under way. Plan blocks, pins and flexible events
+   * are not in the way; they move around the block (or are offered to).
+   */
   const landing = (x: number, y: number, minutes: number, blockId: string) => {
     const slot = data.settings.slotMinutes;
     const spot = dropTarget(
@@ -213,10 +247,13 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     if (!spot) return null;
     const midnight = zonedInstant(tz, spot.date, 0);
     const toMinute = (t: number) => (t - midnight) / MINUTE;
-    const busy = [
-      ...items.filter((i) => i.kind === "event" && i.event.busy),
-      ...(data.pins ?? []).filter((p) => p.id !== blockId),
-    ].map((i) => ({ start: toMinute(i.start), end: toMinute(i.end) }));
+    const busy = items
+      .filter((i) =>
+        i.kind === "event"
+          ? i.event.busy && !i.event.flexible
+          : i.id !== blockId && i.start <= now && i.end > now,
+      )
+      .map((i) => ({ start: toMinute(i.start), end: toMinute(i.end) }));
     const earliest = Math.max(
       Math.ceil(startMin / slot) * slot,
       Math.floor(toMinute(now) / slot) * slot + slot,
@@ -239,7 +276,6 @@ export function Week({ onSettings }: { onSettings: () => void }) {
     !!drag?.active &&
     !!drag.target &&
     b.id !== drag.id &&
-    !isPinned(b) &&
     b.start > now &&
     b.start < ghostStart + drag.minutes * MINUTE &&
     b.end > ghostStart;

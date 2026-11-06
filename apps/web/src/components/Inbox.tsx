@@ -256,21 +256,34 @@ export function Inbox() {
         ))}
 
         {clashes.length > 0 && <div className="section-title">Fijados que chocan</div>}
-        {clashes.map(({ pin, event }) => (
+        {clashes.map(({ pin, event, moveTo }) => (
           <div key={pin.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
             <div className="title">
               📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
             </div>
             <p className="meta">
-              Choca con {event.title}. Lo dejé donde lo pusiste; movelo o soltalo.
+              {moveTo
+                ? `Está sobre ${event.title}, que se puede mover. ¿Lo paso al ${dayAndTime(tz, moveTo.start)}?`
+                : `Choca con ${event.title}. Lo dejé donde lo pusiste; movelo o soltalo.`}
             </p>
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
-            >
-              Soltar (que el plan decida)
-            </button>
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => dispatch({ type: "unpin", blockId: pin.id })}
+              >
+                Soltar (que el plan decida)
+              </button>
+              {moveTo && (
+                <button
+                  type="button"
+                  className="btn small primary"
+                  onClick={() => dispatch({ type: "moveEvent", eventId: event.id, ...moveTo })}
+                >
+                  Mover {event.title}
+                </button>
+              )}
+            </div>
           </div>
         ))}
 

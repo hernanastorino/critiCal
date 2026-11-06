@@ -62,10 +62,12 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
   for (const e of input.events) {
     if (!e.flexible || !e.busy || e.allDay || e.start <= input.now || e.start >= deadlineLimit)
       continue;
-    const without = { ...input, events: input.events.filter((x) => x.id !== e.id) };
-    const to = freeSpot(without, schedule(without), e);
+    const to = moveSpot(input, e);
     if (!to) continue;
-    const next = { ...without, events: [...without.events, { ...e, ...to }] };
+    const next = {
+      ...input,
+      events: [...input.events.filter((x) => x.id !== e.id), { ...e, ...to }],
+    };
     options.push({
       id: `move-event:${e.id}`,
       kind: "move-event",
@@ -238,6 +240,12 @@ function when(timeZone: string, instant: number): string {
  * time, within a week either side, after now, that neither the plan nor any other event
  * uses.
  */
+/** Where `event` could go instead: the free time closest to it within a week. */
+export function moveSpot(input: ScheduleInput, event: CalendarEvent): Interval | null {
+  const without = { ...input, events: input.events.filter((x) => x.id !== event.id) };
+  return freeSpot(without, schedule(without), event);
+}
+
 function freeSpot(
   input: ScheduleInput,
   result: ScheduleResult,

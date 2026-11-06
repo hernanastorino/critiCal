@@ -14,6 +14,7 @@ import { demoData } from "./demo.js";
 import {
   type Activity,
   type DayOverride,
+  overlaps,
   type ScheduleResult,
   type Settings,
   zonedInstant,
@@ -40,6 +41,7 @@ import {
   endOfWeek,
   pendingConfirmations,
   pinBlock,
+  pinClashes,
   pinShortfall,
   refreshPlan,
   weekStart,
@@ -111,6 +113,8 @@ export type Action =
   | { type: "forgetSpot"; key: string; now: number }
   /** A flexible event goes back to its own time in the plan. */
   | { type: "unmoveEvent"; eventId: string; now: number }
+  /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
+  | { type: "moveEvent"; eventId: string; start: number; end: number; now: number }
   /** Back to the plan as it was before the last reorganization. */
   | { type: "undoPlan"; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
@@ -406,10 +410,19 @@ function apply(data: AppData, action: Action): AppData {
       const block = data.plan.find((b) => b.id === action.blockId);
       if (!block || block.start <= now || action.start <= now) return data;
       const moved = pinBlock(block, action.start);
+      // Other pins it lands on go back to the plan, which places them around it; one
+      // already under way stays frozen.
+      const covered = (data.pins ?? []).filter(
+        (p) => p.id !== block.id && p.start > now && overlaps(p, moved),
+      );
+      const rest = (data.pins ?? []).filter((p) => p.id !== block.id && !covered.includes(p));
       // Two blocks of one task dropped on the same slot would share an id.
-      if ((data.pins ?? []).some((p) => p.id === moved.id && p.id !== block.id)) return data;
-      const pins = [...(data.pins ?? []).filter((p) => p.id !== block.id), moved];
-      return refresh({ ...data, pins, plan: data.plan.filter((b) => b.id !== block.id) }, now);
+      if (rest.some((p) => p.id === moved.id)) return data;
+      const gone = new Set([block.id, ...covered.map((p) => p.id)]);
+      return refresh(
+        { ...data, pins: [...rest, moved], plan: data.plan.filter((b) => !gone.has(b.id)) },
+        now,
+      );
     }
     case "recurrence": {
       const id = action.taskId;
@@ -723,6 +736,18 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
+    case "moveEvent": {
+      const event = data.events.find((e) => e.id === action.eventId);
+      if (!event || action.start <= now) return data;
+      const move = { eventId: event.id, from: event.start, start: action.start, end: action.end };
+      return refresh(
+        {
+          ...data,
+          movedEvents: [...(data.movedEvents ?? []).filter((m) => m.eventId !== event.id), move],
+        },
+        now,
+      );
+    }
     case "unmoveEvent":
       return refresh(
         {
@@ -971,6 +996,7 @@ export function StoreProvider({
         unassignedTasks(data).length +
         unsortedActivities(data).length +
         (pinShort.short.length > 0 ? 1 : 0) +
+        pinClashes(data, now).length +
         pending.length +
         data.proposals.length +
         d.options.length +
