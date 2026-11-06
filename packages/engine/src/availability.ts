@@ -64,6 +64,12 @@ const LATE = 60 * MINUTE;
 /** A meal never starts further than this from its preferred time. */
 export const MEAL_RANGE = 90 * MINUTE;
 
+/** The latest start `placeMeal` allows: 1 h 30 after the (wake-adjusted) time, not into bedtime. */
+function latestMealStart(pref: Interval, bedAt: number, wakeAt: number, onWaking: boolean) {
+  const p = onWaking ? Math.max(pref.start, wakeAt) : pref.start;
+  return Math.min(p + MEAL_RANGE, bedAt - (pref.end - pref.start));
+}
+
 /**
  * Where a meal really happens given the day's fixed events (and pinned blocks). The
  * configured time is kept while it is free. Otherwise: right after the class in the
@@ -81,7 +87,7 @@ export function placeMeal(
   const length = pref.end - pref.start;
   const p = onWaking ? Math.max(pref.start, wakeAt) : pref.start;
   const lo = Math.max(p - MEAL_RANGE, wakeAt);
-  const hi = Math.min(p + MEAL_RANGE, bedAt - length);
+  const hi = latestMealStart(pref, bedAt, wakeAt, onWaking);
   const blocks = merge(busy);
   const fits = (start: number) =>
     start >= lo && start <= hi && !blocks.some((b) => b.start < start + length && start < b.end);
@@ -120,9 +126,11 @@ function placeDayMeals(
     !!kind && eaten.some((e) => e.meal === kind && e.start < window.bedAt && window.wakeAt < e.end);
   return window.meals.flatMap(({ kind, ...preferred }) => {
     if (out(kind)) return [];
-    const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, kind === "desayuno");
+    const onWaking = kind === "desayuno";
+    const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, onWaking);
     if (at) taken.push(at);
-    return [{ date: window.date, ...(kind ? { kind } : {}), preferred, at }];
+    const latest = latestMealStart(preferred, window.bedAt, window.wakeAt, onWaking);
+    return [{ date: window.date, ...(kind ? { kind } : {}), preferred, at, latest }];
   });
 }
 
@@ -152,9 +160,15 @@ export function placeMeals(
   busy: readonly Interval[],
   eaten: readonly MealEvent[] = [],
 ): MealTime[] {
-  return windowsBetween(settings, overrides, from, to)
-    .flatMap((w) => placeDayMeals(w, busy, eaten))
-    .filter((m) => (m.at ?? m.preferred).end > from && m.preferred.start < to);
+  return (
+    windowsBetween(settings, overrides, from, to)
+      .flatMap((w) => placeDayMeals(w, busy, eaten))
+      // Placed: where it ended up. Unplaced: until its last possible start, so the
+      // notice stays while the meal could still happen.
+      .filter((m) =>
+        m.at ? m.at.end > from && m.at.start < to : m.latest > from && m.preferred.start < to,
+      )
+  );
 }
 
 /**

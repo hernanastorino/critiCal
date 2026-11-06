@@ -349,11 +349,9 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   );
 }
 
-/** Upcoming meals within the next week that have no room near their time. */
+/** Meals within the next week with no room near their time, until their last possible start. */
 export function missedMeals(data: AppData, now: number): MealTime[] {
-  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter(
-    (m) => !m.at && m.preferred.start > now,
-  );
+  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter((m) => !m.at && m.latest > now);
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {

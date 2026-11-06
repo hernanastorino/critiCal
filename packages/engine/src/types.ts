@@ -29,6 +29,8 @@ export interface MealTime {
   kind?: MealKind;
   preferred: Interval;
   at: Interval | null;
+  /** The latest start the meal may still have (1 h 30 after its time, before bedtime). */
+  latest: number;
 }
 
 export interface DaySettings {

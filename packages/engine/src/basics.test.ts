@@ -233,6 +233,20 @@ describe("buildSlots", () => {
       [{ ...out, meal: "almuerzo" }],
     ).filter((m) => m.date === "2026-11-02");
     expect(withOut.map((m) => m.kind)).toEqual(["desayuno", "cena"]);
+    // An unplaced meal stays listed until its last possible start (14:30 for lunch)…
+    const allDay = [{ start: at("2026-11-02", "10:00"), end: at("2026-11-02", "17:00") }];
+    const missed = (since: string) =>
+      placeMeals(odd, [], at("2026-11-02", since), at("2026-11-03", "00:00"), allDay).filter(
+        (m) => m.date === "2026-11-02" && m.kind === "almuerzo",
+      );
+    expect(missed("14:00")[0]).toMatchObject({ at: null, latest: at("2026-11-02", "14:30") });
+    expect(missed("14:30")).toEqual([]);
+    // …and a meal moved into the range counts even if its time is after it.
+    const early = [{ start: at("2026-11-02", "13:00"), end: at("2026-11-02", "15:00") }];
+    const moved = placeMeals(odd, [], from, at("2026-11-02", "12:45"), early).find(
+      (m) => m.kind === "almuerzo",
+    );
+    expect(moved?.at?.start).toBe(at("2026-11-02", "12:00"));
     // Also when it is far from lunchtime, but only on its own day.
     const late = { start: at("2026-11-02", "17:00"), end: at("2026-11-02", "18:00") };
     const lateLunch = placeMeals(
