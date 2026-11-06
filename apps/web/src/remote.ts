@@ -4,6 +4,7 @@ import type { Syllabus } from "./syllabus.js";
 
 export {
   applyWrites,
+  DELETE_BATCH,
   diffData,
   isMissingParent,
   loadData,
@@ -229,6 +230,14 @@ export function syncICloud(
   body: { action?: "connect" | "disconnect"; appleId?: string; appPassword?: string } = {},
 ): Promise<SyncResult> {
   return callSync(client, "icloud-sync", body);
+}
+
+/** Development only: stores the invented Google's refresh token, like signing in again. */
+export function connectFakeGoogle(
+  client: SupabaseClient,
+  refreshToken: string,
+): Promise<SyncResult> {
+  return callSync(client, "google-sync", { refreshToken });
 }
 
 /** Runs the server sync; passes the Google refresh token right after sign-in. */

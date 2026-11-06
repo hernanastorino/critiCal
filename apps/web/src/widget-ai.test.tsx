@@ -81,7 +81,7 @@ describe("syllabus import", () => {
                 {
                   title: "Primer parcial",
                   kind: "parcial",
-                  date: "2099-09-20",
+                  date: `${new Date().getUTCFullYear() + 1}-09-20`,
                   hours: 0,
                   units: ["Electrostática", "Circuitos"],
                 },
@@ -97,6 +97,14 @@ describe("syllabus import", () => {
     });
     expect(await screen.findByDisplayValue("Física II")).toBeTruthy();
     expect(screen.getByText(/falta la fecha/)).toBeTruthy();
+    // A date beyond what the plan (or JavaScript) can hold asks to be checked, and is not created.
+    const date = screen.getByLabelText("Fecha de Primer parcial");
+    for (const far of [`${new Date().getUTCFullYear() + 6}-01-01`, "9999-12-31", "275760-09-13"]) {
+      fireEvent.change(date, { target: { value: far } });
+      expect(screen.getByText(/revisá la fecha/)).toBeTruthy();
+      expect((screen.getByText("Crear") as HTMLButtonElement).disabled).toBe(true);
+    }
+    fireEvent.change(date, { target: { value: `${new Date().getUTCFullYear() + 1}-09-20` } });
     fireEvent.change(screen.getByLabelText("Horas de Circuitos"), { target: { value: "4" } });
     await act(async () => fireEvent.click(screen.getByText("Crear")));
     expect(screen.getByText("Física II: 1 evaluaciones agregadas ✓")).toBeTruthy();

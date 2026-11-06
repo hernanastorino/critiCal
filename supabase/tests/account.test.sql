@@ -1,5 +1,9 @@
 begin;
 create extension if not exists pgtap with schema extensions;
+-- Start from an app without accounts: the local seed's test account would own it.
+delete from auth.users where email = 'prueba@critical.test';
+delete from private.app_config where key = 'owner';
+delete from public.invites;
 select plan(13);
 
 -- A owns the app; B and C are invited Google accounts.

@@ -106,7 +106,7 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
   }, [drag]);
   const pressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** The last long-press drop: the click right after it, on that block, is not a tap. */
-  const dropped = useRef<{ at: number; ids: string[] }>({ at: 0, ids: [] });
+  const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
@@ -509,6 +509,8 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
                   onPointerDown={
                     future
                       ? (e) => {
+                          // A new press: an earlier drag's click is no longer coming.
+                          dropped.current = { ids: [] };
                           const rect = e.currentTarget.getBoundingClientRect();
                           const press: Drag = {
                             id: b.id,
@@ -591,7 +593,7 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
                           clearTimeout(pressTimer.current);
                           setDrag(null);
                           if (!drag.active) return; // a plain tap: onClick opens it
-                          if (!editing) dropped.current = { at: Date.now(), ids: [b.id] };
+                          if (!editing) dropped.current = { ids: [b.id] };
                           if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
                             if (editing) setBubble({ item, x: e.clientX, y: e.clientY });
                             return;
@@ -603,9 +605,12 @@ export function Week({ day, onSettings }: { day?: string; onSettings: () => void
                   }
                   onContextMenu={future ? (e) => e.preventDefault() : undefined}
                   onClick={(e) => {
-                    // The click that ends a long-press drag is not a tap.
-                    const last = dropped.current;
-                    if (Date.now() - last.at < 400 && last.ids.includes(b.id)) return;
+                    // The click that ends a long-press drag is not a tap, however late it
+                    // arrives (a slow phone may still be replanning after the drop).
+                    if (e.detail !== 0 && dropped.current.ids.includes(b.id)) {
+                      dropped.current = { ids: [] };
+                      return;
+                    }
                     // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
                     if (!movable || e.detail === 0) setBubble({ item, x: e.clientX, y: e.clientY });
                   }}

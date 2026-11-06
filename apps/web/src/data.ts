@@ -559,6 +559,28 @@ export function diffData(prev: AppData, next: AppData): Writes {
   return { upserts, inserts, deletes };
 }
 
+/**
+ * Ids per delete. They travel in the URL (`id=in.(…)`), and a long list is refused
+ * (414); the browser reports that like a lost connection. Plan block ids are ~50 chars.
+ */
+export const DELETE_BATCH = 40;
+
+/** Deletes rows by `column` in batches small enough for the URL. */
+async function deleteIn(
+  client: SupabaseClient,
+  table: string,
+  column: string,
+  ids: string[],
+): Promise<void> {
+  for (let i = 0; i < ids.length; i += DELETE_BATCH) {
+    const { error } = await client
+      .from(table)
+      .delete()
+      .in(column, ids.slice(i, i + DELETE_BATCH));
+    if (error) throw error;
+  }
+}
+
 export async function applyWrites(client: SupabaseClient, w: Writes): Promise<void> {
   // Parents first: activities → tasks → units/blocks.
   const order = [
@@ -589,8 +611,7 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
   for (const d of w.deletes) {
     if (d.table === "day_overrides") {
       // Keyed by date, not id.
-      const { error } = await client.from(d.table).delete().in("date", d.ids);
-      if (error) throw error;
+      await deleteIn(client, d.table, "date", d.ids);
       continue;
     }
     if (d.table === "travel_times") {
@@ -603,7 +624,6 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
       }
       continue;
     }
-    const { error } = await client.from(d.table).delete().in("id", d.ids);
-    if (error) throw error;
+    await deleteIn(client, d.table, "id", d.ids);
   }
 }

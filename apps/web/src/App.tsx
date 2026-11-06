@@ -7,6 +7,7 @@ import { Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
+import { localDev } from "./devAuth.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { disablePush } from "./push.js";
@@ -103,7 +104,74 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
   );
 }
 
-function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void }) {
+/**
+ * Development only: signs in with the local test account (supabase/seed.sql). Shown
+ * when the app runs with `npm run dev` against the local Supabase, never in a build.
+ */
+export function DevLogin({ client }: { client: SupabaseClient }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="dev-login"
+      aria-label="Cuenta de prueba local"
+      onSubmit={(e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError(null);
+        void client.auth
+          .signInWithPassword({ email: email.trim(), password })
+          .then(({ error: e }) => {
+            if (e) setError("Email o contraseña incorrectos. Están en supabase/seed.sql.");
+          })
+          .catch(() => setError("No se pudo llegar al Supabase local. ¿Corre `supabase start`?"))
+          .finally(() => setBusy(false));
+      }}
+    >
+      <p className="meta">Solo en desarrollo: cuenta de prueba local</p>
+      <label className="field">
+        <span>Email</span>
+        <input
+          type="email"
+          autoComplete="username"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+        />
+      </label>
+      <label className="field">
+        <span>Contraseña</span>
+        <input
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+        />
+      </label>
+      {error && (
+        <p className="meta" role="alert">
+          {error}
+        </p>
+      )}
+      <button type="submit" className="btn" disabled={busy}>
+        {busy ? "Entrando…" : "Entrar con la cuenta de prueba"}
+      </button>
+    </form>
+  );
+}
+
+function Login({
+  onDemo,
+  onGoogle,
+  dev,
+}: {
+  onDemo: () => void;
+  onGoogle?: () => void;
+  dev?: ReactNode;
+}) {
   return (
     <main className="login">
       <img src="/icon-192.png" alt="" />
@@ -117,6 +185,7 @@ function Login({ onDemo, onGoogle }: { onDemo: () => void; onGoogle?: () => void
       <button type="button" className={`btn${onGoogle ? "" : " primary"}`} onClick={onDemo}>
         Probar con datos de ejemplo
       </button>
+      {dev}
       <a className="meta" href="/privacy.html" target="_blank" rel="noreferrer">
         Política de privacidad
       </a>
@@ -260,6 +329,7 @@ export function App({
       <Login
         onDemo={() => remember("demo")}
         onGoogle={client ? () => void signInWithGoogle(client) : undefined}
+        dev={client && localDev ? <DevLogin client={client} /> : undefined}
       />
     );
   }
