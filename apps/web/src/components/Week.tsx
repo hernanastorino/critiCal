@@ -135,6 +135,12 @@ export function Week({
   const [spoken, setSpoken] = useState("");
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
+  /** The block whose bubble is open: its detail sheet gives focus back to it. */
+  const bubbleFrom = useRef<HTMLElement | null>(null);
+  const openBubble = (e: React.MouseEvent<HTMLElement>, item: Item) => {
+    bubbleFrom.current = e.currentTarget;
+    setBubble({ item, x: e.clientX, y: e.clientY });
+  };
   const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
 
@@ -501,7 +507,7 @@ export function Week({
                     aria-label={`${item.event.title}, ${time(tz, item.start)}${isTentative(item.event) ? ", tentativo" : ""}`}
                     className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                     style={style}
-                    onClick={(e) => setBubble({ item, x: e.clientX, y: e.clientY })}
+                    onClick={(e) => openBubble(e, item)}
                   />
                 );
               }
@@ -607,7 +613,7 @@ export function Week({
                           if (!drag.active) return; // a plain tap: onClick opens it
                           if (!editing) dropped.current = { ids: [b.id] };
                           if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
-                            if (editing) setBubble({ item, x: e.clientX, y: e.clientY });
+                            if (editing) openBubble(e, item);
                             return;
                           }
                           const moved = drop(b, drag, e.clientX, e.clientY);
@@ -624,7 +630,7 @@ export function Week({
                       return;
                     }
                     // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
-                    if (!movable || e.detail === 0) setBubble({ item, x: e.clientX, y: e.clientY });
+                    if (!movable || e.detail === 0) openBubble(e, item);
                   }}
                 />
               );
@@ -760,7 +766,19 @@ export function Week({
           />
         </>
       )}
-      {open && <BlockSheet item={open} onClose={() => setOpen(null)} />}
+      {open && (
+        <BlockSheet
+          item={open}
+          onClose={() => setOpen(null)}
+          // The bubble that opened it is gone by then: back to its block.
+          // If replanning took the block away («Soltar»), to the gear: always there.
+          returnTo={() =>
+            bubbleFrom.current?.isConnected
+              ? bubbleFrom.current
+              : document.querySelector<HTMLElement>('button[aria-label="Ajustes"]')
+          }
+        />
+      )}
     </div>
   );
 
