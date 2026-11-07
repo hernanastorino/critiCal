@@ -1,16 +1,26 @@
 import { useState } from "react";
 import { DEFAULTS } from "../calendars.js";
+import { useDraft } from "../drafts.js";
 import type { Activity, DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type AppTask, type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, MEAL_NAMES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
-import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
+import { sameName, studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
+
+/** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
+function Unsaved() {
+  return (
+    <p className="meta" style={{ margin: "6px 0 0" }}>
+      Cambios sin guardar
+    </p>
+  );
+}
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 /** For VoiceOver: two «M» would read alike. */
@@ -35,16 +45,17 @@ const fromHours = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
   const { data, dispatch } = useStore();
-  const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const first = data.settings.week[days[0] ?? 1] as DaySettings;
-  const [form, setForm] = useState(() => formOf(first));
+  const [{ days, form }, setDraft, saved, dirty] = useDraft("week", () => ({
+    days: [1, 2, 3, 4, 5],
+    form: formOf(data.settings.week[1] as DaySettings),
+  }));
+  const setForm = (f: typeof form) => setDraft({ days, form: f });
   const toast = useToast();
 
   const pick = (d: number) => {
     const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
     if (next.length === 0) return;
-    setDays(next);
-    setForm(formOf(data.settings.week[next[0] as number] as DaySettings));
+    setDraft({ days: next, form: formOf(data.settings.week[next[0] as number] as DaySettings) });
   };
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
@@ -104,13 +115,16 @@ export function WeekSettings() {
     dispatch({ type: "settings", settings: { ...data.settings, week } });
     // Show what was saved (a negative morning becomes 0, a 999-minute lunch 240).
     const shown = (m?: Meal) => (m ? String(m.end - m.start) : "0");
-    setForm({
-      ...form,
-      morning: String(day.morningMinutes),
-      breakfastMin: shown(meals.find((m) => m.kind === "desayuno")),
-      lunchMin: shown(meals.find((m) => m.kind === "almuerzo")),
-      snackMin: shown(meals.find((m) => m.kind === "merienda")),
-      dinnerMin: shown(meals.find((m) => m.kind === "cena")),
+    saved({
+      days,
+      form: {
+        ...form,
+        morning: String(day.morningMinutes),
+        breakfastMin: shown(meals.find((m) => m.kind === "desayuno")),
+        lunchMin: shown(meals.find((m) => m.kind === "almuerzo")),
+        snackMin: shown(meals.find((m) => m.kind === "merienda")),
+        dinnerMin: shown(meals.find((m) => m.kind === "cena")),
+      },
     });
     toast.show("Mi semana guardada");
   };
@@ -169,6 +183,7 @@ export function WeekSettings() {
         después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja avisa. Con
         duración 0 no hay esa comida (la merienda viene en 0).
       </p>
+      {dirty && <Unsaved />}
       <button
         type="button"
         className="btn primary"
@@ -237,11 +252,11 @@ function Field({
 export function RuleSettings() {
   const { data, dispatch } = useStore();
   const s = data.settings;
-  const [form, setForm] = useState({
+  const [form, setForm, saved, dirty] = useDraft("rules", () => ({
     maxActivities: String(s.maxActivitiesPerDay),
     margin: String(s.travelMarginMinutes),
     warn: toHours(s.warnSlackMinutes),
-  });
+  }));
   const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -267,7 +282,7 @@ export function RuleSettings() {
       },
     });
     // Show what was saved: «0» becomes 1, «999» becomes 10.
-    setForm({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
+    saved({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
     toast.show("Reglas guardadas");
   };
   return (
@@ -289,6 +304,7 @@ export function RuleSettings() {
           onChange={set("warn")}
         />
       </div>
+      {dirty && <Unsaved />}
       <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
         Guardar reglas
       </button>
@@ -314,7 +330,7 @@ const KINDS: { kind: DetectedKind; label: string }[] = [
 export function DetectedDefaults() {
   const { data, dispatch } = useStore();
   const current = (k: DetectedKind): Effort => data.preferences?.importDefaults?.[k] ?? DEFAULTS[k];
-  const [form, setForm] = useState(() =>
+  const [form, setForm, saved, dirty] = useDraft("detected", () =>
     Object.fromEntries(
       KINDS.map(({ kind }) => [
         kind,
@@ -356,6 +372,7 @@ export function DetectedDefaults() {
           </label>
         </div>
       ))}
+      {dirty && <Unsaved />}
       <button
         type="button"
         className="btn primary"
@@ -386,7 +403,7 @@ export function DetectedDefaults() {
           );
           dispatch({ type: "preferences", preferences: { ...data.preferences, importDefaults } });
           // Show what was saved: 2000 h becomes 200, a minimum above the hours becomes them.
-          setForm(
+          saved(
             Object.fromEntries(
               KINDS.map(({ kind }) => [
                 kind,
@@ -434,9 +451,11 @@ export function ActivitySettings() {
 
 function ActivityRow({ activity }: { activity: Activity }) {
   const { data, now, dispatch } = useStore();
-  const [open, setOpen] = useState(false);
-  const [startAfter, setStartAfter] = useState<Activity["startAfter"] | null>(activity.startAfter);
-  const [form, setForm] = useState({
+  const key = `activity:${activity.id}`;
+  const [startAfter, setStartAfter, startSaved, startDirty] = useDraft<
+    Activity["startAfter"] | null
+  >(`${key}:start`, () => activity.startAfter);
+  const [form, setForm, formSaved, formDirty] = useDraft(key, () => ({
     name: activity.name,
     color: activity.color,
     academic: activity.academic,
@@ -446,25 +465,31 @@ function ActivityRow({ activity }: { activity: Activity }) {
     to: activity.preferred ? minutesToHhmm(activity.preferred.end) : "",
     study: String(activity.studyMinutes ?? DEFAULT_STUDY_MINUTES),
     rest: String(activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0)),
-  });
+  }));
   const taken = new Set(
     data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
   );
   // A materia's weekly study is its weekly silo, if it has one.
   const study = studyOf(data, activity);
   const studyHours = study ? toHours(study.minMinutes) : "";
-  const [weekly, setWeekly] = useState(studyHours);
+  const [weekly, setWeekly, weeklySaved, weeklyDirty] = useDraft(`${key}:weekly`, () => studyHours);
+  const dirty = formDirty || weeklyDirty || startDirty;
+  // A draft waiting there opens the row on it.
+  const [open, setOpen] = useState(dirty);
   const studies = subjectsOf(data).some((a) => a.id === activity.id);
   const hours = Number(weekly.replace(",", "."));
   // Blank means none; at most a whole week.
   const hoursOk =
     !studies || weekly.trim() === "" || (Number.isFinite(hours) && hours >= 0 && hours <= 168);
+  // Two «Nadar» would be told apart by nothing (adding one is refused the same way).
+  const repeated = data.activities.some((a) => a.id !== activity.id && sameName(a.name, form.name));
   const maxSession = clampMinutes(form.max, 30, 480) ?? activity.maxSessionMinutes;
   const minBlock = clampMinutes(form.min, 30, 480) ?? activity.minBlockMinutes;
   // A minimum block longer than a session could never be planned, nor a window that ends
   // before it starts.
-  const problem =
-    minBlock > maxSession
+  const problem = repeated
+    ? "Ya hay una materia o rutina con ese nombre."
+    : minBlock > maxSession
       ? "El bloque mínimo no puede ser más largo que la sesión máxima."
       : form.from && form.to && hhmmToMinutes(form.from) >= hhmmToMinutes(form.to)
         ? "«Prefiero desde» tiene que ser antes de «hasta»."
@@ -579,6 +604,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             />
             Es estudio (respeta «nada de estudio desde»)
           </label>
+          {dirty && <Unsaved />}
           <button
             type="button"
             className="btn primary"
@@ -614,7 +640,9 @@ function ActivityRow({ activity }: { activity: Activity }) {
                   minutes: Math.round(hours * 60),
                 });
               // Reopened, it shows what was saved (20 and 25 minutes become 30 and 30, 999 of study 240).
-              setForm({
+              startSaved(startAfter ?? undefined);
+              weeklySaved(weekly);
+              formSaved({
                 ...form,
                 max: String(maxSession),
                 min: String(minBlock),
@@ -643,16 +671,20 @@ function ActivityRow({ activity }: { activity: Activity }) {
 export function Routines() {
   const { data, dispatch } = useStore();
   const routines = data.activities.filter((a) => a.kind === "rutina");
-  const [name, setName] = useState("");
-  const [times, setTimes] = useState("3");
-  const [minutes, setMinutes] = useState("60");
+  const [draft, setDraft, drafted, dirty] = useDraft("routines", () => ({
+    name: "",
+    times: "3",
+    minutes: "60",
+  }));
+  const { name, times, minutes } = draft;
+  const setName = (v: string) => setDraft({ ...draft, name: v });
+  const setTimes = (v: string) => setDraft({ ...draft, times: v });
+  const setMinutes = (v: string) => setDraft({ ...draft, minutes: v });
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
   const [detail, setDetail] = useState<AppTask | null>(null);
   // Two «Nadar» would be told apart by nothing.
-  const repeated = data.activities.some(
-    (a) => a.name.trim().toLowerCase() === name.trim().toLowerCase(),
-  );
+  const repeated = data.activities.some((a) => sameName(a.name, name));
   const [editing, setEditing] = useState<AppTask | null>(null);
   return (
     <Section>
@@ -711,6 +743,7 @@ export function Routines() {
           <input inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
         </label>
       </div>
+      {dirty && <Unsaved />}
       <button
         type="button"
         className="btn"
@@ -723,7 +756,7 @@ export function Routines() {
             sessionsPerWeek: Math.round(Number(times)),
             sessionMinutes: Math.round(Number(minutes)),
           });
-          setName("");
+          drafted({ ...draft, name: "" });
         }}
       >
         Agregar rutina

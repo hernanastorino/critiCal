@@ -25,6 +25,7 @@ import {
 import { SectionOpen } from "./Section.js";
 import { Semester } from "./Semester.js";
 import { SyllabusImport } from "./SyllabusImport.js";
+import { useSettingsHistory } from "./settingsHistory.js";
 import { WidgetSetup } from "./WidgetSetup.js";
 
 export type PageId =
@@ -231,7 +232,12 @@ export function Settings({
     opened.current = id;
     setPage(id);
   };
-  const close = () => setPage(null);
+  const toList = () => setPage(null);
+  const popScreen = useSettingsHistory(page, toList, onClose);
+  const close = () => {
+    popScreen();
+    toList();
+  };
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
   const justOpened = useModal(
     sheet,

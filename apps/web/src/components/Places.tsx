@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
+import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
 import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
@@ -15,7 +16,7 @@ export function Places() {
   const { data, dispatch } = useStore();
   const sync = useSync();
   const places = data.places ?? [];
-  const [editing, setEditing] = useState<Place | null>(null);
+  const [editing, setEditing] = useDraft<Place | null>("places:editing", () => null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const toast = useToast();
@@ -287,10 +288,20 @@ function PlaceForm({
   onCancel: () => void;
   onDelete?: () => void;
 }) {
-  const [name, setName] = useState(place.name);
-  const [address, setAddress] = useState(place.address ?? "");
-  const [aliases, setAliases] = useState(place.aliases.join(", "));
-  const [isHome, setIsHome] = useState(!!place.isHome);
+  const fresh = () => ({
+    name: place.name,
+    address: place.address ?? "",
+    aliases: place.aliases.join(", "),
+    isHome: !!place.isHome,
+  });
+  const [form, setForm, saved, dirty] = useDraft(`place:${place.id}`, fresh);
+  const { name, address, aliases, isHome } = form;
+  const setName = (v: string) => setForm({ ...form, name: v });
+  const setAddress = (v: string) => setForm({ ...form, address: v });
+  const setAliases = (v: string) => setForm({ ...form, aliases: v });
+  const setIsHome = (v: boolean) => setForm({ ...form, isHome: v });
+  // Done with the form: what was typed is not kept.
+  const finish = () => saved(fresh());
   return (
     <div className="card">
       <label className="field">
@@ -317,12 +328,18 @@ function PlaceForm({
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>
       </label>
+      {dirty && (
+        <p className="meta" style={{ margin: "6px 0 0" }}>
+          Cambios sin guardar
+        </p>
+      )}
       <div className="row">
         <button
           type="button"
           className="btn primary"
           disabled={!name.trim()}
-          onClick={() =>
+          onClick={() => {
+            finish();
             onSave({
               ...place,
               name: name.trim(),
@@ -340,12 +357,19 @@ function PlaceForm({
                     a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
                 ),
               isHome: isHome || undefined,
-            })
-          }
+            });
+          }}
         >
           Guardar
         </button>
-        <button type="button" className="btn" onClick={onCancel}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            finish();
+            onCancel();
+          }}
+        >
           Cancelar
         </button>
         {onDelete && (
