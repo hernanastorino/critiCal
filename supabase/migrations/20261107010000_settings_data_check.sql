@@ -37,8 +37,13 @@ $$;
 create function private.check_settings_data() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- The app saves with an upsert, which fires this as an insert even when the row is
+  -- there: data that is already stored as it is (a legacy row) is let through.
   if (tg_op = 'INSERT' or new.data is distinct from old.data)
-     and not private.settings_data_valid(new.data) then
+     and not private.settings_data_valid(new.data)
+     and not exists (
+       select 1 from public.settings s where s.user_id = new.user_id and s.data = new.data
+     ) then
     raise exception 'invalid settings data' using errcode = '22023';
   end if;
   return new;

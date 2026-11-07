@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 -- Start from an app without accounts: the local seed's test account would own it.
 delete from auth.users where email = 'prueba@critical.test';
 delete from private.app_config where key = 'owner';
-select plan(8);
+select plan(10);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c1', 'cfg@test.local');
 set local role authenticated;
@@ -48,6 +48,18 @@ set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-0000000000c1"}'
 select lives_ok(
   $$ update public.settings set google_plan_calendar = 'x' $$,
   'an old row is not locked out of other updates'
+);
+
+-- The app saves with an upsert: a legacy row's unchanged data goes through, a changed bad one does not.
+select lives_ok(
+  $$ insert into public.settings (user_id, data, state) values ('00000000-0000-0000-0000-0000000000c1', '{"week": [1]}', '{"x": 1}')
+     on conflict (user_id) do update set data = excluded.data, state = excluded.state $$,
+  'an upsert that leaves legacy data as it was is saved'
+);
+select throws_ok(
+  $$ insert into public.settings (user_id, data) values ('00000000-0000-0000-0000-0000000000c1', '{"week": [1, 2]}')
+     on conflict (user_id) do update set data = excluded.data $$,
+  '22023', 'invalid settings data', 'an upsert that changes it to another bad value is refused'
 );
 
 select * from finish();
