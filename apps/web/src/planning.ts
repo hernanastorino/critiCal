@@ -117,6 +117,26 @@ export interface TaskProgress {
   deadline: number;
 }
 
+/**
+ * Deliverables whose deadline passed before this week are "anteriores": they leave the
+ * silos view once the week they were due in is over. Newest first.
+ */
+export function splitPastSilos(items: TaskProgress[], tz: string, now: number) {
+  const since = zonedInstant(tz, weekStart(tz, now), 0);
+  const isPast = (p: TaskProgress) => p.task.kind !== "habit" && p.deadline < since;
+  return {
+    current: items.filter((p) => !isPast(p)),
+    past: items.filter(isPast).sort((a, b) => b.deadline - a.deadline),
+  };
+}
+
+/** "2.º cuatrimestre 2026": March–July is the first, August–February the second. */
+export function semesterLabel(tz: string, instant: number) {
+  const [y, m] = localParts(tz, instant).date.split("-").map(Number) as [number, number];
+  if (m >= 3 && m <= 7) return `1.er cuatrimestre ${y}`;
+  return `2.º cuatrimestre ${m <= 2 ? y - 1 : y}`;
+}
+
 /** Active and not paused or skipped this week: the planner works on it. */
 export const isRunning = (task: AppTask, now: number) =>
   task.status === "active" && !task.paused && !((task.skipUntil ?? 0) > now);

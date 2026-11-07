@@ -126,6 +126,28 @@ describe("app", () => {
     expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
   });
 
+  it("hides silos due before this week behind «Ver anteriores»", () => {
+    const withPast = (now: number) => {
+      const data = seeded(now);
+      const first = data.tasks.find((t) => t.kind === "deliverable") as (typeof data.tasks)[0];
+      const old = {
+        ...first,
+        id: "old-tp",
+        title: "TP viejo",
+        deadline: zonedInstant(TIMEZONE, "2026-10-20", 12 * 60),
+      };
+      return { ...data, tasks: [...data.tasks, old] };
+    };
+    render(<App fixedNow={NOW} initial={withPast} />);
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
+    fireEvent.click(screen.getByText("Ver anteriores (1)"));
+    const group = screen.getByRole("region", { name: "2.º cuatrimestre 2026" });
+    expect(within(group).getByLabelText(/TP viejo: faltan/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Ocultar anteriores"));
+    expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
+  });
+
   it("re-plans the day from settings and can reset or leave the demo", () => {
     renderApp();
     fireEvent.click(screen.getByLabelText("Ajustes"));
