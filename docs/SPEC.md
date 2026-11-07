@@ -53,7 +53,11 @@ Sueño (hora de acostarse/levantarse), un rato para arreglarse y trasladarse al 
 Paquete independiente, determinista, que corre igual en el cliente y en Edge Functions.
 
 1. **Capacidad**: grilla de bloques de 30 min (registro con granularidad de 15). Se restan sueño, comidas, eventos ocupados, traslados (+10 min de margen) y franja libre.
-   - **Comidas fijas**: nunca va estudio ni entregas encima. Cada comida queda a su hora mientras esté libre; solo se corre si a esa hora hay un evento fijo (gris u «Ocupado»), su traslado, un bloque 📌 (también uno que acabo de soltar ahí) u otra comida del día ya ubicada (se ubican en orden: desayuno, almuerzo, cena): primero justo al salir de la clase que la pisa, si termina cerca; si no, al hueco libre más cercano, antes o después, empezando a lo sumo 1 h 30 de su hora (el desayuno, contado desde que me levanto si me levanté más tarde). Nunca antes de levantarme ni pasada la hora de dormir, ni encima de otra comida. Si no hay hueco, la **bandeja** avisa («Sin lugar para almorzar · mar 10/11») con un botón para ver ese día, durante la semana que viene; el aviso se va solo cuando vuelve a haber lugar.
+   - **Comidas fijas**: todos los días hay desayuno, almuerzo y cena (salvo que el usuario diga otra cosa, §18.2). Comer no es opcional: el plan **siempre** les deja lugar, aunque sea ineficiente o no llegue a los objetivos. El plan nunca pone estudio ni entregas encima de una comida. Lo único que puede quedar superpuesto con una comida es lo que el plan no mueve: eventos fijos, sus traslados y bloques 📌 que fijé yo; y, de forma transitoria, un bloque de hoy sin 📌 mientras su corrimiento espera mi OK o mientras está en curso (paso 1). Lo que el plan no mueve tiene prioridad y la comida se superpone con aviso (paso 3), sin que el plan sume estudio nuevo encima. Dos comidas nunca se superponen entre sí: si la anterior ya ocupa la hora preferida, la siguiente se superpone a continuación de ella. Siempre dentro de lo despierto: la «hora preferida» se toma a lo sumo desde que me levanto y hasta la hora de dormir (si el desayuno es a las 8 y me levanté a las 10, cuenta desde las 10). Si lo despierto no alcanza para todas las comidas sin superponerlas (por ejemplo, me levanté muy tarde), manda este orden: que la comida exista, que no pise otra comida, que quede dentro de lo despierto. La que no entra aparece justo después de la anterior, aunque pase la hora de dormir, y la bandeja avisa para que la mueva o use «Hoy no» (§18.2). Se ubican en orden (desayuno, almuerzo, cena):
+     1. a su **hora preferida**; si ahí hay bloques que no son fijos, el plan los corre para dejarle lugar. Vale la estabilidad del §5.7: de mañana en adelante se corren solos; si el cambio toca hoy, llega como propuesta en la bandeja y, mientras no la acepte, la comida se muestra superpuesta como en el paso 3. El bloque en curso no se corre nunca: la comida empieza cuando termina, si cae dentro del rango; si no, va al paso 3;
+     2. si a esa hora hay algo fijo (evento gris u «Ocupado», su traslado, un bloque 📌, también uno que acabo de soltar ahí, u otra comida ya ubicada): primero justo al salir de lo que la pisa, si termina cerca; si no, al hueco más cercano, antes o después, dentro de 1 h 30 de su hora (el desayuno, contado desde que me levanto si me levanté más tarde), corriendo también ahí lo que no sea fijo. Nunca antes de levantarme ni pasada la hora de dormir (tampoco en los pasos 1 y 3);
+     3. si en ese rango no queda ningún hueco libre tan largo como la comida (todo ocupado por cosas fijas, o solo huecos más cortos), la comida **aparece igual a su hora preferida, superpuesta** con lo que haya, y la bandeja avisa («Sin lugar para almorzar · mar 10/11») para que yo decida: la dejo ahí o la arrastro a cualquier momento del día (a mano sí puedo ponerla a cualquier hora, incluso fuera de lo despierto), incluso encima de un evento fijo. Donde la suelto queda 📌 y el plan acomoda el resto alrededor.
+        (Cambia la decisión anterior de solo avisar en la bandeja con un botón para ver el día.)
 2. **Factibilidad (EDF)**: por deadline creciente, `demanda mínima acumulada ≤ capacidad acumulada`.
 3. **Holgura** = tiempo libre hasta el deadline − mínimo restante.
    - 🟢 margen · 🟡 holgura < 1 día de capacidad · 🔴 si salteás este bloque no llegás al mínimo.
@@ -79,7 +83,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 ## 7. Pantallas
 
 - **Bandeja** (se abre al entrar): bloques por confirmar · cambios propuestos para hoy · decisiones de infactibilidad · eventos sin ubicación · entregas detectadas.
-- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. No se arrastran: se mueven solas. No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
+- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. Se mueven solas (§5.1) y además se pueden arrastrar a cualquier hora del día, también encima de un evento fijo; las superpuestas se ven lado a lado (§18.3). No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
 - **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
@@ -104,7 +108,7 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 
 ## 10. CI/CD y calidad
 
-- PR: Biome (lint/format), `tsc`, Vitest con cobertura (motor ≥ 90 %, global ≥ 80 %), property-based tests con fast-check sobre invariantes del motor (nunca sobre eventos fijos, nunca bajo mínimos, nunca en franja libre sin permiso).
+- PR: Biome (lint/format), `tsc`, Vitest con cobertura (motor ≥ 90 %, global ≥ 80 %), property-based tests con fast-check sobre invariantes del motor (nunca sobre eventos fijos, salvo las comidas superpuestas que permite el §5.1, nunca bajo mínimos, nunca en franja libre sin permiso).
 - Playwright E2E contra la preview, con emulación iPhone (WebKit) y desktop.
 - Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod automático si staging y su E2E pasan (GitHub Environment `production`, limitado a `main`).
 - Migraciones versionadas (Supabase CLI), Dependabot, CodeQL, rollback a un clic en Vercel.
@@ -246,3 +250,38 @@ Orden:
 5. **Producción**: Sentry sin errores nuevos ni problemas de seguridad abiertos después del deploy, más una prueba rápida de la app desplegada en el simulador (modo demo). Si algo falla, se abre un PR con el arreglo y vuelve al paso 1.
 
 El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
+
+## 18. Próximos desarrollos (noviembre 2026)
+
+Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve preguntándole; sus respuestas quedan acá. Seguimiento en [`TODO.md`](TODO.md).
+
+1. **Psicología de UX** (video «The UX Psychology Behind Apps People Can't Stop Using», uxpeak, https://www.youtube.com/watch?v=2TlIg3VokY8). Aplicar lo que sirve en una app gratis (el principio de contraste de precios no aplica):
+   - **Valores por defecto inteligentes**: formularios precargados con lo más probable (materia con duración y franja típicas, entrega con fecha sugerida), nunca en blanco.
+   - **Gradiente de meta**: el primer uso no arranca en 0 % (conectar la cuenta ya cuenta como un paso hecho); progreso visible por entrega y por semana.
+   - **Valor antes de registrarse**: el modo demo deja ver un plan completo antes de pedir Google.
+   - **Efecto IKEA**: lo que el usuario arma (sus materias, rutinas, lugares) se muestra como suyo y crece con el uso (por ejemplo, «tu semana tipo»).
+   - **Encuadre de pérdidas**, sin manipular: «si salteás este bloque perdés 2 h de margen para el parcial» en vez de «estudiá».
+   - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + una mascota** simple de línea de 2 px que reacciona (se encoge de hombros cuando algo sale mal, festeja cuando me recupero). Claude hace **3 bocetos** de la mascota, con sus reacciones, en una presentación como la de Configuración (link privado + copia en `docs/mockups/`); se implementa recién cuando el usuario elija uno. Mientras tanto se puede avanzar con los textos.
+   - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
+2. **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
+   - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.
+   - **Merienda opcional**: una cuarta comida en Mi semana, con hora y duración (0 = sin merienda), que se ubica con la misma regla que las otras. Va entre el almuerzo y la cena.
+   - El ayuno se maneja con esas dos opciones y con duración 0 en la rutina. No hay una ventana de ayuno aparte (se puede sumar más adelante).
+3. **Eventos superpuestos lado a lado**: cuando dos o más bloques se pisan, se dibujan en columnas más angostas, una al lado de la otra, como en Calendario de iOS, nunca uno encima del otro.
+4. **Olvidar el lugar y conservar el tiempo**: un evento de un calendario (por ejemplo iCloud) trae una ubicación a la que voy una sola vez. Le pongo 20 min de traslado y no quiero guardar el lugar, pero hoy «Olvidar» también borra los 20 min y la otra opción es guardarlo como lugar. Tiene que haber una opción **Eliminar** que avise que se borra la ubicación exacta pero que el tiempo estimado se mantiene y el plan lo sigue teniendo en cuenta. Decidido: una tercera opción, **«Eliminar lugar»**, al lado de «Guardar como lugar» y «Olvidar», con el aviso «Se borra la dirección; los 20 min de traslado quedan para este evento y el plan los sigue contando». El tiempo queda guardado en el evento, no como lugar.
+5. **Silos que se van solos**: un silo cuya fecha final ya pasó desaparece de la vista de silos cuando termina esa semana. Se ven solo los que están en curso y los terminados **esta** semana, para que no se acumulen semestre tras semestre. Los datos no se borran. Decidido: al final de la vista, un botón chico **«Ver anteriores (N)»** los muestra agrupados por cuatrimestre.
+6. **Barra de arriba**:
+   - El rango de la semana se escribe «2 – 8 nov» (el mes una sola vez; si cruza de mes, «27 oct – 2 nov»).
+   - La flecha de Deshacer usa el mismo ícono de línea de 2 px que el resto (`icons.tsx`).
+7. **Empezar más tarde**: una tarea (o una materia entera) que no puedo empezar hasta cierto momento. Se puede indicar:
+   - una demora relativa a hoy («dentro de 10 días»);
+   - un tiempo antes de la entrega («4 días antes»);
+   - o una fecha exacta, que tiene que ser anterior a la entrega.
+     Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
+   - Se configura en la **tarea** y en la **materia**: lo de la materia vale para todas sus tareas, salvo que una diga otra cosa.
+   - Por defecto de Claude: el aviso de que no entra sale **al guardar**, con la vista previa del §5.6, y no recién cuando llega la fecha.
+8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Decidido:
+   - **Bun** como gestor de paquetes y para correr los scripts y el CI; Vite, Vitest y Vercel siguen como están.
+   - Se **mide** el motor y, solo si una reescritura en Rust compilado a WASM da una mejora real, se hace.
+
+**Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
