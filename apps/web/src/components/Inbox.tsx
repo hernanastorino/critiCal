@@ -67,12 +67,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
   // Addresses being timed now, and the most there were at once: «Calculando traslados 3 de 8».
   const looking = offline ? 0 : unlocated.filter((u) => u.lookup).length;
+  // Adjusting state while rendering settles at once: `seen` catches up with `lookTotal`.
   const [seen, setSeen] = useState(0);
   const lookTotal = looking === 0 ? 0 : Math.max(seen, looking);
   if (lookTotal !== seen) setSeen(lookTotal);
 
   const quick = (b: PlanBlock, status: "done" | "missed") => {
-    if (status === "missed") toast.show(SKIPPED_TOAST);
     dispatch({
       type: "checkIn",
       checkIn: {
@@ -83,6 +83,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
+    if (status === "missed") toast.show(SKIPPED_TOAST);
   };
 
   return (
