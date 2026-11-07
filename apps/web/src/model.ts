@@ -199,6 +199,12 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /**
+   * Driving minutes from home kept for single events after their address was deleted
+   * («Eliminar lugar»): the plan still counts the trip, no address is kept. `key` is
+   * the event's `spotKey` then: if the event moves elsewhere, the minutes no longer apply.
+   */
+  eventTravel?: Record<string, EventTravel>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
@@ -228,6 +234,11 @@ export interface Spot {
   manual?: boolean;
   /** The address could not be found or reached: the inbox asks. */
   failed?: boolean;
+}
+
+export interface EventTravel {
+  minutes: number;
+  key: string;
 }
 
 /** A saved place (home, facu, gym…), matched against event locations and titles. */

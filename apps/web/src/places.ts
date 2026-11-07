@@ -53,6 +53,39 @@ const timed = (data: AppData, text: string | undefined) =>
   spotFor(data, text)?.minutes !== undefined;
 
 const SPOT = "spot:";
+/**
+ * An event whose own minutes were kept after its address was deleted. The NUL makes it
+ * a key no calendar location can be (an event at «event:Hospital» stays an address).
+ */
+const EVENT = "\u0000event:";
+
+/** What an event's travel is keyed by: its address or, without one, its title. */
+export const eventSpotKey = (e: { location?: string; title: string }) =>
+  spotKey(addressOf(e) ?? e.title);
+
+/** Ids of the events whose address (or, without one, title) is the spot `key`. */
+export const eventsAt = (data: AppData, key: string) =>
+  data.events.filter((e) => eventSpotKey(e) === key).map((e) => e.id);
+
+/**
+ * Events at the spot `key` that can keep its minutes after «Eliminar lugar»: not ones
+ * a saved place already names (those use the place's own times).
+ */
+export const keepableEvents = (data: AppData, key: string) =>
+  data.events
+    .filter((e) => eventSpotKey(e) === key && !placeFor(data.places ?? [], addressOf(e) ?? e.title))
+    .map((e) => e.id);
+
+/**
+ * Minutes kept for this event after «Eliminar lugar», while it still says the same and
+ * no saved place has claimed it since; otherwise its new location is asked or timed.
+ */
+export function keptTravel(data: AppData, e: { id: string; location?: string; title: string }) {
+  const kept = data.eventTravel?.[e.id];
+  if (!kept || eventSpotKey(e) !== kept.key) return undefined;
+  if (placeFor(data.places ?? [], addressOf(e) ?? e.title)) return undefined;
+  return kept.minutes;
+}
 
 /** What an event gives as its address; one of blanks is none. */
 const addressOf = (e: { location?: string }) => (e.location?.trim() ? e.location : undefined);
@@ -68,6 +101,8 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   const places = data.places ?? [];
   if (!home(data)) return events;
   return events.map((raw) => {
+    // Its address was deleted but its minutes kept: the trip is counted all the same.
+    if (keptTravel(data, raw) !== undefined) return { ...raw, location: EVENT + raw.id };
     // An address of blanks is no address, here, in the inbox and in search.
     const e = raw.location && !addressOf(raw) ? { ...raw, location: undefined } : raw;
     // A title answer only counts for events without a location of their own.
@@ -87,14 +122,19 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
   return {
     home: start.id,
     resolvePlace: (location) =>
+      (location.startsWith(EVENT) ? location : undefined) ??
       placeFor(places, location)?.id ??
       (timed(data, location) ? `${SPOT}${spotKey(location)}` : undefined),
     // A spot is only timed from home; trips between it and another place take that long too.
     travelMinutes: (from, to) => {
-      const spots = [from, to].filter((id) => id.startsWith(SPOT));
+      const spots = [from, to].filter((id) => id.startsWith(SPOT) || id.startsWith(EVENT));
       if (spots.length === 0) return minutesBetween(data, from, to);
       return Math.max(
-        ...spots.map((id) => (data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
+        ...spots.map((id) =>
+          id.startsWith(EVENT)
+            ? (data.eventTravel?.[id.slice(EVENT.length)]?.minutes ?? 0)
+            : ((data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
+        ),
       );
     },
     marginMinutes: data.settings.travelMarginMinutes,
@@ -113,6 +153,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   const seen = new Map<string, AppEvent>();
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
+    if (keptTravel(data, e) !== undefined) continue;
     // An address of blanks is no address.
     const location = addressOf(e);
     const text = location?.trim() || e.title;
