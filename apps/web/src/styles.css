@@ -137,10 +137,14 @@ textarea {
 }
 
 .header h1.range {
-  font-size: clamp(15px, 4.8vw, 24px);
+  font-size: clamp(16px, 5vw, 22px);
   white-space: nowrap;
   text-align: center;
   min-width: 0;
+}
+
+/* Focused from code (back to this week) by mouse or touch: no ring; by keyboard, yes. */
+.header h1.range:focus:not(:focus-visible) {
   outline: none;
 }
 
@@ -160,8 +164,38 @@ textarea {
   color: var(--ink-soft);
 }
 
-.header:has(.range) {
-  gap: 0;
+/* Week bar: the range and its arrows tight on the left, the tools spread on the right. */
+.header:has(.week-nav) {
+  gap: 4px;
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.week-nav .icon-btn {
+  width: 28px;
+}
+
+.week-nav h1.range {
+  flex: none;
+  padding: 0 2px;
+}
+
+.week-tools {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+.header h1.range:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 8px;
 }
 
 .header .icon-btn {
@@ -175,8 +209,12 @@ textarea {
 }
 
 @media (max-width: 359px) {
-  .header .icon-btn {
-    width: 36px;
+  .week-tools .icon-btn {
+    width: 34px;
+  }
+
+  .week-nav .icon-btn {
+    width: 24px;
   }
 }
 

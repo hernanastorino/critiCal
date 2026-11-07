@@ -367,116 +367,121 @@ export function Week({
   return (
     <div className="week-wrap">
       <div className="header">
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Semana anterior"
-          onClick={() => setOffset(offset - 1)}
-        >
-          <ChevronLeft />
-        </button>
-        <h1 ref={titleRef} tabIndex={-1} className={`range${offset === 0 ? " current" : ""}`}>
-          {offset === 0 ? (
-            rangeDays
-          ) : (
-            <button
-              type="button"
-              className="range-today"
-              title="Volver a esta semana"
-              aria-label={`${rangeLabel}. Volver a esta semana`}
-              onClick={() => {
-                setOffset(0);
-                // The button goes with the other week: the title keeps the focus.
-                requestAnimationFrame(() => titleRef.current?.focus());
-              }}
-            >
-              {rangeDays}
-              {rangeYear && <span className="range-year">{rangeYear}</span>}
-            </button>
-          )}
-        </h1>
-        <span className="sr-only" aria-live="polite">
-          {offset === 0 ? "" : rangeLabel}
-        </span>
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Semana siguiente"
-          onClick={() => setOffset(offset + 1)}
-        >
-          <ChevronRight />
-        </button>
-        <button
-          type="button"
-          className={`icon-btn${editing ? " active" : ""}`}
-          aria-label="Modo edición"
-          aria-pressed={editing}
-          onClick={() => {
-            setEditing(!editing);
-            setBubble(null);
-          }}
-        >
-          <EditIcon />
-        </button>
-        <button
-          type="button"
-          className={`icon-btn replan${replanning ? " spinning" : ""}${replanned ? " done" : ""}`}
-          ref={replanRef}
-          aria-label="Reacomodar semana"
-          // aria-disabled, not disabled: a disabled button drops the keyboard focus.
-          aria-disabled={replanning || undefined}
-          onClick={() => {
-            if (replanning) return;
-            clearTimeout(replanTimer.current);
-            setReplanned(false);
-            // Emptied first, so a second replan in the same minute is announced again.
-            setSpoken("");
-            setReplanning(true);
-            dispatch({ type: "replanWeek" });
-            const at = now;
-            replanTimer.current = setTimeout(() => {
-              setReplanning(false);
-              setReplanned(true);
-              setSpoken(`Semana reacomodada · ${time(tz, at)}`);
-              replanTimer.current = setTimeout(() => setReplanned(false), DONE_MS);
-            }, 600);
-          }}
-        >
-          {replanned ? <CheckIcon /> : <ReplanIcon />}
-        </button>
-        <span className="sr-only" role="status">
-          {spoken}
-        </span>
-        {/* Always there (hidden when empty) so the buttons never shift under the finger. */}
-        <button
-          type="button"
-          className={`icon-btn${lastChange ? "" : " placeholder"}`}
-          aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
-          title={lastChange ? `Deshacer: ${lastChange}` : undefined}
-          aria-hidden={lastChange ? undefined : true}
-          tabIndex={lastChange ? undefined : -1}
-          disabled={!lastChange}
-          onClick={() => {
-            if (!lastChange) return;
-            const last = (data.planHistory ?? []).length === 1;
-            dispatch({ type: "undoPlan" });
-            flash(`Deshecho: ${lastChange}`);
-            setSpoken("");
-            // The button hides with the last change: the keyboard goes to its neighbour.
-            if (last) requestAnimationFrame(() => replanRef.current?.focus());
-          }}
-        >
-          <UndoIcon />
-        </button>
-        <SyncDot onClick={() => onSettings()} />
-        <button
-          type="button"
-          className="icon-btn"
-          aria-label="Ajustes"
-          onClick={() => onSettings()}
-        >
-          <GearIcon />
-        </button>
+        {/* The week and its arrows stay tight; the tools share the rest of the bar. */}
+        <div className="week-nav">
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Semana anterior"
+            onClick={() => setOffset(offset - 1)}
+          >
+            <ChevronLeft />
+          </button>
+          <h1 ref={titleRef} tabIndex={-1} className={`range${offset === 0 ? " current" : ""}`}>
+            {offset === 0 ? (
+              rangeDays
+            ) : (
+              <button
+                type="button"
+                className="range-today"
+                title="Volver a esta semana"
+                aria-label={`${rangeLabel}. Volver a esta semana`}
+                onClick={() => {
+                  setOffset(0);
+                  // The button goes with the other week: the title keeps the focus.
+                  requestAnimationFrame(() => titleRef.current?.focus());
+                }}
+              >
+                {rangeDays}
+                {rangeYear && <span className="range-year">{rangeYear}</span>}
+              </button>
+            )}
+          </h1>
+          <span className="sr-only" aria-live="polite">
+            {offset === 0 ? "" : rangeLabel}
+          </span>
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Semana siguiente"
+            onClick={() => setOffset(offset + 1)}
+          >
+            <ChevronRight />
+          </button>
+        </div>
+        <div className="week-tools">
+          <button
+            type="button"
+            className={`icon-btn${editing ? " active" : ""}`}
+            aria-label="Modo edición"
+            aria-pressed={editing}
+            onClick={() => {
+              setEditing(!editing);
+              setBubble(null);
+            }}
+          >
+            <EditIcon />
+          </button>
+          <button
+            type="button"
+            className={`icon-btn replan${replanning ? " spinning" : ""}${replanned ? " done" : ""}`}
+            ref={replanRef}
+            aria-label="Reacomodar semana"
+            // aria-disabled, not disabled: a disabled button drops the keyboard focus.
+            aria-disabled={replanning || undefined}
+            onClick={() => {
+              if (replanning) return;
+              clearTimeout(replanTimer.current);
+              setReplanned(false);
+              // Emptied first, so a second replan in the same minute is announced again.
+              setSpoken("");
+              setReplanning(true);
+              dispatch({ type: "replanWeek" });
+              const at = now;
+              replanTimer.current = setTimeout(() => {
+                setReplanning(false);
+                setReplanned(true);
+                setSpoken(`Semana reacomodada · ${time(tz, at)}`);
+                replanTimer.current = setTimeout(() => setReplanned(false), DONE_MS);
+              }, 600);
+            }}
+          >
+            {replanned ? <CheckIcon /> : <ReplanIcon />}
+          </button>
+          <span className="sr-only" role="status">
+            {spoken}
+          </span>
+          {/* Always there (hidden when empty) so the buttons never shift under the finger. */}
+          <button
+            type="button"
+            className={`icon-btn${lastChange ? "" : " placeholder"}`}
+            aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
+            title={lastChange ? `Deshacer: ${lastChange}` : undefined}
+            aria-hidden={lastChange ? undefined : true}
+            tabIndex={lastChange ? undefined : -1}
+            disabled={!lastChange}
+            onClick={() => {
+              if (!lastChange) return;
+              const last = (data.planHistory ?? []).length === 1;
+              dispatch({ type: "undoPlan" });
+              flash(`Deshecho: ${lastChange}`);
+              setSpoken("");
+              // The button hides with the last change: the keyboard goes to its neighbour.
+              if (last) requestAnimationFrame(() => replanRef.current?.focus());
+            }}
+          >
+            <UndoIcon />
+          </button>
+          <SyncDot onClick={() => onSettings()} />
+          <button
+            type="button"
+            className="icon-btn"
+            aria-label="Ajustes"
+            onClick={() => onSettings()}
+          >
+            <GearIcon />
+          </button>
+        </div>
       </div>
 
       {editing && (
@@ -556,7 +561,12 @@ export function Week({
                   <button
                     key={`${d}-${item.id}`}
                     type="button"
-                    aria-label={`${item.event.title}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${isTentative(item.event) ? ", tentativo" : ""}`}
+                    aria-label={`${item.event.title}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${
+                      // A part of an event that started another day says it goes on here.
+                      localParts(tz, item.start).date === d
+                        ? ""
+                        : `, sigue el ${weekdayShort(tz, zonedInstant(tz, d, 720))}`
+                    }${isTentative(item.event) ? ", tentativo" : ""}`}
                     className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                     style={style}
                     onClick={(e) => openBubble(e, item)}
