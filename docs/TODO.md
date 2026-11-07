@@ -14,11 +14,11 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                          | Estado                                                     | Qué falta                                                                                                                            |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
-| PR #79 `claude/forget-place` (§18.4 «Eliminar lugar»)                                        | Abierto; atacante limpio; CodeRabbit arreglado (b8f24bf)   | CodeRabbit sobre el último commit, merge, prod.                                                                                      |
-| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante arreglada (8d4bdd7)       | 2.ª vuelta del atacante (dev: `cd .claude/worktrees/meals-always/apps/web && vite --port 5183`), CodeRabbit, merge, prod.            |
+| Qué                                                                                          | Estado                                                     | Qué falta                                                                                                                                  |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).       |
+| PR #79 `claude/forget-place` (§18.4 «Eliminar lugar»)                                        | Abierto; atacante limpio; CodeRabbit arreglado (b8f24bf)   | CodeRabbit sobre el último commit, merge, prod.                                                                                            |
+| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante arreglada (8d4bdd7)       | 2.ª vuelta del atacante (dev: `cd .claude/worktrees/meals-always/apps/web && npx vite --port 5183 --strictPort`), CodeRabbit, merge, prod. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -98,8 +98,8 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
   - «Deshacer» sobre una semana que no estás viendo deshace sin mostrar dónde (llevar a esa semana o nombrarla en el aviso).
   - Arrastrar a un día pasado (o a una hora sin lugar) vuelve sin decir por qué.
   - El orden de lectura de los bloques no es por hora (comidas, luego eventos, luego plan); no se anuncia la hora de fin ni el borde rojo.
-  - Con dos cosas lado a lado a 320 px, cada una mide ~17 px de ancho: difícil de tocar.
   - El botón flotante de camino crítico tapa la esquina de abajo a la derecha del domingo.
+- **Regresión de #78** (no es anterior): con dos cosas lado a lado a 320 px, cada una mide ~17 px de ancho y cuesta tocarla; buscar un ancho mínimo o abrir una lista al tocar.
 - Silos (agente atacante sobre #77): «Archivar» no tiene Deshacer y no hay dónde ver lo archivado; en «Nueva», Enter en el nombre no guarda; el campo «Partes» no tiene etiqueta propia.
   - Contraste: números blancos sobre tanques naranjas (~1,9:1); «Venció» en rojo de 11 px (~3,9:1); total gris sobre tanque vacío en claro (~3,9:1).
   - «Entrega / parcial» y «Hábito semanal» no tienen `aria-pressed`; la hoja de un hábito pide «Temas en total».
