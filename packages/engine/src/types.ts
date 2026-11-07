@@ -14,7 +14,7 @@ export interface MinuteRange {
   end: number;
 }
 
-export type MealKind = "desayuno" | "almuerzo" | "cena";
+export type MealKind = "desayuno" | "almuerzo" | "merienda" | "cena";
 
 /** A meal's preferred time and length; the planner moves it around fixed events. */
 export interface Meal extends MinuteRange {
@@ -29,6 +29,13 @@ export interface MealTime {
   kind?: MealKind;
   preferred: Interval;
   at: Interval | null;
+  /**
+   * No free time near its hour: it stays at its preferred time anyway (eating is not
+   * optional), on top of what is fixed there, for the user to keep or move (§5.1).
+   */
+  overlapping?: boolean;
+  /** Put at this time by the user for that day: it stays there, whatever is in the way. */
+  chosen?: boolean;
   /** The latest start the meal may still have (1 h 30 after its time, before bedtime). */
   latest: number;
 }
@@ -64,6 +71,15 @@ export interface DayOverride {
   bed?: number;
   /** Plan the day with this weekday's routine (a holiday as a Sunday). */
   asWeekday?: number;
+  /** That day only: a meal skipped («Hoy no») or moved by hand to `start` (minutes). */
+  meals?: MealChoice[];
+}
+
+export interface MealChoice {
+  kind: MealKind;
+  /** Minutes since the day's midnight, as chosen by the user. */
+  start?: number;
+  skip?: boolean;
 }
 
 export interface Activity {

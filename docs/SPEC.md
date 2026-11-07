@@ -83,7 +83,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 ## 7. Pantallas
 
 - **Bandeja** (se abre al entrar): bloques por confirmar · cambios propuestos para hoy · decisiones de infactibilidad · eventos sin ubicación · entregas detectadas.
-- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. Se mueven solas (§5.1) y además se pueden arrastrar a cualquier hora del día, también encima de un evento fijo; las superpuestas se ven lado a lado (§18.3). No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
+- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. Se mueven solas (§5.1) y además, al tocarlas, se pueden **mover a cualquier hora** solo ese día («Mover a…», también encima de un evento fijo, y «A su hora» para volver) o sacar ese día («Hoy no almuerzo»), siempre con Deshacer. La que quedó encima de algo fijo se ve con borde punteado; las superpuestas van lado a lado (§18.3). Arrastrarlas como a los bloques queda para más adelante. No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
 - **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
@@ -263,7 +263,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Encuadre de pérdidas**, sin manipular: «si salteás este bloque perdés 2 h de margen para el parcial» en vez de «estudiá».
    - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + una mascota** simple de línea de 2 px que reacciona (se encoge de hombros cuando algo sale mal, festeja cuando me recupero). Claude hace **3 bocetos** de la mascota, con sus reacciones, en una presentación como la de Configuración (link privado + copia en `docs/mockups/`); se implementa recién cuando el usuario elija uno. Mientras tanto se puede avanzar con los textos.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
-2. **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
+2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.
    - **Merienda opcional**: una cuarta comida en Mi semana, con hora y duración (0 = sin merienda), que se ubica con la misma regla que las otras. Va entre el almuerzo y la cena.
    - El ayuno se maneja con esas dos opciones y con duración 0 en la rutina. No hay una ventana de ayuno aparte (se puede sumar más adelante).

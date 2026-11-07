@@ -10,7 +10,7 @@ import {
   type PlanBlock,
   zonedInstant,
 } from "../engine.js";
-import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
+import { dayAndTime, dayMonth, hhmmToMinutes, hours, time, weekdayShort } from "../format.js";
 import { lanes } from "../lanes.js";
 import type { AppEvent, PlanVersion } from "../model.js";
 import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
@@ -521,8 +521,8 @@ export function Week({
                   <button
                     key={`${d}-${key}`}
                     type="button"
-                    aria-label={`${mealName(m)}, ${time(tz, m.at.start)}${moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}`}
-                    className={`pill meal${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
+                    aria-label={`${mealName(m)}, ${time(tz, m.at.start)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
+                    className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
                     style={style}
                     onClick={(e) => {
                       setBubble(null);
@@ -783,6 +783,7 @@ export function Week({
           />
           <MealCard
             bubble={mealBubble}
+            onClose={() => setMealBubble(null)}
             onSettings={() => {
               setMealBubble(null);
               // Meal times live in «Mi semana».
@@ -974,28 +975,118 @@ function BubbleCard({
   );
 }
 
-/** A meal's time, why it moved, and where to change it. */
-function MealCard({ bubble, onSettings }: { bubble: MealBubble; onSettings: () => void }) {
-  const { data } = useStore();
+/**
+ * A meal's time and why it is there; move it that day to any time, skip it that day
+ * («Hoy no»), or go to where its usual time is set.
+ */
+function MealCard({
+  bubble,
+  onClose,
+  onSettings,
+}: {
+  bubble: MealBubble;
+  onClose: () => void;
+  onSettings: () => void;
+}) {
+  const { data, dispatch } = useStore();
+  const toaster = useToast();
   const tz = data.settings.timezone;
   const { meal } = bubble;
+  const kind = meal.kind;
+  const name = mealName(meal);
+  const [at, setAt] = useState(time(tz, meal.at.start));
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
-  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 150 : bubble.y + 14;
+  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 260 : bubble.y + 14;
+  // Minutes since that day's midnight: «00:30» for a late dinner is after midnight
+  // (24:30), whichever of the two is closer to the meal's usual time.
+  const minuteOf = (hhmm: string) => {
+    const m = hhmmToMinutes(hhmm);
+    const usual = (meal.preferred.start - zonedInstant(tz, meal.date, 0)) / MINUTE;
+    return Math.abs(m + 1440 - usual) < Math.abs(m - usual) ? m + 1440 : m;
+  };
+  const choose = (choice: { start?: number; skip?: boolean }, said: string) => {
+    if (!kind) return;
+    const before = data.mealChoices?.find((c) => c.date === meal.date && c.kind === kind);
+    dispatch({ type: "mealChoice", date: meal.date, kind, ...choice });
+    onClose();
+    toaster.show(said, {
+      undo: () =>
+        dispatch({
+          type: "mealChoice",
+          date: meal.date,
+          kind,
+          ...(before?.skip
+            ? { skip: true }
+            : before?.start !== undefined
+              ? { start: before.start }
+              : {}),
+        }),
+    });
+  };
   return (
     <div className="bubble-card" style={{ left, top, ["--c" as string]: "var(--meal)" }}>
-      <button type="button" className="bubble" onClick={onSettings}>
-        <h3>{mealName(meal)}</h3>
+      <div className="bubble">
+        <h3>{name}</h3>
         <p>
           {dayAndTime(tz, meal.at.start)} – {time(tz, meal.at.end)}
         </p>
-        {meal.at.start !== meal.preferred.start && (
+        {meal.chosen ? (
+          <p>La pusiste vos a esta hora, solo este día.</p>
+        ) : meal.overlapping ? (
           <p>
-            Corrido de las {time(tz, meal.preferred.start)}: a esa hora hay algo fijo o un bloque
-            fijado.
+            No hay un rato libre cerca de las {time(tz, meal.preferred.start)}: quedó encima de lo
+            fijo. Dejala ahí o movela a cualquier hora.
           </p>
+        ) : (
+          meal.at.start !== meal.preferred.start && (
+            <p>
+              Se corrió de las {time(tz, meal.preferred.start)}: a esa hora hay algo fijo o un
+              bloque fijado.
+            </p>
+          )
         )}
-        <p className="more">Cambiar hora y duración ›</p>
-      </button>
+        {kind && (
+          <>
+            <div className="row fields">
+              <label style={{ flex: 1 }}>
+                <span className="meta">Mover a</span>
+                <input type="time" value={at} onChange={(e) => setAt(e.target.value)} />
+              </label>
+              <button
+                type="button"
+                className="btn small"
+                disabled={!at}
+                onClick={() => choose({ start: minuteOf(at) }, `${name} a las ${at}, solo ese día`)}
+              >
+                Mover
+              </button>
+            </div>
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() =>
+                  choose({ skip: true }, `Hoy no ${name.toLowerCase()} · el plan usa ese rato`)
+                }
+              >
+                Hoy no {name.toLowerCase()}
+              </button>
+              {meal.chosen && (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => choose({}, `${name} vuelve a su hora de siempre`)}
+                >
+                  A su hora
+                </button>
+              )}
+            </div>
+          </>
+        )}
+        <button type="button" className="more link-btn" onClick={onSettings}>
+          Cambiar hora y duración de siempre ›
+        </button>
+      </div>
     </div>
   );
 }

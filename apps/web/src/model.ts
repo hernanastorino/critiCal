@@ -1,4 +1,11 @@
-import type { Activity, CalendarEvent, DayOverride, PlanBlock, Settings } from "./engine.js";
+import type {
+  Activity,
+  CalendarEvent,
+  DayOverride,
+  MealChoice,
+  PlanBlock,
+  Settings,
+} from "./engine.js";
 
 /** Activity colours, taken from the thick-line references. Red is reserved for critical. */
 export const PALETTE = [
@@ -192,6 +199,8 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
+  mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */

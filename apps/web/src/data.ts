@@ -27,6 +27,7 @@ interface State {
   relaxContextUntil?: number;
   noTravel?: string[];
   spots?: Spot[];
+  mealChoices?: AppData["mealChoices"];
   notSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
   tentativeSeen?: AppData["tentativeSeen"];
@@ -187,6 +188,7 @@ export function rowsToData(r: {
     ),
     noTravel: state.noTravel,
     spots: state.spots,
+    mealChoices: state.mealChoices,
     notSubjects: state.notSubjects,
     movedEvents: state.movedEvents,
     tentativeSeen: state.tentativeSeen,
@@ -317,6 +319,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.pins,
       prev.noTravel,
       prev.spots,
+      prev.mealChoices,
       prev.notSubjects,
       prev.movedEvents,
       prev.tentativeSeen,
@@ -333,6 +336,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.pins,
       next.noTravel,
       next.spots,
+      next.mealChoices,
       next.notSubjects,
       next.movedEvents,
       next.tentativeSeen,
@@ -354,6 +358,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             pins: next.pins,
             noTravel: next.noTravel,
             spots: next.spots,
+            mealChoices: next.mealChoices,
             notSubjects: next.notSubjects,
             movedEvents: next.movedEvents,
             tentativeSeen: next.tentativeSeen,

@@ -274,6 +274,7 @@ function isExam(data: AppData, task: AppTask): boolean {
 export const MEAL_NAMES: Record<MealKind, string> = {
   desayuno: "Desayuno",
   almuerzo: "Almuerzo",
+  merienda: "Merienda",
   cena: "Cena",
 };
 
@@ -303,6 +304,7 @@ export const withMeals = (settings: Settings): Settings => ({
 const MEAL_WORDS: [MealKind, RegExp][] = [
   ["desayuno", /\bdesayun/],
   ["almuerzo", /\b(almuerz|almorz)/],
+  ["merienda", /\b(merienda|merendar)/],
   ["cena", /\b(cena|cenar|cenamos)\b/],
 ];
 
@@ -320,9 +322,13 @@ const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visible
 
 /** The day overrides the planner uses: late nights and, unless turned off, holidays. */
 function overridesFor(data: AppData, now: number, from: number, to: number) {
-  return data.preferences?.holidaysOff === false
-    ? withLateNight(data, now)
-    : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
+  const base =
+    data.preferences?.holidaysOff === false
+      ? withLateNight(data, now)
+      : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
+  // Meals skipped or moved by hand for one day ride along as that day's override.
+  const meals = (data.mealChoices ?? []).map(({ date, ...meal }) => ({ date, meals: [meal] }));
+  return [...base, ...meals];
 }
 
 /**
@@ -349,9 +355,14 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   );
 }
 
-/** Meals within the next week with no room near their time, until their last possible start. */
+/**
+ * Meals within the next week with no room near their time (they sit on top of something
+ * fixed), until their last possible start.
+ */
 export function missedMeals(data: AppData, now: number): MealTime[] {
-  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter((m) => !m.at && m.latest > now);
+  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter(
+    (m) => m.overlapping && m.latest > now,
+  );
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {

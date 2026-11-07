@@ -13,7 +13,10 @@ import { DEFAULTS, eventRole, normalize, visibleEvents } from "./calendars.js";
 import { demoData } from "./demo.js";
 import {
   type Activity,
+  addDays,
   type DayOverride,
+  localParts,
+  type MealKind,
   overlaps,
   type ScheduleResult,
   type Settings,
@@ -112,6 +115,18 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /**
+   * That day only: a meal skipped («Hoy no»), moved to `start` (minutes since that
+   * day's midnight), or back to automatic (neither).
+   */
+  | {
+      type: "mealChoice";
+      date: string;
+      kind: MealKind;
+      start?: number;
+      skip?: boolean;
+      now: number;
+    }
   /** A flexible event goes back to its own time in the plan. */
   | { type: "unmoveEvent"; eventId: string; now: number }
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
@@ -790,6 +805,31 @@ function apply(data: AppData, action: Action): AppData {
           tentativeHoldUntil: v.tentativeHoldUntil,
           planHistory: history.slice(0, -1),
         },
+        now,
+      );
+    }
+    case "mealChoice": {
+      const rest = (data.mealChoices ?? []).filter(
+        (c) => !(c.date === action.date && c.kind === action.kind),
+      );
+      const start =
+        action.start !== undefined && Number.isFinite(action.start)
+          ? Math.max(0, Math.min(1439 + 1440, Math.round(action.start)))
+          : undefined;
+      const choice =
+        action.skip || start !== undefined
+          ? [
+              {
+                date: action.date,
+                kind: action.kind,
+                ...(action.skip ? { skip: true } : { start }),
+              },
+            ]
+          : [];
+      // Past days' choices are of no use any more.
+      const today = localParts(data.settings.timezone, now).date;
+      return refresh(
+        { ...data, mealChoices: [...rest, ...choice].filter((c) => c.date >= addDays(today, -1)) },
         now,
       );
     }

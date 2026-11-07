@@ -109,7 +109,7 @@ describe("meals on the calendar", () => {
     );
     fireEvent.click(screen.getByLabelText("Almuerzo, 13:30, corrido de las 13:00"));
     const bubble = document.querySelector(".bubble") as HTMLElement;
-    expect(within(bubble).getByText(/Corrido de las 13:00/)).toBeTruthy();
+    expect(within(bubble).getByText(/Se corrió de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
     // Straight to «Mi semana», where meal times are set.
     expect(screen.getByRole("dialog", { name: "Mi semana" })).toBeTruthy();
@@ -129,8 +129,26 @@ describe("meals with no room", () => {
     expect(screen.getByText("Sin lugar para almorzar · mar 10/11")).toBeTruthy();
     expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
-    // Next week, with no lunch on Tuesday but the other six.
+    // Next week: lunch every day, Tuesday's on top of the event, at its usual time.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/9 nov/);
-    expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(6);
+    expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(7);
+  });
+
+  it("moves a meal that day only, skips it, and undoes it", () => {
+    render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
+    const lunches = () => labels().filter((l) => l?.startsWith("Almuerzo"));
+    const monday = () =>
+      mealPills().find((p) => p.getAttribute("aria-label") === "Almuerzo, 13:00") as HTMLElement;
+    fireEvent.click(monday());
+    fireEvent.change(screen.getByLabelText("Mover a"), { target: { value: "15:30" } });
+    fireEvent.click(screen.getByText("Mover"));
+    expect(labels()).toContain("Almuerzo, 15:30, movido por vos");
+    expect(screen.getByText(/Almuerzo a las 15:30, solo ese día/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(labels()).not.toContain("Almuerzo, 15:30, movido por vos");
+    fireEvent.click(monday());
+    fireEvent.click(screen.getByText("Hoy no almuerzo"));
+    expect(lunches()).toHaveLength(6);
+    expect(screen.getByText(/Hoy no almuerzo · el plan usa ese rato/)).toBeTruthy();
   });
 });
