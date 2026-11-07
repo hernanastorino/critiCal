@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { CRITICAL } from "../model.js";
 import { closeAccount } from "../remote.js";
 import { useStore } from "../store.js";
 import { downloadJson } from "./Backup.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 /** What has to be typed to delete the account. */
@@ -12,11 +13,10 @@ export const CONFIRM_WORD = "BORRAR";
 const ERRORS: Record<string, string> = {
   owner_cannot_delete:
     "Esta es la cuenta dueña: maneja las invitaciones y no se puede borrar. Podés revocar los permisos.",
-  google_api_error:
-    "Google no dejó borrar el calendario «📚 Plan». No se borró nada: probá de nuevo.",
-  token_refresh_failed: "Google no respondió. No se borró nada: probá de nuevo.",
-  google_revoke_failed: "Google no respondió. No se borró nada: probá de nuevo.",
-  unreachable: "Sin conexión. No se borró nada: probá de nuevo cuando tengas internet.",
+  google_api_error: "Google no dejó borrar el calendario «📚 Plan». No se borró nada.",
+  token_refresh_failed: "Google no respondió. No se borró nada.",
+  google_revoke_failed: "Google no respondió. No se borró nada.",
+  unreachable: "Sin conexión. No se borró nada: hace falta internet.",
 };
 
 /**
@@ -33,6 +33,7 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const lastAction = useRef<"revoke" | "delete">("revoke");
 
   useEffect(() => {
     if (!client) return;
@@ -52,13 +53,14 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
   if (!sync || !client) return null;
 
   const run = async (action: "revoke" | "delete") => {
+    lastAction.current = action;
     setBusy(true);
     setMessage(null);
     const r = await closeAccount(client, action, deletePlan);
     setBusy(false);
     if (!r.ok) {
       setMessage({
-        text: ERRORS[r.error] ?? "No se pudo. No se borró nada: probá de nuevo.",
+        text: ERRORS[r.error] ?? "El servidor no respondió. No se borró nada.",
         error: true,
       });
       return;
@@ -126,11 +128,29 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
           </button>
         </>
       )}
-      {message && (
-        <p className="meta" style={message.error ? { color: CRITICAL } : undefined}>
-          {message.text}
-        </p>
+      {busy && (
+        <Wait
+          label={lastAction.current === "delete" ? "Borrando tu cuenta" : "Revocando accesos"}
+        />
       )}
+      {message &&
+        (message.error ? (
+          <ErrorNote
+            action={
+              message.text === ERRORS.owner_cannot_delete
+                ? undefined
+                : {
+                    label: "Probar de nuevo",
+                    onClick: () => void run(lastAction.current),
+                    disabled: busy,
+                  }
+            }
+          >
+            {message.text}
+          </ErrorNote>
+        ) : (
+          <p className="meta">{message.text}</p>
+        ))}
     </Section>
   );
 }

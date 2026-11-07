@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
+import { ErrorNote, Skeleton, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const ERRORS: Record<string, string> = {
   invalid_key: "Gemini no aceptó esa clave. Revisá que esté completa.",
-  gemini_busy: "Gemini no responde ahora. Probá de nuevo en un rato.",
-  unreachable: "Sin conexión. Probá de nuevo.",
+  gemini_busy: "Gemini no responde ahora.",
+  unreachable: "Sin conexión: no se pudo guardar.",
 };
 
 /** Your own Gemini key for reading syllabi; without one, the app's is used. */
@@ -17,7 +18,9 @@ export function GeminiKey() {
   const [fallback, setFallback] = useState(true);
   const [key, setKey] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; kind?: string } | null>(null);
+  const field = useRef<HTMLInputElement>(null);
+  const lastAction = useRef<"set_key" | "clear_key">("set_key");
   // Only the latest question's answer counts: an older one arriving late is ignored.
   const latest = useRef(0);
   /** Reads which key is in use; returns a cancel for effects. */
@@ -30,7 +33,7 @@ export function GeminiKey() {
       // Unknown, not "the app's key": the user may well have one stored.
       if (!r.ok) {
         setOwn(null);
-        setError("No se pudo ver qué clave usás.");
+        setError({ text: "No se pudo ver qué clave usás.", kind: "status" });
         return;
       }
       setError(null);
@@ -47,12 +50,16 @@ export function GeminiKey() {
   if (!client) return null;
 
   const run = async (action: "set_key" | "clear_key") => {
+    lastAction.current = action;
     setBusy(true);
     setError(null);
     const r = await geminiKey(client, action, action === "set_key" ? key : undefined);
     setBusy(false);
     if (!r.ok) {
-      setError(ERRORS[r.error] ?? "No se pudo guardar. Probá más tarde.");
+      setError({
+        text: ERRORS[r.error] ?? "No se pudo guardar la clave: el servidor no respondió.",
+        kind: r.error,
+      });
       return;
     }
     // A status answer still on its way is older than this change: it must not count.
@@ -64,9 +71,17 @@ export function GeminiKey() {
 
   return (
     <Section>
+      {own === null && !error && (
+        <>
+          <Skeleton width="70%" />
+          <Wait label="Viendo qué clave usás" />
+        </>
+      )}
       <p className="meta">
         {own === null
-          ? "Cargando qué clave usás…"
+          ? error
+            ? "No sé qué clave se usa ahora."
+            : ""
           : own
             ? "Usás tu propia clave de Gemini para leer programas."
             : fallback
@@ -85,6 +100,7 @@ export function GeminiKey() {
           autoCapitalize="none"
           spellCheck={false}
           aria-label="Clave de Gemini"
+          ref={field}
           placeholder={own ? "Cambiar por otra clave" : "Pegá tu clave"}
           value={key}
           onChange={(e) => setKey(e.target.value)}
@@ -109,11 +125,19 @@ export function GeminiKey() {
           Quitar mi clave
         </button>
       )}
-      {error && <p className="meta">{error}</p>}
-      {own === null && error && (
-        <button type="button" className="btn small" onClick={() => void load()}>
-          Volver a probar
-        </button>
+      {busy && <Wait label="Guardando la clave" />}
+      {error && (
+        <ErrorNote
+          action={
+            error.kind === "status"
+              ? { label: "Volver a probar", onClick: () => void load() }
+              : error.kind === "invalid_key"
+                ? { label: "Pegar otra clave", onClick: () => field.current?.focus() }
+                : { label: "Probar de nuevo", onClick: () => void run(lastAction.current) }
+          }
+        >
+          {error.text}
+        </ErrorNote>
       )}
     </Section>
   );

@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { dayDate } from "../format.js";
-import { CRITICAL, newId, type Place, type Spot } from "../model.js";
+import { newId, type Place, type Spot } from "../model.js";
 import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -15,9 +16,10 @@ export function Places() {
   const { data, dispatch } = useStore();
   const sync = useSync();
   const places = data.places ?? [];
+  const pairCount = places.length * (places.length - 1);
   const [editing, setEditing] = useState<Place | null>(null);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<{ text: string; retry?: boolean } | null>(null);
   const toast = useToast();
   const kept = data.events.flatMap((event) => {
     const minutes = keptTravel(data, event);
@@ -31,7 +33,10 @@ export function Places() {
     // An address just edited must reach the database before the server reads it.
     if (!(await sync.flush())) {
       setBusy(false);
-      setNote("Hay cambios sin guardar (¿sin conexión?): probá de nuevo cuando se sincronicen.");
+      setNote({
+        text: "Hay cambios sin guardar en este dispositivo (¿sin conexión?): hay que guardarlos antes de calcular.",
+        retry: true,
+      });
       return;
     }
     const r = await computeTravel(sync.client);
@@ -39,8 +44,14 @@ export function Places() {
     if (!r.ok) {
       setNote(
         r.error === "server_not_configured"
-          ? "Falta la clave de OpenRouteService en el servidor: cargá los tiempos a mano."
-          : "No se pudieron calcular los tiempos. Probá de nuevo más tarde.",
+          ? { text: "Falta la clave de OpenRouteService en el servidor: cargá los tiempos a mano." }
+          : {
+              text:
+                r.error === "unreachable"
+                  ? "Sin conexión: no se pudieron calcular los tiempos."
+                  : "El servicio de mapas no respondió: no se pudieron calcular los tiempos.",
+              retry: true,
+            },
       );
       return;
     }
@@ -62,7 +73,7 @@ export function Places() {
       missing.length ? `sin ruta en auto para ${missing.join(", ")}` : "",
     ].filter(Boolean);
     // Problems stay by the button; success is the app's one notice.
-    if (problems.length) setNote(`${problems.join("; ")}: cargá esos minutos a mano.`);
+    if (problems.length) setNote({ text: `${problems.join("; ")}: cargá esos minutos a mano.` });
     else toast.show(`${r.pairs ?? 0} tiempos calculados`);
     await sync.syncNow();
   };
@@ -227,10 +238,17 @@ export function Places() {
               {busy ? "Calculando…" : "Calcular con las direcciones"}
             </button>
           )}
+          {busy && <Wait label={`Calculando los tiempos de ${pairCount} trayectos`} />}
           {note && (
-            <p className="meta" style={{ color: CRITICAL }}>
-              {note}
-            </p>
+            <ErrorNote
+              action={
+                note.retry
+                  ? { label: "Probar de nuevo", onClick: () => void compute(), disabled: busy }
+                  : undefined
+              }
+            >
+              {note.text}
+            </ErrorNote>
           )}
         </>
       )}

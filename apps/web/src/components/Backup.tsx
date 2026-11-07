@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
-import { type AppData, CRITICAL } from "../model.js";
+import type { AppData } from "../model.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
+import { ErrorNote } from "./Feedback.js";
 import { useToast } from "./Toast.js";
 
 /** Saves everything as a JSON file named after today. */
@@ -109,11 +110,16 @@ export function Backup() {
           }}
         />
       </div>
-      {message && (
-        <p className="meta" style={message.error ? { color: CRITICAL } : undefined}>
-          {message.text}
-        </p>
-      )}
+      {message &&
+        (message.error ? (
+          <ErrorNote
+            action={{ label: "Elegir otro archivo", onClick: () => file.current?.click() }}
+          >
+            {message.text}
+          </ErrorNote>
+        ) : (
+          <p className="meta">{message.text}</p>
+        ))}
     </>
   );
 }

@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { useSync } from "../Connected.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
-import { CRITICAL, NOTIFY_DEFAULTS, type NotificationPrefs } from "../model.js";
+import { NOTIFY_DEFAULTS, type NotificationPrefs } from "../model.js";
+import { isNetworkFailure } from "../monitoring.js";
 import { disablePush, enablePush, type PushState, pushState } from "../push.js";
 import { useStore } from "../store.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const STATE_TEXT: Record<Exclude<PushState, "on" | "off">, string> = {
@@ -44,7 +46,12 @@ export function Notifications() {
     try {
       setState(state === "on" ? await disablePush(sync.client) : await enablePush(sync.client));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      const what = state === "on" ? "desactivar" : "activar";
+      setError(
+        isNetworkFailure(e)
+          ? `Sin conexión: no se pudo ${what} los avisos.`
+          : `No se pudo ${what} los avisos en este dispositivo (${e instanceof Error ? e.message : String(e)}).`,
+      );
     } finally {
       setBusy(false);
     }
@@ -67,10 +74,13 @@ export function Notifications() {
           {state === "on" ? "Desactivar en este dispositivo" : "Activar en este dispositivo"}
         </button>
       )}
+      {busy && <Wait label={state === "on" ? "Desactivando los avisos" : "Activando los avisos"} />}
       {error && (
-        <p className="meta" style={{ color: CRITICAL }}>
+        <ErrorNote
+          action={{ label: "Probar de nuevo", onClick: () => void toggle(), disabled: busy }}
+        >
           {error}
-        </p>
+        </ErrorNote>
       )}
       <label className="check">
         <input

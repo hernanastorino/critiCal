@@ -1,23 +1,29 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { zonedInstant } from "../engine.js";
 import { dateYearInRange, deadlineInRange } from "../limits.js";
-import { CRITICAL, newId, nextColor } from "../model.js";
+import { newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
 import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const MAX_BYTES = 3_000_000;
 
 const ERRORS: Record<string, string> = {
-  server_not_configured: "Falta la clave de Gemini en el servidor.",
+  server_not_configured:
+    "Falta la clave de Gemini en el servidor. Cargá la tuya en «Tu IA (Gemini)» y volvé a elegir el PDF.",
   too_large: "El PDF es muy grande (máximo 3 MB).",
-  gemini_busy: "Gemini está saturado o sin cuota gratis por hoy. Probá más tarde.",
+  gemini_busy: "Gemini está saturado o sin cuota gratis por hoy.",
   model_unavailable:
     "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel.",
   unreadable: "No pude entender el programa. ¿Es el PDF correcto?",
+  unreachable: "Sin conexión: no se pudo leer el programa.",
 };
+
+/** Errors where the same file may work on a second try; for the rest another file is the fix. */
+const RETRY = new Set(["gemini_busy", "unreachable", "read_failed", "other"]);
 
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -87,7 +93,10 @@ export function SyllabusImport() {
     }
   };
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [stage, setStage] = useState(0);
+  const [error, setError] = useState<{ text: string; kind: string } | null>(null);
+  const last = useRef<File | null>(null);
+  const picker = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [done, setDone] = useState<string | null>(null);
   if (!sync) return null;
@@ -95,22 +104,32 @@ export function SyllabusImport() {
   const read = async (file: File) => {
     setError(null);
     setDone(null);
+    last.current = file;
     if (file.size > MAX_BYTES) {
-      setError(ERRORS.too_large ?? null);
+      setError({ text: ERRORS.too_large ?? "", kind: "too_large" });
       return;
     }
     setBusy(true);
+    setStage(0);
     let r: Awaited<ReturnType<typeof readSyllabus>>;
     try {
-      r = await readSyllabus(sync.client, await toBase64(file));
+      const pdf = await toBase64(file);
+      setStage(1);
+      r = await readSyllabus(sync.client, pdf);
     } catch {
-      setError("No se pudo leer el archivo PDF.");
+      setError({
+        text: "No se pudo abrir el archivo PDF en este dispositivo.",
+        kind: "read_failed",
+      });
       return;
     } finally {
       setBusy(false);
     }
     if (!r.ok) {
-      setError(ERRORS[r.error] ?? "No se pudo leer el programa.");
+      setError({
+        text: ERRORS[r.error] ?? "No se pudo leer el programa.",
+        kind: ERRORS[r.error] ? r.error : "other",
+      });
       return;
     }
     setDraft(draftOf(r.syllabus));
@@ -165,6 +184,7 @@ export function SyllabusImport() {
             accept="application/pdf"
             hidden
             aria-label="Programa en PDF"
+            ref={picker}
             disabled={busy}
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -174,10 +194,25 @@ export function SyllabusImport() {
           />
         </label>
       )}
+      {busy && (
+        <Wait
+          label={stage === 0 ? "Preparando el PDF" : "Leyendo el programa"}
+          done={stage}
+          total={2}
+        />
+      )}
       {error && (
-        <p className="meta" style={{ color: CRITICAL }}>
-          {error}
-        </p>
+        <ErrorNote
+          action={
+            RETRY.has(error.kind) && last.current
+              ? { label: "Probar de nuevo", onClick: () => last.current && void read(last.current) }
+              : error.kind === "server_not_configured" || error.kind === "model_unavailable"
+                ? undefined
+                : { label: "Elegir otro PDF", onClick: () => picker.current?.click() }
+          }
+        >
+          {error.text}
+        </ErrorNote>
       )}
       {done && <p className="meta">{done}</p>}
       {draft && (

@@ -1771,3 +1771,98 @@ input[type="datetime-local"] {
 .start-after .inline input {
   width: 4.5em;
 }
+
+/* ---------- Waits, errors and skeletons (SPEC §14, components/Feedback.tsx) ---------- */
+
+.wait {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 0 0 14px;
+  display: grid;
+  gap: 6px;
+}
+
+.card .wait {
+  font-size: 13px;
+  margin: 2px 0 10px;
+}
+
+.wait-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.wait-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--ink-soft);
+  transition: width 0.3s ease;
+}
+
+.error-note {
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+  margin: 0 0 14px;
+}
+
+.error-note p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--critical);
+}
+
+.skeleton {
+  height: 14px;
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--glass) 25%, var(--glass-strong) 50%, var(--glass) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s linear infinite;
+}
+
+.skeleton-card {
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-week {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+
+.skeleton-day {
+  display: grid;
+  gap: 6px;
+  align-content: start;
+}
+
+.skeleton-tabs span {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@keyframes shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+
+/* Reduced motion: the grey shapes stay, without the moving highlight. */
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+    background: var(--glass);
+  }
+
+  .wait-bar span {
+    transition: none;
+  }
+}

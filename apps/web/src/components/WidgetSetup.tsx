@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { useSync } from "../Connected.js";
-import { CRITICAL } from "../model.js";
 import { widgetToken } from "../remote.js";
 import { widgetScript } from "../widget-script.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -11,6 +11,8 @@ export function WidgetSetup() {
   const sync = useSync();
   const [script, setScript] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "busy" | "error" | "revoked">("idle");
+  // What was being done: the wait and the error name it.
+  const [doing, setDoing] = useState<"create" | "revoke" | "copy">("create");
   const toast = useToast();
   // One token request at a time: a revoke racing a create could leave either outcome.
   const inFlight = useRef(false);
@@ -19,6 +21,7 @@ export function WidgetSetup() {
   const run = async (action: "create" | "revoke") => {
     if (inFlight.current) return;
     inFlight.current = true;
+    setDoing(action);
     setState("busy");
     try {
       const r = await widgetToken(sync.client, action);
@@ -67,7 +70,10 @@ export function WidgetSetup() {
                     setState("idle");
                     toast.show("Script copiado");
                   })
-                  .catch(() => setState("error"))
+                  .catch(() => {
+                    setDoing("copy");
+                    setState("error");
+                  })
               }
             >
               Copiar script
@@ -95,10 +101,29 @@ export function WidgetSetup() {
       >
         Desactivar el widget
       </button>
+      {state === "busy" && (
+        <Wait label={doing === "revoke" ? "Desactivando el widget" : "Generando el script"} />
+      )}
       {state === "error" && (
-        <p className="meta" style={{ color: CRITICAL }}>
-          No se pudo. Probá de nuevo.
-        </p>
+        <ErrorNote
+          action={
+            doing === "copy"
+              ? {
+                  label: "Seleccionar el script",
+                  onClick: () => {
+                    document.querySelector<HTMLTextAreaElement>("textarea[readonly]")?.select();
+                    setState("idle");
+                  },
+                }
+              : { label: "Probar de nuevo", onClick: () => void run(doing) }
+          }
+        >
+          {doing === "copy"
+            ? "No se pudo copiar el script."
+            : doing === "revoke"
+              ? "No se pudo desactivar el widget: sigue funcionando."
+              : "No se pudo generar el script."}
+        </ErrorNote>
       )}
     </Section>
   );

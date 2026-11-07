@@ -9,10 +9,11 @@ import {
   useRef,
   useState,
 } from "react";
+import { AppSkeleton } from "./components/Feedback.js";
 import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
-import { errorMessage, reportError } from "./monitoring.js";
+import { errorMessage, isNetworkFailure, reportError } from "./monitoring.js";
 import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
 import { home } from "./places.js";
 import {
@@ -62,6 +63,13 @@ const SyncContext = createContext<SyncApi | null>(null);
 /** Sync controls for the signed-in app; null in demo mode. */
 export const useSync = () => useContext(SyncContext);
 
+/** What went wrong with the server, in words that say what to do (the detail follows). */
+function explain(e: unknown): string {
+  return isNetworkFailure(e)
+    ? "No hay conexión con el servidor. Revisá tu internet."
+    : `El servidor no respondió como se esperaba (${errorMessage(e)}).`;
+}
+
 const nothing = (w: Writes) => !w.upserts.length && !w.inserts.length && !w.deletes.length;
 
 /** Signed-in app: loads from Supabase, writes every change back, syncs calendars. */
@@ -88,6 +96,8 @@ export function Connected({
   const [local, setLocal] = useState<LocalState | null | undefined>(undefined);
   const [data, setData] = useState<AppData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // What the first load is doing, for the screen that waits for it.
+  const [loading, setLoading] = useState("Sincronizando Google e iCloud");
   const [status, setStatus] = useState<SyncStatus>({ busy: false });
   // What the database holds as far as this device knows. Diffing against it (not the
   // previous screen state) also removes blocks the server re-planned meanwhile, and
@@ -133,6 +143,7 @@ export function Connected({
       try {
         // First sync stores the Google refresh token and imports events.
         await pullCalendars();
+        setLoading("Leyendo tus datos");
         const loaded = owned(await loadData(client));
         stored.current = loaded;
         latest.current = loaded;
@@ -140,7 +151,7 @@ export function Connected({
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
-        if (!cancelled) setError(errorMessage(e));
+        if (!cancelled) setError(explain(e));
       }
     })();
     return () => {
@@ -200,7 +211,7 @@ export function Connected({
         if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
         else {
           reportError(e);
-          setError(errorMessage(e));
+          setError(explain(e));
         }
         return false;
       } finally {
@@ -245,6 +256,10 @@ export function Connected({
       <main className="login">
         <h1>Algo falló</h1>
         <p>{error}</p>
+        <p className="meta">
+          «Reintentar» vuelve a cargar. Si sigue igual, el segundo botón carga la copia del servidor
+          y descarta lo que quedó solo en este dispositivo.
+        </p>
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Reintentar
         </button>
@@ -262,15 +277,8 @@ export function Connected({
       </main>
     );
   }
-  if (local === undefined) return <main className="login" />;
-  if (!data) {
-    return (
-      <main className="login">
-        <img src="/icon-192.png" alt="" />
-        <p>Sincronizando tu calendario…</p>
-      </main>
-    );
-  }
+  if (local === undefined) return <AppSkeleton />;
+  if (!data) return <AppSkeleton label={loading} />;
   return (
     <StoreProvider initial={() => data} persist={false} onChange={onChange}>
       <SyncProvider
