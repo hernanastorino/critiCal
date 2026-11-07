@@ -109,3 +109,4 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
 - ✅ Confirmados el 2026-11-07: #69, #70, #71 y #73 (atacante limpio, prueba en producción y Sentry sin issues nuevos). Nada pendiente acá.
+- #74 solo cambió `docs/SPEC.md` y `docs/TODO.md`: sin código, no hay validación en producción que hacer.
