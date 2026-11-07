@@ -63,14 +63,16 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   );
   // A hand-edited deadline («mañana») would blank Silos on every visit.
   // «Puedo empezar» (§18.7): a real local date, or whole days before the deadline.
-  // One of the three shapes, whole: a real day, whole days, or «ya».
-  const validStart = (s: unknown) =>
-    isObject(s) &&
-    ("date" in s
-      ? isRealDate(s.date)
-      : "daysBefore" in s
-        ? Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365)
-        : s.now === true);
+  // Exactly one of the three shapes, and nothing else: a real day, whole days, or «ya».
+  const validStart = (s: unknown) => {
+    if (!isObject(s)) return false;
+    const keys = Object.keys(s);
+    if (keys.length !== 1) return false;
+    if (keys[0] === "date") return isRealDate(s.date);
+    if (keys[0] === "daysBefore")
+      return Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365);
+    return keys[0] === "now" && s.now === true;
+  };
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&

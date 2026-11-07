@@ -231,6 +231,9 @@ describe("backup", () => {
       { daysBefore: 2.5 },
       { date: "mañana" },
       { date: "2026-02-30" },
+      { date: "2026-11-20", now: false },
+      { date: "2026-11-20", daysBefore: 2 },
+      { now: false },
       {},
     ]) {
       const broken = {
