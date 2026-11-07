@@ -244,7 +244,7 @@ function keptDays(data: AppData, now: number) {
 export function earliestStartOf(data: AppData, task: AppTask): number | undefined {
   if (task.kind === "habit") return undefined;
   const rule = task.startAfter ?? data.activities.find((a) => a.id === task.activityId)?.startAfter;
-  if (!rule) return undefined;
+  if (!rule || "now" in rule) return undefined;
   const tz = data.settings.timezone;
   if ("date" in rule) return zonedInstant(tz, rule.date, 0);
   if (task.deadline === undefined) return undefined;
@@ -508,6 +508,13 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const reserved = (b: PlanBlock) =>
     kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
+  // A block of today before its task can start (a «puedo empezar» set since) goes, as
+  // a proposal since it is today (§5.7, §18.7).
+  const tooEarly = (b: PlanBlock) => {
+    const task = data.tasks.find((t) => t.id === b.taskId);
+    const from = task && earliestStartOf(data, task);
+    return from !== undefined && b.start < from;
+  };
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
@@ -527,7 +534,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const displaced = (b: PlanBlock) =>
     plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
-  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b)));
+  const conflicts = unpinned.filter(
+    (b) => !displaced(b) && (clashes(b) || reserved(b) || tooEarly(b)),
+  );
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -554,7 +563,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       id: `conflict@${now}`,
       message: conflicts.some(clashes)
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
-        : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
+        : conflicts.some(tooEarly)
+          ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
+          : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,

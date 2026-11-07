@@ -205,7 +205,7 @@ describe("app", () => {
     fireEvent.click(screen.getByText("Editar"));
     fireEvent.change(screen.getByLabelText("Puedo empezar"), { target: { value: "before" } });
     const days = screen.getByLabelText("Cuántos días antes de la entrega");
-    for (const bad of ["-1", "2.5", "abc", "99999"]) {
+    for (const bad of ["-1", "2.5", "abc", "99999", ""]) {
       fireEvent.change(days, { target: { value: bad } });
       expect(screen.getByRole("alert").textContent).toMatch(/número entero de días/);
       expect((screen.getByText("Guardar") as HTMLButtonElement).disabled).toBe(true);

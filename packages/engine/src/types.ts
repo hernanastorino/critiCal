@@ -67,10 +67,11 @@ export interface DayOverride {
 }
 
 /**
- * When work on something can start (SPEC §18.7): from a local date (YYYY-MM-DD), or
- * a number of days before its deadline. For the app; the planner reads `earliestStart`.
+ * When work on something can start (SPEC §18.7): from a local date (YYYY-MM-DD), a
+ * number of days before its deadline, or right away (`now`: a task that does not follow
+ * its materia's rule). For the app; the planner reads `earliestStart`.
  */
-export type StartAfter = { date: string } | { daysBefore: number };
+export type StartAfter = { date: string } | { daysBefore: number } | { now: true };
 
 export interface Activity {
   id: string;

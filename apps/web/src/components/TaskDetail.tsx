@@ -75,7 +75,8 @@ export function TaskDetail({
             </p>
           ) : (
             <p className="meta">
-              Empezás el {dayDate(tz, startsAt)}: antes el plan no le da tiempo.
+              Empezás el {dayDate(tz, startsAt)}, como pusiste en «Puedo empezar»: antes el plan no
+              le da tiempo.
             </p>
           ))}
 

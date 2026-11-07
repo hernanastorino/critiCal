@@ -7,7 +7,7 @@ import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
 import { useModal } from "./modal.js";
-import { StartAfterField } from "./StartAfterField.js";
+import { describeStart, StartAfterField } from "./StartAfterField.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -54,6 +54,7 @@ export function TaskEditor({
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
+  const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   const [habitError, setHabitError] = useState<string | null>(null);
 
   const sheet = useRef<HTMLDivElement>(null);
@@ -62,8 +63,8 @@ export function TaskEditor({
   // §18.7: with a late start the minimum may no longer fit; say so before saving (the
   // inbox then offers the options of §5.6). Checked on the plan as it would be.
   const startWarning = useMemo(() => {
-    if (kind !== "deliverable" || !startAfter) return null;
     // (null: a number still being typed; the field says what is wrong.)
+    if (kind !== "deliverable" || startAfter === null) return null;
     const due = fromLocalInput(tz, deadline);
     if (!Number.isFinite(due)) return null;
     const hrs = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
@@ -78,11 +79,18 @@ export function TaskEditor({
         units,
       }),
       deadline: due,
-      estimateMinutes: hrs(estimate),
+      // As save computes it: units can raise the estimate.
+      estimateMinutes: Math.max(
+        hrs(estimate),
+        units.reduce((s, u) => s + u.estimateMinutes, 0),
+      ),
       minMinutes: hrs(minimum),
+      activityId,
       startAfter,
     };
+    // Its own rule or, without one, its materia's.
     const from = earliestStartOf(data, trial);
+    if (from === undefined) return null;
     if (from !== undefined && from >= due) return AFTER_DUE;
     const next = { ...data, tasks: [...data.tasks.filter((t) => t.id !== trial.id), trial] };
     const status = refreshPlan(next, now).result.status.find((s) => s.taskId === trial.id);
@@ -270,7 +278,13 @@ export function TaskEditor({
                 {deadlineError}
               </p>
             )}
-            <StartAfterField value={startAfter} onChange={setStartAfter} tz={tz} now={now} />
+            <StartAfterField
+              value={startAfter}
+              onChange={setStartAfter}
+              tz={tz}
+              now={now}
+              inherited={materiaStart ? describeStart(materiaStart, tz) : undefined}
+            />
             {startWarning && (
               <p className="meta" role="status">
                 {startWarning}

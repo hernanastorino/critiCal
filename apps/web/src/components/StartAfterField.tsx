@@ -2,13 +2,22 @@ import { useState } from "react";
 import { addDays, localParts, type StartAfter, zonedInstant } from "../engine.js";
 import { dayDate } from "../format.js";
 
-type Mode = "now" | "date" | "in" | "before";
+type Mode = "inherit" | "now" | "date" | "in" | "before";
 
-const modeOf = (v: StartAfter | undefined | null): Mode =>
-  !v ? "now" : "date" in v ? "date" : "before";
+const modeOf = (v: StartAfter | undefined | null, inherits: boolean): Mode =>
+  !v ? (inherits ? "inherit" : "now") : "now" in v ? "now" : "date" in v ? "date" : "before";
+
+/** A rule in a few words, for «Igual que la materia (…)». */
+export function describeStart(rule: StartAfter, tz: string): string {
+  if ("now" in rule) return "ya";
+  if ("daysBefore" in rule) return `${rule.daysBefore} días antes de la entrega`;
+  return `desde el ${dayDate(tz, zonedInstant(tz, rule.date, 720))}`;
+}
 
 /** Whole days from 0 to a year, or undefined. */
 const count = (s: string) => {
+  // Blank is not 0: an emptied field must not silently mean «today».
+  if (s.trim() === "") return undefined;
   const n = Number(s);
   return Number.isInteger(n) && n >= 0 && n <= 365 ? n : undefined;
 };
@@ -24,20 +33,25 @@ export function StartAfterField({
   tz,
   now,
   label = "Puedo empezar",
+  inherited,
 }: {
   value: StartAfter | undefined | null;
   onChange: (v: StartAfter | undefined | null) => void;
   tz: string;
   now: number;
   label?: string;
+  /** A task of a materia with a rule: that rule, in words; «Igual que la materia» is offered. */
+  inherited?: string;
 }) {
   const today = localParts(tz, now).date;
-  const [mode, setMode] = useState<Mode>(modeOf(value));
+  const [mode, setMode] = useState<Mode>(modeOf(value, inherited !== undefined));
   const [date, setDate] = useState(value && "date" in value ? value.date : addDays(today, 7));
   const [days, setDays] = useState(value && "daysBefore" in value ? String(value.daysBefore) : "4");
   const [inDays, setInDays] = useState("10");
   const emit = (m: Mode, d = date, b = days, i = inDays) => {
-    if (m === "now") return onChange(undefined);
+    if (m === "inherit") return onChange(undefined);
+    // «Ya» against a materia rule has to be said explicitly.
+    if (m === "now") return onChange(inherited !== undefined ? { now: true } : undefined);
     if (m === "date") return onChange(d ? { date: d } : null);
     const n = count(m === "before" ? b : i);
     if (n === undefined) return onChange(null);
@@ -60,6 +74,9 @@ export function StartAfterField({
           emit(m);
         }}
       >
+        {inherited !== undefined && (
+          <option value="inherit">Igual que la materia ({inherited})</option>
+        )}
         <option value="now">Ya</option>
         <option value="date">Desde una fecha</option>
         <option value="in">Dentro de unos días</option>

@@ -15,6 +15,13 @@ export function exportJson(data: AppData, now: number): string {
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
+/** A real calendar day, not just its shape (2026-02-30 is not one). */
+function isRealDate(x: unknown) {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const d = new Date(`${x}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
+}
+
 export function parseBackup(text: string): { data: AppData } | { error: string } {
   let parsed: unknown;
   try {
@@ -56,12 +63,14 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   );
   // A hand-edited deadline («mañana») would blank Silos on every visit.
   // «Puedo empezar» (§18.7): a real local date, or whole days before the deadline.
+  // One of the three shapes, whole: a real day, whole days, or «ya».
   const validStart = (s: unknown) =>
     isObject(s) &&
-    ((typeof s.date === "string" &&
-      /^\d{4}-\d{2}-\d{2}$/.test(s.date) &&
-      !Number.isNaN(Date.parse(s.date))) ||
-      (Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365)));
+    ("date" in s
+      ? isRealDate(s.date)
+      : "daysBefore" in s
+        ? Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365)
+        : s.now === true);
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
@@ -124,12 +133,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     (w.morningMinutes === undefined || minute(w.morningMinutes)) &&
     Array.isArray(w.meals) &&
     w.meals.every(range);
-  // A real calendar day, not just its shape (2026-02-30 is not one).
-  const realDate = (x: unknown) => {
-    if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
-    const d = new Date(`${x}T12:00:00Z`);
-    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
-  };
+  const realDate = isRealDate;
   const validOverride = (o: unknown) =>
     isObject(o) &&
     realDate(o.date) &&

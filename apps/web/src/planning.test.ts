@@ -981,6 +981,8 @@ describe("empezar más tarde (§18.7)", () => {
       ),
     };
     expect(earliestStartOf(byMateria, entrega)).toBe(at("2026-11-18", "00:00"));
+    // «Ya» on the task says it does not follow its materia's rule.
+    expect(earliestStartOf(byMateria, { ...entrega, startAfter: { now: true } })).toBeUndefined();
     // The task's own rule wins over its materia's.
     expect(earliestStartOf(byMateria, { ...entrega, startAfter: { date: "2026-11-12" } })).toBe(
       at("2026-11-12", "00:00"),
@@ -993,5 +995,22 @@ describe("empezar más tarde (§18.7)", () => {
     const blocks = refreshPlan(d, MON).plan.filter((b) => b.taskId === "late");
     expect(blocks.length).toBeGreaterThan(0);
     expect(blocks.every((b) => b.start >= at("2026-11-16", "00:00"))).toBe(true);
+  });
+});
+
+describe("a start set after today's blocks were planned", () => {
+  it("proposes to replan the day instead of keeping blocks before the start", () => {
+    const now = at("2026-11-03", "08:00");
+    const d = reducer(demoData(now), { type: "refresh", now });
+    const block = d.plan.find(
+      (b) => b.start > now && b.start < at("2026-11-04", "00:00"),
+    ) as AppData["plan"][number];
+    const task = d.tasks.find((t) => t.id === block.taskId) as AppTask;
+    const later = reducer(d, {
+      type: "saveTask",
+      task: { ...task, kind: "deliverable", startAfter: { date: "2026-11-04" } },
+      now,
+    });
+    expect(later.proposals.at(-1)?.message).toMatch(/todavía no se puede empezar/);
   });
 });
