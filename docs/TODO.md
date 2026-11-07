@@ -14,12 +14,12 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                     | Qué falta                                                                                                                            |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
-| PR #89 `claude/esperas-errores-918f4a` (§14.1 esperas, errores, skeletons y textos del camino infeliz) | Código validado, atacante local limpio | Check `preview` frenado por el límite diario de Vercel (100 deploys/día, plan gratis). Con cupo: relanzar preview, atacante en la preview, merge. |
-| PR #90 `claude/ajustes-refuerzos` (§5.3 refuerzos de Ajustes) | Código validado, hilos resueltos | Igual que #89: preview por el límite de Vercel, revisión final de CodeRabbit, merge. |
-| Roy (§18.1, escalera de Jacob toon 3D) | Propuesto como sesión hija, apilado sobre #89 | Decisiones en el brief: Roy también en esperas chicas y en el aviso de salteado; festeja al recuperar salteados y al cerrar una entrega. |
+| Qué                                                                                                    | Estado                                                     | Qué falta                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                               | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).              |
+| PR #89 `claude/esperas-errores-918f4a` (§14.1 esperas, errores, skeletons y textos del camino infeliz) | Código validado, atacante local limpio                     | Check `preview` frenado por el límite diario de Vercel (100 deploys/día, plan gratis). Con cupo: relanzar preview, atacante en la preview, merge. |
+| PR #90 `claude/ajustes-refuerzos` (§5.3 refuerzos de Ajustes)                                          | Código validado, hilos resueltos                           | Igual que #89: preview por el límite de Vercel, revisión final de CodeRabbit, merge.                                                              |
+| Roy (§18.1, escalera de Jacob toon 3D)                                                                 | Propuesto como sesión hija, apilado sobre #89              | Decisiones en el brief: Roy también en esperas chicas y en el aviso de salteado; festeja al recuperar salteados y al cerrar una entrega.          |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
