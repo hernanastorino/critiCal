@@ -602,7 +602,7 @@ export function Week({
                   <button
                     key={`${d}-skip-${mealKey(m)}`}
                     type="button"
-                    aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ponerlo`}
+                    aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ${m.kind === "cena" || m.kind === "merienda" ? "ponerla" : "ponerlo"}`}
                     className="pill meal skipped"
                     style={style}
                     onClick={() => {
