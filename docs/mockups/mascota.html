@@ -1,3 +1,7 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mascota de critiCal</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -150,6 +154,7 @@ h3 { font: 600 15px/1.3 var(--body); margin: 24px 0 8px; }
 .sum-grid .name small { font: 12px/1.3 var(--body); color: var(--ink-soft); display: block; margin-top: 2px; }
 .sum-grid .m { color: var(--ink); --m-acc: var(--accent); }
 .sum-grid button { all: unset; cursor: pointer; font-size: 13px; color: var(--accent); margin-top: 6px; }
+.sum-grid button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .note { margin: 20px 0 0; max-width: 62ch; color: var(--ink-soft); font-size: 14px; }
 
 /* Phones */
@@ -403,8 +408,13 @@ function show(k) {
 }
 document.addEventListener("click", (e) => {
   const b = e.target.closest("[data-go]");
-  if (b) show(b.dataset.go);
+  if (!b) return;
+  show(b.dataset.go);
+  try {
+    history.replaceState(null, "", `#${b.dataset.go}`);
+  } catch {}
 });
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
 show(location.hash.slice(1));
 
 const themes = ["auto", "light", "dark"];
@@ -417,3 +427,4 @@ document.getElementById("theme").addEventListener("click", (e) => {
   e.currentTarget.textContent = `Tema: ${t}`;
 });
 </script>
+</html>
