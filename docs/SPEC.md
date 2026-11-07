@@ -226,6 +226,8 @@ Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las s
 
 ## 17. Hasta producción: orden de trabajo y ciclo de validación
 
+Lo que falta y en qué orden, para retomar sin más contexto: [`TODO.md`](TODO.md).
+
 Orden:
 
 1. Terminar, mergear y desplegar lo que está en curso.
