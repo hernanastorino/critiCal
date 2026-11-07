@@ -138,4 +138,4 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- #87 «Empezar antes» en la Bandeja: el deploy de `main` falló en staging por el límite de Vercel (la migración `start_after` ya está en la base de staging, la app no; producción sin tocar). Con cupo: `gh run rerun` del Deploy de `main`, después atacante, prueba en prod y Sentry.
+- #87 «Empezar antes» en la Bandeja: desplegado a producción el 2026-11-07 (el deploy de `main` se repitió sobre el mismo SHA `aff9f1f`, que seguía siendo el último de `main`). Falta la prueba en prod y revisar Sentry. Si un deploy vuelve a fallar por el límite de Vercel y ya hay otro merge, lanzá un Deploy nuevo sobre el `main` actual en vez de `gh run rerun`.
