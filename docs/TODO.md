@@ -17,7 +17,6 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 | Qué                                                                                          | Estado                                                     | Qué falta                                                                                                                            |
 | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
-| PR #76 `claude/topbar` (§18.6 barra de arriba + pedido: ‹ rango › compacto, íconos con aire) | Abierto; atacante limpio; CodeRabbit arreglado (68da1de)   | CodeRabbit sobre el último commit, merge, prod.                                                                                      |
 | PR #79 `claude/forget-place` (§18.4 «Eliminar lugar»)                                        | Abierto; atacante limpio; CodeRabbit arreglado (b8f24bf)   | CodeRabbit sobre el último commit, merge, prod.                                                                                      |
 | PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante arreglada (8d4bdd7)       | 2.ª vuelta del atacante (dev: `cd .claude/worktrees/meals-always/apps/web && vite --port 5183`), CodeRabbit, merge, prod.            |
 
@@ -129,7 +128,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 3. Hecho (#78, validado en producción).
 4. Ubicación de un evento: «Eliminar lugar» → PR #79.
 5. Hecho (#77, validado en producción).
-6. Barra de arriba → PR #76.
+6. Barra de arriba → #76 mergeado (ver §6).
 7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
@@ -137,4 +136,4 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-(Nada por ahora.)
+- #76 (barra de arriba): atacante limpio; falta prueba en producción y Sentry.
