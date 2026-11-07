@@ -389,7 +389,8 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   // State
   const load = () => { try { return JSON.parse(localStorage.getItem("toon-choice")) || {}; } catch { return {}; } };
   const saved = load();
-  const state = { style: STYLES[saved.style] ? saved.style : "A", pick: Object.fromEntries(CASES.map(c => [c.id, ANIMS[saved.pick?.[c.id]] ? saved.pick[c.id] : c.def])) };
+  const has = (o, k) => typeof k === "string" && Object.hasOwn(o, k);
+  const state = { style: has(STYLES, saved.style) ? saved.style : "A", pick: Object.fromEntries(CASES.map(c => [c.id, has(ANIMS, saved.pick?.[c.id]) ? saved.pick[c.id] : c.def])) };
   const save = () => { try { localStorage.setItem("toon-choice", JSON.stringify(state)); } catch {} };
 
   // 1 · style cards
