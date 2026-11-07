@@ -18,7 +18,6 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 | -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
 | PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; atacante limpio (3.ª vuelta)                      | CodeRabbit sobre el último commit, merge, prod.                                                                                      |
-| PR #82 `claude/start-later` (§18.7 empezar más tarde)                                        | Abierto; atacante corriendo                                | Vuelta limpia, CodeRabbit, merge, prod.                                                                                              |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -130,7 +129,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 4. Hecho (#79, validado en producción).
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
-7. Empezar más tarde → PR #82.
+7. Hecho (#82, validado en producción). Queda: opción «Empezar antes» en las decisiones de la Bandeja cuando no entra.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
 ## 6. Mergeado, falta confirmar la validación en producción
