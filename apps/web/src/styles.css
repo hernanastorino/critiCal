@@ -5,7 +5,7 @@
   --glass-strong: rgba(110, 110, 118, 0.42);
   --line: rgba(60, 60, 67, 0.12);
   --ink: #1c1c1e;
-  --ink-soft: #6c6c72;
+  --ink-soft: #595960;
   --critical: #e0262e;
   --warn: #f5a524;
   --ok: #12a150;
@@ -1826,7 +1826,7 @@ textarea:focus-visible {
 .pill::before {
   content: "";
   position: absolute;
-  inset: -2px -3px;
+  inset: -3px -3px;
 }
 
 @media (forced-colors: active) {
