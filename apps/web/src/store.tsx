@@ -148,7 +148,7 @@ export type Action =
  */
 /** Reorganizations of the plan that «Deshacer» in the week can take back. */
 const VERSIONED: Partial<Record<Action["type"], string>> = {
-  pin: "mover un bloque",
+  pin: "mover o fijar un bloque",
   unpin: "soltar un bloque",
   replanWeek: "reacomodar la semana",
   override: "ajustar el día",
