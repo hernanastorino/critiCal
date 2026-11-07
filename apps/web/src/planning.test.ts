@@ -951,6 +951,6 @@ describe("past silos", () => {
   it("names the cuatrimestre", () => {
     expect(semesterLabel(TIMEZONE, at("2026-04-10", "12:00"))).toBe("1.er cuatrimestre 2026");
     expect(semesterLabel(TIMEZONE, at("2026-11-10", "12:00"))).toBe("2.º cuatrimestre 2026");
-    expect(semesterLabel(TIMEZONE, at("2027-02-10", "12:00"))).toBe("2.º cuatrimestre 2026");
+    expect(semesterLabel(TIMEZONE, at("2027-02-10", "12:00"))).toBe("1.er cuatrimestre 2027");
   });
 });

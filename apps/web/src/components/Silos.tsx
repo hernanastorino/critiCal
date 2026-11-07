@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { localParts } from "../engine.js";
-import { dayAndTime, dayDate, hours } from "../format.js";
+import { dayAndTime, dayDate, hours, time } from "../format.js";
 import type { AppTask } from "../model.js";
 import {
   isRunning,
@@ -22,6 +22,7 @@ export function Silos() {
   const tz = data.settings.timezone;
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
   const [detail, setDetail] = useState<AppTask | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
   // Remembered while the app is open, so a trip to another tab does not close it.
   const [showPast, setShowPastState] = useState(pastOpen);
   const setShowPast = (open: boolean) => {
@@ -46,15 +47,19 @@ export function Silos() {
     const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
     const level = levels.get(p.task.id) ?? "ok";
     const year = localParts(tz, p.deadline).date.slice(0, 4);
+    // Another year's date carries it, before the time: «dom 10/8/2025 10:00».
     const due =
       p.task.kind === "habit"
         ? "esta semana"
-        : `${dayAndTime(tz, p.deadline)}${year === thisYear ? "" : ` ${year}`}`;
+        : year === thisYear
+          ? dayAndTime(tz, p.deadline)
+          : `${dayDate(tz, p.deadline)}/${year} ${time(tz, p.deadline)}`;
     const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
     return (
       <button
         type="button"
         key={p.task.id}
+        data-task={p.task.id}
         className="silo"
         aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}, ${overdue ? "venció el" : "entrega"} ${due}`}
         onClick={() => setDetail(p.task)}
@@ -78,7 +83,9 @@ export function Silos() {
   return (
     <div className="screen">
       <div className="header">
-        <h1>Lo que falta</h1>
+        <h1 ref={titleRef} tabIndex={-1}>
+          Lo que falta
+        </h1>
       </div>
       <div className="scroll">
         <div className="silos">
@@ -169,7 +176,18 @@ export function Silos() {
       {editing && (
         <TaskEditor
           task={editing === "new" ? undefined : editing}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            const id = editing === "new" ? undefined : editing.id;
+            setEditing(null);
+            // A new date may move it to (or out of) «anteriores»: focus follows it, or
+            // goes to the title when it is now hidden.
+            requestAnimationFrame(() => {
+              if (document.activeElement && document.activeElement !== document.body) return;
+              const moved =
+                id && document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
+              (moved || titleRef.current)?.focus();
+            });
+          }}
         />
       )}
     </div>

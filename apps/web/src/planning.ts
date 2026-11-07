@@ -130,11 +130,13 @@ export function splitPastSilos(items: TaskProgress[], tz: string, now: number) {
   };
 }
 
-/** "2.º cuatrimestre 2026": March–July is the first, August–February the second. */
+/**
+ * "2.º cuatrimestre 2026": January–July is the first, August–December the second, so
+ * the year in the title is always the year of the dates below it.
+ */
 export function semesterLabel(tz: string, instant: number) {
   const [y, m] = localParts(tz, instant).date.split("-").map(Number) as [number, number];
-  if (m >= 3 && m <= 7) return `1.er cuatrimestre ${y}`;
-  return `2.º cuatrimestre ${m <= 2 ? y - 1 : y}`;
+  return m <= 7 ? `1.er cuatrimestre ${y}` : `2.º cuatrimestre ${y}`;
 }
 
 /** Active and not paused or skipped this week: the planner works on it. */

@@ -1471,9 +1471,10 @@ input[type="datetime-local"] {
   color: var(--ink-soft);
 }
 
-/* Faded fill only: the hours on top keep their contrast. */
-.past-silos .tank .fill {
-  opacity: 0.55;
+/* Past silos: a dashed outline says so; the fill and its hours keep their contrast. */
+.past-silos .tank {
+  outline: 2px dashed var(--line);
+  outline-offset: 3px;
 }
 
 .silo .due.overdue {
