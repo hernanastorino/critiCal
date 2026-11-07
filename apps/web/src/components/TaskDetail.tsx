@@ -66,9 +66,18 @@ export function TaskDetail({
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
-        {startsAt !== undefined && startsAt > now && (
-          <p className="meta">Empezás el {dayDate(tz, startsAt)}: antes el plan no le da tiempo.</p>
-        )}
+        {startsAt !== undefined &&
+          startsAt > now &&
+          (task.deadline !== undefined && startsAt >= task.deadline ? (
+            <p className="meta">
+              Empieza el {dayDate(tz, startsAt)}, después de la entrega: el plan no le da tiempo.
+              Cambiá «Puedo empezar» en la tarea o en su materia.
+            </p>
+          ) : (
+            <p className="meta">
+              Empezás el {dayDate(tz, startsAt)}: antes el plan no le da tiempo.
+            </p>
+          ))}
 
         <div className="section-title" style={{ marginTop: 4 }}>
           Registrar avance

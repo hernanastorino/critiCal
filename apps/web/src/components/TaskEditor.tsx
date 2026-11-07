@@ -22,6 +22,8 @@ const fromLocalInput = (tz: string, v: string) => {
   return zonedInstant(tz, date, h * 60 + m);
 };
 
+const AFTER_DUE = "Tiene que ser antes de la entrega: con esa fecha el plan no le da tiempo.";
+
 export function TaskEditor({
   task,
   onClose,
@@ -51,7 +53,7 @@ export function TaskEditor({
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
-  const [startAfter, setStartAfter] = useState(task?.startAfter);
+  const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
   const [habitError, setHabitError] = useState<string | null>(null);
 
   const sheet = useRef<HTMLDivElement>(null);
@@ -61,6 +63,7 @@ export function TaskEditor({
   // inbox then offers the options of §5.6). Checked on the plan as it would be.
   const startWarning = useMemo(() => {
     if (kind !== "deliverable" || !startAfter) return null;
+    // (null: a number still being typed; the field says what is wrong.)
     const due = fromLocalInput(tz, deadline);
     if (!Number.isFinite(due)) return null;
     const hrs = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
@@ -80,8 +83,7 @@ export function TaskEditor({
       startAfter,
     };
     const from = earliestStartOf(data, trial);
-    if (from !== undefined && from >= due)
-      return "Esa fecha es después de la entrega: el plan no le va a dar tiempo.";
+    if (from !== undefined && from >= due) return AFTER_DUE;
     const next = { ...data, tasks: [...data.tasks.filter((t) => t.id !== trial.id), trial] };
     const status = refreshPlan(next, now).result.status.find((s) => s.taskId === trial.id);
     return status && status.minDeficit > 0
@@ -103,7 +105,12 @@ export function TaskEditor({
     tz,
   ]);
 
+  // §18.7: the start must be before the deadline; a number not valid yet is not «Ya».
+  const startBlocked =
+    kind === "deliverable" && (startAfter === null || startWarning === AFTER_DUE);
+
   const save = () => {
+    if (startBlocked) return;
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     if (due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now))) {
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
@@ -165,7 +172,7 @@ export function TaskEditor({
       status: task?.status ?? "active",
       units,
       exam: (kind === "deliverable" && isExam) || undefined,
-      startAfter: kind === "deliverable" ? startAfter : undefined,
+      startAfter: kind === "deliverable" ? (startAfter ?? undefined) : undefined,
       dayBeforeOnly: (kind === "deliverable" && isExam && dayBefore) || undefined,
     };
     dispatch({ type: "saveTask", task: next, activity });
@@ -247,6 +254,7 @@ export function TaskEditor({
               <span>Fecha límite</span>
               <input
                 type="datetime-local"
+                aria-label="Fecha límite"
                 value={deadline}
                 min="2000-01-01T00:00"
                 max={`${deadlineMaxYear(now)}-12-31T23:59`}
@@ -422,7 +430,7 @@ export function TaskEditor({
               Archivar
             </button>
           )}
-          <button type="button" className="btn primary" onClick={save}>
+          <button type="button" className="btn primary" disabled={startBlocked} onClick={save}>
             Guardar
           </button>
         </div>

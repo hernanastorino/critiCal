@@ -4,7 +4,8 @@ import { dayDate } from "../format.js";
 
 type Mode = "now" | "date" | "in" | "before";
 
-const modeOf = (v: StartAfter | undefined): Mode => (!v ? "now" : "date" in v ? "date" : "before");
+const modeOf = (v: StartAfter | undefined | null): Mode =>
+  !v ? "now" : "date" in v ? "date" : "before";
 
 /** Whole days from 0 to a year, or undefined. */
 const count = (s: string) => {
@@ -15,6 +16,7 @@ const count = (s: string) => {
 /**
  * «Puedo empezar» (SPEC §18.7): right away, from a date, in N days (saved as that date,
  * so it does not move each day) or N days before the deadline (moves with it).
+ * `null` means what was typed is not valid yet: the form must not save it as «Ya».
  */
 export function StartAfterField({
   value,
@@ -23,8 +25,8 @@ export function StartAfterField({
   now,
   label = "Puedo empezar",
 }: {
-  value: StartAfter | undefined;
-  onChange: (v: StartAfter | undefined) => void;
+  value: StartAfter | undefined | null;
+  onChange: (v: StartAfter | undefined | null) => void;
   tz: string;
   now: number;
   label?: string;
@@ -36,12 +38,16 @@ export function StartAfterField({
   const [inDays, setInDays] = useState("10");
   const emit = (m: Mode, d = date, b = days, i = inDays) => {
     if (m === "now") return onChange(undefined);
-    if (m === "date") return onChange(d ? { date: d } : undefined);
+    if (m === "date") return onChange(d ? { date: d } : null);
     const n = count(m === "before" ? b : i);
-    if (n === undefined) return onChange(undefined);
+    if (n === undefined) return onChange(null);
     onChange(m === "before" ? { daysBefore: n } : { date: addDays(today, n) });
   };
   const inDate = count(inDays);
+  const bad =
+    (mode === "in" && inDate === undefined) ||
+    (mode === "before" && count(days) === undefined) ||
+    (mode === "date" && !date);
   return (
     <fieldset className="field start-after">
       <legend>{label}</legend>
@@ -77,6 +83,7 @@ export function StartAfterField({
           <input
             inputMode="numeric"
             aria-label="Dentro de cuántos días"
+            aria-invalid={mode === "in" && inDate === undefined ? true : undefined}
             value={inDays}
             onChange={(e) => {
               setInDays(e.target.value);
@@ -96,6 +103,7 @@ export function StartAfterField({
           <input
             inputMode="numeric"
             aria-label="Cuántos días antes de la entrega"
+            aria-invalid={count(days) === undefined ? true : undefined}
             value={days}
             onChange={(e) => {
               setDays(e.target.value);
@@ -104,6 +112,11 @@ export function StartAfterField({
           />
           <span>días antes de la entrega</span>
         </span>
+      )}
+      {bad && (
+        <p className="meta" role="alert" style={{ width: "100%", margin: 0 }}>
+          {mode === "date" ? "Elegí un día." : "Poné un número entero de días, de 0 a 365."}
+        </p>
       )}
     </fieldset>
   );

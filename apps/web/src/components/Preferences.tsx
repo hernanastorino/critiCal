@@ -426,7 +426,7 @@ export function ActivitySettings() {
 function ActivityRow({ activity }: { activity: Activity }) {
   const { data, now, dispatch } = useStore();
   const [open, setOpen] = useState(false);
-  const [startAfter, setStartAfter] = useState(activity.startAfter);
+  const [startAfter, setStartAfter] = useState<Activity["startAfter"] | null>(activity.startAfter);
   const [form, setForm] = useState({
     name: activity.name,
     color: activity.color,
@@ -574,7 +574,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
-            disabled={!hoursOk || !!problem}
+            disabled={!hoursOk || !!problem || startAfter === null}
             onClick={() => {
               dispatch({
                 type: "saveActivity",
@@ -595,7 +595,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
                     form.from && form.to
                       ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
                       : undefined,
-                  startAfter: activity.kind === "rutina" ? undefined : startAfter,
+                  startAfter: activity.kind === "rutina" ? undefined : (startAfter ?? undefined),
                 },
               });
               if (studies && weekly !== studyHours)
