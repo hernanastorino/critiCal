@@ -42,11 +42,13 @@ export function Places() {
     const r = await computeTravel(sync.client);
     setBusy(false);
     if (!r.ok) {
-      setRetry(r.error !== "server_not_configured");
+      setRetry(r.error !== "server_not_configured" && r.error !== "unauthorized");
       setNote(
         r.error === "server_not_configured"
           ? "Falta la clave de OpenRouteService en el servidor: cargá los tiempos a mano."
-          : "No pude calcular los tiempos ahora (el servicio de mapas no contestó). Reintentá, o cargá los minutos a mano.",
+          : r.error === "unauthorized"
+            ? "Se venció tu sesión. Volvé a iniciar sesión y calculá de nuevo, o cargá los minutos a mano."
+            : "No pude calcular los tiempos ahora (el servicio de mapas no contestó). Reintentá, o cargá los minutos a mano.",
       );
       return;
     }

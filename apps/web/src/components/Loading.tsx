@@ -53,7 +53,7 @@ export function Loading({
           className="loading-bar"
           max={progress.total}
           value={Math.min(progress.done, progress.total)}
-          aria-label={text}
+          aria-hidden="true"
         />
       )}
     </div>

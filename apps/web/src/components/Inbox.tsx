@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -67,9 +67,9 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
   // Addresses being timed now, and the most there were at once: «Calculando traslados 3 de 8».
   const looking = offline ? 0 : unlocated.filter((u) => u.lookup).length;
-  const lookTotal = useRef(0);
-  if (looking === 0) lookTotal.current = 0;
-  else lookTotal.current = Math.max(lookTotal.current, looking);
+  const [seen, setSeen] = useState(0);
+  const lookTotal = looking === 0 ? 0 : Math.max(seen, looking);
+  if (lookTotal !== seen) setSeen(lookTotal);
 
   const quick = (b: PlanBlock, status: "done" | "missed") => {
     if (status === "missed") toast.show(SKIPPED_TOAST);
@@ -119,11 +119,11 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <div key={u.key} className="card">
               <div className="title">{u.event.title}</div>
               <p className="meta">Calculando el traslado a «{u.event.location}»…</p>
-              {lookTotal.current > 1 && (
+              {lookTotal > 1 && (
                 <Loading
                   kind="travel"
                   inline
-                  progress={{ done: lookTotal.current - looking, total: lookTotal.current }}
+                  progress={{ done: lookTotal - looking, total: lookTotal }}
                 />
               )}
             </div>

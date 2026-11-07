@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { zonedInstant } from "../engine.js";
 import { dateYearInRange, deadlineInRange } from "../limits.js";
@@ -93,13 +93,13 @@ export function SyllabusImport() {
   const [draft, setDraft] = useState<Draft | null>(null);
   const [done, setDone] = useState<string | null>(null);
   // The file that just failed for a reason that trying again can fix.
-  const retryFile = useRef<File | null>(null);
+  const [retryFile, setRetryFile] = useState<File | null>(null);
   if (!sync) return null;
 
   const read = async (file: File) => {
     setError(null);
     setDone(null);
-    retryFile.current = null;
+    setRetryFile(null);
     if (file.size > MAX_BYTES) {
       setError(ERRORS.too_large ?? null);
       return;
@@ -115,7 +115,7 @@ export function SyllabusImport() {
       setBusy(false);
     }
     if (!r.ok) {
-      if (r.error === "gemini_busy" || !ERRORS[r.error]) retryFile.current = file;
+      if (r.error === "gemini_busy" || !ERRORS[r.error]) setRetryFile(file);
       setError(ERRORS[r.error] ?? "No pude leer el programa. Tocá «Reintentar».");
       return;
     }
@@ -186,12 +186,8 @@ export function SyllabusImport() {
           {error}
         </p>
       )}
-      {error && retryFile.current && !busy && (
-        <button
-          type="button"
-          className="btn small"
-          onClick={() => retryFile.current && void read(retryFile.current)}
-        >
+      {error && retryFile && !busy && (
+        <button type="button" className="btn small" onClick={() => void read(retryFile)}>
           Reintentar
         </button>
       )}
