@@ -1825,6 +1825,11 @@ input[type="datetime-local"] {
   z-index: 5;
 }
 
+/* A past block keeps a cue of its own while focused (its fade would hide the ring). */
+.pill.past:focus-visible {
+  filter: grayscale(0.7);
+}
+
 @media (forced-colors: active) {
   .pill:focus-visible,
   .pill.meal:focus-visible,
