@@ -39,7 +39,7 @@ describe("fixed settings", () => {
       { kind: "cena", start: 1260, end: 1290 },
     ]);
     expect(week[6].morningMinutes).toBe(45);
-    expect(screen.getByText("Guardado ✓")).toBeTruthy();
+    expect(screen.getByText("Mi semana guardada")).toBeTruthy();
   });
 
   it("clamps a negative morning and shows the saved value", () => {
@@ -126,7 +126,7 @@ describe("fixed settings", () => {
     fireEvent.change(screen.getByLabelText("Mínimo de Parcial / examen"), {
       target: { value: "20" },
     });
-    fireEvent.click(screen.getAllByText("Guardar").at(-1) as HTMLElement);
+    fireEvent.click(screen.getByText("Guardar horas"));
     expect(stored().preferences.importDefaults.parcial).toEqual({
       estimate: 480,
       min: 480,

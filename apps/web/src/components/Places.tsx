@@ -5,6 +5,7 @@ import { minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Section } from "./Section.js";
+import { useToast } from "./Toast.js";
 
 const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 
@@ -16,6 +17,7 @@ export function Places() {
   const [editing, setEditing] = useState<Place | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const toast = useToast();
 
   const compute = async () => {
     if (!sync) return;
@@ -54,11 +56,9 @@ export function Places() {
       unknown.length ? `no encontré la dirección de ${unknown.join(", ")}` : "",
       missing.length ? `sin ruta en auto para ${missing.join(", ")}` : "",
     ].filter(Boolean);
-    setNote(
-      problems.length
-        ? `${problems.join("; ")}: cargá esos minutos a mano.`
-        : `Listo: ${r.pairs ?? 0} tiempos calculados.`,
-    );
+    // Problems stay by the button; success is the app's one notice.
+    if (problems.length) setNote(`${problems.join("; ")}: cargá esos minutos a mano.`);
+    else toast.show(`${r.pairs ?? 0} tiempos calculados`);
     await sync.syncNow();
   };
 
@@ -174,7 +174,7 @@ export function Places() {
             </button>
           )}
           {note && (
-            <p className="meta" style={note.startsWith("Listo") ? undefined : { color: CRITICAL }}>
+            <p className="meta" style={{ color: CRITICAL }}>
               {note}
             </p>
           )}

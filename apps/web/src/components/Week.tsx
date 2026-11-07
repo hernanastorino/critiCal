@@ -25,18 +25,11 @@ import {
   GearIcon,
   ReplanIcon,
 } from "./icons.js";
+import { useToast } from "./Toast.js";
 
 export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
   | { kind: "event"; id: string; start: number; end: number; event: AppEvent };
-
-interface Toast {
-  message: string;
-  /** Puts things back as they were; shown as a button. */
-  undo?: () => void;
-  /** The plan version `undo` goes back from: once another one is newer, it is gone. */
-  version?: PlanVersion;
-}
 
 interface Bubble {
   item: Item;
@@ -126,11 +119,10 @@ export function Week({
     return () => {
       el?.removeEventListener("touchmove", hold);
       clearTimeout(pressTimer.current);
-      clearTimeout(toastTimer.current);
       clearTimeout(replanTimer.current);
     };
   }, []);
-  const [toast, setToast] = useState<Toast | null>(null);
+  const toaster = useToast();
   /** Said only to screen readers: the replan button shows its result itself. */
   const [spoken, setSpoken] = useState("");
   const [critical, setCritical] = useState(false);
@@ -144,12 +136,9 @@ export function Week({
   const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
   const [open, setOpen] = useState<Item | null>(null);
 
-  const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = (message: string, undo?: () => void, version?: PlanVersion) => {
-    clearTimeout(toastTimer.current);
-    setToast({ message, undo, version });
-    toastTimer.current = setTimeout(() => setToast(null), undo ? 6000 : 2500);
+    toaster.show(message, { undo, tag: version });
   };
 
   /**
@@ -166,8 +155,9 @@ export function Week({
   // Once the plan changes again, a drop's undo would take back the wrong thing.
   const latest = data.planHistory?.at(-1);
   useEffect(() => {
-    if (toast?.version && toast.version !== latest) setToast(null);
-  }, [toast, latest]);
+    const tag = toaster.current?.tag;
+    if (tag && tag !== latest) toaster.clear(tag);
+  }, [toaster, latest]);
   useEffect(() => {
     const w = watch.current;
     if (!w) return;
@@ -209,7 +199,7 @@ export function Week({
           : undefined,
       flexible: flexible?.kind === "event" ? flexible.event.title : undefined,
       undo: () => {
-        setToast(null);
+        toaster.clear();
         // The pins it freed come back with the plan as it was.
         if (freed.length > 0) dispatch({ type: "undoPlan" });
         // A block placed by the plan goes back to the plan; a pinned one to its old spot.
@@ -266,6 +256,24 @@ export function Week({
   const anyCritical = data.plan.some((b) => b.level === "critical" && b.end > now);
   const short = result.status.filter((s) => s.minDeficit > 0);
   const titleOfTask = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "una tarea";
+  // The critical summary stays among the app's notices while the button is on. By its
+  // text: a new node every render would loop.
+  const summary = !critical
+    ? ""
+    : short.length > 0
+      ? `No llegás: faltan ${short.map((s) => `${hours(s.minDeficit)} de ${titleOfTask(s.taskId)}`).join(", ")}`
+      : anyCritical
+        ? ""
+        : "Semana tranquila ✓";
+  const { setPinned } = toaster;
+  useEffect(() => {
+    setPinned(
+      summary ? (
+        <div className={`snack${summary.startsWith("No llegás") ? " short" : ""}`}>{summary}</div>
+      ) : null,
+    );
+    return () => setPinned(null);
+  }, [summary, setPinned]);
 
   const position = (date: string, item: { start: number; end: number }): CSSProperties | null => {
     const top = zonedInstant(tz, date, startMin);
@@ -577,7 +585,17 @@ export function Week({
                         }
                       : undefined
                   }
-                  ref={b.id === focusId ? (el) => el?.focus() : undefined}
+                  // Once, right after a keyboard move: kept, it would pull focus back on
+                  // every render (the clock ticks each minute).
+                  ref={
+                    b.id === focusId
+                      ? (el) => {
+                          if (!el) return;
+                          el.focus();
+                          setFocusId(null);
+                        }
+                      : undefined
+                  }
                   onKeyDown={
                     movable
                       ? (e) => {
@@ -698,28 +716,6 @@ export function Week({
       >
         <CriticalIcon />
       </button>
-      {/* Notices sit above the tab bar, beside the button; touches pass through them. */}
-      <div className="snacks" role="status">
-        {critical && short.length > 0 && (
-          <div className="snack short">
-            No llegás: faltan{" "}
-            {short.map((s) => `${hours(s.minDeficit)} de ${titleOfTask(s.taskId)}`).join(", ")}
-          </div>
-        )}
-        {critical && short.length === 0 && !anyCritical && (
-          <div className="snack">Semana tranquila ✓</div>
-        )}
-        {toast && (
-          <div className={`snack${toast.undo ? " short" : ""}`}>
-            <span>{toast.message}</span>
-            {toast.undo && (
-              <button type="button" className="btn small snack-btn" onClick={toast.undo}>
-                Deshacer
-              </button>
-            )}
-          </div>
-        )}
-      </div>
 
       {bubble && (
         <>

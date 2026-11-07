@@ -9,6 +9,7 @@ import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
+import { useToast } from "./Toast.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 /** For VoiceOver: two «M» would read alike. */
@@ -36,18 +37,16 @@ export function WeekSettings() {
   const [days, setDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const first = data.settings.week[days[0] ?? 1] as DaySettings;
   const [form, setForm] = useState(() => formOf(first));
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
 
   const pick = (d: number) => {
     const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
     if (next.length === 0) return;
     setDays(next);
     setForm(formOf(data.settings.week[next[0] as number] as DaySettings));
-    setSaved(false);
   };
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
-    setSaved(false);
     setError(null);
   };
 
@@ -110,7 +109,7 @@ export function WeekSettings() {
       lunchMin: shown(meals.find((m) => m.kind === "almuerzo")),
       dinnerMin: shown(meals.find((m) => m.kind === "cena")),
     });
-    setSaved(true);
+    toast.show("Mi semana guardada");
   };
 
   return (
@@ -167,16 +166,10 @@ export function WeekSettings() {
         className="btn primary"
         style={{ width: "100%" }}
         // «Guardar para L M M J V» reads as loose letters: VoiceOver gets the day names.
-        aria-label={
-          saved
-            ? undefined
-            : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAY_NAMES[d]).join(", ")}`
-        }
+        aria-label={`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAY_NAMES[d]).join(", ")}`}
         onClick={save}
       >
-        {saved
-          ? "Guardado ✓"
-          : `Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
+        {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
       </button>
       {error && (
         <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
@@ -239,11 +232,10 @@ export function RuleSettings() {
     margin: String(s.travelMarginMinutes),
     warn: toHours(s.warnSlackMinutes),
   });
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
   const [error, setError] = useState<string | null>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
-    setSaved(false);
     setError(null);
   };
   const save = () => {
@@ -266,7 +258,7 @@ export function RuleSettings() {
     });
     // Show what was saved: «0» becomes 1, «999» becomes 10.
     setForm({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
-    setSaved(true);
+    toast.show("Reglas guardadas");
   };
   return (
     <Section>
@@ -288,7 +280,7 @@ export function RuleSettings() {
         />
       </div>
       <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
-        {saved ? "Guardado ✓" : "Guardar reglas"}
+        Guardar reglas
       </button>
       <p className="meta">
         De 1 a 10 materias por día, margen de hasta 240 min y aviso de hasta 168 h.
@@ -321,7 +313,7 @@ export function DetectedDefaults() {
     ),
   );
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
+  const toast = useToast();
   return (
     <Section>
       <p className="meta">
@@ -338,7 +330,6 @@ export function DetectedDefaults() {
               value={form[kind]?.estimate}
               onChange={(e) => {
                 setForm({ ...form, [kind]: { ...form[kind], estimate: e.target.value } as never });
-                setSaved(false);
               }}
             />
           </label>
@@ -350,7 +341,6 @@ export function DetectedDefaults() {
               value={form[kind]?.min}
               onChange={(e) => {
                 setForm({ ...form, [kind]: { ...form[kind], min: e.target.value } as never });
-                setSaved(false);
               }}
             />
           </label>
@@ -397,10 +387,10 @@ export function DetectedDefaults() {
               ]),
             ),
           );
-          setSaved(true);
+          toast.show("Horas guardadas");
         }}
       >
-        {saved ? "Guardado ✓" : "Guardar"}
+        Guardar horas
       </button>
       {error && (
         <p className="meta" role="alert" style={{ color: "var(--critical)" }}>

@@ -383,6 +383,14 @@ textarea {
 }
 
 /* Above the tab bar and left of the round button; touches go through to the week. */
+/* Not display: contents: Safari has dropped the live-region role of such elements. */
+.snacks > [role="status"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
 .snacks {
   position: fixed;
   left: 16px;
@@ -393,10 +401,13 @@ textarea {
   align-items: flex-start;
   gap: 6px;
   pointer-events: none;
-  z-index: 15;
+  /* Above sheets (41) and action sheets (51): a notice from Ajustes shows over it. */
+  z-index: 60;
 }
 
+/* The notice itself takes the pointer (so it stays while hovered); around it, touches pass. */
 .snack {
+  pointer-events: auto;
   display: flex;
   align-items: center;
   gap: 10px;

@@ -5,6 +5,7 @@ import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
+import { ToastProvider } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { localDev } from "./devAuth.js";
@@ -53,56 +54,59 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
     { id: "inbox", label: "Bandeja", icon: <InboxIcon /> },
   ];
   return (
-    <div className="app">
-      {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
-      {tab === "silos" && <Silos />}
-      {tab === "inbox" && (
-        <Inbox
-          onDay={(date) => {
-            setDay(date);
-            setTab("week");
-          }}
-        />
-      )}
-      <nav className="tabs">
-        {tabs.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            aria-current={tab === t.id ? "page" : undefined}
-            onClick={() => {
-              setTab(t.id);
-              setDay(undefined);
+    // The one notice area of the app, above the tab bar.
+    <ToastProvider>
+      <div className="app">
+        {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
+        {tab === "silos" && <Silos />}
+        {tab === "inbox" && (
+          <Inbox
+            onDay={(date) => {
+              setDay(date);
+              setTab("week");
             }}
-          >
-            {t.icon}
-            {t.label}
-            {t.id === "inbox" && inboxCount > 0 && <span className="badge">{inboxCount}</span>}
-          </button>
-        ))}
-      </nav>
-      {settings && (
-        <Settings
-          initialPage={settings === true ? undefined : settings}
-          onClose={() => setSettings(false)}
-          onReset={onReset}
-          onSignOut={onSignOut}
-          onWeeklyPlan={() => {
-            setSettings(false);
-            setWeekly(true);
-          }}
-        />
-      )}
-      {weekly && (
-        <WeeklyPlan
-          onClose={() => setWeekly(false)}
-          onInbox={() => {
-            setWeekly(false);
-            setTab("inbox");
-          }}
-        />
-      )}
-    </div>
+          />
+        )}
+        <nav className="tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              aria-current={tab === t.id ? "page" : undefined}
+              onClick={() => {
+                setTab(t.id);
+                setDay(undefined);
+              }}
+            >
+              {t.icon}
+              {t.label}
+              {t.id === "inbox" && inboxCount > 0 && <span className="badge">{inboxCount}</span>}
+            </button>
+          ))}
+        </nav>
+        {settings && (
+          <Settings
+            initialPage={settings === true ? undefined : settings}
+            onClose={() => setSettings(false)}
+            onReset={onReset}
+            onSignOut={onSignOut}
+            onWeeklyPlan={() => {
+              setSettings(false);
+              setWeekly(true);
+            }}
+          />
+        )}
+        {weekly && (
+          <WeeklyPlan
+            onClose={() => setWeekly(false)}
+            onInbox={() => {
+              setWeekly(false);
+              setTab("inbox");
+            }}
+          />
+        )}
+      </div>
+    </ToastProvider>
   );
 }
 
