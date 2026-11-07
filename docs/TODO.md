@@ -4,6 +4,8 @@ Este archivo es para que cualquier agente, sin más contexto que el repo, retome
 La fuente de verdad del producto es [`SPEC.md`](SPEC.md) (sobre todo §14–§17); la operación, [`OPERATIONS.md`](OPERATIONS.md).
 Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de cortar.
 
+**Que quede corto**: acá va solo lo pendiente, lo que está en curso y lo que está en validación. Un tema se **borra** de este archivo (no se pasa a «hecho») cuando cumple todo esto: PR con todos los checks en verde, mergeado a `main`, vuelta limpia del agente atacante y prueba en producción sin problemas (Sentry incluido). Lo que se hizo queda en la SPEC (✅) y en el historial de git.
+
 ## 0. Antes de empezar algo nuevo
 
 1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro.
@@ -15,7 +17,6 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 | Qué                                                                        | Estado                                                | Qué falta                                                                              |
 | -------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)   | Borrador, rebasado sobre `main`                       | **No mergear** hasta que el usuario lo pida. Si `main` cambia `Settings.tsx`, rebasar. |
-| `docs/TODO.md` (este archivo)                                              | PR `claude/todo`                                      | Mergear cuando CI y CodeRabbit terminen.                                               |
 | PR #73 `claude/toast` (§14 «Éxito»: un solo aviso, `components/Toast.tsx`) | Abierto; CI y CodeRabbit corriendo; atacante en local | Arreglar lo que reporten el atacante y CodeRabbit, mergear, revisar producción.        |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
@@ -47,9 +48,11 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 - Vitest ignora `apps/web/.env.local` (`vite.config.ts`, `test.env`); si un test cambia de comportamiento solo en tu máquina, revisá eso.
 - Auto-fix de PRs no está disponible en corridas programadas.
 
-## 5. Pendientes, en orden
+## 5. Pendientes
 
-Marcá cada uno con ✅ en la SPEC al mergearlo y movelo a «Hecho».
+El orden en que se hacen §5.1, §5.2 y §5.4 está en §5.4.
+
+Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta que cumpla todos los criterios de validación; recién ahí se borra de este archivo.
 
 ### 5.1 Guías de UI/UX del §14 (un PR por grupo)
 
@@ -89,6 +92,21 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 - Rutinas con nombre repetido al **renombrar** una materia existente (al agregar ya se impide).
 - Avisos (agente atacante sobre #73): después de «Deshacer» el foco queda en `<body>` (debería volver al bloque restaurado); «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante; el `aria-label` de los bloques no dice el día.
 
-## 6. Hecho recientemente (noviembre 2026)
+### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-- #64 mockups de Configuración · #65 cuenta de prueba local, `/api` en desarrollo y proveedores simulados · #66 preview protegida por PR · #67 Configuración A con avisos arriba · #69 validación de formularios de Ajustes y del respaldo · #70 ErrorBoundary con reporte a Sentry · #71 todas las hojas como modales (también anidadas).
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8.
+
+1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
+2. Comidas siempre presentes: regla nueva en §5.1 (corre lo no fijo; si no hay lugar, aparece superpuesta y se puede arrastrar a cualquier hora). Además: «Hoy no» por comida y merienda opcional. Al implementarlo, ajustar la propiedad de `scheduler.test.ts` («nunca sobre eventos fijos») para que acepte solo las comidas superpuestas del §5.1 y siga rechazando estudio nuevo encima de lo fijo.
+3. Eventos superpuestos lado a lado, en columnas más angostas.
+4. Ubicación de un evento: «Eliminar» borra el lugar exacto y conserva el tiempo de traslado puesto a mano.
+5. Silos: se ocultan solos al terminar la semana en la que pasó su fecha final.
+6. Barra de arriba: «2 – 8 nov» y la flecha de Deshacer con el trazo del resto de los íconos.
+7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
+8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
+
+## 6. Mergeado, falta confirmar la validación en producción
+
+Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
+
+- #69 validación de formularios de Ajustes y del respaldo · #70 ErrorBoundary con reporte a Sentry · #71 todas las hojas como modales.
