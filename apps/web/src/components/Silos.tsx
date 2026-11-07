@@ -1,6 +1,5 @@
-import { useRef, useState } from "react";
-import { localParts } from "../engine.js";
-import { dayAndTime, dayDate, hours, time } from "../format.js";
+import { useEffect, useRef, useState } from "react";
+import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import {
   isRunning,
@@ -14,6 +13,7 @@ import { useStore } from "../store.js";
 import { plannedVsDone } from "../week-review.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
+import { useToast } from "./Toast.js";
 
 let pastOpen = false;
 
@@ -23,19 +23,30 @@ export function Silos() {
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
   const [detail, setDetail] = useState<AppTask | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const toast = useToast();
   // Remembered while the app is open, so a trip to another tab does not close it.
   const [showPast, setShowPastState] = useState(pastOpen);
   const setShowPast = (open: boolean) => {
     pastOpen = open;
     setShowPastState(open);
   };
-  const thisYear = localParts(tz, now).date.slice(0, 4);
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const { current: items, past } = splitPastSilos(
     progress(data, now).sort((a, b) => a.deadline - b.deadline),
     tz,
     now,
   );
+  // A task just saved with an old date leaves the view: say where it went.
+  const pastIds = past.map((p) => p.task.id).join(" ");
+  const seenPast = useRef<string | null>(null);
+  useEffect(() => {
+    const before = seenPast.current;
+    seenPast.current = pastIds;
+    if (before === null || showPast) return;
+    const was = new Set(before.split(" "));
+    const moved = past.find((p) => !was.has(p.task.id));
+    if (moved) toast.show(`${moved.task.title} pasó a «Ver anteriores»`);
+  }, [pastIds, past, showPast, toast]);
   const pastGroups = new Map<string, TaskProgress[]>();
   for (const p of past) {
     const label = semesterLabel(tz, p.deadline);
@@ -46,14 +57,7 @@ export function Silos() {
     const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
     const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
     const level = levels.get(p.task.id) ?? "ok";
-    const year = localParts(tz, p.deadline).date.slice(0, 4);
-    // Another year's date carries it, before the time: «dom 10/8/2025 10:00».
-    const due =
-      p.task.kind === "habit"
-        ? "esta semana"
-        : year === thisYear
-          ? dayAndTime(tz, p.deadline)
-          : `${dayDate(tz, p.deadline)}/${year} ${time(tz, p.deadline)}`;
+    const due = p.task.kind === "habit" ? "esta semana" : dueDate(tz, p.deadline, now);
     const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
     return (
       <button

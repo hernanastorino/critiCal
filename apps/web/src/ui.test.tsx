@@ -166,6 +166,10 @@ describe("app", () => {
     ).toBeTruthy();
     fireEvent.click(screen.getByText("Ocultar anteriores"));
     expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
+    // The detail of an old one says it is overdue, with its year.
+    fireEvent.click(screen.getByText("Ver anteriores (3)"));
+    fireEvent.click(screen.getByLabelText(/Final de diciembre: faltan/));
+    expect(screen.getByText(/Venció mié 10\/12\/2025 12:00/)).toBeTruthy();
   });
 
   it("re-plans the day from settings and can reset or leave the demo", () => {
