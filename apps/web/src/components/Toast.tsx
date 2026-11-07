@@ -65,6 +65,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const clear = useCallback<ToastApi["clear"]>((tag) => {
     setCurrent((c) => (tag === undefined || c?.tag === tag ? null : c));
   }, []);
+  // Gone means not held: Firefox fires no blur when a focused «Deshacer» is removed.
+  useEffect(() => {
+    if (!current) held.current = false;
+  }, [current]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
   const release = () => {
@@ -75,40 +79,43 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <Ctx.Provider value={api}>
       {children}
       {/* Above the tab bar; touches pass through everywhere but the notices. */}
-      <div className="snacks" role="status">
-        {pinned}
-        {current && (
-          // Holding it (pointer or keyboard on it) keeps it from going away: §14.
-          // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
-          <div
-            className={`snack${current.undo ? " short" : ""}`}
-            onPointerEnter={() => {
-              held.current = true;
-            }}
-            onPointerLeave={release}
-            onFocus={() => {
-              held.current = true;
-            }}
-            onBlur={release}
-          >
-            <span>{current.message}</span>
-            {current.undo && (
-              <button
-                type="button"
-                className="btn small snack-btn"
-                onClick={() => {
-                  const was = current;
-                  held.current = false;
-                  was.undo?.();
-                  // The undo may show a notice of its own: only this one goes.
-                  setCurrent((c) => (c === was ? null : c));
-                }}
-              >
-                Deshacer
-              </button>
-            )}
-          </div>
-        )}
+      <div className="snacks">
+        {/* Two regions: a new notice is announced alone, not with the standing summary. */}
+        <div role="status">{pinned}</div>
+        <div role="status">
+          {current && (
+            // Holding it (pointer or keyboard on it) keeps it from going away: §14.
+            // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
+            <div
+              className={`snack${current.undo ? " short" : ""}`}
+              onPointerEnter={() => {
+                held.current = true;
+              }}
+              onPointerLeave={release}
+              onFocus={() => {
+                held.current = true;
+              }}
+              onBlur={release}
+            >
+              <span>{current.message}</span>
+              {current.undo && (
+                <button
+                  type="button"
+                  className="btn small snack-btn"
+                  onClick={() => {
+                    const was = current;
+                    held.current = false;
+                    was.undo?.();
+                    // The undo may show a notice of its own: only this one goes.
+                    setCurrent((c) => (c === was ? null : c));
+                  }}
+                >
+                  Deshacer
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </Ctx.Provider>
   );

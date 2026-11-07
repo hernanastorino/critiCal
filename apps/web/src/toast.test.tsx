@@ -42,11 +42,11 @@ describe("the app's one notice", () => {
       </ToastProvider>,
     );
     fireEvent.click(screen.getByText("Guardar"));
-    expect(screen.getByRole("status").textContent).toContain("Reglas guardadas");
+    expect(screen.getAllByRole("status")[1]?.textContent).toContain("Reglas guardadas");
     act(() => {
       vi.advanceTimersByTime(TOAST_MS + 10);
     });
-    expect(screen.getByRole("status").textContent).toBe("");
+    expect(screen.getAllByRole("status")[1]?.textContent).toBe("");
   });
 
   it("stays while the pointer is on it, and leaves after", () => {
