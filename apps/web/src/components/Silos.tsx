@@ -61,7 +61,7 @@ export function Silos() {
         key={p.task.id}
         data-task={p.task.id}
         className="silo"
-        aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}, ${overdue ? "venció el" : "entrega"} ${due}`}
+        aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}, ${p.task.kind === "habit" ? due : `${overdue ? "venció el" : "entrega"} ${due}`}`}
         onClick={() => setDetail(p.task)}
       >
         <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
