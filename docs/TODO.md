@@ -122,7 +122,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8.
 
-1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
+1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + escalera de Jacob toon 3D como personaje y animación de carga (antes, 3 estilos en `docs/mockups/estilo-toon.html` para que elija estilo y animación por caso). Textos y esperas: sesión hija `esperas-errores`.
 2. Hecho (#80, validado en producción). Queda: arrastrar comidas como a los bloques.
 3. Hecho (#78, validado en producción).
 4. Hecho (#79, validado en producción).
