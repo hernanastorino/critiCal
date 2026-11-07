@@ -19,7 +19,7 @@ export function Semester() {
   const [end, setEnd] = useDraft("semester:end", () => semester?.end ?? "");
   const [subject, setSubject, , subjectDirty] = useDraft("semester:subject", () => "");
   const [weekly, setWeekly, , weeklyDirty] = useDraft("semester:weekly", () => "");
-  const [typedExam, setExam] = useDraft("semester:exam", () => ({
+  const [typedExam, setExam, examSaved, examDirty] = useDraft("semester:exam", () => ({
     activityId: "",
     title: "Parcial",
     date: "",
@@ -33,7 +33,7 @@ export function Semester() {
     end !== (semester?.end ?? "") ||
     subjectDirty ||
     weeklyDirty ||
-    typedExam.date !== "";
+    examDirty;
   const holidaysOn = data.preferences?.holidaysOff !== false;
   const subjects = subjectsOf(data);
   // A kept draft may name a materia that is gone since.
@@ -103,7 +103,7 @@ export function Semester() {
       units: [],
     };
     dispatch({ type: "saveTask", task });
-    setExam({ ...exam, date: "" });
+    examSaved({ ...exam, date: "" });
     toast.show(`${task.title} agregado`);
   };
 

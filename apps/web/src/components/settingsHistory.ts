@@ -26,7 +26,11 @@ if (typeof window !== "undefined") {
     }
     // An entry left by a sheet that a reload closed: nothing to show, so go past it.
     if (!current) {
-      if (level() !== undefined) history.back();
+      if (level() !== undefined) {
+        // Unmarked, so going forward again does not bounce off it a second time.
+        history.replaceState(null, "");
+        history.back();
+      }
       return;
     }
     const l = level();
