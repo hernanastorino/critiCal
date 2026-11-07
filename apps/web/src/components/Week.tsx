@@ -155,7 +155,14 @@ export function Week({
     if (data.pins?.some((p) => p.id === moveSaid.id && p.start === moveSaid.start)) {
       setSpoken(moveSaid.text);
       setMoveSaid(null);
+      return;
     }
+    // Still not there a moment later: the reducer refused it.
+    const refused = setTimeout(() => {
+      setSpoken("No se pudo mover: ese horario ya pasó");
+      setMoveSaid(null);
+    }, 1000);
+    return () => clearTimeout(refused);
   }, [moveSaid, data.pins]);
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
