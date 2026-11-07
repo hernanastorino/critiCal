@@ -42,12 +42,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [pinned, setPinned] = useState<ReactNode>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   // It stays while the pointer or the keyboard is on it (SPEC §14).
-  const held = useRef(false);
+  // Two holds, kept apart: the notice goes only once neither the pointer nor focus is on it.
+  const hover = useRef(false);
+  const focus = useRef(false);
   const startTimer = useCallback((t: Toast) => {
     clearTimeout(timer.current);
     timer.current = setTimeout(
       () => {
-        if (!held.current) setCurrent((c) => (c === t ? null : c));
+        if (!(hover.current || focus.current)) setCurrent((c) => (c === t ? null : c));
       },
       t.undo ? UNDO_MS : TOAST_MS,
     );
@@ -64,15 +66,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   // blur for a removed button, and React may keep a focused «Deshacer» for the next notice.
   useEffect(() => {
     const el = box.current;
-    held.current =
-      !!current && !!el && (el.contains(document.activeElement) || el.matches(":hover"));
-    if (current && !held.current) startTimer(current);
+    hover.current = !!current && !!el && el.matches(":hover");
+    focus.current = !!current && !!el && el.contains(document.activeElement);
+    if (current && !(hover.current || focus.current)) startTimer(current);
   }, [current, startTimer]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
-  const release = () => {
-    held.current = false;
-    if (current) startTimer(current);
+  const release = (which: { current: boolean }) => {
+    which.current = false;
+    if (current && !(hover.current || focus.current)) startTimer(current);
   };
   return (
     <Ctx.Provider value={api}>
@@ -89,13 +91,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               ref={box}
               className={`snack${current.undo ? " short" : ""}`}
               onPointerEnter={() => {
-                held.current = true;
+                hover.current = true;
               }}
-              onPointerLeave={release}
+              onPointerLeave={() => release(hover)}
               onFocus={() => {
-                held.current = true;
+                focus.current = true;
               }}
-              onBlur={release}
+              onBlur={() => release(focus)}
             >
               <span>{current.message}</span>
               {current.undo && (
@@ -104,7 +106,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                   className="btn small snack-btn"
                   onClick={() => {
                     const was = current;
-                    held.current = false;
                     was.undo?.();
                     // The undo may show a notice of its own: only this one goes.
                     setCurrent((c) => (c === was ? null : c));

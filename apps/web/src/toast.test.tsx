@@ -131,6 +131,28 @@ describe("the app's one notice", () => {
     expect(screen.getByText("Otra vez")).toBeTruthy();
   });
 
+  it("stays until both the pointer and the focus have left", () => {
+    render(
+      <ToastProvider>
+        <Trigger undo={() => {}} />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByText("Guardar"));
+    const notice = screen.getByText("Reglas guardadas");
+    fireEvent.pointerEnter(notice);
+    fireEvent.focus(screen.getByRole("button", { name: "Deshacer" }));
+    fireEvent.pointerLeave(notice);
+    act(() => {
+      vi.advanceTimersByTime(UNDO_MS * 2);
+    });
+    expect(screen.getByText("Reglas guardadas")).toBeTruthy();
+    fireEvent.blur(screen.getByRole("button", { name: "Deshacer" }));
+    act(() => {
+      vi.advanceTimersByTime(UNDO_MS + 10);
+    });
+    expect(screen.queryByText("Reglas guardadas")).toBeNull();
+  });
+
   it("does nothing outside the app (a screen tested alone)", () => {
     render(<Trigger />);
     fireEvent.click(screen.getByText("Guardar"));
