@@ -423,7 +423,7 @@ function SpotRow({ spot }: { spot: Spot }) {
           <button
             type="button"
             className="btn small"
-            aria-label={`Guardar ${short(spot.text)} como lugar`}
+            aria-label={`Guardar como lugar ${short(spot.text)}`}
             onClick={() => setNaming(true)}
           >
             Guardar como lugar
@@ -432,7 +432,7 @@ function SpotRow({ spot }: { spot: Spot }) {
             <button
               type="button"
               className="btn small"
-              aria-label={`Eliminar el lugar ${short(spot.text)}, conservando los minutos`}
+              aria-label={`Eliminar lugar ${short(spot.text)}, conservando los minutos`}
               onClick={() => {
                 const eventIds = keepableEvents(data, spot.key);
                 const before = Object.fromEntries(
