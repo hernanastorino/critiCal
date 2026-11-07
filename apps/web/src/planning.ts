@@ -634,8 +634,8 @@ export function decisions(input: ScheduleInput, result: ScheduleResult): Decisio
 /** The «puedo empezar» an earlier start becomes: a date, or right away. */
 export function startAfterAt(tz: string, at: number | undefined, now: number): StartAfter {
   if (at === undefined || at <= now) return { now: true };
-  // Noon of the day: robust to a start a few minutes off midnight.
-  return { date: localParts(tz, at + 12 * 60 * MINUTE).date };
+  // The engine offers starts of local days, so this is the day it tested.
+  return { date: localParts(tz, at).date };
 }
 
 /** Turns an engine option back into changes to the user's tasks. */

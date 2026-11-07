@@ -1,6 +1,7 @@
 import { buildSlots } from "./availability.js";
 import { overlaps } from "./intervals.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import { addDays, localParts, zonedInstant } from "./time.js";
 import { travelBuffers } from "./travel.js";
 import { type CalendarEvent, type Interval, MINUTE, type Task } from "./types.js";
 
@@ -100,8 +101,13 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
     // grow monotonically going back, so every day is tried). Right away is the last try.
     const days = Math.ceil((from - input.now) / day);
     let at: number | undefined;
+    // Candidates are starts of local days, as a saved date is.
+    const tz = input.settings.timezone;
+    const fromDay = localParts(tz, from).date;
     for (let back = 1; back < days && at === undefined; back++) {
-      if (feasibleAt(from - back * day).result.feasible) at = from - back * day;
+      const candidate = zonedInstant(tz, addDays(fromDay, -back), 0);
+      if (candidate <= input.now) break;
+      if (feasibleAt(candidate).result.feasible) at = candidate;
     }
     if (at === undefined && feasibleAt(input.now).result.feasible) at = input.now;
     if (at === undefined) continue;
