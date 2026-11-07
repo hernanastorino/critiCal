@@ -23,6 +23,7 @@ import {
   type ScheduleInput,
   type ScheduleResult,
   type Settings,
+  type StartAfter,
   schedule,
   type Task,
   targetOptions,
@@ -630,6 +631,13 @@ export function decisions(input: ScheduleInput, result: ScheduleResult): Decisio
   };
 }
 
+/** The «puedo empezar» an earlier start becomes: a date, or right away. */
+export function startAfterAt(tz: string, at: number | undefined, now: number): StartAfter {
+  if (at === undefined || at <= now) return { now: true };
+  // Noon of the day: robust to a start a few minutes off midnight.
+  return { date: localParts(tz, at + 12 * 60 * MINUTE).date };
+}
+
 /** Turns an engine option back into changes to the user's tasks. */
 export function applyOption(
   data: AppData,
@@ -666,6 +674,9 @@ export function applyOption(
     const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
     return {
       ...task,
+      ...(option.kind === "start-earlier" && option.taskId === task.id
+        ? { startAfter: startAfterAt(data.settings.timezone, option.startAt, now) }
+        : {}),
       minMinutes: Math.max(0, task.minMinutes - minCut),
       estimateMinutes: Math.max(0, task.estimateMinutes - cut),
       units: out.size

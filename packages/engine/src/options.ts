@@ -12,7 +12,8 @@ export type OptionKind =
   | "minimum-only"
   | "move-event"
   | "minimum-viable"
-  | "prioritize";
+  | "prioritize"
+  | "start-earlier";
 
 export interface PlanOption {
   id: string;
@@ -29,6 +30,8 @@ export interface PlanOption {
   moveTo?: Interval;
   /** prioritize: the exam's units left out. */
   unitIds?: string[];
+  /** start-earlier: when the task could start instead (now, or the start of a day). */
+  startAt?: number;
 }
 
 function withTasks(input: ScheduleInput, tasks: Task[]): ScheduleInput {
@@ -77,6 +80,46 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
       label: `Mover «${e.title}» al ${when(input.settings.timezone, to.start)}`,
       input: next,
       result: schedule(next),
+    });
+  }
+
+  // A task that cannot start yet (§18.7): start it on the latest day that still fits
+  // everything, or right away if no later day does.
+  for (const t of involved) {
+    const from = t.earliestStart;
+    if (from === undefined || from <= input.now) continue;
+    const day = 1440 * MINUTE;
+    const feasibleAt = (at: number) => {
+      const next = withTasks(
+        input,
+        input.tasks.map((x) => (x.id === t.id ? { ...x, earliestStart: at } : x)),
+      );
+      return { next, result: schedule(next) };
+    };
+    // Whole days back from the current start; feasibility only grows going back.
+    const days = Math.ceil((from - input.now) / day);
+    let lo = 0; // days back known not to fit (0 is the current start)
+    let hi = days; // days back known to fit (all the way to now)
+    const atNow = feasibleAt(input.now);
+    if (!atNow.result.feasible) continue;
+    while (hi - lo > 1) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (feasibleAt(from - mid * day).result.feasible) hi = mid;
+      else lo = mid;
+    }
+    const at = hi >= days ? input.now : from - hi * day;
+    const { next, result: r } = feasibleAt(at);
+    options.push({
+      id: `start-earlier:${t.id}`,
+      kind: "start-earlier",
+      taskId: t.id,
+      startAt: at,
+      label:
+        at <= input.now
+          ? `Empezar ${t.title} ya, sin esperar a la fecha de inicio`
+          : `Empezar ${t.title} antes: desde el ${when(input.settings.timezone, at).replace(/ \d\d:\d\d$/, "")}`,
+      input: next,
+      result: r,
     });
   }
 
@@ -214,6 +257,7 @@ function duration(minutes: number): string {
 const ORDER: OptionKind[] = [
   "use-free-time",
   "move-event",
+  "start-earlier",
   "lower-minimum",
   "prioritize",
   "minimum-viable",

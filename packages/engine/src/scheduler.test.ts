@@ -430,6 +430,37 @@ describe("options", () => {
     ],
   });
 
+  it("offers starting earlier when only a start date keeps the task from fitting", () => {
+    const held = base({
+      tasks: [
+        task("m", "mate", at("2026-11-04", "19:30"), {
+          remainingMinutes: 600,
+          minRemainingMinutes: 600,
+          earliestStart: at("2026-11-04", "16:00"),
+        }),
+      ],
+    });
+    const r = schedule(held);
+    expect(r.feasible).toBe(false);
+    const opt = infeasibilityOptions(held, r).find((o) => o.id === "start-earlier:m");
+    expect(opt?.result.feasible).toBe(true);
+    expect(opt?.startAt).toBeLessThan(at("2026-11-04", "16:00"));
+    expect(opt?.startAt).toBeGreaterThanOrEqual(held.now);
+    // The latest day that still fits: a day later would not.
+    const later = {
+      ...held,
+      tasks: held.tasks.map((t) => ({
+        ...t,
+        earliestStart: (opt?.startAt as number) + 1440 * MINUTE,
+      })),
+    };
+    expect(schedule(later).feasible).toBe(false);
+    // Without a start date there is nothing to bring forward.
+    expect(
+      infeasibilityOptions(tight, schedule(tight)).some((o) => o.kind === "start-earlier"),
+    ).toBe(false);
+  });
+
   it("offers previewed ways out when minimums do not fit", () => {
     const r = schedule(tight);
     expect(r.feasible).toBe(false);
