@@ -555,7 +555,8 @@ export function Week({
       {editing && (
         <div className="edit-banner">
           <span role="status">
-            Arrastrá los bloques a donde quieras. Quedan fijados y el resto se reacomoda.
+            Arrastrá los bloques a donde quieras, o con el bloque enfocado usá las flechas del
+            teclado. Quedan fijados y el resto se reacomoda.
           </span>
           <button type="button" className="btn small" onClick={() => setEditing(false)}>
             Listo
@@ -762,6 +763,9 @@ export function Week({
                               const start = b.start + step;
                               if (start <= now) return;
                               setFocusId(pinAt(b, start));
+                              setSpoken(
+                                `${titleOf(b)} movido a ${weekdayShort(tz, start)} ${time(tz, start)}`,
+                              );
                             }
                           : undefined
                       }
