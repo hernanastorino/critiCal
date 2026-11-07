@@ -60,7 +60,8 @@ const SPOT = "spot:";
 const EVENT = "\u0000event:";
 
 /** What an event's travel is keyed by: its address or, without one, its title. */
-const eventSpotKey = (e: { location?: string; title: string }) => spotKey(addressOf(e) ?? e.title);
+export const eventSpotKey = (e: { location?: string; title: string }) =>
+  spotKey(addressOf(e) ?? e.title);
 
 /** Ids of the events whose address (or, without one, title) is the spot `key`. */
 export const eventsAt = (data: AppData, key: string) =>

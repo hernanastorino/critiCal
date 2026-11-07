@@ -33,7 +33,7 @@ import type {
   Spot,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { eventsAt, home, spotKey, unlocated } from "./places.js";
+import { eventSpotKey, eventsAt, home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -114,6 +114,8 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** Minutes kept for one event (after «Eliminar lugar») changed, or forgotten (`null`). */
+  | { type: "eventTravelMinutes"; eventId: string; minutes: number | null; now: number }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
   /**
@@ -819,6 +821,18 @@ function apply(data: AppData, action: Action): AppData {
         { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
         now,
       );
+    }
+    case "eventTravelMinutes": {
+      const eventTravel = { ...data.eventTravel };
+      const event = data.events.find((e) => e.id === action.eventId);
+      if (action.minutes === null) delete eventTravel[action.eventId];
+      else if (!event || !Number.isFinite(action.minutes) || action.minutes < 0) return data;
+      else
+        eventTravel[action.eventId] = {
+          minutes: Math.min(1440, Math.round(action.minutes)),
+          key: eventTravel[action.eventId]?.key ?? eventSpotKey(event),
+        };
+      return refresh({ ...data, eventTravel }, now);
     }
     case "restoreSpot": {
       const eventTravel = { ...data.eventTravel };

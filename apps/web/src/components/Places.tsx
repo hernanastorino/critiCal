@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
+import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
-import { eventsAt, minutesBetween } from "../places.js";
+import { eventsAt, keptTravel, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Section } from "./Section.js";
@@ -18,6 +19,10 @@ export function Places() {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const toast = useToast();
+  const kept = data.events.flatMap((event) => {
+    const minutes = keptTravel(data, event);
+    return minutes === undefined ? [] : [{ event, minutes }];
+  });
 
   const compute = async () => {
     if (!sync) return;
@@ -116,7 +121,7 @@ export function Places() {
 
       {(data.spots ?? []).length > 0 && (
         <>
-          <div className="title" style={{ marginTop: 12 }}>
+          <div className="title" style={{ marginTop: 12 }} id="spots" tabIndex={-1}>
             Direcciones de eventos
           </div>
           <p className="meta">
@@ -124,6 +129,55 @@ export function Places() {
           </p>
           {(data.spots ?? []).map((spot) => (
             <SpotRow key={spot.key} spot={spot} />
+          ))}
+        </>
+      )}
+
+      {kept.length > 0 && (
+        <>
+          <div className="title" style={{ marginTop: 12 }} id="kept-travel" tabIndex={-1}>
+            Traslados de eventos sin dirección
+          </div>
+          <p className="meta">
+            Minutos que quedaron al eliminar una dirección. El plan los sigue contando.
+          </p>
+          {kept.map(({ event, minutes }) => (
+            <div key={event.id} className="check" style={{ flexWrap: "wrap" }}>
+              <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
+                {event.title}
+                <span className="meta" style={{ margin: 0 }}>
+                  {" "}
+                  · {dayDate(data.settings.timezone, event.start)}
+                </span>
+              </span>
+              <MinutesInput
+                label={`Minutos desde casa para ${short(event.title)}`}
+                value={minutes}
+                onCommit={(m) =>
+                  dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
+                }
+              />
+              <button
+                type="button"
+                className="btn small"
+                aria-label={`Olvidar el traslado de ${short(event.title)}`}
+                onClick={() => {
+                  const before = data.eventTravel?.[event.id];
+                  dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null });
+                  toast.show(`Traslado de ${short(event.title)} olvidado`, {
+                    undo: () =>
+                      before &&
+                      dispatch({
+                        type: "eventTravelMinutes",
+                        eventId: event.id,
+                        minutes: before.minutes,
+                      }),
+                  });
+                }}
+              >
+                Olvidar
+              </button>
+            </div>
           ))}
         </>
       )}
@@ -304,6 +358,15 @@ function PlaceForm({
   );
 }
 
+/** A label-sized piece of a long address or title (a 3000-character one is still read whole). */
+const short = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
+
+/** After a row goes away, the keyboard stays nearby: on the section heading. */
+const refocus = (id: string) =>
+  requestAnimationFrame(() =>
+    (document.getElementById(id) ?? document.getElementById("spots"))?.focus(),
+  );
+
 /** An event address in use: its minutes from home, saving it as a place, or forgetting it. */
 function SpotRow({ spot }: { spot: Spot }) {
   const { data, dispatch } = useStore();
@@ -322,14 +385,16 @@ function SpotRow({ spot }: { spot: Spot }) {
         )}
       </span>
       <MinutesInput
-        label={`Minutos desde casa a ${spot.text}`}
+        label={`Minutos desde casa a ${short(spot.text)}`}
         value={spot.minutes}
         onCommit={(minutes) => dispatch({ type: "spotMinutes", text: spot.text, minutes })}
       />
       {naming ? (
         <div className="row" style={{ width: "100%" }}>
           <input
-            aria-label={`Nombre para ${spot.text}`}
+            aria-label={`Nombre para ${short(spot.text)}`}
+            // Opening «Guardar como lugar» goes straight to typing the name.
+            ref={(el) => el?.focus()}
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Casa de Clara"
@@ -345,14 +410,20 @@ function SpotRow({ spot }: { spot: Spot }) {
           </button>
         </div>
       ) : (
-        <div className="row">
-          <button type="button" className="btn small" onClick={() => setNaming(true)}>
+        <div className="row" style={{ flexWrap: "wrap" }}>
+          <button
+            type="button"
+            className="btn small"
+            aria-label={`Guardar ${short(spot.text)} como lugar`}
+            onClick={() => setNaming(true)}
+          >
             Guardar como lugar
           </button>
           {spot.minutes !== undefined && (
             <button
               type="button"
               className="btn small"
+              aria-label={`Eliminar el lugar ${short(spot.text)}, conservando los minutos`}
               onClick={() => {
                 const eventIds = eventsAt(data, spot.key);
                 const before = Object.fromEntries(
@@ -363,6 +434,7 @@ function SpotRow({ spot }: { spot: Spot }) {
                   `Dirección borrada · los ${spot.minutes} min de traslado quedan en ${eventIds.length === 1 ? "el evento" : "sus eventos"} y el plan los sigue contando`,
                   { undo: () => dispatch({ type: "restoreSpot", spot, before }) },
                 );
+                refocus("kept-travel");
               }}
             >
               Eliminar lugar
@@ -371,7 +443,14 @@ function SpotRow({ spot }: { spot: Spot }) {
           <button
             type="button"
             className="btn small"
-            onClick={() => dispatch({ type: "forgetSpot", key: spot.key })}
+            aria-label={`Olvidar ${short(spot.text)} y sus minutos`}
+            onClick={() => {
+              dispatch({ type: "forgetSpot", key: spot.key });
+              toast.show(`${short(spot.text)} olvidada`, {
+                undo: () => dispatch({ type: "restoreSpot", spot, before: {} }),
+              });
+              refocus("spots");
+            }}
           >
             Olvidar
           </button>

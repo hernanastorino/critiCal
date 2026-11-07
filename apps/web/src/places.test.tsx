@@ -342,8 +342,34 @@ describe("places", () => {
       screen.getByText(/Dirección borrada · los 20 min de traslado quedan en el evento/),
     ).toBeTruthy();
     expect(screen.queryByText("Instituto Anglo")).toBeNull();
+    // The kept minutes stay visible, to change or forget later.
+    expect(screen.getByText("Traslados de eventos sin dirección")).toBeTruthy();
+    expect(screen.getByLabelText("Minutos desde casa para Inglés")).toBeTruthy();
     fireEvent.click(screen.getByText("Deshacer"));
     expect(screen.getByText("Instituto Anglo")).toBeTruthy();
+    // «Olvidar» can be undone too.
+    fireEvent.click(screen.getByLabelText("Olvidar Instituto Anglo y sus minutos"));
+    expect(screen.queryByText("Instituto Anglo")).toBeNull();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByText("Instituto Anglo")).toBeTruthy();
+  });
+
+  it("changes or forgets the minutes kept for an event", () => {
+    const d = data({
+      events: [event("x", "Inglés", 10, "Instituto Anglo")],
+      eventTravel: { x: { minutes: 20, key: "instituto anglo" } },
+    });
+    const changed = reducer(d, {
+      type: "eventTravelMinutes",
+      eventId: "x",
+      minutes: 33.4,
+      now: NOW,
+    });
+    expect(changed.eventTravel).toEqual({ x: { minutes: 33, key: "instituto anglo" } });
+    expect(reducer(d, { type: "eventTravelMinutes", eventId: "x", minutes: -1, now: NOW })).toBe(d);
+    const gone = reducer(d, { type: "eventTravelMinutes", eventId: "x", minutes: null, now: NOW });
+    expect(gone.eventTravel).toEqual({});
+    expect(unlocated(gone, gone.events, NOW).map((u) => u.text)).toEqual(["Instituto Anglo"]);
   });
 
   it("asks once per unknown place, only for upcoming busy events", () => {
