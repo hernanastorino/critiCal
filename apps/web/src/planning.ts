@@ -236,6 +236,22 @@ function keptDays(data: AppData, now: number) {
     });
 }
 
+/**
+ * The first instant a deliverable can be worked on (§18.7): its own «puedo empezar»,
+ * else its materia's; a date counts from that day's start, «N días antes» from the start
+ * of that day before the deadline. Undefined: from now.
+ */
+export function earliestStartOf(data: AppData, task: AppTask): number | undefined {
+  if (task.kind === "habit") return undefined;
+  const rule = task.startAfter ?? data.activities.find((a) => a.id === task.activityId)?.startAfter;
+  if (!rule || "now" in rule) return undefined;
+  const tz = data.settings.timezone;
+  if ("date" in rule) return zonedInstant(tz, rule.date, 0);
+  if (task.deadline === undefined) return undefined;
+  const day = localParts(tz, task.deadline).date;
+  return zonedInstant(tz, addDays(day, -Math.max(0, Math.round(rule.daysBefore))), 0);
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   const tz = data.settings.timezone;
@@ -262,6 +278,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
+      earliestStart: earliestStartOf(data, p.task),
       // An entrega can be handed in smaller: half its minimum, never below an hour
       // (study time, planned as block time like the rest).
       mvpMinutes:
@@ -526,6 +543,13 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   // that time: the block is planned again, as a proposal since it is today (§5.7).
   const meals = mealTimes(data, now, now, todayEnd).flatMap((m) => (m.at ? [m.at] : []));
   const eats = (b: PlanBlock) => meals.some((m) => overlaps(m, b));
+  // A block of today before its task can start (a «puedo empezar» set since) goes, as
+  // a proposal since it is today (§5.7, §18.7).
+  const tooEarly = (b: PlanBlock) => {
+    const task = data.tasks.find((t) => t.id === b.taskId);
+    const from = task && earliestStartOf(data, task);
+    return from !== undefined && b.start < from;
+  };
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
@@ -545,7 +569,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const displaced = (b: PlanBlock) =>
     plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
-  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b) || eats(b)));
+  const conflicts = unpinned.filter(
+    (b) => !displaced(b) && (clashes(b) || reserved(b) || eats(b) || tooEarly(b)),
+  );
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -574,7 +600,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
         : conflicts.some(eats)
           ? `Una comida quedó encima de ${names.join(", ")}. ¿Reacomodo el día?`
-          : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
+          : conflicts.some(tooEarly)
+            ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
+            : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,

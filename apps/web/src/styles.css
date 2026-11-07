@@ -1743,3 +1743,31 @@ input[type="datetime-local"] {
   border: 1.5px dashed color-mix(in srgb, var(--ink) 45%, transparent);
   box-shadow: none;
 }
+
+/* «Puedo empezar» (§18.7): a choice and, for some, a date or a number of days. */
+.start-after {
+  border: 0;
+  padding: 0;
+  margin: 10px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.start-after legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.start-after .inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.start-after .inline input {
+  width: 4.5em;
+}

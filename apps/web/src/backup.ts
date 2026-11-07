@@ -15,6 +15,13 @@ export function exportJson(data: AppData, now: number): string {
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
+/** A real calendar day, not just its shape (2026-02-30 is not one). */
+function isRealDate(x: unknown) {
+  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
+  const d = new Date(`${x}T12:00:00Z`);
+  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
+}
+
 export function parseBackup(text: string): { data: AppData } | { error: string } {
   let parsed: unknown;
   try {
@@ -55,9 +62,21 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
       .map((a) => (a as { id: unknown }).id),
   );
   // A hand-edited deadline («mañana») would blank Silos on every visit.
+  // «Puedo empezar» (§18.7): a real local date, or whole days before the deadline.
+  // Exactly one of the three shapes, and nothing else: a real day, whole days, or «ya».
+  const validStart = (s: unknown) => {
+    if (!isObject(s)) return false;
+    const keys = Object.keys(s);
+    if (keys.length !== 1) return false;
+    if (keys[0] === "date") return isRealDate(s.date);
+    if (keys[0] === "daysBefore")
+      return Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365);
+    return keys[0] === "now" && s.now === true;
+  };
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
+    opt(t.startAfter, validStart) &&
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit) &&
@@ -75,6 +94,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const validActivity = (a: unknown) =>
     isObject(a) &&
     str(a.id) &&
+    opt(a.startAfter, validStart) &&
     // Both limits, and the block within the session (as the form requires).
     between(a.maxSessionMinutes, 1, 1440) &&
     between(a.minBlockMinutes, 1, 1440) &&
@@ -115,12 +135,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     (w.morningMinutes === undefined || minute(w.morningMinutes)) &&
     Array.isArray(w.meals) &&
     w.meals.every(range);
-  // A real calendar day, not just its shape (2026-02-30 is not one).
-  const realDate = (x: unknown) => {
-    if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
-    const d = new Date(`${x}T12:00:00Z`);
-    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
-  };
+  const realDate = isRealDate;
   const validOverride = (o: unknown) =>
     isObject(o) &&
     realDate(o.date) &&

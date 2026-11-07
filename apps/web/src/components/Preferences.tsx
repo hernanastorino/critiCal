@@ -7,6 +7,7 @@ import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, MEAL_NAMES, mealsOf } fro
 import { useStore } from "../store.js";
 import { studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
+import { StartAfterField } from "./StartAfterField.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -432,8 +433,9 @@ export function ActivitySettings() {
 }
 
 function ActivityRow({ activity }: { activity: Activity }) {
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
   const [open, setOpen] = useState(false);
+  const [startAfter, setStartAfter] = useState<Activity["startAfter"] | null>(activity.startAfter);
   const [form, setForm] = useState({
     name: activity.name,
     color: activity.color,
@@ -554,6 +556,21 @@ function ActivityRow({ activity }: { activity: Activity }) {
               onChange={(e) => setWeekly(e.target.value)}
             />
           )}
+          {activity.kind !== "rutina" && (
+            <>
+              <StartAfterField
+                label="Sus entregas y parciales, puedo empezarlos"
+                value={startAfter}
+                onChange={setStartAfter}
+                tz={data.settings.timezone}
+                now={now}
+              />
+              <p className="meta">
+                Vale para todas sus tareas, salvo las que digan otra cosa. Antes de eso el plan no
+                les da tiempo.
+              </p>
+            </>
+          )}
           <label className="check">
             <input
               type="checkbox"
@@ -566,7 +583,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
-            disabled={!hoursOk || !!problem}
+            disabled={!hoursOk || !!problem || startAfter === null}
             onClick={() => {
               dispatch({
                 type: "saveActivity",
@@ -587,6 +604,7 @@ function ActivityRow({ activity }: { activity: Activity }) {
                     form.from && form.to
                       ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
                       : undefined,
+                  startAfter: activity.kind === "rutina" ? undefined : (startAfter ?? undefined),
                 },
               });
               if (studies && weekly !== studyHours)

@@ -5,6 +5,7 @@ import type {
   MealChoice,
   PlanBlock,
   Settings,
+  StartAfter,
 } from "./engine.js";
 
 /** Activity colours, taken from the thick-line references. Red is reserved for critical. */
@@ -65,6 +66,8 @@ export interface AppTask {
    * as an entrega) re-decides `exam`; otherwise the user's choice stays.
    */
   sourceRole?: DetectedKind;
+  /** Work can start only then (overrides its materia's); deliverables only. */
+  startAfter?: StartAfter;
   /** Weekly silos: off until this instant (the start of the next week). */
   skipUntil?: number;
   /** Weekly silos: off until turned back on. */
