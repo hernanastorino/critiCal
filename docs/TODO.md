@@ -14,11 +14,10 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                          | Estado                                                     | Qué falta                                                                                                                                  |
-| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).       |
-| PR #79 `claude/forget-place` (§18.4 «Eliminar lugar»)                                        | Abierto; atacante limpio; CodeRabbit arreglado (b8f24bf)   | CodeRabbit sobre el último commit, merge, prod.                                                                                            |
-| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante arreglada (8d4bdd7)       | 2.ª vuelta del atacante (dev: `cd .claude/worktrees/meals-always/apps/web && npx vite --port 5183 --strictPort`), CodeRabbit, merge, prod. |
+| Qué                                                                                          | Estado                                                                                                                   | Qué falta                                                                                                                            |
+| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                               | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante y CodeRabbit arreglados (comida de hoy sobre estudio → propuesta); 2.ª vuelta corriendo | Vuelta limpia, CodeRabbit, merge, prod.                                                                                              |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -111,7 +110,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
   - Con la hoja de Ajustes abierta, el lector de pantalla llega a la grilla de atrás; una alerta de validación queda visible después de volver.
   - Días pasados muestran el plan congelado con las comidas recalculadas: puede verse estudio al lado de una comida de un día que ya pasó.
   - Una comida movida a 23:59 queda como una rayita al pie del día, difícil de tocar.
-- Lugares (agente atacante sobre #79):
+- Lugares (agente atacante sobre #79, anteriores a ese PR):
   - `spotKey` borra los emojis: «🏠🎉 de 👵» y «💼 de 🏢» quedan las dos como «de» y comparten minutos.
   - Una dirección que contiene «Casa» («Casa de la abuela Marta») se toma como la casa; la dirección exacta de casa en minúsculas no.
   - Se puede guardar un lugar con nombre repetido («Casa» dos veces).
@@ -126,7 +125,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
 2. → PR #80. Comidas siempre presentes: regla nueva en §5.1 (corre lo no fijo; si no hay lugar, aparece superpuesta y se puede arrastrar a cualquier hora). Además: «Hoy no» por comida y merienda opcional. Al implementarlo, ajustar la propiedad de `scheduler.test.ts` («nunca sobre eventos fijos») para que acepte solo las comidas superpuestas del §5.1 y siga rechazando estudio nuevo encima de lo fijo.
 3. Hecho (#78, validado en producción).
-4. Ubicación de un evento: «Eliminar lugar» → PR #79.
+4. Hecho (#79, validado en producción).
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
 7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
