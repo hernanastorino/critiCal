@@ -86,6 +86,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             // Holding it (pointer or keyboard on it) keeps it from going away: §14.
             // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
             <div
+              ref={box}
               className={`snack${current.undo ? " short" : ""}`}
               onPointerEnter={() => {
                 held.current = true;

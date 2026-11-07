@@ -34,6 +34,16 @@ function Two({ onUndo }: { onUndo: () => void }) {
   );
 }
 
+function Chain() {
+  const toast = useToast();
+  const again = () => toast.show("Otra vez", { undo: again });
+  return (
+    <button type="button" onClick={again}>
+      Mover
+    </button>
+  );
+}
+
 describe("the app's one notice", () => {
   it("is announced, and goes away after a while", () => {
     render(
@@ -102,6 +112,23 @@ describe("the app's one notice", () => {
       vi.advanceTimersByTime(TOAST_MS + 10);
     });
     expect(screen.queryByText("Reglas guardadas")).toBeNull();
+  });
+
+  it("keeps a replacement notice while its «Deshacer» still has focus", () => {
+    render(
+      <ToastProvider>
+        <Chain />
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByText("Mover"));
+    const undo = screen.getByRole("button", { name: "Deshacer" });
+    undo.focus();
+    fireEvent.click(undo);
+    screen.getByRole("button", { name: "Deshacer" }).focus();
+    act(() => {
+      vi.advanceTimersByTime(UNDO_MS * 2);
+    });
+    expect(screen.getByText("Otra vez")).toBeTruthy();
   });
 
   it("does nothing outside the app (a screen tested alone)", () => {
