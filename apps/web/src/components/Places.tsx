@@ -445,9 +445,12 @@ function SpotRow({ spot }: { spot: Spot }) {
             className="btn small"
             aria-label={`Olvidar ${short(spot.text)} y sus minutos`}
             onClick={() => {
+              const before = Object.fromEntries(
+                Object.entries(data.eventTravel ?? {}).filter(([, t]) => t.key === spot.key),
+              );
               dispatch({ type: "forgetSpot", key: spot.key });
               toast.show(`${short(spot.text)} olvidada`, {
-                undo: () => dispatch({ type: "restoreSpot", spot, before: {} }),
+                undo: () => dispatch({ type: "restoreSpot", spot, before }),
               });
               refocus("spots");
             }}

@@ -838,10 +838,12 @@ function apply(data: AppData, action: Action): AppData {
       const eventTravel = { ...data.eventTravel };
       for (const [id, before] of Object.entries(action.before)) {
         const current = eventTravel[id];
-        // Only what the deletion set: a later change of that event's minutes stays.
+        // What the deletion set goes back to what was there; what «Olvidar» removed
+        // comes back; a later change of that event's minutes stays.
         const set = current?.key === action.spot.key && current.minutes === action.spot.minutes;
-        if (!set || before) continue;
-        delete eventTravel[id];
+        if (set && before) eventTravel[id] = before;
+        else if (set) delete eventTravel[id];
+        else if (!current && before) eventTravel[id] = before;
       }
       const newer = (data.spots ?? []).some((s) => s.key === action.spot.key);
       return refresh(
@@ -853,11 +855,16 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
-    case "forgetSpot":
+    case "forgetSpot": {
+      // Forgetting an address also forgets the minutes events kept from it.
+      const eventTravel = Object.fromEntries(
+        Object.entries(data.eventTravel ?? {}).filter(([, t]) => t.key !== action.key),
+      );
       return refresh(
-        { ...data, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
+        { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
         now,
       );
+    }
     case "locate": {
       // Answered: a failed lookup for this text is no longer needed.
       data = { ...data, spots: (data.spots ?? []).filter((s) => s.key !== spotKey(action.text)) };

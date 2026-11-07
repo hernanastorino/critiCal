@@ -354,6 +354,22 @@ describe("places", () => {
     expect(screen.getByText("Instituto Anglo")).toBeTruthy();
   });
 
+  it("forgets the minutes kept from an address with it, and undoes both", () => {
+    const spot = { key: "instituto anglo", text: "Instituto Anglo", minutes: 20, manual: true };
+    const kept = { x: { minutes: 35, key: "instituto anglo" }, z: { minutes: 9, key: "otro" } };
+    const d = data({
+      events: [event("x", "Inglés", 10, "Instituto Anglo")],
+      spots: [spot],
+      eventTravel: kept,
+    });
+    const gone = reducer(d, { type: "forgetSpot", key: "instituto anglo", now: NOW });
+    expect(gone.spots).toEqual([]);
+    expect(gone.eventTravel).toEqual({ z: kept.z });
+    const back = reducer(gone, { type: "restoreSpot", spot, before: { x: kept.x }, now: NOW });
+    expect(back.spots).toEqual([spot]);
+    expect(back.eventTravel).toEqual(kept);
+  });
+
   it("changes or forgets the minutes kept for an event", () => {
     const d = data({
       events: [event("x", "Inglés", 10, "Instituto Anglo")],
