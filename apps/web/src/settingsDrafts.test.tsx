@@ -74,6 +74,16 @@ describe("repeated names and other forms", () => {
     expect(screen.getByText("Ya hay una materia o rutina con ese nombre.")).toBeTruthy();
   });
 
+  it("keeps saying unsaved while a date is not saved, even after adding a subject", () => {
+    fireEvent.click(screen.getByRole("button", { name: /^Inicio de cuatrimestre/ }));
+    fireEvent.change(screen.getByLabelText("Termina"), { target: { value: "2027-04-01" } });
+    fireEvent.change(screen.getByPlaceholderText("Física II"), { target: { value: "Álgebra" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar materia" }));
+    expect(screen.getByText("Cambios sin guardar")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar fechas" }));
+    expect(screen.queryByText("Cambios sin guardar")).toBeNull();
+  });
+
   it("keeps a place being added", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Lugares y traslados/ }));
     fireEvent.click(screen.getByRole("button", { name: /Agregar lugar/ }));

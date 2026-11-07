@@ -17,8 +17,8 @@ export function Semester() {
   const semester = data.preferences?.semester;
   const [start, setStart] = useDraft("semester:start", () => semester?.start ?? today);
   const [end, setEnd] = useDraft("semester:end", () => semester?.end ?? "");
-  const [subject, setSubject] = useDraft("semester:subject", () => "");
-  const [weekly, setWeekly] = useDraft("semester:weekly", () => "");
+  const [subject, setSubject, , subjectDirty] = useDraft("semester:subject", () => "");
+  const [weekly, setWeekly, , weeklyDirty] = useDraft("semester:weekly", () => "");
   const [typedExam, setExam] = useDraft("semester:exam", () => ({
     activityId: "",
     title: "Parcial",
@@ -27,6 +27,13 @@ export function Semester() {
   const toast = useToast();
   // The calendar's titles are only worked out once its screen is on view.
   const open = useSectionOpen();
+  // Dates are saved with their button; the rest is typed for a button below.
+  const unsaved =
+    start !== (semester?.start ?? today) ||
+    end !== (semester?.end ?? "") ||
+    subjectDirty ||
+    weeklyDirty ||
+    typedExam.date !== "";
   const holidaysOn = data.preferences?.holidaysOff !== false;
   const subjects = subjectsOf(data);
   // A kept draft may name a materia that is gone since.
@@ -183,7 +190,7 @@ export function Semester() {
           {repeated && subject.trim() && (
             <p className="meta">Ya hay una materia o rutina con ese nombre.</p>
           )}
-          {(subject.trim() || weekly.trim()) && (
+          {unsaved && (
             <p className="meta" style={{ margin: "6px 0 0" }}>
               Cambios sin guardar
             </p>

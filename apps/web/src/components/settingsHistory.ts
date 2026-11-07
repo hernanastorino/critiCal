@@ -24,7 +24,11 @@ if (typeof window !== "undefined") {
       if (current && level() === undefined) history.pushState({ [KEY]: 1 }, "");
       return;
     }
-    if (!current) return;
+    // An entry left by a sheet that a reload closed: nothing to show, so go past it.
+    if (!current) {
+      if (level() !== undefined) history.back();
+      return;
+    }
     const l = level();
     if (l === 1) current.current.onList();
     else if (l === undefined) current.current.onClose();
