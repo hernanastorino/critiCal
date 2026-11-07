@@ -263,11 +263,14 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Encuadre de pérdidas**, sin manipular: «si salteás este bloque perdés 2 h de margen para el parcial» en vez de «estudiá».
    - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + un personaje animado**.
    - Bocetos de mascotas (Tic el reloj, Punta el lápiz, Dosi la píldora): [`mockups/mascota.html`](mockups/mascota.html). **Descartados** (2026-11-07): en vez de elegir una mascota, el usuario elige un **estilo toon 3D** y sus animaciones.
-   - **Escalera de Jacob** (el juguete de tablitas de madera unidas con cintas, https://en.wikipedia.org/wiki/Jacob%27s_ladder_(toy)): es el personaje. Se dibuja en 3D medio isométrico, con las tablitas de colores del juguete de referencia del usuario (fotos y videos del 2026-11-07, no van al repo).
+   - **Escalera de Jacob** (el juguete de tablitas de madera unidas con cintas, https://en.wikipedia.org/wiki/Jacob%27s_ladder_(toy)): es el personaje y se llama **Roy**. Cuando un texto de la app se refiere a él, dice «Roy», nunca «la escalera» («Se le desarmó Roy»). Se dibuja en 3D medio isométrico, con las tablitas de colores del juguete de referencia del usuario (fotos y videos del 2026-11-07, no van al repo).
      - **Cargando**: el juguete en movimiento, la tabla de arriba se da vuelta y el golpe baja tablita por tablita, en bucle. Reemplaza al indicador de espera del §14 (el componente `<Loading>` recibe el caso y dibuja la forma que corresponde).
      - **Una forma por caso**: con las mismas tablitas arma figuras distintas (colgando, festejo con los brazos arriba, encogerse de hombros, desarmado en el piso, puente, acordeón que piensa, oruga que avanza para los traslados).
      - Con «reducir movimiento» se muestra la forma quieta, con fundido.
    - Claude hace **3 estilos toon 3D** con todas las animaciones, en una presentación (link privado + copia en [`mockups/estilo-toon.html`](mockups/estilo-toon.html); https://claude.ai/artifact/XGtofmsjQxt3fqQT7MXTwv). El usuario elige estilo y, por caso, qué animación usar; se implementa recién después.
+   - **Elegido** (2026-11-07): estilo **A · Madera pintada** (madera saturada con cintas, veta y sombra en dos tonos, easing con golpe). Animación por caso:
+     - Cargando: cascada. Sincronizando: va y vuelve. La IA piensa: acordeón. Calculando traslados: oruga.
+     - Me recuperé o todo hecho: festejo. No llego o salteé bloques: hombros. Falla la sync: desarmado. No hay lugar: puente. Nada para hoy: reposo.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
 2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.
