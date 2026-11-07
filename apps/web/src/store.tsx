@@ -814,9 +814,11 @@ function apply(data: AppData, action: Action): AppData {
       const spot = (data.spots ?? []).find((s) => s.key === action.key);
       if (spot?.minutes === undefined) return data;
       const eventTravel = { ...data.eventTravel };
-      // Minutes an event already kept on its own stay as they are.
+      // Minutes an event already kept for this same address stay as they are; ones
+      // kept for an address it no longer has give way to these.
       for (const id of eventsAt(data, spot.key))
-        eventTravel[id] ??= { minutes: spot.minutes, key: spot.key };
+        if (eventTravel[id]?.key !== spot.key)
+          eventTravel[id] = { minutes: spot.minutes, key: spot.key };
       return refresh(
         { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
         now,

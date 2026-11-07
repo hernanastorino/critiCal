@@ -289,6 +289,21 @@ describe("places", () => {
     );
   });
 
+  it("replaces minutes kept for an older address when the new one is deleted, and undoes it", () => {
+    const stale = { minutes: 20, key: "viejo lugar" };
+    const spot = { key: "nuevo lugar", text: "Nuevo lugar", minutes: 30, manual: true };
+    const d = data({
+      events: [event("x", "Inglés", 10, "Nuevo lugar")],
+      spots: [spot],
+      eventTravel: { x: stale },
+    });
+    const dropped = reducer(d, { type: "dropSpotAddress", key: "nuevo lugar", now: NOW });
+    expect(dropped.eventTravel).toEqual({ x: { minutes: 30, key: "nuevo lugar" } });
+    const back = reducer(dropped, { type: "restoreSpot", spot, before: { x: stale }, now: NOW });
+    expect(back.eventTravel).toEqual({ x: stale });
+    expect(back.spots).toEqual([spot]);
+  });
+
   it("drops kept minutes once the event moves, and keeps real «event:» addresses", () => {
     const kept = { x: { minutes: 20, key: "instituto anglo" } };
     const moved = data({ events: [event("x", "Inglés", 10, "Otro lado")], eventTravel: kept });
