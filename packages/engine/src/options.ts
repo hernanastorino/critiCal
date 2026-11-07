@@ -96,18 +96,15 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
       );
       return { next, result: schedule(next) };
     };
-    // Whole days back from the current start; feasibility only grows going back.
+    // Latest day first: the first that fits is the least change (feasibility need not
+    // grow monotonically going back, so every day is tried). Right away is the last try.
     const days = Math.ceil((from - input.now) / day);
-    let lo = 0; // days back known not to fit (0 is the current start)
-    let hi = days; // days back known to fit (all the way to now)
-    const atNow = feasibleAt(input.now);
-    if (!atNow.result.feasible) continue;
-    while (hi - lo > 1) {
-      const mid = Math.floor((lo + hi) / 2);
-      if (feasibleAt(from - mid * day).result.feasible) hi = mid;
-      else lo = mid;
+    let at: number | undefined;
+    for (let back = 1; back < days && at === undefined; back++) {
+      if (feasibleAt(from - back * day).result.feasible) at = from - back * day;
     }
-    const at = hi >= days ? input.now : from - hi * day;
+    if (at === undefined && feasibleAt(input.now).result.feasible) at = input.now;
+    if (at === undefined) continue;
     const { next, result: r } = feasibleAt(at);
     options.push({
       id: `start-earlier:${t.id}`,
