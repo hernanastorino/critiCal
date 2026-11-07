@@ -1810,9 +1810,24 @@ input[type="datetime-local"] {
 }
 
 /* A block sits in a clipped grid: ring inside, so the neighbour does not hide it. */
-.pill:focus-visible {
+/* Above every state a block can be in (past, meal over a fixed event, pinned, critical mode). */
+.pill:focus-visible,
+.pill.meal:focus-visible,
+.pill.planned:focus-visible,
+.week.critical-mode .pill:focus-visible {
+  outline: 2px solid var(--focus);
   outline-offset: -2px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+  opacity: 1;
   z-index: 5;
+}
+
+@media (forced-colors: active) {
+  .pill:focus-visible,
+  .pill.meal:focus-visible,
+  .pill.planned:focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 input:focus-visible,

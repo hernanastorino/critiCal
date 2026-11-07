@@ -70,6 +70,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const el = box.current;
     hover.current = !!current && !!el && el.matches(":hover");
     focus.current = !!current && !!el && el.contains(document.activeElement);
+    if (!focus.current) cameFrom.current = null;
     if (current && !(hover.current || focus.current)) startTimer(current);
   }, [current, startTimer]);
   useEffect(() => () => clearTimeout(timer.current), []);
@@ -99,8 +100,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               onFocus={(e) => {
                 focus.current = true;
                 const from = e.relatedTarget;
-                if (from instanceof HTMLElement && !e.currentTarget.contains(from)) {
-                  cameFrom.current = from;
+                if (!(from instanceof HTMLElement && e.currentTarget.contains(from))) {
+                  cameFrom.current = from instanceof HTMLElement ? from : null;
                 }
               }}
               onBlur={() => release(focus)}

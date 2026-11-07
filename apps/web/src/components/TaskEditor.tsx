@@ -383,7 +383,8 @@ export function TaskEditor({
                   value={unitTitle}
                   onChange={(e) => setUnitTitle(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key !== "Enter") return;
+                    // Enter that confirms an IME character is not «add».
+                    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
                     e.preventDefault();
                     addUnit();
                   }}
