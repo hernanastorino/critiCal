@@ -371,6 +371,9 @@ const refocus = (id: string) =>
 function SpotRow({ spot }: { spot: Spot }) {
   const { data, dispatch } = useStore();
   const toast = useToast();
+  // «Eliminar lugar» keeps the minutes on the events that use it: with none, it would
+  // just forget them, so it is not offered.
+  const keepable = spot.minutes !== undefined && eventsAt(data, spot.key).length > 0;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -419,7 +422,7 @@ function SpotRow({ spot }: { spot: Spot }) {
           >
             Guardar como lugar
           </button>
-          {spot.minutes !== undefined && (
+          {keepable && (
             <button
               type="button"
               className="btn small"
@@ -459,7 +462,7 @@ function SpotRow({ spot }: { spot: Spot }) {
           </button>
         </div>
       )}
-      {spot.minutes !== undefined && !naming && (
+      {keepable && !naming && (
         <p className="meta" style={{ width: "100%", margin: 0 }}>
           «Eliminar lugar» borra la dirección y deja los {spot.minutes} min en el evento. «Olvidar»
           borra las dos cosas.
