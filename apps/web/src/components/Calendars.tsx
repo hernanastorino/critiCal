@@ -113,7 +113,11 @@ export function Calendars() {
             action={
               googleFix === "reconnect"
                 ? { label: "Reconectar Google", onClick: sync.reconnectGoogle }
-                : { label: "Reintentar", onClick: retry, disabled: status.busy }
+                : {
+                    label: status.busy ? "Sincronizando…" : "Reintentar",
+                    onClick: retry,
+                    disabled: status.busy,
+                  }
             }
           >
             {describe(status.google, tz, status.google?.at)}
@@ -125,9 +129,11 @@ export function Calendars() {
         )}
         {status.busy && status.google && <Wait label="Sincronizando Google e iCloud" />}
         <div className="row">
-          <button type="button" className="btn small" disabled={status.busy} onClick={retry}>
-            {status.busy ? "Sincronizando…" : "Sincronizar ahora"}
-          </button>
+          {googleFix !== "retry" && (
+            <button type="button" className="btn small" disabled={status.busy} onClick={retry}>
+              {status.busy ? "Sincronizando…" : "Sincronizar ahora"}
+            </button>
+          )}
           {!status.google?.connected && !googleFix && (
             <button type="button" className="btn small" onClick={sync.reconnectGoogle}>
               Reconectar Google
