@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Escalera de Jacob toon</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: style picker on top (the same cascade in the 3 styles), then every case in the chosen style,
+   then three phones in context, then the choice sheet that produces a summary to paste in the chat.
+   Deck chrome has its own palette; phones use critiCal's tokens; blocks use per-style palettes. */
+:root {
+  --paper: #eceae6;
+  --panel: #f8f7f5;
+  --ink: #1d1c1a;
+  --ink-soft: #66625c;
+  --rule: rgba(29, 28, 26, 0.14);
+  --accent: #e0262e;
+  --outline: #1c1c1e;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --a-bg: #f3f3f4; --a-surface: #ffffff; --a-line: rgba(60, 60, 67, 0.12);
+  --a-ink: #1c1c1e; --a-soft: #6c6c72; --a-critical: #e0262e; --a-ok: #12a150; --a-frame: #1d1d1f;
+  --skel: rgba(60, 60, 67, 0.09);
+  --floor: rgba(29, 28, 26, 0.18);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #17171a; --panel: #202024; --ink: #efede9; --ink-soft: #a29e97;
+    --rule: rgba(239, 237, 233, 0.14); --accent: #ff5a5f;
+    --a-bg: #12141a; --a-surface: #1c1f27; --a-line: rgba(235, 235, 245, 0.1);
+    --a-ink: #f2f2f4; --a-soft: #9a9aa3; --a-critical: #ff4d55; --a-ok: #34c773; --a-frame: #3a3a3e;
+    --skel: rgba(235, 235, 245, 0.08); --floor: rgba(0, 0, 0, 0.45);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #17171a; --panel: #202024; --ink: #efede9; --ink-soft: #a29e97;
+  --rule: rgba(239, 237, 233, 0.14); --accent: #ff5a5f;
+  --a-bg: #12141a; --a-surface: #1c1f27; --a-line: rgba(235, 235, 245, 0.1);
+  --a-ink: #f2f2f4; --a-soft: #9a9aa3; --a-critical: #ff4d55; --a-ok: #34c773; --a-frame: #3a3a3e;
+  --skel: rgba(235, 235, 245, 0.08); --floor: rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body); margin: 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 32px 64px;
+}
+main { max-width: 1120px; margin: 0 auto; display: grid; gap: 56px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(30px, 5vw, 48px); line-height: 1.05; }
+h2 { font-size: clamp(22px, 3vw, 30px); }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+.soft { color: var(--ink-soft); }
+header, section { display: grid; gap: 14px; }
+button, select { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- 3D ladder ---------- */
+.scene { position: relative; height: 230px; perspective: 900px; overflow: hidden; --s: 0.85; }
+.scene::after {
+  content: ""; position: absolute; left: 20%; right: 20%; bottom: 12px; height: 18px;
+  background: radial-gradient(closest-side, var(--floor), transparent); pointer-events: none;
+}
+.stage {
+  position: absolute; left: 50%; top: 46%; width: 0; height: 0; transform-style: preserve-3d;
+  transform: scale(calc(var(--s) * var(--k, 1))) rotateX(-16deg) rotateY(-30deg);
+}
+.blk {
+  --w: 44px; --h: 58px; --d: 8px;
+  position: absolute; left: 0; top: 0; width: 0; height: 0; transform-style: preserve-3d;
+  transition-property: transform; transition-timing-function: var(--ease);
+}
+.flip { position: absolute; transform-style: preserve-3d; }
+.f { position: absolute; left: 0; top: 0; backface-visibility: hidden; }
+.fr, .bk { width: var(--w); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2); }
+.fr { transform: translateZ(calc(var(--d) / 2)); background: var(--front); }
+.bk { transform: rotateY(180deg) translateZ(calc(var(--d) / 2)); background: var(--back); }
+.rt, .lf { width: var(--d); height: var(--h); margin: calc(var(--h) / -2) 0 0 calc(var(--d) / -2); background: var(--side); }
+.rt { transform: rotateY(90deg) translateZ(calc(var(--w) / 2)); }
+.lf { transform: rotateY(-90deg) translateZ(calc(var(--w) / 2)); }
+.tp, .bt { width: var(--w); height: var(--d); margin: calc(var(--d) / -2) 0 0 calc(var(--w) / -2); background: var(--top); }
+.tp { transform: rotateX(90deg) translateZ(calc(var(--h) / 2)); }
+.bt { transform: rotateX(-90deg) translateZ(calc(var(--h) / 2)); }
+
+.blk:nth-child(1) { --c: var(--p1); --r1: var(--q1); --r2: var(--q2); }
+.blk:nth-child(2) { --c: var(--p2); --r1: var(--q2); --r2: var(--q3); }
+.blk:nth-child(3) { --c: var(--p3); --r1: var(--q3); --r2: var(--q1); }
+.blk:nth-child(4) { --c: var(--p4); --r1: var(--q1); --r2: var(--q3); }
+.blk:nth-child(5) { --c: var(--p5); --r1: var(--q2); --r2: var(--q1); }
+.blk:nth-child(6) { --c: var(--p6); --r1: var(--q3); --r2: var(--q2); }
+
+/* A · Madera pintada: the real toy. Saturated wood, ribbons, grain, two-tone cel shading. */
+.scene[data-style="A"] {
+  --ease: cubic-bezier(.55, 0, .25, 1.3);
+  --p1: #e5246f; --p2: #6d2a8e; --p3: #ea3f7c; --p4: #f2bd1d; --p5: #1fa88a; --p6: #e5246f;
+  --q1: #f7d64a; --q2: #4fc3e8; --q3: #f59bb8;
+}
+.scene[data-style="A"] .blk {
+  --grain: repeating-linear-gradient(0deg, rgba(0,0,0,.05) 0 1px, transparent 1px 4px);
+  --front: var(--grain), linear-gradient(90deg, transparent 24%, var(--r1) 24% 34%, transparent 34% 62%, var(--r2) 62% 72%, transparent 72%), linear-gradient(160deg, var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000) 55%);
+  --back: var(--grain), linear-gradient(90deg, transparent 42%, var(--r1) 42% 58%, transparent 58%), color-mix(in srgb, var(--c) 90%, #000);
+  --side: color-mix(in srgb, var(--c) 62%, #000);
+  --top: color-mix(in srgb, var(--c) 75%, #fff);
+}
+/* B · Tinta: critiCal's own line language. Flat app colors, 2 px outline, hard shadow. */
+.scene[data-style="B"] {
+  --ease: cubic-bezier(.7, 0, .3, 1);
+  --p1: #e0262e; --p2: #f3f3f4; --p3: #d9822b; --p4: #f3f3f4; --p5: #12a150; --p6: #1c1c1e;
+  --q1: #1c1c1e; --q2: #1c1c1e; --q3: #ffffff;
+}
+.scene[data-style="B"] .blk {
+  --front: linear-gradient(90deg, transparent 47%, var(--r1) 47% 53%, transparent 53%), var(--c);
+  --back: linear-gradient(0deg, transparent 47%, var(--r1) 47% 53%, transparent 53%), var(--c);
+  --side: var(--outline); --top: color-mix(in srgb, var(--c) 70%, #fff);
+}
+.scene[data-style="B"] .blk:nth-child(6) { --r1: #fff; }
+.scene[data-style="B"] .fr, .scene[data-style="B"] .bk { border: 2px solid var(--outline); }
+.scene[data-style="B"] .tp, .scene[data-style="B"] .bt { border: 2px solid var(--outline); }
+.scene[data-style="B"]::after { left: 30%; right: 30%; height: 8px; bottom: 18px; background: var(--floor); border-radius: 4px; }
+/* C · Caramelo: soft rounded candy, glossy highlight, bouncy spring. */
+.scene[data-style="C"] {
+  --ease: cubic-bezier(.34, 1.56, .64, 1);
+  --p1: #ff8fb1; --p2: #b69cff; --p3: #ffb86b; --p4: #ffe07a; --p5: #7fe0c2; --p6: #8fc7ff;
+  --q1: rgba(255,255,255,.75); --q2: rgba(255,255,255,.5); --q3: rgba(255,255,255,.6);
+}
+.scene[data-style="C"] .blk {
+  --front: radial-gradient(120% 70% at 25% 12%, rgba(255,255,255,.75), transparent 45%), linear-gradient(90deg, transparent 30%, var(--r1) 30% 40%, transparent 40%), linear-gradient(180deg, var(--c), color-mix(in srgb, var(--c) 78%, #7a3cff));
+  --back: radial-gradient(120% 70% at 75% 12%, rgba(255,255,255,.6), transparent 45%), color-mix(in srgb, var(--c) 85%, #7a3cff);
+  --side: color-mix(in srgb, var(--c) 70%, #7a3cff); --top: color-mix(in srgb, var(--c) 60%, #fff);
+}
+.scene[data-style="C"] .fr, .scene[data-style="C"] .bk { border-radius: 11px; }
+.scene[data-style="C"] .rt, .scene[data-style="C"] .lf { border-radius: 4px; height: calc(var(--h) - 12px); margin-top: calc(var(--h) / -2 + 6px); }
+
+/* ---------- style picker ---------- */
+.styles { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+.style-card {
+  display: grid; gap: 8px; text-align: left; padding: 14px; cursor: pointer;
+  background: var(--panel); border: 1.5px solid var(--rule); border-radius: 14px;
+}
+.style-card[aria-pressed="true"] { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+.style-card b { font: 600 18px/1.2 var(--display); }
+.style-card .scene { height: 260px; --s: 0.8; }
+.tag { font: 500 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--ink-soft); }
+
+/* ---------- cases ---------- */
+.cases { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 16px; }
+.case { background: var(--panel); border: 1px solid var(--rule); border-radius: 14px; padding: 12px 14px 16px; display: grid; gap: 6px; align-content: start; }
+.case h3 { margin: 0; font: 600 16px/1.25 var(--body); }
+.case .scene { --s: 0.62; height: 210px; }
+.case p { font-size: 14px; }
+.case .say { font-size: 13.5px; border-left: 2px solid var(--rule); padding-left: 10px; color: var(--ink-soft); }
+.sticky {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper);
+  padding-block: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+}
+.seg { margin: 0; min-width: 0; display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--panel); }
+.seg button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+
+/* ---------- phones ---------- */
+.phones { display: flex; flex-wrap: wrap; gap: 24px; justify-content: center; }
+.phone {
+  width: 236px; height: 480px; border-radius: 38px; border: 9px solid var(--a-frame);
+  background: var(--a-bg); color: var(--a-ink); overflow: hidden; display: flex; flex-direction: column;
+  font: 13px/1.4 -apple-system, "SF Pro Text", var(--body);
+}
+.phone .top { padding: 18px 16px 6px; display: flex; justify-content: space-between; align-items: baseline; }
+.phone .top b { font-size: 22px; letter-spacing: -0.02em; }
+.phone .top span { color: var(--a-soft); font-size: 12px; }
+.phone .scene { --s: 0.5; height: 150px; }
+.sk { height: 40px; border-radius: 10px; background: var(--skel); margin: 6px 16px; }
+.sk.short { width: 55%; height: 14px; }
+.wait { text-align: center; color: var(--a-soft); font-size: 12.5px; padding: 0 16px; font-variant-numeric: tabular-nums; }
+.sheet { margin-top: auto; background: var(--a-surface); border-radius: 18px 18px 0 0; padding: 4px 14px 16px; display: grid; gap: 8px; border-top: 1px solid var(--a-line); }
+.sheet h4 { margin: 0; font-size: 15px; }
+.sheet p { color: var(--a-soft); font-size: 12.5px; }
+.btn { border-radius: 10px; padding: 9px; text-align: center; font-weight: 600; font-size: 13px; background: var(--a-bg); }
+.btn.pri { background: var(--a-critical); color: #fff; }
+.btn.ok { background: var(--a-ok); color: #fff; }
+
+/* ---------- choice ---------- */
+.choice { background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 18px; display: grid; gap: 14px; }
+.rows { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 24px; }
+.row { display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: center; border-bottom: 1px solid var(--rule); padding-block: 6px; }
+.row label { font-size: 14px; }
+select { background: var(--paper); border: 1px solid var(--rule); border-radius: 8px; padding: 5px 8px; max-width: 160px; }
+textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); background: var(--paper); color: var(--ink); border: 1px solid var(--rule); border-radius: 10px; padding: 10px; resize: vertical; }
+.copy { justify-self: start; border: 0; background: var(--ink); color: var(--paper); border-radius: 10px; padding: 9px 16px; cursor: pointer; font-weight: 600; }
+.refs { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px 20px; font-size: 14px; }
+.refs div { border-top: 1px solid var(--rule); padding-top: 8px; }
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow">critiCal · SPEC §18.1 · bocetos para elegir</span>
+    <h1>Roy, la escalera de Jacob en toon 3D</h1>
+    <p>En vez de una mascota, el personaje es Roy, el juguete de tus fotos: seis tablitas unidas con cintas. Cuando la app espera, la tabla de arriba se da vuelta y el golpe baja tablita por tablita. Para cada situación arma otra forma. Elegí un estilo y, abajo, qué animación va en cada caso.</p>
+  </header>
+
+  <section aria-labelledby="h-estilos">
+    <span class="eyebrow">1 · Estilo</span>
+    <h2 id="h-estilos">Tres maneras de dibujarla</h2>
+    <p class="soft">La misma animación de carga en los tres. Tocá uno para ver todo lo demás en ese estilo.</p>
+    <div class="styles" id="styles"></div>
+  </section>
+
+  <section aria-labelledby="h-casos">
+    <span class="eyebrow">2 · Animaciones</span>
+    <h2 id="h-casos">Una forma para cada caso</h2>
+    <div class="sticky">
+      <span class="tag">Viendo</span>
+      <fieldset class="seg" id="seg" aria-label="Estilo"></fieldset>
+      <span class="soft" id="rm" hidden>Tu sistema pide reducir movimiento: se muestra cada forma quieta.</span>
+    </div>
+    <div class="cases" id="cases"></div>
+  </section>
+
+  <section aria-labelledby="h-app">
+    <span class="eyebrow">3 · En la app</span>
+    <h2 id="h-app">Cómo se vería en el iPhone</h2>
+    <div class="phones">
+      <div class="phone">
+        <div class="top"><b>Hoy</b><span>sáb 7 nov</span></div>
+        <div class="sk short"></div><div class="sk"></div>
+        <div class="scene" data-case="sync"></div>
+        <p class="wait">Sincronizando calendarios · 2 de 3</p>
+        <div class="sk"></div><div class="sk"></div>
+      </div>
+      <div class="phone">
+        <div class="top"><b>Bandeja</b><span>1</span></div>
+        <div class="sk"></div>
+        <div class="sheet">
+          <div class="scene" data-case="lugar"></div>
+          <h4>El parcial de ADD no entra esta semana</h4>
+          <p>El martes se llenó de eventos. Pasa en las mejores familias. Elegí una salida:</p>
+          <div class="btn pri">Reacomodar hoy</div>
+          <div class="btn">Bajar a 4 h esta semana</div>
+        </div>
+      </div>
+      <div class="phone">
+        <div class="top"><b>Semana</b><span>2 – 8 nov</span></div>
+        <div class="sk"></div><div class="sk"></div>
+        <div class="sheet">
+          <div class="scene" data-case="ok"></div>
+          <h4>Recuperaste los dos bloques del lunes</h4>
+          <p>El parcial vuelve a tener 1 h 30 de margen. Bien ahí.</p>
+          <div class="btn ok">Ver la semana</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-elegir">
+    <span class="eyebrow">4 · Tu elección</span>
+    <h2 id="h-elegir">Armá la combinación</h2>
+    <div class="choice">
+      <div class="rows" id="rows"></div>
+      <label for="sum" class="tag">Resumen para pegarle a Claude</label>
+      <textarea id="sum" readonly></textarea>
+      <button class="copy" id="copy" type="button">Copiar resumen</button>
+    </div>
+  </section>
+
+  <section aria-labelledby="h-refs">
+    <span class="eyebrow">De dónde sale cada forma</span>
+    <h2 id="h-refs" style="font-size:20px">Tus fotos y videos</h2>
+    <div class="refs">
+      <div><b>Cascada</b><br><span class="soft">Videos colgando: la tabla de arriba gira y el golpe baja.</span></div>
+      <div><b>Festejo</b><br><span class="soft">Foto del muñequito con los brazos en X.</span></div>
+      <div><b>Puente</b><br><span class="soft">Foto del arco sobre la mano.</span></div>
+      <div><b>Reposo y oruga</b><br><span class="soft">Video en el sillón: acostada, una punta se levanta.</span></div>
+    </div>
+  </section>
+</main>
+
+<script>
+(() => {
+  const N = 6, P = 61;
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const STYLES = {
+    A: { name: "Madera pintada", note: "El juguete tal cual: madera saturada, cintas, veta y sombra en dos tonos. Cálida y artesanal." },
+    B: { name: "Tinta", note: "El lenguaje de la app: colores de critiCal, contorno de 2 px, sombra dura. Sobria, se integra sola." },
+    C: { name: "Caramelo", note: "Tablitas redondeadas y brillosas, resorte con rebote. La más juguetona." },
+  };
+
+  // Poses: per block {x, y, r (rotateZ), f (rotateX flip), z}
+  const V = [...Array(N)].map((_, i) => ({ x: 0, y: (i - 2.5) * P, r: 0 }));
+  const flat = (dy = 52) => [...Array(N)].map((_, i) => ({ x: (i - 2.5) * 60, y: dy, r: 90 }));
+  const F1 = [{x:0,y:-74,r:0},{x:-42,y:-60,r:-42},{x:42,y:-60,r:42},{x:0,y:-6,r:0},{x:-18,y:58,r:10},{x:18,y:58,r:-10}];
+  const F2 = [{x:0,y:-92,r:0},{x:-34,y:-90,r:-18,f:360},{x:34,y:-90,r:18,f:360},{x:0,y:-22,r:0},{x:-26,y:40,r:26},{x:26,y:40,r:-26}];
+  const S1 = [{x:0,y:-70,r:0},{x:-34,y:-6,r:32},{x:34,y:-6,r:-32},{x:0,y:-4,r:0},{x:-12,y:58,r:0},{x:12,y:58,r:0}];
+  const S2 = [{x:0,y:-60,r:-9},{x:-44,y:-30,r:72},{x:44,y:-30,r:-72},{x:0,y:-4,r:0},{x:-12,y:58,r:0},{x:12,y:58,r:0}];
+  const HEAP = [{x:2,y:6,r:18},{x:-28,y:42,r:96},{x:28,y:42,r:84},{x:-58,y:82,r:90},{x:0,y:84,r:92},{x:58,y:82,r:88}];
+  const HEAP2 = HEAP.map((b, i) => i === 0 ? { x: -4, y: 8, r: -16 } : b);
+  const BR = [{x:-92,y:30,r:0},{x:-60,y:-8,r:90},{x:0,y:-8,r:90},{x:60,y:-8,r:90},{x:92,y:30,r:0},{x:112,y:38,r:-12}];
+  const BR2 = BR.map((b, i) => i === 2 ? { ...b, y: 6, r: 90 } : i === 1 ? { ...b, y: -2, r: 98 } : i === 3 ? { ...b, y: -2, r: 82 } : b);
+  const Z = [...Array(N)].map((_, i) => ({ x: i % 2 ? 7 : -7, y: (i - 2.5) * 13, r: i % 2 ? 78 : -78, f: 0 }));
+  const REST = flat(46);
+  const REST2 = REST.map((b, i) => i === 5 ? { x: b.x - 4, y: 30, r: 62 } : b);
+  const wave = k => flat(46).map((b, i) => i === k ? { ...b, y: 18, r: 90 } : Math.abs(i - k) === 1 ? { ...b, y: 32, r: i < k ? 66 : 114 } : b);
+
+  // Sequences: steps of {pose, dur, hold, stagger}; sig = pose shown with reduced motion
+  const ANIMS = {
+    cascada:   { name: "Cascada", cascade: { bounce: false } , pose: V },
+    vayvuelve: { name: "Va y vuelve", cascade: { bounce: true }, pose: V },
+    acordeon:  { name: "Acordeón", seq: [[V, 500, 350, 40], [Z, 650, 500, 60]], sig: Z },
+    oruga:     { name: "Oruga", k: 0.66, seq: [...Array(N)].map((_, k) => [wave(k), 230, 0, 0]).concat([[flat(46), 260, 300, 0]]), sig: wave(2) },
+    festejo:   { name: "Festejo", seq: [[V, 500, 250, 0], [F1, 600, 220, 30], [F2, 380, 120, 0], [F1, 360, 120, 0], [F2, 380, 120, 0], [F1, 360, 900, 0]], sig: F1 },
+    hombros:   { name: "Hombros", seq: [[S1, 500, 600, 0], [S2, 340, 700, 0], [S1, 340, 900, 0]], sig: S2 },
+    desarmado: { name: "Desarmado", seq: [[V, 500, 500, 0], [HEAP, 520, 300, 70], [HEAP2, 300, 300, 0], [HEAP, 300, 1200, 0]], sig: HEAP },
+    puente:    { name: "Puente", k: 0.665, seq: [[BR, 500, 300, 0], [BR2, 420, 250, 0], [BR, 380, 250, 0], [BR2, 420, 250, 0], [BR, 380, 900, 0]], sig: BR2 },
+    reposo:    { name: "Reposo", k: 0.665, seq: [[REST, 700, 1400, 0], [REST2, 500, 500, 0], [REST, 380, 900, 0]], sig: REST },
+    quieto:    { name: "Quieta (sin animación)", seq: [[V, 300, 99999, 0]], sig: V },
+  };
+
+  const CASES = [
+    { id: "carga", t: "Cargando", def: "cascada", when: "Cualquier espera de más de 1 s.", say: "Cargando tu semana…" },
+    { id: "sync", t: "Sincronizando", def: "vayvuelve", when: "Google e iCloud: ida y vuelta.", say: "Sincronizando calendarios · 2 de 3" },
+    { id: "ia", t: "La IA piensa", def: "acordeon", when: "Gemini arma o reacomoda el plan.", say: "Doblando y desdoblando tu semana…" },
+    { id: "tras", t: "Calculando traslados", def: "oruga", when: "Mapas y, más adelante, ómnibus.", say: "Calculando traslados 3 de 8…" },
+    { id: "ok", t: "Me recuperé · todo hecho", def: "festejo", when: "Recuperé bloques o cerré una entrega.", say: "Recuperaste los dos bloques del lunes. Bien ahí." },
+    { id: "nollego", t: "No llego · salteé bloques", def: "hombros", when: "Sin culpa, con la salida al lado.", say: "Pasa en las mejores familias. ¿Reacomodamos hoy?" },
+    { id: "error", t: "Falla la sync", def: "desarmado", when: "Google no contesta (Reintentar) o venció la conexión (Reconectar).", say: "Se le desarmó Roy. Google no contesta: reintentá en un rato y lo armamos." },
+    { id: "lugar", t: "No hay lugar", def: "puente", when: "El plan no entra en la semana (§5.6).", say: "Esto no entra ni haciendo fuerza. Elegí qué ceder." },
+    { id: "vacio", t: "Nada para hoy", def: "reposo", when: "Día libre o lista vacía.", say: "Hoy no hay nada. Roy se acuesta y vos también." },
+  ];
+
+  const timers = new WeakMap();
+
+  function build(scene) {
+    scene.innerHTML = `<div class="stage">${'<div class="blk"><div class="flip"><i class="f fr"></i><i class="f bk"></i><i class="f rt"></i><i class="f lf"></i><i class="f tp"></i><i class="f bt"></i></div></div>'.repeat(N)}</div>`;
+    return [...scene.querySelectorAll(".blk")];
+  }
+  const tf = b => `translate3d(${b.x}px,${b.y}px,${b.z || 0}px) rotateZ(${b.r}deg) rotateX(${b.f || 0}deg)`;
+  function setPose(blks, pose, dur, stagger) {
+    blks.forEach((el, i) => {
+      el.style.transitionDuration = `${dur}ms`;
+      el.style.transitionDelay = `${stagger * i}ms`;
+      el.style.transform = tf(pose[i]);
+    });
+  }
+  const easings = { A: "cubic-bezier(.55,0,.25,1.3)", B: "cubic-bezier(.7,0,.3,1)", C: "cubic-bezier(.34,1.56,.64,1)" };
+
+  function play(scene, key, style) {
+    clearTimeout(timers.get(scene));
+    scene.getAnimations({ subtree: true }).forEach((a) => {
+      a.cancel();
+    });
+    scene.dataset.style = style;
+    const a = ANIMS[key];
+    scene.style.setProperty("--k", a.k || 1);
+    const blks = build(scene);
+    if (a.cascade) {
+      setPose(blks, a.pose, 0, 0);
+      if (reduce) return;
+      const period = 2400, step = 110, fd = 0.13;
+      blks.forEach((el, i) => {
+        const a1 = i * step / period, b1 = 0.5 + (a.cascade.bounce ? N - 1 - i : i) * step / period;
+        el.firstChild.animate([
+          { offset: 0, transform: "rotateX(0deg)" },
+          { offset: a1, transform: "rotateX(0deg)", easing: easings[style] },
+          { offset: a1 + fd, transform: "rotateX(-180deg)" },
+          { offset: b1, transform: "rotateX(-180deg)", easing: easings[style] },
+          { offset: b1 + fd, transform: "rotateX(-360deg)" },
+          { offset: 1, transform: "rotateX(-360deg)" },
+        ], { duration: period, iterations: Infinity });
+      });
+      return;
+    }
+    if (reduce) { setPose(blks, a.sig, 0, 0); return; }
+    setPose(blks, a.seq[0][0], 0, 0);
+    let k = 0;
+    const next = () => {
+      k = (k + 1) % a.seq.length;
+      const [pose, dur, hold, stagger] = a.seq[k];
+      setPose(blks, pose, dur, stagger);
+      timers.set(scene, setTimeout(next, dur + stagger * N + hold));
+    };
+    timers.set(scene, setTimeout(next, a.seq[0][2] + 200));
+  }
+
+  // State
+  const load = () => { try { return JSON.parse(localStorage.getItem("toon-choice")) || {}; } catch { return {}; } };
+  const saved = load();
+  const has = (o, k) => typeof k === "string" && Object.hasOwn(o, k);
+  const state = { style: has(STYLES, saved.style) ? saved.style : "A", pick: Object.fromEntries(CASES.map(c => [c.id, has(ANIMS, saved.pick?.[c.id]) ? saved.pick[c.id] : c.def])) };
+  const save = () => { try { localStorage.setItem("toon-choice", JSON.stringify(state)); } catch {} };
+
+  // 1 · style cards
+  const stylesEl = document.getElementById("styles");
+  for (const [k, s] of Object.entries(STYLES)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.className = "style-card"; b.dataset.k = k;
+    b.innerHTML = `<span class="tag">Estilo ${k}</span><b>${s.name}</b><div class="scene"></div><span class="soft">${s.note}</span>`;
+    b.onclick = () => setStyle(k);
+    stylesEl.append(b);
+    play(b.querySelector(".scene"), "cascada", k);
+  }
+  const seg = document.getElementById("seg");
+  for (const [k, s] of Object.entries(STYLES)) {
+    const b = document.createElement("button");
+    b.type = "button"; b.textContent = `${k} · ${s.name}`; b.dataset.k = k;
+    b.onclick = () => setStyle(k);
+    seg.append(b);
+  }
+  document.getElementById("rm").hidden = !reduce;
+
+  // 2 · cases
+  const casesEl = document.getElementById("cases");
+  for (const c of CASES) {
+    const el = document.createElement("article");
+    el.className = "case"; el.dataset.id = c.id;
+    el.innerHTML = `<div class="scene"></div><h3>${c.t}</h3><span class="tag" data-name></span><p class="soft">${c.when}</p><p class="say">«${c.say}»</p>`;
+    casesEl.append(el);
+  }
+
+  // 4 · choice rows
+  const rows = document.getElementById("rows");
+  const sel = (id, label, opts, val, on) => {
+    const r = document.createElement("div"); r.className = "row";
+    r.innerHTML = `<label for="${id}">${label}</label><select id="${id}">${opts.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>`;
+    const s = r.querySelector("select"); s.value = val; s.onchange = () => on(s.value);
+    rows.append(r); return s;
+  };
+  const styleSel = sel("pick-style", "Estilo", Object.entries(STYLES).map(([k, s]) => [k, `${k} · ${s.name}`]), state.style, v => setStyle(v));
+  for (const c of CASES) {
+    sel(`pick-${c.id}`, c.t, Object.entries(ANIMS).map(([k, a]) => [k, a.name]), state.pick[c.id], v => { state.pick[c.id] = v; renderCase(c); renderPhones(); renderSum(); save(); });
+  }
+
+  function renderCase(c) {
+    const el = casesEl.querySelector(`[data-id="${c.id}"]`);
+    el.querySelector("[data-name]").textContent = ANIMS[state.pick[c.id]].name;
+    play(el.querySelector(".scene"), state.pick[c.id], state.style);
+  }
+  function renderPhones() {
+    for (const s of document.querySelectorAll(".phone .scene")) play(s, state.pick[s.dataset.case], state.style);
+  }
+  function renderSum() {
+    const lines = [`Estilo: ${state.style} · ${STYLES[state.style].name}`].concat(CASES.map(c => `${c.t}: ${ANIMS[state.pick[c.id]].name}`));
+    document.getElementById("sum").value = lines.join("\n");
+  }
+  function setStyle(k) {
+    state.style = k; styleSel.value = k; save();
+    for (const b of stylesEl.querySelectorAll(".style-card")) b.setAttribute("aria-pressed", b.dataset.k === k);
+    for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.k === k);
+    CASES.forEach(renderCase);
+    renderPhones();
+    renderSum();
+  }
+  document.getElementById("copy").onclick = async e => {
+    const t = document.getElementById("sum");
+    try { await navigator.clipboard.writeText(t.value); e.target.textContent = "Copiado"; }
+    catch { t.select(); e.target.textContent = "Seleccionado: copialo"; }
+    setTimeout(() => (e.target.textContent = "Copiar resumen"), 1800);
+  };
+  setStyle(state.style);
+})();
+</script>
+</html>
