@@ -175,13 +175,15 @@ textarea {
   flex: none;
 }
 
-.week-nav .icon-btn {
+.header .week-nav .icon-btn {
   width: 28px;
 }
 
+/* A fixed width for the longest range («28 dic – 3 ene»): the tools never shift. */
 .week-nav h1.range {
   flex: none;
-  padding: 0 2px;
+  width: clamp(96px, 30vw, 150px);
+  font-size: clamp(15px, 4.4vw, 22px);
 }
 
 .week-tools {
@@ -209,12 +211,12 @@ textarea {
 }
 
 @media (max-width: 359px) {
-  .week-tools .icon-btn {
+  .header .week-tools .icon-btn {
     width: 34px;
   }
 
-  .week-nav .icon-btn {
-    width: 24px;
+  .header .week-nav .icon-btn {
+    width: 28px;
   }
 }
 

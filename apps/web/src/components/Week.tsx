@@ -220,8 +220,15 @@ export function Week({
   const rangeEnd = zonedInstant(tz, dates[6] as string, 720);
   // Another year's week says which one, so it is never mistaken for this one.
   const rangeDays = dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd);
+  // Any part in another year names the years: «2026», or «2025–2026» across New Year.
+  const [startYear, endYear] = [dates[0] as string, dates[6] as string].map((d) => d.slice(0, 4));
+  const thisYear = today.slice(0, 4);
   const rangeYear =
-    (dates[6] as string).slice(0, 4) === today.slice(0, 4) ? "" : (dates[6] as string).slice(0, 4);
+    startYear === thisYear && endYear === thisYear
+      ? ""
+      : startYear === endYear
+        ? endYear
+        : `${startYear}–${endYear}`;
   const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
   const lastChange = data.planHistory?.at(-1)?.label;
 
