@@ -10,10 +10,26 @@ import {
   type PlanBlock,
   zonedInstant,
 } from "../engine.js";
-import { dayAndTime, dayRange, hours, time, weekdayShort } from "../format.js";
+import {
+  dayAndTime,
+  dayRange,
+  hhmmToMinutes,
+  hours,
+  minutesToHhmm,
+  time,
+  weekdayShort,
+} from "../format.js";
 import { lanes } from "../lanes.js";
 import type { AppEvent, PlanVersion } from "../model.js";
-import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
+import {
+  isPinned,
+  MEAL_NAMES,
+  mealTimes,
+  pinId,
+  progress,
+  wakingDay,
+  weekDates,
+} from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
@@ -268,6 +284,20 @@ export function Week({
       ).filter((m): m is MealBubble["meal"] => m.at !== null),
     [data, now, tz, firstDay],
   );
+  // Meals skipped for a day («Hoy no»), shown faint where they would be, to bring back.
+  const skipped = useMemo(() => {
+    const skips = (data.mealChoices ?? []).filter((c) => c.skip);
+    if (skips.length === 0) return [];
+    return mealTimes(
+      { ...data, mealChoices: (data.mealChoices ?? []).filter((c) => !c.skip) },
+      now,
+      zonedInstant(tz, firstDay, 0),
+      zonedInstant(tz, addDays(firstDay, 7), 0),
+    ).filter(
+      (m): m is MealBubble["meal"] =>
+        m.at !== null && skips.some((c) => c.date === m.date && c.kind === m.kind),
+    );
+  }, [data, now, tz, firstDay]);
 
   const colorOf = (b: PlanBlock) =>
     data.activities.find((a) => a.id === b.activityId)?.color ?? "#888";
@@ -572,6 +602,27 @@ export function Week({
           const lane = dayLanes(d);
           return (
             <div key={d} className="day" data-date={d}>
+              {skipped.map((m) => {
+                const style = position(d, m.at);
+                if (!style || !m.kind) return null;
+                const kind = m.kind;
+                return (
+                  <button
+                    key={`${d}-skip-${mealKey(m)}`}
+                    type="button"
+                    aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ${m.kind === "cena" || m.kind === "merienda" ? "ponerla" : "ponerlo"}`}
+                    className="pill meal skipped"
+                    style={style}
+                    onClick={() => {
+                      dispatch({ type: "mealChoice", date: m.date, kind });
+                      toaster.show(`${mealName(m)} otra vez a su hora`, {
+                        undo: () =>
+                          dispatch({ type: "mealChoice", date: m.date, kind, skip: true }),
+                      });
+                    }}
+                  />
+                );
+              })}
               {meals.map((m) => {
                 const key = mealKey(m);
                 const style = position(d, m.at, lane.get(`m:${key}`));
@@ -581,8 +632,8 @@ export function Week({
                   <button
                     key={`${d}-${key}`}
                     type="button"
-                    aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}${moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}`}
-                    className={`pill meal${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
+                    aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
+                    className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
                     style={style}
                     onClick={(e) => {
                       setBubble(null);
@@ -848,6 +899,7 @@ export function Week({
           />
           <MealCard
             bubble={mealBubble}
+            onClose={() => setMealBubble(null)}
             onSettings={() => {
               setMealBubble(null);
               // Meal times live in «Mi semana».
@@ -1049,28 +1101,162 @@ function BubbleCard({
   );
 }
 
-/** A meal's time, why it moved, and where to change it. */
-function MealCard({ bubble, onSettings }: { bubble: MealBubble; onSettings: () => void }) {
-  const { data } = useStore();
+/**
+ * A meal's time and why it is there; move it that day to any time, skip it that day
+ * («Hoy no»), or go to where its usual time is set.
+ */
+function MealCard({
+  bubble,
+  onClose,
+  onSettings,
+}: {
+  bubble: MealBubble;
+  onClose: () => void;
+  onSettings: () => void;
+}) {
+  const { data, now, dispatch } = useStore();
+  const toaster = useToast();
   const tz = data.settings.timezone;
   const { meal } = bubble;
+  const past = meal.at.end <= now;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [onClose]);
+  const kind = meal.kind;
+  const name = mealName(meal);
+  const [at, setAt] = useState(time(tz, meal.at.start));
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
-  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 150 : bubble.y + 14;
+  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 260 : bubble.y + 14;
+  // Within that day's waking hours, whole: a meal at 00:30 or one at 23:59 that runs
+  // past bedtime would fall off the calendar.
+  // As the planner sees that day: a holiday's routine, a late night's wake-up.
+  const { wake, bed } = wakingDay(data, now, meal.date);
+  const length = (meal.at.end - meal.at.start) / MINUTE;
+  // Minutes since that day's midnight: a time before waking up that still fits before
+  // bedtime is after midnight (00:30 in a day awake until 02:00 is 24:30).
+  const minuteOf = (hhmm: string) => {
+    const m = hhmmToMinutes(hhmm);
+    return m < wake && m + 1440 + length <= bed ? m + 1440 : m;
+  };
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const today = meal.date === localParts(tz, now).date;
+  const dayWord = today ? "Hoy" : `El ${weekdayShort(tz, meal.at.start)}`;
+  const choose = (choice: { start?: number; skip?: boolean }, said: string) => {
+    if (!kind) return;
+    const before = data.mealChoices?.find((c) => c.date === meal.date && c.kind === kind);
+    dispatch({ type: "mealChoice", date: meal.date, kind, ...choice });
+    onClose();
+    toaster.show(said, {
+      undo: () =>
+        dispatch({
+          type: "mealChoice",
+          date: meal.date,
+          kind,
+          ...(before?.skip
+            ? { skip: true }
+            : before?.start !== undefined
+              ? { start: before.start }
+              : {}),
+        }),
+    });
+  };
   return (
     <div className="bubble-card" style={{ left, top, ["--c" as string]: "var(--meal)" }}>
-      <button type="button" className="bubble" onClick={onSettings}>
-        <h3>{mealName(meal)}</h3>
+      <div className="bubble">
+        <h3>{name}</h3>
         <p>
           {dayAndTime(tz, meal.at.start)} – {time(tz, meal.at.end)}
         </p>
-        {meal.at.start !== meal.preferred.start && (
+        {meal.chosen ? (
+          <p>La pusiste vos a esta hora, solo este día.</p>
+        ) : meal.overlapping ? (
           <p>
-            Corrido de las {time(tz, meal.preferred.start)}: a esa hora hay algo fijo o un bloque
-            fijado.
+            No hay un rato libre cerca de las {time(tz, meal.preferred.start)}: quedó encima de lo
+            fijo. Dejala ahí o movela a cualquier hora.
           </p>
+        ) : (
+          meal.at.start !== meal.preferred.start && (
+            <p>
+              Se corrió de las {time(tz, meal.preferred.start)}: a esa hora hay algo fijo o un
+              bloque fijado.
+            </p>
+          )
         )}
-        <p className="more">Cambiar hora y duración ›</p>
-      </button>
+        {past && <p className="meta">Ya pasó: no se puede mover ni sacar.</p>}
+        {kind && !past && (
+          <>
+            <form
+              className="row fields"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (!at) return;
+                const start = minuteOf(at);
+                // The same time is no move.
+                if (zonedInstant(tz, meal.date, start) === meal.at.start) return onClose();
+                if (start < wake || start + length > bed) {
+                  setMoveError(
+                    `Elegí una hora entre las ${minutesToHhmm(wake)} y las ${minutesToHhmm(bed - length)}, cuando estás despierto.`,
+                  );
+                  return;
+                }
+                choose({ start }, `${name} a las ${at}, solo ese día`);
+              }}
+            >
+              <label style={{ flex: 1 }}>
+                <span className="meta">Mover a</span>
+                <input
+                  type="time"
+                  aria-label={`Mover ${name.toLowerCase()} a`}
+                  value={at}
+                  aria-invalid={moveError ? true : undefined}
+                  onChange={(e) => {
+                    setAt(e.target.value);
+                    setMoveError(null);
+                  }}
+                />
+              </label>
+              <button type="submit" className="btn small" disabled={!at}>
+                Mover
+              </button>
+            </form>
+            {moveError && (
+              <p className="meta" role="alert">
+                {moveError}
+              </p>
+            )}
+            <div className="row">
+              <button
+                type="button"
+                className="btn small"
+                onClick={() =>
+                  choose(
+                    { skip: true },
+                    `${dayWord} no ${name.toLowerCase()} · ${
+                      today ? "reacomodá hoy para usar ese rato" : "el plan usa ese rato"
+                    }`,
+                  )
+                }
+              >
+                {dayWord} no {name.toLowerCase()}
+              </button>
+              {meal.chosen && (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() => choose({}, `${name} vuelve a su hora de siempre`)}
+                >
+                  A su hora
+                </button>
+              )}
+            </div>
+          </>
+        )}
+        <button type="button" className="more link-btn" onClick={onSettings}>
+          Cambiar hora y duración de siempre ›
+        </button>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import type {
   Activity,
   CalendarEvent,
   DayOverride,
+  MealChoice,
   PlanBlock,
   Settings,
   StartAfter,
@@ -207,6 +208,8 @@ export interface AppData {
    * the event's `spotKey` then: if the event moves elsewhere, the minutes no longer apply.
    */
   eventTravel?: Record<string, EventTravel>;
+  /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
+  mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */

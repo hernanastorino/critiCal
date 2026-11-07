@@ -25,7 +25,7 @@ interface DayWindow {
   midnight: number;
   awake: Interval[];
   /** Preferred meal times; placed around fixed events by `placeMeal`. */
-  meals: (Interval & { kind?: MealKind })[];
+  meals: (Interval & { kind?: MealKind; chosen?: boolean })[];
   wakeAt: number;
   bedAt: number;
   freeFrom: number;
@@ -46,11 +46,20 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
     date,
     midnight: zonedInstant(tz, date, 0),
     awake: [{ start: plannableAt, end: bedAt }],
-    meals: base.meals.map((m) => ({
-      start: zonedInstant(tz, date, m.start),
-      end: zonedInstant(tz, date, m.end),
-      ...(m.kind ? { kind: m.kind } : {}),
-    })),
+    meals: base.meals.flatMap((m) => {
+      // The latest choice for that meal wins.
+      const choice = override?.meals?.findLast((c) => c.kind === m.kind);
+      if (choice?.skip) return [];
+      const start = choice?.start ?? m.start;
+      return [
+        {
+          start: zonedInstant(tz, date, start),
+          end: zonedInstant(tz, date, start + (m.end - m.start)),
+          ...(m.kind ? { kind: m.kind } : {}),
+          ...(choice?.start !== undefined ? { chosen: true } : {}),
+        },
+      ];
+    }),
     wakeAt,
     bedAt,
     freeFrom: zonedInstant(tz, date, base.freeFrom),
@@ -120,17 +129,45 @@ function placeDayMeals(
   busy: readonly Interval[],
   eaten: readonly MealEvent[],
 ): MealTime[] {
-  const taken: Interval[] = [...busy];
   // An event that is the meal, anywhere in the day (waking to bedtime), replaces it.
   const out = (kind?: MealKind) =>
     !!kind && eaten.some((e) => e.meal === kind && e.start < window.bedAt && window.wakeAt < e.end);
-  return window.meals.flatMap(({ kind, ...preferred }) => {
-    if (out(kind)) return [];
+  const meals = window.meals.filter((m) => !out(m.kind));
+  // Meals put somewhere by hand go first and stay there (over anything fixed); of two
+  // that overlap each other, the later one moves to right after the earlier. (The
+  // window is built for this call, so adjusting its meals is safe.)
+  const placed: Interval[] = [];
+  for (const m of meals.filter((x) => x.chosen).sort((a, b) => a.start - b.start)) {
+    const length = m.end - m.start;
+    for (const p of placed) if (p.start < m.start + length && m.start < p.end) m.start = p.end;
+    m.end = m.start + length;
+    placed.push({ start: m.start, end: m.end });
+  }
+  const taken: Interval[] = [...busy, ...placed];
+  return meals.map(({ kind, chosen, ...preferred }) => {
     const onWaking = kind === "desayuno";
-    const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, onWaking);
-    if (at) taken.push(at);
     const latest = latestMealStart(preferred, window.bedAt, window.wakeAt, onWaking);
-    return [{ date: window.date, ...(kind ? { kind } : {}), preferred, at, latest }];
+    const base = { date: window.date, ...(kind ? { kind } : {}), preferred, latest };
+    if (chosen) return { ...base, at: preferred, chosen: true };
+    const at = placeMeal(preferred, taken, window.bedAt, window.wakeAt, onWaking);
+    if (at) {
+      taken.push(at);
+      placed.push(at);
+      return { ...base, at };
+    }
+    // No room near its time: it stays anyway, at its (wake-adjusted) time on top of
+    // what is fixed there, but never on another meal (then right after it).
+    const length = preferred.end - preferred.start;
+    let start = onWaking ? Math.max(preferred.start, window.wakeAt) : preferred.start;
+    for (const m of [...placed].sort((a, b) => a.start - b.start))
+      if (m.start < start + length && start < m.end) start = m.end;
+    const forced = { start, end: start + length };
+    taken.push(forced);
+    placed.push(forced);
+    // On top of something fixed, or only out of its range: the warning is for the first.
+    return busy.some((b) => b.start < forced.end && forced.start < b.end)
+      ? { ...base, at: forced, overlapping: true }
+      : { ...base, at: forced };
   });
 }
 
@@ -141,7 +178,15 @@ function windowsBetween(
   from: number,
   to: number,
 ): DayWindow[] {
-  const byDate = new Map(overrides.map((o) => [o.date, o]));
+  // Several overrides for one day (a late night, a holiday, a meal moved) add up.
+  const byDate = new Map<string, DayOverride>();
+  for (const o of overrides) {
+    const prev = byDate.get(o.date);
+    byDate.set(
+      o.date,
+      prev ? { ...prev, ...o, meals: [...(prev.meals ?? []), ...(o.meals ?? [])] } : o,
+    );
+  }
   const first = localDates(settings.timezone, from, from + 1)[0] as string;
   const dates = [addDays(first, -1), ...localDates(settings.timezone, from, to)];
   return dates.map((date) => dayWindow(settings, date, byDate.get(date)));
@@ -163,10 +208,12 @@ export function placeMeals(
   return (
     windowsBetween(settings, overrides, from, to)
       .flatMap((w) => placeDayMeals(w, busy, eaten))
-      // Placed: where it ended up. Unplaced: until its last possible start, so the
-      // notice stays while the meal could still happen.
+      // Placed: where it ended up. On top of something fixed: until its last possible
+      // start too, so the inbox notice stays while it could still move.
       .filter((m) =>
-        m.at ? m.at.end > from && m.at.start < to : m.latest > from && m.preferred.start < to,
+        m.at && m.overlapping
+          ? Math.max(m.at.end, m.latest) > from && m.at.start < to
+          : !!m.at && m.at.end > from && m.at.start < to,
       )
   );
 }

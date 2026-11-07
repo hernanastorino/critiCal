@@ -68,6 +68,7 @@ export function WeekSettings() {
     const meals = [
       meal("desayuno", form.breakfast, form.breakfastMin),
       meal("almuerzo", form.lunch, form.lunchMin),
+      meal("merienda", form.snack, form.snackMin),
       meal("cena", form.dinner, form.dinnerMin),
     ].filter((m) => m.end > m.start);
     // A meal while asleep (breakfast 07:30 when getting up at 23:00) would vanish silently.
@@ -108,6 +109,7 @@ export function WeekSettings() {
       morning: String(day.morningMinutes),
       breakfastMin: shown(meals.find((m) => m.kind === "desayuno")),
       lunchMin: shown(meals.find((m) => m.kind === "almuerzo")),
+      snackMin: shown(meals.find((m) => m.kind === "merienda")),
       dinnerMin: shown(meals.find((m) => m.kind === "cena")),
     });
     toast.show("Mi semana guardada");
@@ -139,6 +141,8 @@ export function WeekSettings() {
         <Field label="Dura (min)" value={form.breakfastMin} onChange={set("breakfastMin")} />
         <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
         <Field label="Dura (min)" value={form.lunchMin} onChange={set("lunchMin")} />
+        <Field label="Merienda" type="time" value={form.snack} onChange={set("snack")} />
+        <Field label="Dura (min)" value={form.snackMin} onChange={set("snackMin")} />
         <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
         <Field label="Dura (min)" value={form.dinnerMin} onChange={set("dinnerMin")} />
         <Field
@@ -152,15 +156,18 @@ export function WeekSettings() {
       <p className="meta">
         No se planifica nada antes de{" "}
         {minutesToHhmm(hhmmToMinutes(form.wake) + (clampMinutes(form.morning, 0, 240) ?? 0))}
-        {[form.breakfastMin, form.lunchMin, form.dinnerMin].some((m) => Number(m) > 0)
+        {[form.breakfastMin, form.lunchMin, form.snackMin, form.dinnerMin].some(
+          (m) => Number(m) > 0,
+        )
           ? ""
           : " (sin comidas cargadas)"}
         .
       </p>
       <p className="meta">
-        Nunca va estudio encima de una comida. Si un evento fijo o un bloque 📌 cae a esa hora, la
-        comida se corre sola al hueco más cercano, hasta 1 h 30 antes o después. Con duración 0 no
-        hay esa comida.
+        Siempre hay lugar para comer y nunca va estudio encima de una comida. Si un evento fijo o un
+        bloque 📌 cae a esa hora, la comida se corre sola al hueco más cercano, hasta 1 h 30 antes o
+        después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja avisa. Con
+        duración 0 no hay esa comida (la merienda viene en 0).
       </p>
       <button
         type="button"
@@ -183,9 +190,9 @@ export function WeekSettings() {
 
 function formOf(d: DaySettings) {
   const meals = mealsOf(d);
-  const [breakfast, lunch, dinner] = (["desayuno", "almuerzo", "cena"] as const).map((k) =>
-    meals.find((m) => m.kind === k),
-  );
+  const [breakfast, lunch, snack, dinner] = (
+    ["desayuno", "almuerzo", "merienda", "cena"] as const
+  ).map((k) => meals.find((m) => m.kind === k));
   return {
     wake: minutesToHhmm(d.wake),
     morning: String(d.morningMinutes ?? 0),
@@ -193,6 +200,8 @@ function formOf(d: DaySettings) {
     breakfastMin: String(breakfast ? breakfast.end - breakfast.start : 0),
     lunch: minutesToHhmm(lunch?.start ?? 780),
     lunchMin: String(lunch ? lunch.end - lunch.start : 0),
+    snack: minutesToHhmm(snack?.start ?? 1050),
+    snackMin: String(snack ? snack.end - snack.start : 0),
     dinner: minutesToHhmm(dinner?.start ?? 1260),
     dinnerMin: String(dinner ? dinner.end - dinner.start : 0),
     freeFrom: minutesToHhmm(d.freeFrom),

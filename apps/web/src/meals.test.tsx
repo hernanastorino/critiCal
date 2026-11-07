@@ -2,9 +2,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { demoData, TIMEZONE } from "./demo.js";
-import { overlaps, zonedInstant } from "./engine.js";
+import { localParts, overlaps, zonedInstant } from "./engine.js";
 import type { AppData, AppEvent } from "./model.js";
 import { mealTimes, pinBlock } from "./planning.js";
+import { reducer } from "./store.js";
 
 const at = (date: string, hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
@@ -109,7 +110,7 @@ describe("meals on the calendar", () => {
     );
     fireEvent.click(screen.getByLabelText("Almuerzo, mar 13:30, corrido de las 13:00"));
     const bubble = document.querySelector(".bubble") as HTMLElement;
-    expect(within(bubble).getByText(/Corrido de las 13:00/)).toBeTruthy();
+    expect(within(bubble).getByText(/Se corrió de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
     // Straight to «Mi semana», where meal times are set.
     expect(screen.getByRole("dialog", { name: "Mi semana" })).toBeTruthy();
@@ -129,8 +130,85 @@ describe("meals with no room", () => {
     expect(screen.getByText("Sin lugar para almorzar · mar 10/11")).toBeTruthy();
     expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
-    // Next week, with no lunch on Tuesday but the other six.
+    // Next week: lunch every day, Tuesday's on top of the event, at its usual time.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("9 – 15 nov");
-    expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(6);
+    expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(7);
+  });
+
+  it("moves a meal that day only, skips it, and undoes it", () => {
+    render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
+    const lunches = () => labels().filter((l) => l?.startsWith("Almuerzo"));
+    const monday = () =>
+      mealPills().find(
+        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+      ) as HTMLElement;
+    fireEvent.click(monday());
+    fireEvent.change(screen.getByLabelText("Mover a"), { target: { value: "15:30" } });
+    fireEvent.click(screen.getByText("Mover"));
+    expect(labels()).toContain("Almuerzo, lun 15:30, movido por vos");
+    expect(screen.getByText(/Almuerzo a las 15:30, solo ese día/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(labels()).not.toContain("Almuerzo, lun 15:30, movido por vos");
+    fireEvent.click(monday());
+    fireEvent.click(screen.getByText("Hoy no almuerzo"));
+    // Gone that day but still there, faint, to bring it back.
+    expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(6);
+    expect(screen.getByText(/Hoy no almuerzo · reacomodá hoy para usar ese rato/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/^Almuerzo sacado ese día, lun 13:00/));
+    expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(7);
+    // A meal that already happened cannot be moved or skipped.
+    cleanup();
+    render(<App fixedNow={at("2026-11-04", "20:00")} initial={withEvents([])} />);
+    fireEvent.click(
+      mealPills().find(
+        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+      ) as HTMLElement,
+    );
+    expect(screen.getByText("Ya pasó: no se puede mover ni sacar.")).toBeTruthy();
+    expect(screen.queryByText("Mover")).toBeNull();
+  });
+});
+
+describe("a meal moved onto today's study", () => {
+  it("asks to replan the day instead of leaving study on top of the meal", () => {
+    const now = at("2026-11-03", "08:00");
+    const d = reducer(withEvents([])(now), { type: "refresh", now });
+    const tz = d.settings.timezone;
+    const block = d.plan.find(
+      (b) => b.start > now && localParts(tz, b.start).date === "2026-11-03",
+    ) as AppData["plan"][number];
+    const minute = (block.start - zonedInstant(tz, "2026-11-03", 0)) / 60_000;
+    const moved = reducer(d, {
+      type: "mealChoice",
+      date: "2026-11-03",
+      kind: "almuerzo",
+      start: minute,
+      now,
+    });
+    expect(moved.proposals.at(-1)?.message).toMatch(/^Una comida quedó encima de /);
+    // Answering yes plans the day around the meal.
+    const lunch = mealTimes(moved, now, now, at("2026-11-04", "00:00")).find(
+      (m) => m.kind === "almuerzo" && m.date === "2026-11-03",
+    );
+    // The lunch really is where it was put.
+    expect(lunch?.at?.start).toBe(zonedInstant(tz, "2026-11-03", minute));
+    const after = moved.proposals.at(-1)?.plan ?? [];
+    const eating = lunch?.at as { start: number; end: number };
+    expect(after.some((b) => b.start > now && overlaps(b, eating))).toBe(false);
+  });
+});
+
+describe("moving a meal stays within the waking day", () => {
+  it("refuses a time before waking or one that runs past bedtime, and Escape closes", () => {
+    render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
+    const dinner = () =>
+      mealPills().find((p) => p.getAttribute("aria-label") === "Cena, mar 21:00") as HTMLElement;
+    fireEvent.click(dinner());
+    fireEvent.change(screen.getByLabelText("Mover cena a"), { target: { value: "00:30" } });
+    fireEvent.click(screen.getByText("Mover"));
+    expect(screen.getByRole("alert").textContent).toMatch(/^Elegí una hora entre las /);
+    expect(labels()).toContain("Cena, mar 21:00");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText("Mover")).toBeNull();
   });
 });

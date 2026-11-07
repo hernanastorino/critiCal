@@ -386,6 +386,20 @@ textarea {
   width: 18%;
 }
 
+/* A meal with no room near its time, on top of something fixed: dashed, to be moved. */
+.pill.meal.over {
+  outline: 2px dashed var(--meal);
+  outline-offset: 1px;
+  z-index: 2;
+}
+
+/* A meal skipped that day: a faint outline where it would be, to bring it back. */
+.pill.meal.skipped {
+  background: none;
+  outline: 1px dashed color-mix(in srgb, var(--meal) 60%, transparent);
+  opacity: 0.7;
+}
+
 .pill.meal {
   background: color-mix(in srgb, var(--meal) 30%, transparent);
   box-shadow: inset 0 0 0 1.5px var(--meal);
@@ -526,6 +540,21 @@ textarea {
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.2);
   border-left: 5px solid var(--c);
   overflow: hidden;
+}
+
+/* A text-like button inside a bubble (its last line). */
+.bubble .link-btn {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.bubble .row {
+  margin-top: 8px;
 }
 
 .bubble {

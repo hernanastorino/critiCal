@@ -203,7 +203,31 @@ describe("buildSlots", () => {
     expect(placeMeal(breakfast, [], bed, t("11:00"))).toBeNull();
   });
 
-  it("places each day's meals without overlapping each other and reports the missing ones", () => {
+  it("never overlaps two meals moved by hand onto the same time", () => {
+    const meals = [
+      { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
+      { kind: "cena" as const, start: 21 * 60, end: 21 * 60 + 30 },
+    ];
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, meals })) };
+    const both = [
+      {
+        date: "2026-11-02",
+        meals: [
+          { kind: "almuerzo" as const, start: 15 * 60 },
+          { kind: "cena" as const, start: 15 * 60 + 30 },
+        ],
+      },
+    ];
+    const day = placeMeals(odd, both, from, at("2026-11-03", "00:00"), []).filter(
+      (m) => m.date === "2026-11-02",
+    );
+    expect(day.map((m) => m.at?.start)).toEqual([
+      at("2026-11-02", "15:00"),
+      at("2026-11-02", "16:00"),
+    ]);
+  });
+
+  it("places each day's meals without overlapping each other, the ones with no room on top", () => {
     const meals = [
       { kind: "desayuno" as const, start: 8 * 60, end: 8 * 60 + 30 },
       { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
@@ -214,13 +238,19 @@ describe("buildSlots", () => {
       { start: at("2026-11-02", "06:00"), end: at("2026-11-02", "10:00") },
     ]).filter((m) => m.date === "2026-11-02");
     expect(day.map((m) => m.kind)).toEqual(["desayuno", "almuerzo", "cena"]);
-    // Busy until 10:00, breakfast at 8:00 → 10:00 is more than 1 h 30 away.
-    expect(day[0]?.at).toBeNull();
+    // Busy until 10:00, breakfast at 8:00 → 10:00 is more than 1 h 30 away: it stays
+    // at 8:00, on top of what is there, for the user to keep or move.
+    expect(day[0]?.at).toEqual({
+      start: at("2026-11-02", "08:00"),
+      end: at("2026-11-02", "08:30"),
+    });
+    expect(day[0]?.overlapping).toBe(true);
     expect(day[0]?.preferred).toEqual({
       start: at("2026-11-02", "08:00"),
       end: at("2026-11-02", "08:30"),
     });
     expect(day[1]?.at?.start).toBe(at("2026-11-02", "13:00"));
+    expect(day[1]?.overlapping).toBeUndefined();
     expect(day[2]?.at?.start).toBe(at("2026-11-02", "14:00"));
     // A lunch out near lunchtime is that day's lunch: no other one, and no warning.
     const out = { start: at("2026-11-02", "12:30"), end: at("2026-11-02", "15:30") };
@@ -233,13 +263,18 @@ describe("buildSlots", () => {
       [{ ...out, meal: "almuerzo" }],
     ).filter((m) => m.date === "2026-11-02");
     expect(withOut.map((m) => m.kind)).toEqual(["desayuno", "cena"]);
-    // An unplaced meal stays listed until its last possible start (14:30 for lunch)…
+    // A meal with no room (on top of what is fixed) stays listed until its last possible
+    // start (14:30 for lunch)…
     const allDay = [{ start: at("2026-11-02", "10:00"), end: at("2026-11-02", "17:00") }];
     const missed = (since: string) =>
       placeMeals(odd, [], at("2026-11-02", since), at("2026-11-03", "00:00"), allDay).filter(
         (m) => m.date === "2026-11-02" && m.kind === "almuerzo",
       );
-    expect(missed("14:00")[0]).toMatchObject({ at: null, latest: at("2026-11-02", "14:30") });
+    expect(missed("14:00")[0]).toMatchObject({
+      overlapping: true,
+      at: { start: at("2026-11-02", "13:00"), end: at("2026-11-02", "14:00") },
+      latest: at("2026-11-02", "14:30"),
+    });
     expect(missed("14:30")).toEqual([]);
     // …and a meal moved into the range counts even if its time is after it.
     const early = [{ start: at("2026-11-02", "13:00"), end: at("2026-11-02", "15:00") }];
