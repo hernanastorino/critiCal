@@ -33,7 +33,7 @@ import type {
   Spot,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { eventSpotKey, eventsAt, home, spotKey, unlocated } from "./places.js";
+import { eventSpotKey, home, keepableEvents, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -816,7 +816,7 @@ function apply(data: AppData, action: Action): AppData {
       const eventTravel = { ...data.eventTravel };
       // Minutes an event already kept for this same address stay as they are; ones
       // kept for an address it no longer has give way to these.
-      for (const id of eventsAt(data, spot.key))
+      for (const id of keepableEvents(data, spot.key))
         if (eventTravel[id]?.key !== spot.key)
           eventTravel[id] = { minutes: spot.minutes, key: spot.key };
       return refresh(

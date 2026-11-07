@@ -68,6 +68,15 @@ export const eventsAt = (data: AppData, key: string) =>
   data.events.filter((e) => eventSpotKey(e) === key).map((e) => e.id);
 
 /**
+ * Events at the spot `key` that can keep its minutes after «Eliminar lugar»: not ones
+ * a saved place already names (those use the place's own times).
+ */
+export const keepableEvents = (data: AppData, key: string) =>
+  data.events
+    .filter((e) => eventSpotKey(e) === key && !placeFor(data.places ?? [], addressOf(e) ?? e.title))
+    .map((e) => e.id);
+
+/**
  * Minutes kept for this event after «Eliminar lugar», while it still says the same and
  * no saved place has claimed it since; otherwise its new location is asked or timed.
  */

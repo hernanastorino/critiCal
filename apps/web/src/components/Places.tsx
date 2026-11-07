@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
-import { eventsAt, keptTravel, minutesBetween } from "../places.js";
+import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Section } from "./Section.js";
@@ -69,7 +69,7 @@ export function Places() {
 
   return (
     <Section>
-      <p className="meta">
+      <p className="meta" id="places-intro" tabIndex={-1}>
         Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
         evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
       </p>
@@ -151,7 +151,7 @@ export function Places() {
                 </span>
               </span>
               <MinutesInput
-                label={`Minutos desde casa para ${short(event.title)}`}
+                label={`Minutos desde casa para ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
                 value={minutes}
                 onCommit={(m) =>
                   dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
@@ -160,7 +160,7 @@ export function Places() {
               <button
                 type="button"
                 className="btn small"
-                aria-label={`Olvidar el traslado de ${short(event.title)}`}
+                aria-label={`Olvidar el traslado de ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
                 onClick={() => {
                   const before = data.eventTravel?.[event.id];
                   dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null });
@@ -364,7 +364,13 @@ const short = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
 /** After a row goes away, the keyboard stays nearby: on the section heading. */
 const refocus = (id: string) =>
   requestAnimationFrame(() =>
-    (document.getElementById(id) ?? document.getElementById("spots"))?.focus(),
+    (
+      document.getElementById(id) ??
+      document.getElementById("spots") ??
+      document.getElementById("kept-travel") ??
+      // The last row went: the top of Lugares is always there.
+      document.getElementById("places-intro")
+    )?.focus(),
   );
 
 /** An event address in use: its minutes from home, saving it as a place, or forgetting it. */
@@ -373,7 +379,7 @@ function SpotRow({ spot }: { spot: Spot }) {
   const toast = useToast();
   // «Eliminar lugar» keeps the minutes on the events that use it: with none, it would
   // just forget them, so it is not offered.
-  const keepable = spot.minutes !== undefined && eventsAt(data, spot.key).length > 0;
+  const keepable = spot.minutes !== undefined && keepableEvents(data, spot.key).length > 0;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -428,7 +434,7 @@ function SpotRow({ spot }: { spot: Spot }) {
               className="btn small"
               aria-label={`Eliminar el lugar ${short(spot.text)}, conservando los minutos`}
               onClick={() => {
-                const eventIds = eventsAt(data, spot.key);
+                const eventIds = keepableEvents(data, spot.key);
                 const before = Object.fromEntries(
                   eventIds.map((id) => [id, data.eventTravel?.[id]]),
                 );

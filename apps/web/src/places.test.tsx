@@ -359,7 +359,7 @@ describe("places", () => {
     expect(screen.queryByText("Instituto Anglo")).toBeNull();
     // The kept minutes stay visible, to change or forget later.
     expect(screen.getByText("Traslados de eventos sin dirección")).toBeTruthy();
-    expect(screen.getByLabelText("Minutos desde casa para Inglés")).toBeTruthy();
+    expect(screen.getByLabelText("Minutos desde casa para Inglés, mié 4/11")).toBeTruthy();
     fireEvent.click(screen.getByText("Deshacer"));
     expect(screen.getByText("Instituto Anglo")).toBeTruthy();
     // «Olvidar» can be undone too.
@@ -383,6 +383,16 @@ describe("places", () => {
     const back = reducer(gone, { type: "restoreSpot", spot, before: { x: kept.x }, now: NOW });
     expect(back.spots).toEqual([spot]);
     expect(back.eventTravel).toEqual(kept);
+  });
+
+  it("keeps no minutes for an event a saved place already names", () => {
+    const d = data({
+      events: [event("x", "Inglés", 10, "Instituto Anglo")],
+      places: [casa, { ...gym, aliases: ["Instituto Anglo"] }],
+      spots: [{ key: "instituto anglo", text: "Instituto Anglo", minutes: 20 }],
+    });
+    const dropped = reducer(d, { type: "dropSpotAddress", key: "instituto anglo", now: NOW });
+    expect(dropped.eventTravel ?? {}).toEqual({});
   });
 
   it("changes or forgets the minutes kept for an event", () => {
