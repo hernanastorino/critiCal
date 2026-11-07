@@ -10,7 +10,15 @@ import {
   type PlanBlock,
   zonedInstant,
 } from "../engine.js";
-import { dayAndTime, dayRange, hhmmToMinutes, hours, time, weekdayShort } from "../format.js";
+import {
+  dayAndTime,
+  dayRange,
+  hhmmToMinutes,
+  hours,
+  minutesToHhmm,
+  time,
+  weekdayShort,
+} from "../format.js";
 import { lanes } from "../lanes.js";
 import type { AppEvent, PlanVersion } from "../model.js";
 import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
@@ -594,7 +602,7 @@ export function Week({
                   <button
                     key={`${d}-skip-${mealKey(m)}`}
                     type="button"
-                    aria-label={`${mealName(m)} sacado ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ponerlo`}
+                    aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ponerlo`}
                     className="pill meal skipped"
                     style={style}
                     onClick={() => {
@@ -1103,6 +1111,11 @@ function MealCard({
   const tz = data.settings.timezone;
   const { meal } = bubble;
   const past = meal.at.end <= now;
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", key);
+    return () => document.removeEventListener("keydown", key);
+  }, [onClose]);
   const kind = meal.kind;
   const name = mealName(meal);
   const [at, setAt] = useState(time(tz, meal.at.start));
@@ -1116,6 +1129,15 @@ function MealCard({
     // Only a late meal (dinner) reads an early-morning time as after midnight.
     return usual >= 1080 && Math.abs(m + 1440 - usual) < Math.abs(m - usual) ? m + 1440 : m;
   };
+  // Within that day's waking hours, whole: a meal at 00:30 or one at 23:59 that runs
+  // past bedtime would fall off the calendar.
+  const routine = data.settings.week[localParts(tz, zonedInstant(tz, meal.date, 720)).weekday];
+  const wake = routine?.wake ?? 0;
+  const bed = routine ? (routine.bed <= routine.wake ? routine.bed + 1440 : routine.bed) : 1440;
+  const length = (meal.at.end - meal.at.start) / MINUTE;
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const today = meal.date === localParts(tz, now).date;
+  const dayWord = today ? "Hoy" : `El ${weekdayShort(tz, meal.at.start)}`;
   const choose = (choice: { start?: number; skip?: boolean }, said: string) => {
     if (!kind) return;
     const before = data.mealChoices?.find((c) => c.date === meal.date && c.kind === kind);
@@ -1164,7 +1186,17 @@ function MealCard({
               className="row fields"
               onSubmit={(e) => {
                 e.preventDefault();
-                if (at) choose({ start: minuteOf(at) }, `${name} a las ${at}, solo ese día`);
+                if (!at) return;
+                const start = minuteOf(at);
+                // The same time is no move.
+                if (zonedInstant(tz, meal.date, start) === meal.at.start) return onClose();
+                if (start < wake || start + length > bed) {
+                  setMoveError(
+                    `Elegí una hora entre las ${minutesToHhmm(wake)} y las ${minutesToHhmm(bed - length)}, cuando estás despierto.`,
+                  );
+                  return;
+                }
+                choose({ start }, `${name} a las ${at}, solo ese día`);
               }}
             >
               <label style={{ flex: 1 }}>
@@ -1173,13 +1205,22 @@ function MealCard({
                   type="time"
                   aria-label={`Mover ${name.toLowerCase()} a`}
                   value={at}
-                  onChange={(e) => setAt(e.target.value)}
+                  aria-invalid={moveError ? true : undefined}
+                  onChange={(e) => {
+                    setAt(e.target.value);
+                    setMoveError(null);
+                  }}
                 />
               </label>
               <button type="submit" className="btn small" disabled={!at}>
                 Mover
               </button>
             </form>
+            {moveError && (
+              <p className="meta" role="alert">
+                {moveError}
+              </p>
+            )}
             <div className="row">
               <button
                 type="button"
@@ -1187,15 +1228,13 @@ function MealCard({
                 onClick={() =>
                   choose(
                     { skip: true },
-                    `Hoy no ${name.toLowerCase()} · ${
-                      meal.date === localParts(tz, now).date
-                        ? "reacomodá hoy para usar ese rato"
-                        : "el plan usa ese rato"
+                    `${dayWord} no ${name.toLowerCase()} · ${
+                      today ? "reacomodá hoy para usar ese rato" : "el plan usa ese rato"
                     }`,
                   )
                 }
               >
-                Hoy no {name.toLowerCase()}
+                {dayWord} no {name.toLowerCase()}
               </button>
               {meal.chosen && (
                 <button

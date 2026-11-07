@@ -194,3 +194,18 @@ describe("a meal moved onto today's study", () => {
     expect(after.some((b) => lunch?.at && b.start > now && overlaps(b, lunch.at))).toBe(false);
   });
 });
+
+describe("moving a meal stays within the waking day", () => {
+  it("refuses a time before waking or one that runs past bedtime, and Escape closes", () => {
+    render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
+    const dinner = () =>
+      mealPills().find((p) => p.getAttribute("aria-label") === "Cena, mar 21:00") as HTMLElement;
+    fireEvent.click(dinner());
+    fireEvent.change(screen.getByLabelText("Mover cena a"), { target: { value: "00:30" } });
+    fireEvent.click(screen.getByText("Mover"));
+    expect(screen.getByRole("alert").textContent).toMatch(/^Elegí una hora entre las /);
+    expect(labels()).toContain("Cena, mar 21:00");
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByText("Mover")).toBeNull();
+  });
+});
