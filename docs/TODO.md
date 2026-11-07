@@ -12,11 +12,9 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                        | Estado                                                | Qué falta                                                                              |
-| -------------------------------------------------------------------------- | ----------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)   | Borrador, rebasado sobre `main`                       | **No mergear** hasta que el usuario lo pida. Si `main` cambia `Settings.tsx`, rebasar. |
-| `docs/TODO.md` (este archivo)                                              | PR `claude/todo`                                      | Mergear cuando CI y CodeRabbit terminen.                                               |
-| PR #73 `claude/toast` (§14 «Éxito»: un solo aviso, `components/Toast.tsx`) | Abierto; CI y CodeRabbit corriendo; atacante en local | Arreglar lo que reporten el atacante y CodeRabbit, mergear, revisar producción.        |
+| Qué                                                                      | Estado                                                     | Qué falta                                                                                                                            |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -54,7 +52,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y movelo a «Hecho».
 ### 5.1 Guías de UI/UX del §14 (un PR por grupo)
 
 1. **Mensajes y esperas**
-   - ~~Un solo aviso de éxito~~ → en PR #73.
+   - ✅ Un solo aviso de éxito (#73, `components/Toast.tsx`).
    - Errores que dicen qué pasó y qué hacer, con el botón para hacerlo.
    - Esperas de más de ~1 s con texto: sincronización, IA, traslados («Calculando traslados 3 de 8…»).
    - Skeletons en vez de pantallas vacías al cargar.
@@ -91,4 +89,5 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ## 6. Hecho recientemente (noviembre 2026)
 
+- #72 este archivo · #73 aviso único de éxito (§14)
 - #64 mockups de Configuración · #65 cuenta de prueba local, `/api` en desarrollo y proveedores simulados · #66 preview protegida por PR · #67 Configuración A con avisos arriba · #69 validación de formularios de Ajustes y del respaldo · #70 ErrorBoundary con reporte a Sentry · #71 todas las hojas como modales (también anidadas).
