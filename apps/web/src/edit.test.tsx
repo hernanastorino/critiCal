@@ -4,7 +4,7 @@ import { App } from "./App.js";
 import { demoData } from "./demo.js";
 import { dropTarget, nearestFree } from "./drag.js";
 import { localParts, zonedInstant } from "./engine.js";
-import { time } from "./format.js";
+import { time, weekdayShort } from "./format.js";
 import type { AppData } from "./model.js";
 import { isPinned, pinClashes, pinShortfall, refreshPlan } from "./planning.js";
 import { reducer } from "./store.js";
@@ -385,7 +385,7 @@ describe("edit mode", () => {
     const label = pill.getAttribute("aria-label") ?? "";
     const dragged = shown.plan.find((b) =>
       label.startsWith(
-        `${shown.tasks.find((t) => t.id === b.taskId)?.title}, ${time(shown.settings.timezone, b.start)}`,
+        `${shown.tasks.find((t) => t.id === b.taskId)?.title}, ${weekdayShort(shown.settings.timezone, b.start)} ${time(shown.settings.timezone, b.start)}`,
       ),
     ) as AppData["plan"][number];
     const end = 750 + (dragged.end - dragged.start) / 60_000;
@@ -481,7 +481,9 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={() => first} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
-    const pill = screen.getByLabelText(`${title}, ${time(tz, b?.start as number)}`);
+    const pill = screen.getByLabelText(
+      `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+    );
     const { x, y } = spot(d, at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
@@ -505,7 +507,9 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={() => first} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
-    const pill = screen.getByLabelText(`${title}, ${time(tz, b?.start as number)}`);
+    const pill = screen.getByLabelText(
+      `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+    );
     const { x, y } = spot(d, at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
@@ -581,7 +585,9 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={tight} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === other.taskId)?.title;
-    const pill = screen.getByLabelText(`${title}, ${time(tz, other.start)}`);
+    const pill = screen.getByLabelText(
+      `${title}, ${weekdayShort(tz, other.start)} ${time(tz, other.start)}`,
+    );
     const { x, y } = spot(d, session?.start as number);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 3 });
@@ -754,6 +760,24 @@ describe("edit mode", () => {
 });
 
 describe("plan history", () => {
+  it("keeps the undo slot, says what was undone and keeps the keyboard nearby", async () => {
+    localStorage.clear();
+    localStorage.setItem("critical.mode", "demo");
+    render(<App fixedNow={NOW} initial={demoData} />);
+    const slot = () =>
+      document.querySelector(".header .icon-btn.placeholder, .header [aria-label^='Deshacer']");
+    expect(slot()?.className).toContain("placeholder");
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    const undo = await screen.findByLabelText("Deshacer: reacomodar la semana");
+    undo.focus();
+    fireEvent.click(undo);
+    expect(await screen.findByText("Deshecho: reacomodar la semana")).toBeTruthy();
+    expect(slot()?.className).toContain("placeholder");
+    await act(() => new Promise((r) => requestAnimationFrame(r)));
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Reacomodar semana");
+    cleanup();
+  });
+
   it("undoes the last reorganization, up to twenty", () => {
     const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
@@ -763,7 +787,7 @@ describe("plan history", () => {
       start: block.start + 86_400_000,
       now: NOW,
     });
-    expect(pinned.planHistory?.at(-1)?.label).toBe("mover un bloque");
+    expect(pinned.planHistory?.at(-1)?.label).toBe("mover o fijar un bloque");
     const back = reducer(pinned, { type: "undoPlan", now: NOW });
     expect(back.pins).toEqual(d.pins ?? []);
     expect(back.planHistory).toEqual([]);

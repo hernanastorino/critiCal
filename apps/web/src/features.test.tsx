@@ -289,7 +289,7 @@ describe("week", () => {
     const replan = screen.getByLabelText("Reacomodar semana") as HTMLButtonElement;
     fireEvent.click(replan);
     // No second replan (and no overlapping timers) while one is running.
-    expect(replan.disabled).toBe(true);
+    expect(replan.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: /Camino crítico/ }));
     expect(screen.getByText(/No llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
   });
@@ -351,7 +351,7 @@ describe("week", () => {
       expect(replan.className).not.toContain("done");
       // A second replan in the same minute empties the status first, so it is heard again.
       fireEvent.click(replan);
-      expect(document.querySelector(".sr-only")?.textContent).toBe("");
+      expect(document.querySelector('.sr-only[role="status"]')?.textContent).toBe("");
       act(() => {
         vi.advanceTimersByTime(600);
       });
