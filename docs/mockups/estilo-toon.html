@@ -229,7 +229,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
       <div class="phone">
         <div class="top"><b>Hoy</b><span>sáb 7 nov</span></div>
         <div class="sk short"></div><div class="sk"></div>
-        <div class="scene" data-anim="cascada"></div>
+        <div class="scene" data-case="sync"></div>
         <p class="wait">Sincronizando calendarios · 2 de 3</p>
         <div class="sk"></div><div class="sk"></div>
       </div>
@@ -237,7 +237,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
         <div class="top"><b>Bandeja</b><span>1</span></div>
         <div class="sk"></div>
         <div class="sheet">
-          <div class="scene" data-anim="hombros"></div>
+          <div class="scene" data-case="lugar"></div>
           <h4>El parcial de ADD no entra esta semana</h4>
           <p>El martes se llenó de eventos. Pasa en las mejores familias. Elegí una salida:</p>
           <div class="btn pri">Reacomodar hoy</div>
@@ -248,7 +248,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
         <div class="top"><b>Semana</b><span>2 – 8 nov</span></div>
         <div class="sk"></div><div class="sk"></div>
         <div class="sheet">
-          <div class="scene" data-anim="festejo"></div>
+          <div class="scene" data-case="ok"></div>
           <h4>Recuperaste los dos bloques del lunes</h4>
           <p>El parcial vuelve a tener 1 h 30 de margen. Bien ahí.</p>
           <div class="btn ok">Ver la semana</div>
@@ -389,7 +389,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   // State
   const load = () => { try { return JSON.parse(localStorage.getItem("toon-choice")) || {}; } catch { return {}; } };
   const saved = load();
-  const state = { style: saved.style || "A", pick: Object.fromEntries(CASES.map(c => [c.id, saved.pick?.[c.id] || c.def])) };
+  const state = { style: STYLES[saved.style] ? saved.style : "A", pick: Object.fromEntries(CASES.map(c => [c.id, ANIMS[saved.pick?.[c.id]] ? saved.pick[c.id] : c.def])) };
   const save = () => { try { localStorage.setItem("toon-choice", JSON.stringify(state)); } catch {} };
 
   // 1 · style cards
@@ -430,13 +430,16 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   };
   const styleSel = sel("pick-style", "Estilo", Object.entries(STYLES).map(([k, s]) => [k, `${k} · ${s.name}`]), state.style, v => setStyle(v));
   for (const c of CASES) {
-    sel(`pick-${c.id}`, c.t, Object.entries(ANIMS).map(([k, a]) => [k, a.name]), state.pick[c.id], v => { state.pick[c.id] = v; renderCase(c); renderSum(); save(); });
+    sel(`pick-${c.id}`, c.t, Object.entries(ANIMS).map(([k, a]) => [k, a.name]), state.pick[c.id], v => { state.pick[c.id] = v; renderCase(c); renderPhones(); renderSum(); save(); });
   }
 
   function renderCase(c) {
     const el = casesEl.querySelector(`[data-id="${c.id}"]`);
     el.querySelector("[data-name]").textContent = ANIMS[state.pick[c.id]].name;
     play(el.querySelector(".scene"), state.pick[c.id], state.style);
+  }
+  function renderPhones() {
+    for (const s of document.querySelectorAll(".phone .scene")) play(s, state.pick[s.dataset.case], state.style);
   }
   function renderSum() {
     const lines = [`Estilo: ${state.style} · ${STYLES[state.style].name}`].concat(CASES.map(c => `${c.t}: ${ANIMS[state.pick[c.id]].name}`));
@@ -447,7 +450,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
     for (const b of stylesEl.querySelectorAll(".style-card")) b.setAttribute("aria-pressed", b.dataset.k === k);
     for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.k === k);
     CASES.forEach(renderCase);
-    for (const s of document.querySelectorAll(".phone .scene")) play(s, s.dataset.anim, k);
+    renderPhones();
     renderSum();
   }
   document.getElementById("copy").onclick = async e => {
