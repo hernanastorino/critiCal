@@ -65,10 +65,19 @@ describe("app", () => {
     expect(title().textContent).toBe("2 – 8 nov");
     expect(title().className).toContain("current");
     fireEvent.click(screen.getByLabelText("Semana siguiente"));
-    expect(title().textContent).toBe("9 – 15 nov");
+    expect(title().textContent).toBe("9 – 15 nov. Volver a esta semana");
     expect(title().className).not.toContain("current");
     fireEvent.click(screen.getByLabelText("Semana anterior"));
     expect(title().className).toContain("current");
+  });
+
+  it("names another year's week and goes back to this one from the title", () => {
+    renderApp();
+    const title = () => screen.getByRole("heading", { level: 1 });
+    for (let i = 0; i < 52; i++) fireEvent.click(screen.getByLabelText("Semana anterior"));
+    expect(title().textContent).toMatch(/^3 – 9 nov 2025\./);
+    fireEvent.click(screen.getByTitle("Volver a esta semana"));
+    expect(title().textContent).toBe("2 – 8 nov");
   });
 
   it("confirms past blocks from the inbox", () => {

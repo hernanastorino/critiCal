@@ -109,6 +109,7 @@ export function Week({
   /** The last long-press drop: the click right after it, on that block, is not a tap. */
   const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
   useEffect(() => {
@@ -215,6 +216,14 @@ export function Week({
   const ref = now + offset * 7 * DAY_MS;
   const dates = weekDates(tz, ref);
   const today = localParts(tz, now).date;
+  const rangeEnd = zonedInstant(tz, dates[6] as string, 720);
+  // Another year's week says which one, so it is never mistaken for this one.
+  const rangeLabel = `${dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd)}${
+    (dates[6] as string).slice(0, 4) === today.slice(0, 4)
+      ? ""
+      : ` ${(dates[6] as string).slice(0, 4)}`
+  }`;
+  const lastChange = data.planHistory?.at(-1)?.label;
 
   // Visible span: earliest wake to latest bedtime of the week.
   const startMin = Math.min(...data.settings.week.map((d) => d.wake));
@@ -366,11 +375,19 @@ export function Week({
         >
           <ChevronLeft />
         </button>
-        <h1 className={`range${offset === 0 ? " current" : ""}`}>
-          {dayRange(
-            tz,
-            zonedInstant(tz, dates[0] as string, 720),
-            zonedInstant(tz, dates[6] as string, 720),
+        <h1 className={`range${offset === 0 ? " current" : ""}`} aria-live="polite">
+          {offset === 0 ? (
+            rangeLabel
+          ) : (
+            <button
+              type="button"
+              className="range-today"
+              title="Volver a esta semana"
+              onClick={() => setOffset(0)}
+            >
+              {rangeLabel}
+              <span className="sr-only">. Volver a esta semana</span>
+            </button>
           )}
         </h1>
         <button
@@ -383,6 +400,7 @@ export function Week({
         </button>
         <button
           type="button"
+          ref={editRef}
           className={`icon-btn${editing ? " active" : ""}`}
           aria-label="Modo edición"
           aria-pressed={editing}
@@ -419,17 +437,28 @@ export function Week({
         <span className="sr-only" role="status">
           {spoken}
         </span>
-        {(data.planHistory ?? []).length > 0 && (
-          <button
-            type="button"
-            className="icon-btn"
-            aria-label={`Deshacer: ${data.planHistory?.at(-1)?.label}`}
-            title={`Deshacer: ${data.planHistory?.at(-1)?.label}`}
-            onClick={() => dispatch({ type: "undoPlan" })}
-          >
-            <UndoIcon />
-          </button>
-        )}
+        {/* Always there (hidden when empty) so the buttons never shift under the finger. */}
+        <button
+          type="button"
+          className={`icon-btn${lastChange ? "" : " placeholder"}`}
+          aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
+          title={lastChange ? `Deshacer: ${lastChange}` : undefined}
+          aria-hidden={lastChange ? undefined : true}
+          tabIndex={lastChange ? undefined : -1}
+          disabled={!lastChange}
+          onClick={() => {
+            if (!lastChange) return;
+            const last = (data.planHistory ?? []).length === 1;
+            dispatch({ type: "undoPlan" });
+            flash(`Deshecho: ${lastChange}`);
+            setSpoken("");
+            // The button hides with the last change: keep the keyboard nearby (the
+            // replan button may still be busy, and a disabled one takes no focus).
+            if (last) requestAnimationFrame(() => editRef.current?.focus());
+          }}
+        >
+          <UndoIcon />
+        </button>
         <SyncDot onClick={() => onSettings()} />
         <button
           type="button"
@@ -442,8 +471,10 @@ export function Week({
       </div>
 
       {editing && (
-        <div className="edit-banner" role="status">
-          Arrastrá los bloques a donde quieras. Quedan fijados y el resto se reacomoda.
+        <div className="edit-banner">
+          <span role="status">
+            Arrastrá los bloques a donde quieras. Quedan fijados y el resto se reacomoda.
+          </span>
           <button type="button" className="btn small" onClick={() => setEditing(false)}>
             Listo
           </button>
@@ -516,7 +547,7 @@ export function Week({
                   <button
                     key={`${d}-${item.id}`}
                     type="button"
-                    aria-label={`${item.event.title}, ${time(tz, item.start)}${isTentative(item.event) ? ", tentativo" : ""}`}
+                    aria-label={`${item.event.title}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${isTentative(item.event) ? ", tentativo" : ""}`}
                     className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                     style={style}
                     onClick={(e) => openBubble(e, item)}
@@ -533,7 +564,7 @@ export function Week({
                   key={`${d}-${item.id}`}
                   type="button"
                   data-level={b.level}
-                  aria-label={`${titleOf(b)}, ${time(tz, item.start)}${isPinned(b) ? ", fijado" : ""}`}
+                  aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${isPinned(b) ? ", fijado" : ""}`}
                   className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                   style={{ ...style, ["--c" as string]: colorOf(b) }}
                   onPointerDown={
@@ -922,8 +953,18 @@ function BubbleCard({
         {p && (
           <p>
             Faltan {hours(p.remainingMinutes)} de {hours(p.totalMinutes)}
-            {b.level === "critical" && <span className="tag critical"> crítico</span>}
-            {b.level === "warn" && <span className="tag warn"> justo</span>}
+            {b.level === "critical" && (
+              <>
+                {" "}
+                <span className="tag critical">crítico</span>
+              </>
+            )}
+            {b.level === "warn" && (
+              <>
+                {" "}
+                <span className="tag warn">justo</span>
+              </>
+            )}
           </p>
         )}
         {isPinned(b) && item.start <= now && <p>📌 Fijado por vos</p>}

@@ -137,9 +137,39 @@ textarea {
 }
 
 .header h1.range {
-  font-size: 24px;
+  font-size: clamp(17px, 6vw, 24px);
   white-space: nowrap;
   text-align: center;
+  min-width: 0;
+}
+
+/* Another week: the title goes back to this one. */
+.range-today {
+  font: inherit;
+  color: inherit;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.header .icon-btn {
+  flex: none;
+  width: 40px;
+  height: 44px;
+}
+
+.icon-btn.placeholder {
+  visibility: hidden;
+}
+
+@media (max-width: 359px) {
+  .header {
+    gap: 2px;
+  }
+
+  .header .icon-btn {
+    width: 34px;
+  }
 }
 
 .header h1.range.current {
