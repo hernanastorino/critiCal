@@ -12,7 +12,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 1. **Leé en este orden**: este archivo entero → `SPEC.md` §14–§18 → `OPERATIONS.md`.
 2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Sentry (org `hernanastorino`, proyecto `critical`: `is:unresolved` de las últimas 24 h; un issue nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
-3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio, leé sus hilos de CodeRabbit y seguí el ciclo de §2.
+3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé sus hilos de CodeRabbit y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
 ### Cómo quiere trabajar el usuario (decidido por él; vale para cualquier cuenta)
@@ -32,7 +32,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada hora). **Recién cuando el usuario confirmó que la frenó** (ver §0 punto 2), creá en la cuenta nueva una tarea equivalente (herramienta de tareas programadas de Claude Code, cada hora, en **modo de permisos Auto**, si no se traba pidiendo permisos) con este prompt, resumido:
 
-1. Buscar en Sentry (org `hernanastorino`, región https://us.sentry.io, proyecto `critical`) los issues `is:unresolved`, `is:regressed` y `is:escalating` de las últimas 24 h. Si no hay, terminar con «Sentry limpio».
+1. Buscar en Sentry (org `hernanastorino`, región https://us.sentry.io, proyecto `critical`) los issues `is:unresolved`, `is:regressed` y `is:escalating` de las últimas 24 h, y además los PRs abiertos con «Fixes CRITICAL-» (`gh pr list --search "Fixes CRITICAL"`), aunque su issue ya no salga en esa ventana. Solo si no hay ninguna de las dos cosas, terminar con «Sentry limpio».
 2. Por cada uno, ver detalle, breadcrumbs y stack trace, y clasificarlo:
    - **Seguridad** primero (sesión o tokens filtrados, errores de permisos o RLS como Postgres 42501 o PGRST301, XSS o CSP, redirecciones abiertas, 401 o 403 de nuestra API, datos de otro usuario).
    - **Bug nuestro**: se arregla.
