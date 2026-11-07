@@ -140,28 +140,28 @@ export function WeekSettings() {
         <Field label="Desayuno" type="time" value={form.breakfast} onChange={set("breakfast")} />
         <Field
           label="Dura (min)"
-          name="Duración de desayuno (min)"
+          name="Dura (min), desayuno"
           value={form.breakfastMin}
           onChange={set("breakfastMin")}
         />
         <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
         <Field
           label="Dura (min)"
-          name="Duración de almuerzo (min)"
+          name="Dura (min), almuerzo"
           value={form.lunchMin}
           onChange={set("lunchMin")}
         />
         <Field label="Merienda" type="time" value={form.snack} onChange={set("snack")} />
         <Field
           label="Dura (min)"
-          name="Duración de merienda (min)"
+          name="Dura (min), merienda"
           value={form.snackMin}
           onChange={set("snackMin")}
         />
         <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
         <Field
           label="Dura (min)"
-          name="Duración de cena (min)"
+          name="Dura (min), cena"
           value={form.dinnerMin}
           onChange={set("dinnerMin")}
         />
