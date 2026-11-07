@@ -2,9 +2,10 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { demoData, TIMEZONE } from "./demo.js";
-import { overlaps, zonedInstant } from "./engine.js";
+import { localParts, overlaps, zonedInstant } from "./engine.js";
 import type { AppData, AppEvent } from "./model.js";
 import { mealTimes, pinBlock } from "./planning.js";
+import { reducer } from "./store.js";
 
 const at = (date: string, hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
@@ -165,5 +166,31 @@ describe("meals with no room", () => {
     );
     expect(screen.getByText("Ya pasó: no se puede mover ni sacar.")).toBeTruthy();
     expect(screen.queryByText("Mover")).toBeNull();
+  });
+});
+
+describe("a meal moved onto today's study", () => {
+  it("asks to replan the day instead of leaving study on top of the meal", () => {
+    const now = at("2026-11-03", "08:00");
+    const d = reducer(withEvents([])(now), { type: "refresh", now });
+    const tz = d.settings.timezone;
+    const block = d.plan.find(
+      (b) => b.start > now && localParts(tz, b.start).date === "2026-11-03",
+    ) as AppData["plan"][number];
+    const minute = (block.start - zonedInstant(tz, "2026-11-03", 0)) / 60_000;
+    const moved = reducer(d, {
+      type: "mealChoice",
+      date: "2026-11-03",
+      kind: "almuerzo",
+      start: minute,
+      now,
+    });
+    expect(moved.proposals.at(-1)?.message).toMatch(/^Una comida quedó encima de /);
+    // Answering yes plans the day around the meal.
+    const lunch = mealTimes(moved, now, now, at("2026-11-04", "00:00")).find(
+      (m) => m.kind === "almuerzo" && m.date === "2026-11-03",
+    );
+    const after = moved.proposals.at(-1)?.plan ?? [];
+    expect(after.some((b) => lunch?.at && b.start > now && overlaps(b, lunch.at))).toBe(false);
   });
 });

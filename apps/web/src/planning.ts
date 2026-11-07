@@ -502,6 +502,10 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const reserved = (b: PlanBlock) =>
     kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
+  // A meal of today on top of a block (moved there by hand, or with no room) takes
+  // that time: the block is planned again, as a proposal since it is today (§5.7).
+  const meals = mealTimes(data, now, now, todayEnd).flatMap((m) => (m.at ? [m.at] : []));
+  const eats = (b: PlanBlock) => meals.some((m) => overlaps(m, b));
   // A later wake-up (a late night, or one set by hand) frees the blocks it now falls
   // before; they are planned again instead of staying put.
   const date = localParts(tz, now).date;
@@ -521,7 +525,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const displaced = (b: PlanBlock) =>
     plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
-  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b)));
+  const conflicts = unpinned.filter((b) => !displaced(b) && (clashes(b) || reserved(b) || eats(b)));
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
@@ -548,7 +552,9 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       id: `conflict@${now}`,
       message: conflicts.some(clashes)
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
-        : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
+        : conflicts.some(eats)
+          ? `Una comida quedó encima de ${names.join(", ")}. ¿Reacomodo el día?`
+          : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,
