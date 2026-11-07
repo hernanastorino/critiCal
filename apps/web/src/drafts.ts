@@ -5,7 +5,8 @@ import { useState } from "react";
  * the form, so the text waits here until the app is reloaded (SPEC §14: nothing typed is
  * lost, and no «¿Descartar?» dialog).
  */
-const drafts = new Map<string, unknown>();
+/** What was typed, with what it was compared to when the form was last saved. */
+const drafts = new Map<string, { value: unknown; base: unknown }>();
 
 /** Forgets every draft (a different account, a reset demo). */
 export function clearDrafts(): void {
@@ -17,10 +18,14 @@ export function clearDrafts(): void {
  * `initial`; saving sets it back to what was saved and it goes clean.
  */
 export function useDraft<T>(key: string, initial: () => T) {
-  const [base, setBase] = useState(initial);
-  const [value, setValue] = useState<T>(() => (drafts.has(key) ? (drafts.get(key) as T) : base));
+  const [base, setBase] = useState<T>(() =>
+    drafts.has(key) ? (drafts.get(key)?.base as T) : initial(),
+  );
+  const [value, setValue] = useState<T>(() =>
+    drafts.has(key) ? (drafts.get(key)?.value as T) : base,
+  );
   const set = (next: T) => {
-    drafts.set(key, next);
+    drafts.set(key, { value: next, base });
     setValue(next);
   };
   /** After saving: what is shown is now what is stored. */
