@@ -1034,11 +1034,12 @@ function MealCard({
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
   const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 260 : bubble.y + 14;
   // Minutes since that day's midnight: «00:30» for a late dinner is after midnight
-  // (24:30), whichever of the two is closer to the meal's usual time.
+  // (24:30) when that is closer to its usual time; for lunch it is that morning.
   const minuteOf = (hhmm: string) => {
     const m = hhmmToMinutes(hhmm);
     const usual = (meal.preferred.start - zonedInstant(tz, meal.date, 0)) / MINUTE;
-    return Math.abs(m + 1440 - usual) < Math.abs(m - usual) ? m + 1440 : m;
+    // Only a late meal (dinner) reads an early-morning time as after midnight.
+    return usual >= 1080 && Math.abs(m + 1440 - usual) < Math.abs(m - usual) ? m + 1440 : m;
   };
   const choose = (choice: { start?: number; skip?: boolean }, said: string) => {
     if (!kind) return;
