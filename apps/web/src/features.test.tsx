@@ -351,7 +351,7 @@ describe("week", () => {
       expect(replan.className).not.toContain("done");
       // A second replan in the same minute empties the status first, so it is heard again.
       fireEvent.click(replan);
-      expect(document.querySelector(".sr-only")?.textContent).toBe("");
+      expect(document.querySelector('.sr-only[role="status"]')?.textContent).toBe("");
       act(() => {
         vi.advanceTimersByTime(600);
       });

@@ -149,6 +149,7 @@ textarea {
 }
 
 /* Another week: the title goes back to this one; another year's, small below. */
+.range-stack,
 .range-today {
   font: inherit;
   color: inherit;
@@ -211,8 +212,9 @@ textarea {
 }
 
 @media (max-width: 359px) {
+  /* Four tools and the sync dot fit next to the range at 320 px. */
   .header .week-tools .icon-btn {
-    width: 34px;
+    width: 30px;
   }
 
   .header .week-nav .icon-btn {

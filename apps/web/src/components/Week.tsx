@@ -412,7 +412,10 @@ export function Week({
           </button>
           <h1 ref={titleRef} tabIndex={-1} className={`range${offset === 0 ? " current" : ""}`}>
             {offset === 0 ? (
-              rangeDays
+              <span className="range-stack">
+                {rangeDays}
+                {rangeYear && <span className="range-year">{rangeYear}</span>}
+              </span>
             ) : (
               <button
                 type="button"
@@ -431,7 +434,8 @@ export function Week({
             )}
           </h1>
           <span className="sr-only" aria-live="polite">
-            {offset === 0 ? "" : rangeLabel}
+            {/* The week shown, also when the arrows come back to this one. */}
+            {rangeLabel}
           </span>
           <button
             type="button"
