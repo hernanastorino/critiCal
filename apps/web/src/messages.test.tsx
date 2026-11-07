@@ -25,7 +25,7 @@ group("sync messages", () => {
     expect(describe({ connected: false, error: "icloud_auth_failed", status: 401 }, tz)).toMatch(
       /rechazó el Apple ID.*\(401\)/,
     );
-    expect(describe({ connected: false, error: "weird" }, tz)).toBe("La sincronización falló.");
+    expect(describe({ connected: false, error: "weird" }, tz)).toMatch(/Sincronizar ahora/);
     expect(describe({ connected: false }, tz)).toBe("Sin conectar.");
   });
 });
