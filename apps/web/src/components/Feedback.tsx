@@ -97,22 +97,25 @@ export function Skeleton({ width, height }: { width?: string; height?: string })
 /** A screen's shape while its content loads: a title and a few cards. */
 export function ScreenSkeleton({ label }: { label: string }) {
   return (
-    <div className="screen" aria-busy="true">
-      <div className="header">
-        <Skeleton width="40%" height="28px" />
+    <>
+      {/* Outside the busy container: some screen readers skip live regions inside it. */}
+      <div className="sr-only" role="status">
+        {label}
       </div>
-      <div className="scroll">
-        <div className="sr-only" role="status">
-          {label}
+      <div className="screen" aria-busy="true">
+        <div className="header">
+          <Skeleton width="40%" height="28px" />
         </div>
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="card skeleton-card">
-            <Skeleton width="55%" height="16px" />
-            <Skeleton height="12px" />
-          </div>
-        ))}
+        <div className="scroll">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="card skeleton-card">
+              <Skeleton width="55%" height="16px" />
+              <Skeleton height="12px" />
+            </div>
+          ))}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
 

@@ -69,6 +69,7 @@ export function Invites() {
   };
 
   const remove = async (value: string) => {
+    setError(null);
     const { error } = await client.from("invites").delete().eq("email", value);
     if (error) return fail(error, "no se pudo quitar", () => void remove(value));
     // An earlier «Ese email no parece válido.» no longer applies.
