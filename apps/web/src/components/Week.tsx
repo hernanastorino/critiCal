@@ -43,6 +43,7 @@ import {
   ReplanIcon,
   UndoIcon,
 } from "./icons.js";
+import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 
 export type Item =
@@ -145,6 +146,24 @@ export function Week({
   const toaster = useToast();
   /** Said only to screen readers: the replan button shows its result itself. */
   const [spoken, setSpoken] = useState("");
+  /** A keyboard move, said once the store shows it (the reducer may refuse a time just gone). */
+  const [moveSaid, setMoveSaid] = useState<{ id: string; start: number; text: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!moveSaid) return;
+    if (data.pins?.some((p) => p.id === moveSaid.id && p.start === moveSaid.start)) {
+      setSpoken(moveSaid.text);
+      setMoveSaid(null);
+      return;
+    }
+    // Still not there a moment later: the reducer refused it.
+    const refused = setTimeout(() => {
+      setSpoken("No se pudo mover: ese horario ya pasó");
+      setMoveSaid(null);
+    }, 1000);
+    return () => clearTimeout(refused);
+  }, [moveSaid, data.pins]);
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
   /** The block whose bubble is open: its detail sheet gives focus back to it. */
@@ -554,7 +573,8 @@ export function Week({
       {editing && (
         <div className="edit-banner">
           <span role="status">
-            Arrastrá los bloques a donde quieras. Quedan fijados y el resto se reacomoda.
+            Arrastrá los bloques a donde quieras, o con el bloque enfocado usá las flechas del
+            teclado. Quedan fijados y el resto se reacomoda.
           </span>
           <button type="button" className="btn small" onClick={() => setEditing(false)}>
             Listo
@@ -602,201 +622,213 @@ export function Week({
           const lane = dayLanes(d);
           return (
             <div key={d} className="day" data-date={d}>
-              {skipped.map((m) => {
-                const style = position(d, m.at);
-                if (!style || !m.kind) return null;
-                const kind = m.kind;
-                return (
-                  <button
-                    key={`${d}-skip-${mealKey(m)}`}
-                    type="button"
-                    aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ${m.kind === "cena" || m.kind === "merienda" ? "ponerla" : "ponerlo"}`}
-                    className="pill meal skipped"
-                    style={style}
-                    onClick={() => {
-                      dispatch({ type: "mealChoice", date: m.date, kind });
-                      toaster.show(`${mealName(m)} otra vez a su hora`, {
-                        undo: () =>
-                          dispatch({ type: "mealChoice", date: m.date, kind, skip: true }),
-                      });
-                    }}
-                  />
-                );
-              })}
-              {meals.map((m) => {
-                const key = mealKey(m);
-                const style = position(d, m.at, lane.get(`m:${key}`));
-                if (!style) return null;
-                const moved = m.at.start !== m.preferred.start;
-                return (
-                  <button
-                    key={`${d}-${key}`}
-                    type="button"
-                    aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
-                    className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
-                    style={style}
-                    onClick={(e) => {
-                      setBubble(null);
-                      setMealBubble({ meal: m, x: e.clientX, y: e.clientY });
-                    }}
-                  />
-                );
-              })}
-              {items.map((item) => {
-                const style = position(d, item, lane.get(`i:${item.id}`));
-                if (!style) return null;
-                const past = item.end <= now;
-                if (item.kind === "event") {
+              {inReadingOrder([
+                skipped.map((m) => {
+                  const style = position(d, m.at);
+                  if (!style || !m.kind) return null;
+                  const kind = m.kind;
+                  return (
+                    <button
+                      key={`${d}-skip-${mealKey(m)}`}
+                      data-at={m.at.start}
+                      type="button"
+                      aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ${m.kind === "cena" || m.kind === "merienda" ? "ponerla" : "ponerlo"}`}
+                      className="pill meal skipped"
+                      style={style}
+                      onClick={() => {
+                        dispatch({ type: "mealChoice", date: m.date, kind });
+                        toaster.show(`${mealName(m)} otra vez a su hora`, {
+                          undo: () =>
+                            dispatch({ type: "mealChoice", date: m.date, kind, skip: true }),
+                        });
+                      }}
+                    />
+                  );
+                }),
+                meals.map((m) => {
+                  const key = mealKey(m);
+                  const style = position(d, m.at, lane.get(`m:${key}`));
+                  if (!style) return null;
+                  const moved = m.at.start !== m.preferred.start;
+                  return (
+                    <button
+                      key={`${d}-${key}`}
+                      data-at={m.at.start}
+                      type="button"
+                      aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)} a ${time(tz, m.at.end)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
+                      className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
+                      style={style}
+                      onClick={(e) => {
+                        setBubble(null);
+                        setMealBubble({ meal: m, x: e.clientX, y: e.clientY });
+                      }}
+                    />
+                  );
+                }),
+                items.map((item) => {
+                  const style = position(d, item, lane.get(`i:${item.id}`));
+                  if (!style) return null;
+                  const past = item.end <= now;
+                  if (item.kind === "event") {
+                    return (
+                      <button
+                        key={`${d}-${item.id}`}
+                        data-at={item.start}
+                        type="button"
+                        aria-label={`${item.event.title}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${
+                          // A part of an event that started another day says it goes on here.
+                          localParts(tz, item.start).date === d
+                            ? ""
+                            : `, sigue el ${weekdayShort(tz, zonedInstant(tz, d, 720))}`
+                        }${isTentative(item.event) ? ", tentativo" : ""}`}
+                        className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                        style={style}
+                        onClick={(e) => openBubble(e, item)}
+                      />
+                    );
+                  }
+                  const b = item.block;
+                  const future = item.start > now;
+                  const movable = editing && future;
+                  const dragged = drag?.id === b.id;
+                  const lifted = dragged && drag.active;
                   return (
                     <button
                       key={`${d}-${item.id}`}
+                      data-at={item.start}
                       type="button"
-                      aria-label={`${item.event.title}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${
-                        // A part of an event that started another day says it goes on here.
-                        localParts(tz, item.start).date === d
-                          ? ""
-                          : `, sigue el ${weekdayShort(tz, zonedInstant(tz, d, 720))}`
-                      }${isTentative(item.event) ? ", tentativo" : ""}`}
-                      className={`pill fixed${item.event.busy ? "" : " free"}${isTentative(item.event) ? " tentative" : ""}${past ? " past" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
-                      style={style}
-                      onClick={(e) => openBubble(e, item)}
+                      data-level={b.level}
+                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${isPinned(b) ? ", fijado" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
+                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                      style={{ ...style, ["--c" as string]: colorOf(b) }}
+                      onPointerDown={
+                        future
+                          ? (e) => {
+                              // A new press: an earlier drag's click is no longer coming.
+                              dropped.current = { ids: [] };
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              const press: Drag = {
+                                id: b.id,
+                                x0: e.clientX,
+                                y0: e.clientY,
+                                x: e.clientX,
+                                y: e.clientY,
+                                grab: e.clientY - rect.top,
+                                minutes: (b.end - b.start) / MINUTE,
+                                active: editing,
+                              };
+                              if (editing) e.currentTarget.setPointerCapture?.(e.pointerId);
+                              else {
+                                const el = e.currentTarget;
+                                const pointer = e.pointerId;
+                                clearTimeout(pressTimer.current);
+                                pressTimer.current = setTimeout(() => {
+                                  const live = dragRef.current;
+                                  if (live?.id !== b.id) return;
+                                  el.setPointerCapture?.(pointer);
+                                  navigator.vibrate?.(10);
+                                  setDrag({ ...live, active: true });
+                                }, LONG_PRESS_MS);
+                              }
+                              setDrag(press);
+                            }
+                          : undefined
+                      }
+                      onPointerMove={
+                        dragged
+                          ? (e) => {
+                              const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
+                              if (!drag.active) {
+                                // Moving before the long-press fires is a scroll, not a drag.
+                                if (moved > 8) {
+                                  clearTimeout(pressTimer.current);
+                                  setDrag(null);
+                                }
+                                return;
+                              }
+                              const target =
+                                moved < 6
+                                  ? null
+                                  : landing(e.clientX, e.clientY - drag.grab, drag.minutes, b.id);
+                              setDrag({ ...drag, x: e.clientX, y: e.clientY, target });
+                            }
+                          : undefined
+                      }
+                      // Once, right after a keyboard move: kept, it would pull focus back on
+                      // every render (the clock ticks each minute).
+                      ref={
+                        b.id === focusId
+                          ? (el) => {
+                              if (!el) return;
+                              el.focus();
+                              setFocusId(null);
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        movable
+                          ? (e) => {
+                              // Arrows move by one slot (up/down) or one day (left/right).
+                              const slot = data.settings.slotMinutes * MINUTE;
+                              const step = {
+                                ArrowUp: -slot,
+                                ArrowDown: slot,
+                                ArrowLeft: -24 * 60 * MINUTE,
+                                ArrowRight: 24 * 60 * MINUTE,
+                              }[e.key];
+                              if (step === undefined) return;
+                              e.preventDefault();
+                              const start = b.start + step;
+                              if (start <= now) return;
+                              const pin = pinAt(b, start);
+                              setFocusId(pin);
+                              setMoveSaid({
+                                id: pin,
+                                start,
+                                text: `${titleOf(b)} movido a ${weekdayShort(tz, start)} ${time(tz, start)}`,
+                              });
+                            }
+                          : undefined
+                      }
+                      onPointerCancel={
+                        dragged
+                          ? () => {
+                              clearTimeout(pressTimer.current);
+                              setDrag(null);
+                            }
+                          : undefined
+                      }
+                      onPointerUp={
+                        dragged
+                          ? (e) => {
+                              clearTimeout(pressTimer.current);
+                              setDrag(null);
+                              if (!drag.active) return; // a plain tap: onClick opens it
+                              if (!editing) dropped.current = { ids: [b.id] };
+                              if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
+                                if (editing) openBubble(e, item);
+                                return;
+                              }
+                              const moved = drop(b, drag, e.clientX, e.clientY);
+                              if (moved && !editing) dropped.current.ids.push(moved);
+                            }
+                          : undefined
+                      }
+                      onContextMenu={future ? (e) => e.preventDefault() : undefined}
+                      onClick={(e) => {
+                        // The click that ends a long-press drag is not a tap, however late it
+                        // arrives (a slow phone may still be replanning after the drop).
+                        if (e.detail !== 0 && dropped.current.ids.includes(b.id)) {
+                          dropped.current = { ids: [] };
+                          return;
+                        }
+                        // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
+                        if (!movable || e.detail === 0) openBubble(e, item);
+                      }}
                     />
                   );
-                }
-                const b = item.block;
-                const future = item.start > now;
-                const movable = editing && future;
-                const dragged = drag?.id === b.id;
-                const lifted = dragged && drag.active;
-                return (
-                  <button
-                    key={`${d}-${item.id}`}
-                    type="button"
-                    data-level={b.level}
-                    aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)}${isPinned(b) ? ", fijado" : ""}`}
-                    className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
-                    style={{ ...style, ["--c" as string]: colorOf(b) }}
-                    onPointerDown={
-                      future
-                        ? (e) => {
-                            // A new press: an earlier drag's click is no longer coming.
-                            dropped.current = { ids: [] };
-                            const rect = e.currentTarget.getBoundingClientRect();
-                            const press: Drag = {
-                              id: b.id,
-                              x0: e.clientX,
-                              y0: e.clientY,
-                              x: e.clientX,
-                              y: e.clientY,
-                              grab: e.clientY - rect.top,
-                              minutes: (b.end - b.start) / MINUTE,
-                              active: editing,
-                            };
-                            if (editing) e.currentTarget.setPointerCapture?.(e.pointerId);
-                            else {
-                              const el = e.currentTarget;
-                              const pointer = e.pointerId;
-                              clearTimeout(pressTimer.current);
-                              pressTimer.current = setTimeout(() => {
-                                const live = dragRef.current;
-                                if (live?.id !== b.id) return;
-                                el.setPointerCapture?.(pointer);
-                                navigator.vibrate?.(10);
-                                setDrag({ ...live, active: true });
-                              }, LONG_PRESS_MS);
-                            }
-                            setDrag(press);
-                          }
-                        : undefined
-                    }
-                    onPointerMove={
-                      dragged
-                        ? (e) => {
-                            const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
-                            if (!drag.active) {
-                              // Moving before the long-press fires is a scroll, not a drag.
-                              if (moved > 8) {
-                                clearTimeout(pressTimer.current);
-                                setDrag(null);
-                              }
-                              return;
-                            }
-                            const target =
-                              moved < 6
-                                ? null
-                                : landing(e.clientX, e.clientY - drag.grab, drag.minutes, b.id);
-                            setDrag({ ...drag, x: e.clientX, y: e.clientY, target });
-                          }
-                        : undefined
-                    }
-                    // Once, right after a keyboard move: kept, it would pull focus back on
-                    // every render (the clock ticks each minute).
-                    ref={
-                      b.id === focusId
-                        ? (el) => {
-                            if (!el) return;
-                            el.focus();
-                            setFocusId(null);
-                          }
-                        : undefined
-                    }
-                    onKeyDown={
-                      movable
-                        ? (e) => {
-                            // Arrows move by one slot (up/down) or one day (left/right).
-                            const slot = data.settings.slotMinutes * MINUTE;
-                            const step = {
-                              ArrowUp: -slot,
-                              ArrowDown: slot,
-                              ArrowLeft: -24 * 60 * MINUTE,
-                              ArrowRight: 24 * 60 * MINUTE,
-                            }[e.key];
-                            if (step === undefined) return;
-                            e.preventDefault();
-                            const start = b.start + step;
-                            if (start <= now) return;
-                            setFocusId(pinAt(b, start));
-                          }
-                        : undefined
-                    }
-                    onPointerCancel={
-                      dragged
-                        ? () => {
-                            clearTimeout(pressTimer.current);
-                            setDrag(null);
-                          }
-                        : undefined
-                    }
-                    onPointerUp={
-                      dragged
-                        ? (e) => {
-                            clearTimeout(pressTimer.current);
-                            setDrag(null);
-                            if (!drag.active) return; // a plain tap: onClick opens it
-                            if (!editing) dropped.current = { ids: [b.id] };
-                            if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
-                              if (editing) openBubble(e, item);
-                              return;
-                            }
-                            const moved = drop(b, drag, e.clientX, e.clientY);
-                            if (moved && !editing) dropped.current.ids.push(moved);
-                          }
-                        : undefined
-                    }
-                    onContextMenu={future ? (e) => e.preventDefault() : undefined}
-                    onClick={(e) => {
-                      // The click that ends a long-press drag is not a tap, however late it
-                      // arrives (a slow phone may still be replanning after the drop).
-                      if (e.detail !== 0 && dropped.current.ids.includes(b.id)) {
-                        dropped.current = { ids: [] };
-                        return;
-                      }
-                      // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
-                      if (!movable || e.detail === 0) openBubble(e, item);
-                    }}
-                  />
-                );
-              })}
+                }),
+              ])}
               {drag?.active &&
                 drag.target?.date === d &&
                 draggedBlock &&
@@ -872,6 +904,7 @@ export function Week({
           />
           <BubbleCard
             bubble={bubble}
+            onClose={() => setBubble(null)}
             onOpen={() => {
               setOpen(bubble.item);
               setBubble(null);
@@ -1024,8 +1057,10 @@ function BubbleCard({
   onOpen,
   onRelease,
   onPin,
+  onClose,
 }: {
   bubble: Bubble;
+  onClose: () => void;
   onOpen: () => void;
   onRelease: (blockId: string) => void;
   onPin: (block: PlanBlock) => void;
@@ -1034,11 +1069,15 @@ function BubbleCard({
   const tz = data.settings.timezone;
   const { item } = bubble;
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
-  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 150 : bubble.y + 14;
+  const top = cardTop(bubble.y, 150);
 
   if (item.kind === "event") {
     return (
-      <div className="bubble-card" style={{ left, top, ["--c" as string]: "var(--ink-soft)" }}>
+      <BubbleDialog
+        label={item.event.title}
+        onClose={onClose}
+        style={{ left, top, ["--c" as string]: "var(--ink-soft)" }}
+      >
         <button type="button" className="bubble" onClick={onOpen}>
           <h3>{item.event.title}</h3>
           <p>
@@ -1047,7 +1086,7 @@ function BubbleCard({
           {item.event.location && <p>{item.event.location}</p>}
           <p className="more">Abrir evento ›</p>
         </button>
-      </div>
+      </BubbleDialog>
     );
   }
   const b = item.block;
@@ -1055,7 +1094,11 @@ function BubbleCard({
   const activity = data.activities.find((a) => a.id === b.activityId);
   const p = progress(data, now).find((x) => x.task.id === b.taskId);
   return (
-    <div className="bubble-card" style={{ left, top, ["--c" as string]: activity?.color }}>
+    <BubbleDialog
+      label={task?.title ?? "Bloque"}
+      onClose={onClose}
+      style={{ left, top, ["--c" as string]: activity?.color }}
+    >
       <button type="button" className="bubble" onClick={onOpen}>
         <h3>{task?.title}</h3>
         <p>
@@ -1097,6 +1140,52 @@ function BubbleCard({
           </button>
         </div>
       )}
+    </BubbleDialog>
+  );
+}
+
+/** The blocks of a day by start time, so a screen reader reads them in the order of the day. */
+function inReadingOrder(groups: (React.ReactElement | null)[][]) {
+  return groups
+    .flat()
+    .filter((el): el is React.ReactElement<{ "data-at": number }> => el !== null)
+    .sort((a, b) => a.props["data-at"] - b.props["data-at"]);
+}
+
+/** Where a bubble opened by a tap at `y` goes: below it, or above when it would reach the tab bar. */
+function cardTop(y: number, height: number) {
+  const room = window.innerHeight - 80 - height;
+  return Math.max(8, Math.min(y > window.innerHeight * 0.6 ? y - height : y + 14, room));
+}
+
+/**
+ * The small window of a block, event or meal: a dialog. Focus goes into it, Escape closes it
+ * and gives the focus back to what was tapped, and the rest of the screen is inert meanwhile.
+ */
+function BubbleDialog({
+  label,
+  onClose,
+  style,
+  children,
+}: {
+  label: string;
+  onClose: () => void;
+  style: CSSProperties;
+  children: React.ReactNode;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useModal(ref, onClose);
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-modal="true"
+      aria-label={label}
+      className="bubble-card"
+      // Room left under where it sits, minus the tab bar: a tall card scrolls inside it.
+      style={{ ...style, maxHeight: `calc(100dvh - ${Number(style.top ?? 0)}px - 80px)` }}
+    >
+      {children}
     </div>
   );
 }
@@ -1119,16 +1208,11 @@ function MealCard({
   const tz = data.settings.timezone;
   const { meal } = bubble;
   const past = meal.at.end <= now;
-  useEffect(() => {
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", key);
-    return () => document.removeEventListener("keydown", key);
-  }, [onClose]);
   const kind = meal.kind;
   const name = mealName(meal);
   const [at, setAt] = useState(time(tz, meal.at.start));
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
-  const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 260 : bubble.y + 14;
+  const top = cardTop(bubble.y, 260);
   // Within that day's waking hours, whole: a meal at 00:30 or one at 23:59 that runs
   // past bedtime would fall off the calendar.
   // As the planner sees that day: a holiday's routine, a late night's wake-up.
@@ -1163,7 +1247,11 @@ function MealCard({
     });
   };
   return (
-    <div className="bubble-card" style={{ left, top, ["--c" as string]: "var(--meal)" }}>
+    <BubbleDialog
+      label={name}
+      onClose={onClose}
+      style={{ left, top, ["--c" as string]: "var(--meal)" }}
+    >
       <div className="bubble">
         <h3>{name}</h3>
         <p>
@@ -1257,6 +1345,6 @@ function MealCard({
           Cambiar hora y duración de siempre ›
         </button>
       </div>
-    </div>
+    </BubbleDialog>
   );
 }

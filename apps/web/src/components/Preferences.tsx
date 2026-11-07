@@ -138,13 +138,33 @@ export function WeekSettings() {
         <Field label="Me levanto" type="time" value={form.wake} onChange={set("wake")} />
         <Field label="Arreglarse, traslado (min)" value={form.morning} onChange={set("morning")} />
         <Field label="Desayuno" type="time" value={form.breakfast} onChange={set("breakfast")} />
-        <Field label="Dura (min)" value={form.breakfastMin} onChange={set("breakfastMin")} />
+        <Field
+          label="Dura (min)"
+          name="Dura (min), desayuno"
+          value={form.breakfastMin}
+          onChange={set("breakfastMin")}
+        />
         <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
-        <Field label="Dura (min)" value={form.lunchMin} onChange={set("lunchMin")} />
+        <Field
+          label="Dura (min)"
+          name="Dura (min), almuerzo"
+          value={form.lunchMin}
+          onChange={set("lunchMin")}
+        />
         <Field label="Merienda" type="time" value={form.snack} onChange={set("snack")} />
-        <Field label="Dura (min)" value={form.snackMin} onChange={set("snackMin")} />
+        <Field
+          label="Dura (min)"
+          name="Dura (min), merienda"
+          value={form.snackMin}
+          onChange={set("snackMin")}
+        />
         <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
-        <Field label="Dura (min)" value={form.dinnerMin} onChange={set("dinnerMin")} />
+        <Field
+          label="Dura (min)"
+          name="Dura (min), cena"
+          value={form.dinnerMin}
+          onChange={set("dinnerMin")}
+        />
         <Field
           label="Nada de estudio desde"
           type="time"
@@ -211,11 +231,14 @@ function formOf(d: DaySettings) {
 
 function Field({
   label,
+  name,
   type = "text",
   value,
   onChange,
 }: {
   label: string;
+  /** What a screen reader says when several fields share the same visible label. */
+  name?: string;
   type?: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
@@ -225,6 +248,7 @@ function Field({
       <span>{label}</span>
       <input
         type={type}
+        aria-label={name}
         inputMode={type === "text" ? "decimal" : undefined}
         value={value}
         onChange={onChange}
