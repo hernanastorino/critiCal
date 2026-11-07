@@ -6,7 +6,7 @@ import { newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
 import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
-import { ErrorNote, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const MAX_BYTES = 3_000_000;
@@ -20,7 +20,7 @@ const ERRORS: Record<string, string> = {
     "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel.",
   unreadable: "No pude entender el programa. ¿Es el PDF correcto?",
   unreachable: "Sin conexión: no se pudo leer el programa.",
-  unauthorized: "Tu sesión venció. Salí de la app y volvé a entrar.",
+  unauthorized: SESSION_EXPIRED,
   syllabus_failed: "El servidor falló al leer el programa.",
   timeout: "Gemini tardó demasiado en responder.",
 };
@@ -109,11 +109,14 @@ export function SyllabusImport() {
   const [error, setError] = useState<{ text: string; kind: string } | null>(null);
   const last = useRef<File | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const reading = useRef(false);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [done, setDone] = useState<string | null>(null);
   if (!sync) return null;
 
   const read = async (file: File) => {
+    // One read at a time: a second file chosen while one is stuck must not start another.
+    if (reading.current) return;
     setError(null);
     setDone(null);
     last.current = file;
@@ -121,6 +124,7 @@ export function SyllabusImport() {
       setError({ text: ERRORS.too_large ?? "", kind: "too_large" });
       return;
     }
+    reading.current = true;
     setBusy(true);
     setStage(0);
     let r: Awaited<ReturnType<typeof readSyllabus>>;
@@ -141,6 +145,7 @@ export function SyllabusImport() {
       });
       return;
     } finally {
+      reading.current = false;
       setBusy(false);
     }
     if (!r.ok) {
@@ -219,14 +224,19 @@ export function SyllabusImport() {
           total={2}
         />
       )}
+      {busy && stage === 1 && (
+        <p className="meta">Puede tardar hasta un minuto y medio. Si no responde, te aviso.</p>
+      )}
       {error && (
         <ErrorNote
           action={
             RETRY.has(error.kind) && last.current
               ? { label: "Probar de nuevo", onClick: () => last.current && void read(last.current) }
-              : error.kind === "server_not_configured" || error.kind === "model_unavailable"
-                ? undefined
-                : { label: "Elegir otro PDF", onClick: () => picker.current?.click() }
+              : error.kind === "unauthorized"
+                ? reloadAction
+                : error.kind === "server_not_configured" || error.kind === "model_unavailable"
+                  ? undefined
+                  : { label: "Elegir otro PDF", onClick: () => picker.current?.click() }
           }
         >
           {error.text}

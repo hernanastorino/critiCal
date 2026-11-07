@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
-import { ErrorNote, Skeleton, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, Skeleton, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const ERRORS: Record<string, string> = {
   invalid_key: "Gemini no aceptó esa clave. Revisá que esté completa.",
   gemini_busy: "Gemini no responde ahora.",
   unreachable: "Sin conexión: no se pudo guardar.",
+  unauthorized: `${SESSION_EXPIRED} No se guardó nada.`,
+  timeout: `${TIMED_OUT} No se guardó nada.`,
 };
 
 /** Your own Gemini key for reading syllabi; without one, the app's is used. */
@@ -56,8 +58,13 @@ export function GeminiKey() {
     const r = await geminiKey(client, action, action === "set_key" ? key : undefined);
     setBusy(false);
     if (!r.ok) {
+      const quitting = action === "clear_key";
       setError({
-        text: ERRORS[r.error] ?? "No se pudo guardar la clave: el servidor no respondió.",
+        text:
+          (quitting && r.error in ERRORS
+            ? ERRORS[r.error]?.replace("guardar", "quitar").replace("No se guardó", "No se quitó")
+            : ERRORS[r.error]) ??
+          `No se pudo ${quitting ? "quitar" : "guardar"} la clave: el servidor falló.`,
         kind: r.error,
       });
       return;
@@ -125,15 +132,21 @@ export function GeminiKey() {
           Quitar mi clave
         </button>
       )}
-      {busy && <Wait label="Guardando la clave" />}
+      {busy && (
+        <Wait
+          label={lastAction.current === "clear_key" ? "Quitando la clave" : "Guardando la clave"}
+        />
+      )}
       {error && (
         <ErrorNote
           action={
             error.kind === "status"
               ? { label: "Volver a probar", onClick: () => void load() }
-              : error.kind === "invalid_key"
-                ? { label: "Pegar otra clave", onClick: () => field.current?.focus() }
-                : { label: "Probar de nuevo", onClick: () => void run(lastAction.current) }
+              : error.kind === "unauthorized"
+                ? reloadAction
+                : error.kind === "invalid_key"
+                  ? { label: "Pegar otra clave", onClick: () => field.current?.focus() }
+                  : { label: "Probar de nuevo", onClick: () => void run(lastAction.current) }
           }
         >
           {error.text}

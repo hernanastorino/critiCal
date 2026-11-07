@@ -4,7 +4,7 @@ import { CRITICAL } from "../model.js";
 import { closeAccount } from "../remote.js";
 import { useStore } from "../store.js";
 import { downloadJson } from "./Backup.js";
-import { ErrorNote, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 /** What has to be typed to delete the account. */
@@ -17,6 +17,8 @@ const ERRORS: Record<string, string> = {
   token_refresh_failed: "Google no respondió. No se borró nada.",
   google_revoke_failed: "Google no respondió. No se borró nada.",
   unreachable: "Sin conexión. No se borró nada: hace falta internet.",
+  unauthorized: `${SESSION_EXPIRED} No se borró nada.`,
+  timeout: `${TIMED_OUT} No se borró nada.`,
 };
 
 /**
@@ -32,7 +34,11 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
   const [deletePlan, setDeletePlan] = useState(true);
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
+  const [message, setMessage] = useState<{
+    text: string;
+    error?: boolean;
+    session?: boolean;
+  } | null>(null);
   const lastAction = useRef<"revoke" | "delete">("revoke");
 
   useEffect(() => {
@@ -60,8 +66,9 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
     setBusy(false);
     if (!r.ok) {
       setMessage({
-        text: ERRORS[r.error] ?? "El servidor no respondió. No se borró nada.",
+        text: ERRORS[r.error] ?? "El servidor falló. No se borró nada.",
         error: true,
+        session: r.error === "unauthorized",
       });
       return;
     }
@@ -139,11 +146,13 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
             action={
               message.text === ERRORS.owner_cannot_delete
                 ? undefined
-                : {
-                    label: "Probar de nuevo",
-                    onClick: () => void run(lastAction.current),
-                    disabled: busy,
-                  }
+                : message.session
+                  ? reloadAction
+                  : {
+                      label: "Probar de nuevo",
+                      onClick: () => void run(lastAction.current),
+                      disabled: busy,
+                    }
             }
           >
             {message.text}

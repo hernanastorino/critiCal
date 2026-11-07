@@ -83,6 +83,16 @@ export function ErrorNote({
   );
 }
 
+/** What every screen says when the server refuses the session, with the button for it. */
+export const SESSION_EXPIRED = "Tu sesión venció.";
+export const reloadAction = {
+  label: "Recargar para entrar de nuevo",
+  onClick: () => window.location.reload(),
+};
+
+/** What every screen says when the server took too long. */
+export const TIMED_OUT = "El servidor tardó demasiado en responder.";
+
 /** A grey stand-in for text or a block that is still loading. */
 export function Skeleton({ width, height }: { width?: string; height?: string }) {
   return (

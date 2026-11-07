@@ -5,7 +5,7 @@ import { time } from "../format.js";
 import type { CalendarRole } from "../model.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
-import { ErrorNote, Skeleton, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, Skeleton, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const MESSAGES: Record<string, string> = {
@@ -20,6 +20,8 @@ const MESSAGES: Record<string, string> = {
   icloud_unreachable: "No se pudo hablar con iCloud.",
   missing_credentials: "Completá el Apple ID y la contraseña de app.",
   sync_failed: "La sincronización falló.",
+  unauthorized: `${SESSION_EXPIRED} Recargá la app para entrar de nuevo.`,
+  timeout: `${TIMED_OUT} Probá sincronizar otra vez.`,
 };
 
 export function describe(r: SyncResult | undefined, tz: string, at?: number): string {
@@ -34,8 +36,11 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
 }
 
 /** What the button next to a failure does: ask Google again, fix the password, or retry. */
-export function fixFor(r: SyncResult | undefined): "reconnect" | "password" | "retry" | null {
+export function fixFor(
+  r: SyncResult | undefined,
+): "reconnect" | "password" | "retry" | "session" | null {
   if (!r || r.connected || r.error === "not_connected") return null;
+  if (r.error === "unauthorized") return "session";
   if (r.reason === "invalid_grant" || r.error === "no_refresh_token") return "reconnect";
   if (r.error === "token_refresh_failed" && r.reason !== "invalid_client") return "reconnect";
   if (
@@ -113,11 +118,13 @@ export function Calendars() {
             action={
               googleFix === "reconnect"
                 ? { label: "Reconectar Google", onClick: sync.reconnectGoogle }
-                : {
-                    label: status.busy ? "Sincronizando…" : "Reintentar",
-                    onClick: retry,
-                    disabled: status.busy,
-                  }
+                : googleFix === "session"
+                  ? reloadAction
+                  : {
+                      label: status.busy ? "Sincronizando…" : "Reintentar",
+                      onClick: retry,
+                      disabled: status.busy,
+                    }
             }
           >
             {describe(status.google, tz, status.google?.at)}
@@ -148,12 +155,14 @@ export function Calendars() {
           <ErrorNote
             testId="icloud-status"
             action={
-              icloudFix === "password"
-                ? {
-                    label: "Escribir la contraseña de nuevo",
-                    onClick: () => password.current?.focus(),
-                  }
-                : { label: "Reintentar", onClick: retry, disabled: status.busy }
+              icloudFix === "session"
+                ? reloadAction
+                : icloudFix === "password"
+                  ? {
+                      label: "Escribir la contraseña de nuevo",
+                      onClick: () => password.current?.focus(),
+                    }
+                  : { label: "Reintentar", onClick: retry, disabled: status.busy }
             }
           >
             {describe(status.icloud, tz, status.icloud?.at)}

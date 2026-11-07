@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { widgetToken } from "../remote.js";
 import { widgetScript } from "../widget-script.js";
-import { ErrorNote, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -12,6 +12,7 @@ export function WidgetSetup() {
   const [script, setScript] = useState<string | null>(null);
   const [state, setState] = useState<"idle" | "busy" | "error" | "revoked">("idle");
   // What was being done: the wait and the error name it.
+  const [why, setWhy] = useState<string | undefined>();
   const [doing, setDoing] = useState<"create" | "revoke" | "copy">("create");
   const toast = useToast();
   // One token request at a time: a revoke racing a create could leave either outcome.
@@ -27,6 +28,7 @@ export function WidgetSetup() {
       const r = await widgetToken(sync.client, action);
       if (!r.ok || (action === "create" && !r.token)) {
         // A failed revoke leaves the token valid: keep the script so the user can retry.
+        setWhy(r.error);
         setState("error");
         return;
       }
@@ -72,6 +74,7 @@ export function WidgetSetup() {
                   })
                   .catch(() => {
                     setDoing("copy");
+                    setWhy(undefined);
                     setState("error");
                   })
               }
@@ -107,22 +110,28 @@ export function WidgetSetup() {
       {state === "error" && (
         <ErrorNote
           action={
-            doing === "copy"
-              ? {
-                  label: "Seleccionar el script",
-                  onClick: () => {
-                    document.querySelector<HTMLTextAreaElement>("textarea[readonly]")?.select();
-                    setState("idle");
-                  },
-                }
-              : { label: "Probar de nuevo", onClick: () => void run(doing) }
+            why === "unauthorized"
+              ? reloadAction
+              : doing === "copy"
+                ? {
+                    label: "Seleccionar el script",
+                    onClick: () => {
+                      document.querySelector<HTMLTextAreaElement>("textarea[readonly]")?.select();
+                      setState("idle");
+                    },
+                  }
+                : { label: "Probar de nuevo", onClick: () => void run(doing) }
           }
         >
-          {doing === "copy"
-            ? "No se pudo copiar el script."
-            : doing === "revoke"
-              ? "No se pudo desactivar el widget: sigue funcionando."
-              : "No se pudo generar el script."}
+          {why === "unauthorized"
+            ? SESSION_EXPIRED
+            : why === "timeout"
+              ? TIMED_OUT
+              : doing === "copy"
+                ? "No se pudo copiar el script."
+                : doing === "revoke"
+                  ? "No se pudo desactivar el widget: sigue funcionando."
+                  : "No se pudo generar el script."}
         </ErrorNote>
       )}
     </Section>

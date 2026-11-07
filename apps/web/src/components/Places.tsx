@@ -5,7 +5,7 @@ import { newId, type Place, type Spot } from "../model.js";
 import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
-import { ErrorNote, Wait } from "./Feedback.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -19,7 +19,9 @@ export function Places() {
   const pairCount = places.length * (places.length - 1);
   const [editing, setEditing] = useState<Place | null>(null);
   const [busy, setBusy] = useState(false);
-  const [note, setNote] = useState<{ text: string; retry?: boolean } | null>(null);
+  const [note, setNote] = useState<{ text: string; retry?: boolean; session?: boolean } | null>(
+    null,
+  );
   const toast = useToast();
   const kept = data.events.flatMap((event) => {
     const minutes = keptTravel(data, event);
@@ -45,13 +47,17 @@ export function Places() {
       setNote(
         r.error === "server_not_configured"
           ? { text: "Falta la clave de OpenRouteService en el servidor: cargá los tiempos a mano." }
-          : {
-              text:
-                r.error === "unreachable"
-                  ? "Sin conexión: no se pudieron calcular los tiempos."
-                  : "El servicio de mapas no respondió: no se pudieron calcular los tiempos.",
-              retry: true,
-            },
+          : r.error === "unauthorized"
+            ? { text: SESSION_EXPIRED, session: true }
+            : r.error === "timeout"
+              ? { text: TIMED_OUT, retry: true }
+              : {
+                  text:
+                    r.error === "unreachable"
+                      ? "Sin conexión: no se pudieron calcular los tiempos."
+                      : "El servicio de mapas no respondió: no se pudieron calcular los tiempos.",
+                  retry: true,
+                },
       );
       return;
     }
@@ -242,9 +248,11 @@ export function Places() {
           {note && (
             <ErrorNote
               action={
-                note.retry
-                  ? { label: "Probar de nuevo", onClick: () => void compute(), disabled: busy }
-                  : undefined
+                note.session
+                  ? reloadAction
+                  : note.retry
+                    ? { label: "Probar de nuevo", onClick: () => void compute(), disabled: busy }
+                    : undefined
               }
             >
               {note.text}

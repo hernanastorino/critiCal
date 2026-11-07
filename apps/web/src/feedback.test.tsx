@@ -388,3 +388,49 @@ describe("backup", () => {
     expect(click).toHaveBeenCalled();
   });
 });
+
+describe("calls that never answer, and an expired session", () => {
+  it("every server call gives up with «timeout» instead of waiting for ever", async () => {
+    const { callTimeouts, syncICloud, widgetToken, geminiKey, closeAccount, computeTravel } =
+      await import("./remote.js");
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      await new Promise((_, reject) =>
+        init.signal?.addEventListener("abort", () => reject(new DOMException("t", "TimeoutError"))),
+      );
+    });
+    callTimeouts.ms = 20;
+    callTimeouts.slowMs = 20;
+    try {
+      const c = client();
+      expect(await syncICloud(c)).toMatchObject({ connected: false, error: "timeout" });
+      expect(await widgetToken(c, "create")).toMatchObject({ ok: false, error: "timeout" });
+      expect(await geminiKey(c, "set_key", "k")).toMatchObject({ ok: false, error: "timeout" });
+      expect(await closeAccount(c, "revoke", false)).toMatchObject({ ok: false, error: "timeout" });
+      expect(await computeTravel(c)).toMatchObject({ ok: false, error: "timeout" });
+    } finally {
+      callTimeouts.ms = 30_000;
+      callTimeouts.slowMs = 90_000;
+    }
+  });
+
+  it("an expired session says so and offers to reload, in every zone", async () => {
+    await openSettings((name) =>
+      name === "widget" ? { ok: false, error: "unauthorized" } : { connected: true },
+    );
+    await act(async () => fireEvent.click(screen.getByText("Generar script")));
+    expect(await screen.findByText("Tu sesión venció.")).toBeTruthy();
+    expect(screen.getByText("Recargar para entrar de nuevo")).toBeTruthy();
+  });
+
+  it("«Quitar mi clave» talks about removing, not saving", async () => {
+    await openSettings((name, body) => {
+      if (name !== "syllabus") return { connected: true };
+      return body.action === "key_status"
+        ? { ok: true, own: true, fallback: true }
+        : { ok: false, error: "unreachable" };
+    });
+    await screen.findByText(/Usás tu propia clave/);
+    await act(async () => fireEvent.click(screen.getByText("Quitar mi clave")));
+    expect(await screen.findByText("Sin conexión: no se pudo quitar.")).toBeTruthy();
+  });
+});
