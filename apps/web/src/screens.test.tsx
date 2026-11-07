@@ -226,7 +226,13 @@ describe("backup", () => {
     expect(parseBackup(exportJson(withStart, 1))).toEqual({
       data: JSON.parse(JSON.stringify(withStart)),
     });
-    for (const startAfter of [{ daysBefore: -1 }, { daysBefore: 2.5 }, { date: "mañana" }, {}]) {
+    for (const startAfter of [
+      { daysBefore: -1 },
+      { daysBefore: 2.5 },
+      { date: "mañana" },
+      { date: "2026-02-30" },
+      {},
+    ]) {
       const broken = {
         ...data,
         tasks: data.tasks.map((t, i) => (i === 0 ? { ...t, startAfter } : t)),
