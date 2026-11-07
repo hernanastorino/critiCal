@@ -57,7 +57,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
      1. a su **hora preferida**; si ahí hay bloques que no son fijos, el plan los corre solo para dejarle lugar;
      2. si a esa hora hay algo fijo (evento gris u «Ocupado», su traslado, un bloque 📌, también uno que acabo de soltar ahí, u otra comida ya ubicada): primero justo al salir de lo que la pisa, si termina cerca; si no, al hueco más cercano, antes o después, dentro de 1 h 30 de su hora (el desayuno, contado desde que me levanto si me levanté más tarde), corriendo también ahí lo que no sea fijo. Nunca antes de levantarme ni pasada la hora de dormir;
      3. si todo ese rango está ocupado por cosas fijas, la comida **aparece igual a su hora preferida, superpuesta** con lo que haya, y la bandeja avisa («Sin lugar para almorzar · mar 10/11») para que yo decida: la dejo ahí o la arrastro a cualquier momento del día, incluso encima de un evento fijo. Donde la suelto queda 📌 y el plan acomoda el resto alrededor.
-     (Cambia la decisión anterior de solo avisar en la bandeja con un botón para ver el día.)
+        (Cambia la decisión anterior de solo avisar en la bandeja con un botón para ver el día.)
 2. **Factibilidad (EDF)**: por deadline creciente, `demanda mínima acumulada ≤ capacidad acumulada`.
 3. **Holgura** = tiempo libre hasta el deadline − mínimo restante.
    - 🟢 margen · 🟡 holgura < 1 día de capacidad · 🔴 si salteás este bloque no llegás al mínimo.
@@ -277,7 +277,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - una demora relativa a hoy («dentro de 10 días»);
    - un tiempo antes de la entrega («4 días antes»);
    - o una fecha exacta, que tiene que ser anterior a la entrega.
-   Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
+     Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
    - Se configura en la **tarea** y en la **materia**: lo de la materia vale para todas sus tareas, salvo que una diga otra cosa.
    - Por defecto de Claude: el aviso de que no entra sale **al guardar**, con la vista previa del §5.6, y no recién cuando llega la fecha.
 8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Decidido:
@@ -285,4 +285,3 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - Se **mide** el motor y, solo si una reescritura en Rust compilado a WASM da una mejora real, se hace.
 
 **Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
-
