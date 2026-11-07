@@ -97,7 +97,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8.
 
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
-2. Comidas siempre presentes: regla nueva en §5.1 (corre lo no fijo; si no hay lugar, aparece superpuesta y se puede arrastrar a cualquier hora). Además: «Hoy no» por comida y merienda opcional.
+2. Comidas siempre presentes: regla nueva en §5.1 (corre lo no fijo; si no hay lugar, aparece superpuesta y se puede arrastrar a cualquier hora). Además: «Hoy no» por comida y merienda opcional. Al implementarlo, ajustar la propiedad de `scheduler.test.ts` («nunca sobre eventos fijos») para que acepte solo las comidas superpuestas del §5.1 y siga rechazando estudio nuevo encima de lo fijo.
 3. Eventos superpuestos lado a lado, en columnas más angostas.
 4. Ubicación de un evento: «Eliminar» borra el lugar exacto y conserva el tiempo de traslado puesto a mano.
 5. Silos: se ocultan solos al terminar la semana en la que pasó su fecha final.
