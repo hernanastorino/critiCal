@@ -27,7 +27,7 @@ interface State {
   relaxContextUntil?: number;
   noTravel?: string[];
   spots?: Spot[];
-  eventTravel?: Record<string, number>;
+  eventTravel?: AppData["eventTravel"];
   notSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
   tentativeSeen?: AppData["tentativeSeen"];

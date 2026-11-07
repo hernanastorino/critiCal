@@ -53,12 +53,29 @@ const timed = (data: AppData, text: string | undefined) =>
   spotFor(data, text)?.minutes !== undefined;
 
 const SPOT = "spot:";
-/** An event whose own minutes were kept after its address was deleted. */
-const EVENT = "event:";
+/**
+ * An event whose own minutes were kept after its address was deleted. The NUL makes it
+ * a key no calendar location can be (an event at «event:Hospital» stays an address).
+ */
+const EVENT = "\u0000event:";
+
+/** What an event's travel is keyed by: its address or, without one, its title. */
+const eventSpotKey = (e: { location?: string; title: string }) => spotKey(addressOf(e) ?? e.title);
 
 /** Ids of the events whose address (or, without one, title) is the spot `key`. */
 export const eventsAt = (data: AppData, key: string) =>
-  data.events.filter((e) => spotKey(addressOf(e) ?? e.title) === key).map((e) => e.id);
+  data.events.filter((e) => eventSpotKey(e) === key).map((e) => e.id);
+
+/**
+ * Minutes kept for this event after «Eliminar lugar», while it still says the same and
+ * no saved place has claimed it since; otherwise its new location is asked or timed.
+ */
+export function keptTravel(data: AppData, e: { id: string; location?: string; title: string }) {
+  const kept = data.eventTravel?.[e.id];
+  if (!kept || eventSpotKey(e) !== kept.key) return undefined;
+  if (placeFor(data.places ?? [], addressOf(e) ?? e.title)) return undefined;
+  return kept.minutes;
+}
 
 /** What an event gives as its address; one of blanks is none. */
 const addressOf = (e: { location?: string }) => (e.location?.trim() ? e.location : undefined);
@@ -75,7 +92,7 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   if (!home(data)) return events;
   return events.map((raw) => {
     // Its address was deleted but its minutes kept: the trip is counted all the same.
-    if (data.eventTravel?.[raw.id] !== undefined) return { ...raw, location: EVENT + raw.id };
+    if (keptTravel(data, raw) !== undefined) return { ...raw, location: EVENT + raw.id };
     // An address of blanks is no address, here, in the inbox and in search.
     const e = raw.location && !addressOf(raw) ? { ...raw, location: undefined } : raw;
     // A title answer only counts for events without a location of their own.
@@ -105,7 +122,7 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
       return Math.max(
         ...spots.map((id) =>
           id.startsWith(EVENT)
-            ? (data.eventTravel?.[id.slice(EVENT.length)] ?? 0)
+            ? (data.eventTravel?.[id.slice(EVENT.length)]?.minutes ?? 0)
             : ((data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
         ),
       );
@@ -126,7 +143,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   const seen = new Map<string, AppEvent>();
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
-    if (data.eventTravel?.[e.id] !== undefined) continue;
+    if (keptTravel(data, e) !== undefined) continue;
     // An address of blanks is no address.
     const location = addressOf(e);
     const text = location?.trim() || e.title;

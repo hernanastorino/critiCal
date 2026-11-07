@@ -26,6 +26,7 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  EventTravel,
   Place,
   PlanVersion,
   Preferences,
@@ -115,8 +116,17 @@ export type Action =
   | { type: "forgetSpot"; key: string; now: number }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
-  /** Takes «Eliminar lugar» back: the address and its minutes return. */
-  | { type: "restoreSpot"; spot: Spot; eventIds: string[]; now: number }
+  /**
+   * Takes «Eliminar lugar» back: the address returns (unless a newer one took its key)
+   * and each event's kept minutes go back to what they were (`before`), unless they
+   * changed since.
+   */
+  | {
+      type: "restoreSpot";
+      spot: Spot;
+      before: Record<string, EventTravel | undefined>;
+      now: number;
+    }
   /** A flexible event goes back to its own time in the plan. */
   | { type: "unmoveEvent"; eventId: string; now: number }
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
@@ -802,7 +812,9 @@ function apply(data: AppData, action: Action): AppData {
       const spot = (data.spots ?? []).find((s) => s.key === action.key);
       if (spot?.minutes === undefined) return data;
       const eventTravel = { ...data.eventTravel };
-      for (const id of eventsAt(data, spot.key)) eventTravel[id] = spot.minutes;
+      // Minutes an event already kept on its own stay as they are.
+      for (const id of eventsAt(data, spot.key))
+        eventTravel[id] ??= { minutes: spot.minutes, key: spot.key };
       return refresh(
         { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
         now,
@@ -810,12 +822,19 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "restoreSpot": {
       const eventTravel = { ...data.eventTravel };
-      for (const id of action.eventIds) delete eventTravel[id];
+      for (const [id, before] of Object.entries(action.before)) {
+        const current = eventTravel[id];
+        // Only what the deletion set: a later change of that event's minutes stays.
+        const set = current?.key === action.spot.key && current.minutes === action.spot.minutes;
+        if (!set || before) continue;
+        delete eventTravel[id];
+      }
+      const newer = (data.spots ?? []).some((s) => s.key === action.spot.key);
       return refresh(
         {
           ...data,
           eventTravel,
-          spots: [...(data.spots ?? []).filter((s) => s.key !== action.spot.key), action.spot],
+          spots: newer ? data.spots : [...(data.spots ?? []), action.spot],
         },
         now,
       );

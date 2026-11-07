@@ -194,9 +194,10 @@ export interface AppData {
   spots?: Spot[];
   /**
    * Driving minutes from home kept for single events after their address was deleted
-   * («Eliminar lugar»): the plan still counts the trip, no address is kept.
+   * («Eliminar lugar»): the plan still counts the trip, no address is kept. `key` is
+   * the event's `spotKey` then: if the event moves elsewhere, the minutes no longer apply.
    */
-  eventTravel?: Record<string, number>;
+  eventTravel?: Record<string, EventTravel>;
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */
@@ -224,6 +225,11 @@ export interface Spot {
   manual?: boolean;
   /** The address could not be found or reached: the inbox asks. */
   failed?: boolean;
+}
+
+export interface EventTravel {
+  minutes: number;
+  key: string;
 }
 
 /** A saved place (home, facu, gym…), matched against event locations and titles. */

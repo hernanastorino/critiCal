@@ -355,10 +355,13 @@ function SpotRow({ spot }: { spot: Spot }) {
               className="btn small"
               onClick={() => {
                 const eventIds = eventsAt(data, spot.key);
+                const before = Object.fromEntries(
+                  eventIds.map((id) => [id, data.eventTravel?.[id]]),
+                );
                 dispatch({ type: "dropSpotAddress", key: spot.key });
                 toast.show(
                   `Dirección borrada · los ${spot.minutes} min de traslado quedan en ${eventIds.length === 1 ? "el evento" : "sus eventos"} y el plan los sigue contando`,
-                  { undo: () => dispatch({ type: "restoreSpot", spot, eventIds }) },
+                  { undo: () => dispatch({ type: "restoreSpot", spot, before }) },
                 );
               }}
             >

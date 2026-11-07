@@ -250,12 +250,23 @@ describe("places", () => {
   });
 
   it("deletes an address but keeps its minutes on the event, and undoes it", () => {
-    let d = data({ events: [event("x", "Inglés", 10, "Instituto Anglo")] });
+    let d = data({
+      events: [
+        event("x", "Inglés", 10, "Instituto Anglo"),
+        event("y", "Inglés", 12, "Instituto Anglo"),
+      ],
+    });
     d = reducer(d, { type: "spotMinutes", text: "Instituto Anglo", minutes: 20, now: NOW });
-    const spot = d.spots?.[0];
+    const spot = d.spots?.[0] as NonNullable<AppData["spots"]>[number];
+    // «y» already kept minutes of its own: they stay.
+    d = { ...d, eventTravel: { y: { minutes: 35, key: "instituto anglo" } } };
+    const before = { x: undefined, y: d.eventTravel?.y };
     const dropped = reducer(d, { type: "dropSpotAddress", key: "instituto anglo", now: NOW });
     expect(dropped.spots).toEqual([]);
-    expect(dropped.eventTravel).toEqual({ x: 20 });
+    expect(dropped.eventTravel).toEqual({
+      x: { minutes: 20, key: "instituto anglo" },
+      y: { minutes: 35, key: "instituto anglo" },
+    });
     expect(JSON.stringify(dropped)).not.toContain('"text":"Instituto Anglo"');
     // The plan still drives there and back, and nobody asks where it is.
     const located = withPlaces(dropped, dropped.events)[0]?.location as string;
@@ -268,14 +279,42 @@ describe("places", () => {
     expect(reducer(untimed, { type: "dropSpotAddress", key: "instituto anglo", now: NOW })).toBe(
       untimed,
     );
-    const back = reducer(dropped, {
-      type: "restoreSpot",
-      spot: spot as NonNullable<typeof spot>,
-      eventIds: ["x"],
-      now: NOW,
-    });
+    const back = reducer(dropped, { type: "restoreSpot", spot, before, now: NOW });
     expect(back.spots).toEqual(d.spots);
-    expect(back.eventTravel).toEqual({});
+    expect(back.eventTravel).toEqual({ y: { minutes: 35, key: "instituto anglo" } });
+    // A newer address for the same text is not replaced by the undo.
+    const newer = { ...dropped, spots: [{ ...spot, minutes: 50 }] };
+    expect(reducer(newer, { type: "restoreSpot", spot, before, now: NOW }).spots).toEqual(
+      newer.spots,
+    );
+  });
+
+  it("drops kept minutes once the event moves, and keeps real «event:» addresses", () => {
+    const kept = { x: { minutes: 20, key: "instituto anglo" } };
+    const moved = data({ events: [event("x", "Inglés", 10, "Otro lado")], eventTravel: kept });
+    expect(withPlaces(moved, moved.events)[0]?.location).toBe("Otro lado");
+    expect(unlocated(moved, moved.events, NOW).map((u) => u.text)).toEqual(["Otro lado"]);
+    // A saved place that now names it wins over the kept minutes.
+    const claimed = data({
+      events: [event("x", "Inglés", 10, "Instituto Anglo")],
+      eventTravel: kept,
+      places: [casa, { ...gym, aliases: ["Instituto Anglo"] }],
+    });
+    expect(withPlaces(claimed, claimed.events)[0]?.location).toBe("Instituto Anglo");
+    // An address that happens to start with «event:» is still just an address.
+    const odd = data({
+      events: [event("h", "Turno", 10, "event:Hospital")],
+      spots: [{ key: "event hospital", text: "event:Hospital", minutes: 15 }],
+    });
+    const opts = travelOptions(odd);
+    const place = opts?.resolvePlace("event:Hospital") as string;
+    expect(opts?.travelMinutes("casa", place)).toBe(15);
+  });
+
+  it("writes kept minutes with the rest of the state", () => {
+    const before = data();
+    const after = { ...before, eventTravel: { x: { minutes: 20, key: "a" } } };
+    expect(JSON.stringify(diffData(before, after))).toContain("eventTravel");
   });
 
   it("offers «Eliminar lugar» for a timed address, with undo", () => {
