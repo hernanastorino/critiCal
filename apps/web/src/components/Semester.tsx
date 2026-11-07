@@ -19,7 +19,7 @@ export function Semester() {
   const [end, setEnd] = useDraft("semester:end", () => semester?.end ?? "");
   const [subject, setSubject] = useDraft("semester:subject", () => "");
   const [weekly, setWeekly] = useDraft("semester:weekly", () => "");
-  const [exam, setExam] = useDraft("semester:exam", () => ({
+  const [typedExam, setExam] = useDraft("semester:exam", () => ({
     activityId: "",
     title: "Parcial",
     date: "",
@@ -29,6 +29,10 @@ export function Semester() {
   const open = useSectionOpen();
   const holidaysOn = data.preferences?.holidaysOff !== false;
   const subjects = subjectsOf(data);
+  // A kept draft may name a materia that is gone since.
+  const exam = subjects.some((a) => a.id === typedExam.activityId)
+    ? typedExam
+    : { ...typedExam, activityId: "" };
   // Both dates are needed: an empty start would mean "from year 0".
   const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
 

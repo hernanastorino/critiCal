@@ -9,18 +9,28 @@ language sql immutable set search_path = '' as $$
   select
     jsonb_typeof(d) = 'object'
     and octet_length(d::text) <= 65536
-    and case when d ? 'timezone' then jsonb_typeof(d -> 'timezone') = 'string'
-             and length(d ->> 'timezone') between 1 and 64 else true end
-    and case when d ? 'week' then jsonb_typeof(d -> 'week') = 'array'
-             and jsonb_array_length(d -> 'week') = 7 else true end
-    and case when d ? 'slotMinutes' then jsonb_typeof(d -> 'slotMinutes') = 'number'
-             and (d ->> 'slotMinutes')::numeric between 1 and 1440 else true end
-    and case when d ? 'travelMarginMinutes' then jsonb_typeof(d -> 'travelMarginMinutes') = 'number'
-             and (d ->> 'travelMarginMinutes')::numeric between 0 and 1440 else true end
-    and case when d ? 'maxActivitiesPerDay' then jsonb_typeof(d -> 'maxActivitiesPerDay') = 'number'
-             and (d ->> 'maxActivitiesPerDay')::numeric between 1 and 50 else true end
-    and case when d ? 'warnSlackMinutes' then jsonb_typeof(d -> 'warnSlackMinutes') = 'number'
-             and (d ->> 'warnSlackMinutes')::numeric between 0 and 10080 else true end
+    -- The type test sits in the CASE condition, so a cast never runs on a non-number.
+    and case when not d ? 'timezone' then true
+             when jsonb_typeof(d -> 'timezone') <> 'string' then false
+             else length(d ->> 'timezone') between 1 and 64 end
+    and case when not d ? 'week' then true
+             when jsonb_typeof(d -> 'week') <> 'array' then false
+             else jsonb_array_length(d -> 'week') = 7
+               and not exists (
+                 select 1 from jsonb_array_elements(d -> 'week') e where jsonb_typeof(e) <> 'object'
+               ) end
+    and case when not d ? 'slotMinutes' then true
+             when jsonb_typeof(d -> 'slotMinutes') <> 'number' then false
+             else (d ->> 'slotMinutes')::numeric between 1 and 1440 end
+    and case when not d ? 'travelMarginMinutes' then true
+             when jsonb_typeof(d -> 'travelMarginMinutes') <> 'number' then false
+             else (d ->> 'travelMarginMinutes')::numeric between 0 and 1440 end
+    and case when not d ? 'maxActivitiesPerDay' then true
+             when jsonb_typeof(d -> 'maxActivitiesPerDay') <> 'number' then false
+             else (d ->> 'maxActivitiesPerDay')::numeric between 1 and 50 end
+    and case when not d ? 'warnSlackMinutes' then true
+             when jsonb_typeof(d -> 'warnSlackMinutes') <> 'number' then false
+             else (d ->> 'warnSlackMinutes')::numeric between 0 and 10080 end
 $$;
 
 -- Security definer: the writer (the browser's role) cannot reach the private schema.

@@ -107,7 +107,7 @@ describe("the system's back", () => {
     expect(screen.getByRole("dialog").getAttribute("aria-label")).toBe("Ajustes");
     fireEvent.click(screen.getByLabelText("Cerrar"));
     await tick();
-    expect(history.state?.critiSettings).toBeUndefined();
+    expect(history.state?.["critiCal.settings"]).toBeUndefined();
     expect(history.length).toBeGreaterThanOrEqual(before - 1);
   });
 });

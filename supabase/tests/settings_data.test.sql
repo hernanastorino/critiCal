@@ -3,14 +3,14 @@ create extension if not exists pgtap with schema extensions;
 -- Start from an app without accounts: the local seed's test account would own it.
 delete from auth.users where email = 'prueba@critical.test';
 delete from private.app_config where key = 'owner';
-select plan(7);
+select plan(8);
 
 insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000c1', 'cfg@test.local');
 set local role authenticated;
 set local request.jwt.claims = '{"sub": "00000000-0000-0000-0000-0000000000c1"}';
 
 select lives_ok(
-  $$ insert into public.settings (data) values ('{"timezone": "America/Montevideo", "maxActivitiesPerDay": 2, "week": [1,2,3,4,5,6,7]}') $$,
+  $$ insert into public.settings (data) values ('{"timezone": "America/Montevideo", "maxActivitiesPerDay": 2, "week": [{}, {}, {}, {}, {}, {}, {}]}') $$,
   'valid settings are saved'
 );
 select lives_ok(
@@ -24,6 +24,10 @@ select throws_ok(
 select throws_ok(
   $$ update public.settings set data = '{"maxActivitiesPerDay": "2"}' $$,
   '22023', 'invalid settings data', 'a number as text is refused'
+);
+select throws_ok(
+  $$ update public.settings set data = '{"week": [1,2,3,4,5,6,7]}' $$,
+  '22023', 'invalid settings data', 'a week of non-objects is refused'
 );
 select throws_ok(
   $$ update public.settings set data = '[]' $$,

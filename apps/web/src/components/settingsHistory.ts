@@ -15,6 +15,8 @@ let live = 0;
 let own = 0;
 
 if (typeof window !== "undefined") {
+  // A reload keeps the entry's state, but the sheet that owned it is gone.
+  if (level() !== undefined) history.replaceState(null, "");
   window.addEventListener("popstate", () => {
     if (own > 0) {
       own--;
