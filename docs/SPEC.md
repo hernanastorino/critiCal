@@ -261,12 +261,15 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Valor antes de registrarse**: el modo demo deja ver un plan completo antes de pedir Google.
    - **Efecto IKEA**: lo que el usuario arma (sus materias, rutinas, lugares) se muestra como suyo y crece con el uso (por ejemplo, «tu semana tipo»).
    - **Encuadre de pérdidas**, sin manipular: «si salteás este bloque perdés 2 h de margen para el parcial» en vez de «estudiá».
-   - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Estilo: a decidir.
+   - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + una mascota** simple de línea de 2 px que reacciona (se encoge de hombros cuando algo sale mal, festeja cuando me recupero). Claude hace **3 bocetos** de la mascota, con sus reacciones, en una presentación como la de Configuración (link privado + copia en `docs/mockups/`); se implementa recién cuando el usuario elija uno. Mientras tanto se puede avanzar con los textos.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
-2. **Comidas siempre presentes**: la regla nueva está en §5.1. A decidir cómo se manejan el **ayuno**, la **merienda** y **saltear una comida solo un día**.
+2. **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
+   - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.
+   - **Merienda opcional**: una cuarta comida en Mi semana, con hora y duración (0 = sin merienda), que se ubica con la misma regla que las otras. Va entre el almuerzo y la cena.
+   - El ayuno se maneja con esas dos opciones y con duración 0 en la rutina. No hay una ventana de ayuno aparte (se puede sumar más adelante).
 3. **Eventos superpuestos lado a lado**: cuando dos o más bloques se pisan, se dibujan en columnas más angostas, una al lado de la otra, como en Calendario de iOS, nunca uno encima del otro.
-4. **Olvidar el lugar y conservar el tiempo**: un evento de un calendario (por ejemplo iCloud) trae una ubicación a la que voy una sola vez. Le pongo 20 min de traslado y no quiero guardar el lugar, pero hoy «Olvidar» también borra los 20 min y la otra opción es guardarlo como lugar. Tiene que haber una opción **Eliminar** que avise que se borra la ubicación exacta pero que el tiempo estimado se mantiene y el plan lo sigue teniendo en cuenta. Solución: a decidir.
-5. **Silos que se van solos**: un silo cuya fecha final ya pasó desaparece de la vista de silos cuando termina esa semana. Se ven solo los que están en curso y los terminados **esta** semana, para que no se acumulen semestre tras semestre. Los datos no se borran.
+4. **Olvidar el lugar y conservar el tiempo**: un evento de un calendario (por ejemplo iCloud) trae una ubicación a la que voy una sola vez. Le pongo 20 min de traslado y no quiero guardar el lugar, pero hoy «Olvidar» también borra los 20 min y la otra opción es guardarlo como lugar. Tiene que haber una opción **Eliminar** que avise que se borra la ubicación exacta pero que el tiempo estimado se mantiene y el plan lo sigue teniendo en cuenta. Decidido: una tercera opción, **«Eliminar lugar»**, al lado de «Guardar como lugar» y «Olvidar», con el aviso «Se borra la dirección; los 20 min de traslado quedan para este evento y el plan los sigue contando». El tiempo queda guardado en el evento, no como lugar.
+5. **Silos que se van solos**: un silo cuya fecha final ya pasó desaparece de la vista de silos cuando termina esa semana. Se ven solo los que están en curso y los terminados **esta** semana, para que no se acumulen semestre tras semestre. Los datos no se borran. Decidido: al final de la vista, un botón chico **«Ver anteriores (N)»** los muestra agrupados por cuatrimestre.
 6. **Barra de arriba**:
    - El rango de la semana se escribe «2 – 8 nov» (el mes una sola vez; si cruza de mes, «27 oct – 2 nov»).
    - La flecha de Deshacer usa el mismo ícono de línea de 2 px que el resto (`icons.tsx`).
@@ -274,6 +277,12 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - una demora relativa a hoy («dentro de 10 días»);
    - un tiempo antes de la entrega («4 días antes»);
    - o una fecha exacta, que tiene que ser anterior a la entrega.
-   Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Detalles: a decidir.
-8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Alcance: a decidir.
+   Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
+   - Se configura en la **tarea** y en la **materia**: lo de la materia vale para todas sus tareas, salvo que una diga otra cosa.
+   - Por defecto de Claude: el aviso de que no entra sale **al guardar**, con la vista previa del §5.6, y no recién cuando llega la fecha.
+8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Decidido:
+   - **Bun** como gestor de paquetes y para correr los scripts y el CI; Vite, Vitest y Vercel siguen como están.
+   - Se **mide** el motor y, solo si una reescritura en Rust compilado a WASM da una mejora real, se hace.
+
+**Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
 
