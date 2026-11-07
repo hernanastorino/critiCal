@@ -130,7 +130,7 @@ describe("meals with no room", () => {
     expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
     // Next week, with no lunch on Tuesday but the other six.
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/9 nov/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("9 – 15 nov");
     expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(6);
   });
 });

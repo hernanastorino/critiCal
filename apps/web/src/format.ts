@@ -30,6 +30,16 @@ export const dayAndTime = (tz: string, t: number) => `${dayDate(tz, t)} ${time(t
 export const dayMonth = (tz: string, t: number) =>
   fmt(tz, { day: "numeric", month: "short" }).format(t).replace(".", "");
 
+/** "2 – 8 nov", or "27 oct – 2 nov" when the range crosses a month. */
+export const dayRange = (tz: string, from: number, to: number) => {
+  const start = dayMonth(tz, from);
+  const end = dayMonth(tz, to);
+  const month = (s: string) => s.slice(s.indexOf(" ") + 1);
+  return month(start) === month(end)
+    ? `${start.slice(0, start.indexOf(" "))} – ${end}`
+    : `${start} – ${end}`;
+};
+
 export function hours(minutes: number): string {
   if (minutes <= 0) return "0h";
   const h = Math.floor(minutes / 60);

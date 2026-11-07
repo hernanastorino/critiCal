@@ -4,6 +4,7 @@ import { overlaps, zonedInstant } from "./engine.js";
 import {
   dayAndTime,
   dayMonth,
+  dayRange,
   hhmmToMinutes,
   hours,
   minutesToHhmm,
@@ -70,6 +71,10 @@ describe("format", () => {
     expect(weekdayShort(TIMEZONE, MON)).toBe("lun");
     expect(dayAndTime(TIMEZONE, MON)).toBe("lun 2/11 17:50");
     expect(dayMonth(TIMEZONE, MON)).toBe("2 nov");
+    expect(dayRange(TIMEZONE, MON, at("2026-11-08", "12:00"))).toBe("2 – 8 nov");
+    expect(dayRange(TIMEZONE, at("2026-10-26", "12:00"), at("2026-11-01", "12:00"))).toBe(
+      "26 oct – 1 nov",
+    );
     expect(hours(0)).toBe("0h");
     expect(hours(45)).toBe("45m");
     expect(hours(120)).toBe("2h");

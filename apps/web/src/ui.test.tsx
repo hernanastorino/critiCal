@@ -62,10 +62,10 @@ describe("app", () => {
   it("navigates weeks", () => {
     renderApp();
     const title = () => screen.getByRole("heading", { level: 1 });
-    expect(title().textContent).toBe("2 nov – 8 nov");
+    expect(title().textContent).toBe("2 – 8 nov");
     expect(title().className).toContain("current");
     fireEvent.click(screen.getByLabelText("Semana siguiente"));
-    expect(title().textContent).toBe("9 nov – 15 nov");
+    expect(title().textContent).toBe("9 – 15 nov");
     expect(title().className).not.toContain("current");
     fireEvent.click(screen.getByLabelText("Semana anterior"));
     expect(title().className).toContain("current");

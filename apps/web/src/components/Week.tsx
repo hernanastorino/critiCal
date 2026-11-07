@@ -10,7 +10,7 @@ import {
   type PlanBlock,
   zonedInstant,
 } from "../engine.js";
-import { dayAndTime, dayMonth, hours, time, weekdayShort } from "../format.js";
+import { dayAndTime, dayRange, hours, time, weekdayShort } from "../format.js";
 import type { AppEvent, PlanVersion } from "../model.js";
 import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
 import { useStore } from "../store.js";
@@ -24,6 +24,7 @@ import {
   EditIcon,
   GearIcon,
   ReplanIcon,
+  UndoIcon,
 } from "./icons.js";
 import { useToast } from "./Toast.js";
 
@@ -366,8 +367,11 @@ export function Week({
           <ChevronLeft />
         </button>
         <h1 className={`range${offset === 0 ? " current" : ""}`}>
-          {dayMonth(tz, zonedInstant(tz, dates[0] as string, 720))} –{" "}
-          {dayMonth(tz, zonedInstant(tz, dates[6] as string, 720))}
+          {dayRange(
+            tz,
+            zonedInstant(tz, dates[0] as string, 720),
+            zonedInstant(tz, dates[6] as string, 720),
+          )}
         </h1>
         <button
           type="button"
@@ -423,7 +427,7 @@ export function Week({
             title={`Deshacer: ${data.planHistory?.at(-1)?.label}`}
             onClick={() => dispatch({ type: "undoPlan" })}
           >
-            ↶
+            <UndoIcon />
           </button>
         )}
         <SyncDot onClick={() => onSettings()} />
