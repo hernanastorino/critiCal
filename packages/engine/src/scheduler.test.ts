@@ -648,9 +648,16 @@ describe("schedule invariants", () => {
           const at = m.at as { start: number; end: number };
           // Never on top of study…
           for (const b of r.blocks.filter((x) => !x.frozen)) expect(overlaps(b, at)).toBe(false);
-          // …nor of an event, a pin or another meal.
-          expect(fixed.some((f) => overlaps(f, at))).toBe(false);
+          // …nor of another meal.
           for (const o of placed) if (o !== m) expect(overlaps(o.at as typeof at, at)).toBe(false);
+          // Every meal is there (eating is not optional, §5.1): with no free time near
+          // its hour it stays at its time on top of what is fixed, and says so.
+          if (m.overlapping) {
+            expect(fixed.some((f) => overlaps(f, at))).toBe(true);
+            continue;
+          }
+          // Otherwise never on an event or a pin.
+          expect(fixed.some((f) => overlaps(f, at))).toBe(false);
           // Same length, near its time (breakfast: near waking up, at 8:00 here).
           expect(at.end - at.start).toBe(m.preferred.end - m.preferred.start);
           const pref =

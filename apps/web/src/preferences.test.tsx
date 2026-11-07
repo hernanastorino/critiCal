@@ -55,7 +55,7 @@ describe("fixed settings", () => {
       fireEvent.click(screen.getByLabelText(d));
     fireEvent.click(screen.getByLabelText("miércoles"));
     expect(screen.getByLabelText("miércoles").getAttribute("aria-pressed")).toBe("true");
-    const [breakfastMin, , dinnerMin] = screen.getAllByLabelText("Dura (min)");
+    const [breakfastMin, , , dinnerMin] = screen.getAllByLabelText("Dura (min)");
     fireEvent.change(dinnerMin as HTMLElement, { target: { value: "0" } });
     fireEvent.change(breakfastMin as HTMLElement, { target: { value: "0" } });
     fireEvent.click(screen.getByText(/^Guardar para/));

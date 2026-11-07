@@ -17,6 +17,7 @@ import { TaskEditor } from "./TaskEditor.js";
 const EAT: Record<MealKind, string> = {
   desayuno: "desayunar",
   almuerzo: "almorzar",
+  merienda: "merendar",
   cena: "cenar",
 };
 
@@ -340,7 +341,8 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <p className="meta">
               Entre las {time(tz, m.preferred.start - MEAL_RANGE)} y las{" "}
               {time(tz, m.preferred.end + MEAL_RANGE)} todo está ocupado por eventos fijos o bloques
-              📌. Cuando se libere un rato, esto desaparece solo.
+              📌, así que quedó a las {time(tz, (m.at ?? m.preferred).start)}, encima de lo que hay.
+              Dejala ahí o tocala en la semana para moverla a cualquier hora (o «Hoy no»).
             </p>
             {onDay && (
               <button type="button" className="btn small" onClick={() => onDay(m.date)}>

@@ -313,6 +313,7 @@ function isExam(data: AppData, task: AppTask): boolean {
 export const MEAL_NAMES: Record<MealKind, string> = {
   desayuno: "Desayuno",
   almuerzo: "Almuerzo",
+  merienda: "Merienda",
   cena: "Cena",
 };
 
@@ -342,6 +343,7 @@ export const withMeals = (settings: Settings): Settings => ({
 const MEAL_WORDS: [MealKind, RegExp][] = [
   ["desayuno", /\bdesayun/],
   ["almuerzo", /\b(almuerz|almorz)/],
+  ["merienda", /\b(merienda|merendar)/],
   ["cena", /\b(cena|cenar|cenamos)\b/],
 ];
 
@@ -359,9 +361,32 @@ const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visible
 
 /** The day overrides the planner uses: late nights and, unless turned off, holidays. */
 function overridesFor(data: AppData, now: number, from: number, to: number) {
-  return data.preferences?.holidaysOff === false
-    ? withLateNight(data, now)
-    : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
+  const base =
+    data.preferences?.holidaysOff === false
+      ? withLateNight(data, now)
+      : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
+  // Meals skipped or moved by hand ride along in that day's override, merged into the
+  // one already there (a late night, a holiday): consumers keep one override per day.
+  const byDate = new Map(base.map((o) => [o.date, o]));
+  for (const { date, ...meal } of data.mealChoices ?? []) {
+    const o = byDate.get(date);
+    byDate.set(date, { ...o, date, meals: [...(o?.meals ?? []), meal] });
+  }
+  return [...byDate.values()];
+}
+
+/**
+ * That day's waking hours as the planner sees them (minutes since its midnight; bed may
+ * pass 1440): its routine, or the one a holiday borrows, with a late night's wake-up.
+ */
+export function wakingDay(data: AppData, now: number, date: string) {
+  const tz = data.settings.timezone;
+  const noon = zonedInstant(tz, date, 720);
+  const o = overridesFor(data, now, noon, noon).find((x) => x.date === date);
+  const routine = data.settings.week[o?.asWeekday ?? localParts(tz, noon).weekday];
+  const wake = o?.wake ?? routine?.wake ?? 0;
+  const rawBed = o?.bed ?? routine?.bed ?? 1440;
+  return { wake, bed: rawBed <= wake ? rawBed + 1440 : rawBed };
 }
 
 /**
@@ -388,9 +413,15 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   );
 }
 
-/** Meals within the next week with no room near their time, until their last possible start. */
+/**
+ * Meals within the next week with no room near their time (they sit on top of something
+ * fixed), until their last possible start.
+ */
 export function missedMeals(data: AppData, now: number): MealTime[] {
-  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter((m) => !m.at && m.latest > now);
+  return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter(
+    // As placeMeals keeps it: until the later of its last possible start and its end.
+    (m) => m.overlapping && Math.max(m.latest, m.at?.end ?? 0) > now,
+  );
 }
 
 export function scheduleInput(data: AppData, now: number, frozen: PlanBlock[]): ScheduleInput {
@@ -508,6 +539,10 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const reserved = (b: PlanBlock) =>
     kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
   const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
+  // A meal of today on top of a block (moved there by hand, or with no room) takes
+  // that time: the block is planned again, as a proposal since it is today (§5.7).
+  const meals = mealTimes(data, now, now, todayEnd).flatMap((m) => (m.at ? [m.at] : []));
+  const eats = (b: PlanBlock) => meals.some((m) => overlaps(m, b));
   // A block of today before its task can start (a «puedo empezar» set since) goes, as
   // a proposal since it is today (§5.7, §18.7).
   const tooEarly = (b: PlanBlock) => {
@@ -535,7 +570,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
     plannableAt !== undefined && b.start > now && b.start < plannableAt;
   // Displaced blocks are planned again anyway: never a conflict to ask about.
   const conflicts = unpinned.filter(
-    (b) => !displaced(b) && (clashes(b) || reserved(b) || tooEarly(b)),
+    (b) => !displaced(b) && (clashes(b) || reserved(b) || eats(b) || tooEarly(b)),
   );
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
@@ -563,9 +598,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       id: `conflict@${now}`,
       message: conflicts.some(clashes)
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
-        : conflicts.some(tooEarly)
-          ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
-          : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
+        : conflicts.some(eats)
+          ? `Una comida quedó encima de ${names.join(", ")}. ¿Reacomodo el día?`
+          : conflicts.some(tooEarly)
+            ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
+            : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
       plan,
       conflicts: conflicts.map((b) => b.id),
       createdAt: now,
