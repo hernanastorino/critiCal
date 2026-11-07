@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { dayAndTime, dayDate, hours } from "../format.js";
+import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
@@ -62,7 +62,8 @@ export function TaskDetail({
         <h2>{task.title}</h2>
         <p className="meta">
           {p && `Faltan ${hours(p.remainingMinutes)} (mínimo ${hours(p.minRemainingMinutes)})`}
-          {task.deadline && ` · ${dayAndTime(tz, task.deadline)}`}
+          {task.deadline &&
+            ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
 
         <div className="section-title" style={{ marginTop: 4 }}>

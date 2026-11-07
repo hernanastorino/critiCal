@@ -136,6 +136,52 @@ describe("app", () => {
     expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
   });
 
+  it("hides silos due before this week behind «Ver anteriores»", () => {
+    const withPast = (now: number) => {
+      const data = seeded(now);
+      const first = data.tasks.find((t) => t.kind === "deliverable") as (typeof data.tasks)[0];
+      const old = (id: string, title: string, date: string) => ({
+        ...first,
+        id,
+        title,
+        deadline: zonedInstant(TIMEZONE, date, 12 * 60),
+      });
+      return {
+        ...data,
+        tasks: [
+          ...data.tasks,
+          old("abr", "Parcial de abril", "2026-04-15"),
+          old("old-tp", "TP viejo", "2026-10-20"),
+          old("dic", "Final de diciembre", "2025-12-10"),
+        ],
+      };
+    };
+    render(<App fixedNow={NOW} initial={withPast} />);
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
+    // Habits say «esta semana», never «entrega».
+    expect(screen.getByLabelText(/^Gym: faltan .*, esta semana$/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Ver anteriores (3)"));
+    // Newest first, and another year's date says which.
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual([
+      "2.º cuatrimestre 2026",
+      "1.er cuatrimestre 2026",
+      "2.º cuatrimestre 2025",
+    ]);
+    expect(screen.getByLabelText(/Final de diciembre: .*mié 10\/12\/2025 12:00$/)).toBeTruthy();
+    const group = screen.getByRole("region", { name: "2.º cuatrimestre 2026" });
+    expect(within(group).getByLabelText(/TP viejo: faltan/)).toBeTruthy();
+    expect(
+      within(group).getByLabelText(/TP viejo: faltan .*, venció el mar 20\/10 12:00$/),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByText("Ocultar anteriores"));
+    expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
+    // The detail of an old one says it is overdue, with its year.
+    fireEvent.click(screen.getByText("Ver anteriores (3)"));
+    fireEvent.click(screen.getByLabelText(/Final de diciembre: faltan/));
+    expect(screen.getByText(/Venció mié 10\/12\/2025 12:00/)).toBeTruthy();
+  });
+
   it("re-plans the day from settings and can reset or leave the demo", () => {
     renderApp();
     fireEvent.click(screen.getByLabelText("Ajustes"));
