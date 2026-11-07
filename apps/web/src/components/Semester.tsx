@@ -15,8 +15,8 @@ export function Semester() {
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const semester = data.preferences?.semester;
-  const [start, setStart] = useDraft("semester:start", () => semester?.start ?? today);
-  const [end, setEnd] = useDraft("semester:end", () => semester?.end ?? "");
+  const [start, setStart, startSaved] = useDraft("semester:start", () => semester?.start ?? today);
+  const [end, setEnd, endSaved] = useDraft("semester:end", () => semester?.end ?? "");
   const [subject, setSubject, , subjectDirty] = useDraft("semester:subject", () => "");
   const [weekly, setWeekly, , weeklyDirty] = useDraft("semester:weekly", () => "");
   const [typedExam, setExam, examSaved, examDirty] = useDraft("semester:exam", () => ({
@@ -128,6 +128,8 @@ export function Semester() {
             disabled={!start || !end || end < start}
             onClick={() => {
               prefs({ semester: { start, end } });
+              startSaved(start);
+              endSaved(end);
               toast.show("Fechas guardadas");
             }}
           >
