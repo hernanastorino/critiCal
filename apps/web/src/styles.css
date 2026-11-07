@@ -137,9 +137,89 @@ textarea {
 }
 
 .header h1.range {
-  font-size: 24px;
+  font-size: clamp(16px, 5vw, 22px);
   white-space: nowrap;
   text-align: center;
+  min-width: 0;
+}
+
+/* Focused from code (back to this week) by mouse or touch: no ring; by keyboard, yes. */
+.header h1.range:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Another week: the title goes back to this one; another year's, small below. */
+.range-stack,
+.range-today {
+  font: inherit;
+  color: inherit;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.range-year {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+/* Week bar: the range and its arrows tight on the left, the tools spread on the right. */
+.header:has(.week-nav) {
+  gap: 4px;
+}
+
+.week-nav {
+  display: flex;
+  align-items: center;
+  flex: none;
+}
+
+.header .week-nav .icon-btn {
+  width: 28px;
+}
+
+/* A fixed width for the longest range («28 dic – 3 ene»): the tools never shift. */
+.week-nav h1.range {
+  flex: none;
+  width: clamp(96px, 30vw, 150px);
+  font-size: clamp(15px, 4.4vw, 22px);
+}
+
+.week-tools {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-evenly;
+}
+
+.header h1.range:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.header .icon-btn {
+  flex: none;
+  width: 40px;
+  height: 44px;
+}
+
+.icon-btn.placeholder {
+  visibility: hidden;
+}
+
+@media (max-width: 359px) {
+  /* Four tools and the sync dot fit next to the range at 320 px. */
+  .header .week-tools .icon-btn {
+    width: 30px;
+  }
+
+  .header .week-nav .icon-btn {
+    width: 28px;
+  }
 }
 
 .header h1.range.current {
