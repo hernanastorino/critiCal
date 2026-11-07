@@ -29,9 +29,10 @@ import type {
   Place,
   PlanVersion,
   Preferences,
+  Spot,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { home, spotKey, unlocated } from "./places.js";
+import { eventsAt, home, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -112,6 +113,10 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** Deletes an event address but keeps its minutes on each event that used it. */
+  | { type: "dropSpotAddress"; key: string; now: number }
+  /** Takes «Eliminar lugar» back: the address and its minutes return. */
+  | { type: "restoreSpot"; spot: Spot; eventIds: string[]; now: number }
   /** A flexible event goes back to its own time in the plan. */
   | { type: "unmoveEvent"; eventId: string; now: number }
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
@@ -789,6 +794,28 @@ function apply(data: AppData, action: Action): AppData {
           relaxContextUntil: v.relaxContextUntil,
           tentativeHoldUntil: v.tentativeHoldUntil,
           planHistory: history.slice(0, -1),
+        },
+        now,
+      );
+    }
+    case "dropSpotAddress": {
+      const spot = (data.spots ?? []).find((s) => s.key === action.key);
+      if (spot?.minutes === undefined) return data;
+      const eventTravel = { ...data.eventTravel };
+      for (const id of eventsAt(data, spot.key)) eventTravel[id] = spot.minutes;
+      return refresh(
+        { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
+        now,
+      );
+    }
+    case "restoreSpot": {
+      const eventTravel = { ...data.eventTravel };
+      for (const id of action.eventIds) delete eventTravel[id];
+      return refresh(
+        {
+          ...data,
+          eventTravel,
+          spots: [...(data.spots ?? []).filter((s) => s.key !== action.spot.key), action.spot],
         },
         now,
       );

@@ -192,6 +192,11 @@ export interface AppData {
   noTravel?: string[];
   /** Event addresses used for travel without being saved as places. */
   spots?: Spot[];
+  /**
+   * Driving minutes from home kept for single events after their address was deleted
+   * («Eliminar lugar»): the plan still counts the trip, no address is kept.
+   */
+  eventTravel?: Record<string, number>;
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */

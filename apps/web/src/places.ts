@@ -53,6 +53,12 @@ const timed = (data: AppData, text: string | undefined) =>
   spotFor(data, text)?.minutes !== undefined;
 
 const SPOT = "spot:";
+/** An event whose own minutes were kept after its address was deleted. */
+const EVENT = "event:";
+
+/** Ids of the events whose address (or, without one, title) is the spot `key`. */
+export const eventsAt = (data: AppData, key: string) =>
+  data.events.filter((e) => spotKey(addressOf(e) ?? e.title) === key).map((e) => e.id);
 
 /** What an event gives as its address; one of blanks is none. */
 const addressOf = (e: { location?: string }) => (e.location?.trim() ? e.location : undefined);
@@ -68,6 +74,8 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   const places = data.places ?? [];
   if (!home(data)) return events;
   return events.map((raw) => {
+    // Its address was deleted but its minutes kept: the trip is counted all the same.
+    if (data.eventTravel?.[raw.id] !== undefined) return { ...raw, location: EVENT + raw.id };
     // An address of blanks is no address, here, in the inbox and in search.
     const e = raw.location && !addressOf(raw) ? { ...raw, location: undefined } : raw;
     // A title answer only counts for events without a location of their own.
@@ -87,14 +95,19 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
   return {
     home: start.id,
     resolvePlace: (location) =>
+      (location.startsWith(EVENT) ? location : undefined) ??
       placeFor(places, location)?.id ??
       (timed(data, location) ? `${SPOT}${spotKey(location)}` : undefined),
     // A spot is only timed from home; trips between it and another place take that long too.
     travelMinutes: (from, to) => {
-      const spots = [from, to].filter((id) => id.startsWith(SPOT));
+      const spots = [from, to].filter((id) => id.startsWith(SPOT) || id.startsWith(EVENT));
       if (spots.length === 0) return minutesBetween(data, from, to);
       return Math.max(
-        ...spots.map((id) => (data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
+        ...spots.map((id) =>
+          id.startsWith(EVENT)
+            ? (data.eventTravel?.[id.slice(EVENT.length)] ?? 0)
+            : ((data.spots ?? []).find((s) => SPOT + s.key === id)?.minutes ?? 0),
+        ),
       );
     },
     marginMinutes: data.settings.travelMarginMinutes,
@@ -113,6 +126,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
   const seen = new Map<string, AppEvent>();
   for (const e of events) {
     if (!e.busy || e.allDay || e.end <= now || e.start > now + 7 * DAY) continue;
+    if (data.eventTravel?.[e.id] !== undefined) continue;
     // An address of blanks is no address.
     const location = addressOf(e);
     const text = location?.trim() || e.title;

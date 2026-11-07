@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
-import { minutesBetween } from "../places.js";
+import { eventsAt, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Section } from "./Section.js";
@@ -306,7 +306,8 @@ function PlaceForm({
 
 /** An event address in use: its minutes from home, saving it as a place, or forgetting it. */
 function SpotRow({ spot }: { spot: Spot }) {
-  const { dispatch } = useStore();
+  const { data, dispatch } = useStore();
+  const toast = useToast();
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   return (
@@ -348,6 +349,22 @@ function SpotRow({ spot }: { spot: Spot }) {
           <button type="button" className="btn small" onClick={() => setNaming(true)}>
             Guardar como lugar
           </button>
+          {spot.minutes !== undefined && (
+            <button
+              type="button"
+              className="btn small"
+              onClick={() => {
+                const eventIds = eventsAt(data, spot.key);
+                dispatch({ type: "dropSpotAddress", key: spot.key });
+                toast.show(
+                  `Dirección borrada · los ${spot.minutes} min de traslado quedan en ${eventIds.length === 1 ? "el evento" : "sus eventos"} y el plan los sigue contando`,
+                  { undo: () => dispatch({ type: "restoreSpot", spot, eventIds }) },
+                );
+              }}
+            >
+              Eliminar lugar
+            </button>
+          )}
           <button
             type="button"
             className="btn small"
@@ -356,6 +373,12 @@ function SpotRow({ spot }: { spot: Spot }) {
             Olvidar
           </button>
         </div>
+      )}
+      {spot.minutes !== undefined && !naming && (
+        <p className="meta" style={{ width: "100%", margin: 0 }}>
+          «Eliminar lugar» borra la dirección y deja los {spot.minutes} min en el evento. «Olvidar»
+          borra las dos cosas.
+        </p>
       )}
     </div>
   );

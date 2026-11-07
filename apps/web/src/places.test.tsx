@@ -2,6 +2,7 @@ import { act, cleanup, fireEvent, render, screen } from "@testing-library/react"
 import { afterEach, describe, expect, it } from "vitest";
 import { Inbox } from "./components/Inbox.js";
 import { Places } from "./components/Places.js";
+import { ToastProvider } from "./components/Toast.js";
 import { applyWrites, diffData } from "./data.js";
 import { emptyData } from "./demo.js";
 import { MINUTE, zonedInstant } from "./engine.js";
@@ -246,6 +247,64 @@ describe("places", () => {
     expect(input.travel?.resolvePlace("FING")).toBe("facu");
     expect(input.travel?.travelMinutes("casa", "facu")).toBe(30);
     expect(travelOptions({ ...d, places: [facu] })).toBeUndefined();
+  });
+
+  it("deletes an address but keeps its minutes on the event, and undoes it", () => {
+    let d = data({ events: [event("x", "Inglés", 10, "Instituto Anglo")] });
+    d = reducer(d, { type: "spotMinutes", text: "Instituto Anglo", minutes: 20, now: NOW });
+    const spot = d.spots?.[0];
+    const dropped = reducer(d, { type: "dropSpotAddress", key: "instituto anglo", now: NOW });
+    expect(dropped.spots).toEqual([]);
+    expect(dropped.eventTravel).toEqual({ x: 20 });
+    expect(JSON.stringify(dropped)).not.toContain('"text":"Instituto Anglo"');
+    // The plan still drives there and back, and nobody asks where it is.
+    const located = withPlaces(dropped, dropped.events)[0]?.location as string;
+    const opts = travelOptions(dropped);
+    const place = opts?.resolvePlace(located) as string;
+    expect(opts?.travelMinutes("casa", place)).toBe(20);
+    expect(unlocated(dropped, dropped.events, NOW)).toEqual([]);
+    // Without known minutes there is nothing to keep.
+    const untimed = { ...d, spots: [{ key: "instituto anglo", text: "Instituto Anglo" }] };
+    expect(reducer(untimed, { type: "dropSpotAddress", key: "instituto anglo", now: NOW })).toBe(
+      untimed,
+    );
+    const back = reducer(dropped, {
+      type: "restoreSpot",
+      spot: spot as NonNullable<typeof spot>,
+      eventIds: ["x"],
+      now: NOW,
+    });
+    expect(back.spots).toEqual(d.spots);
+    expect(back.eventTravel).toEqual({});
+  });
+
+  it("offers «Eliminar lugar» for a timed address, with undo", () => {
+    render(
+      <ToastProvider>
+        <StoreProvider
+          initial={() =>
+            data({
+              events: [event("x", "Inglés", 10, "Instituto Anglo")],
+              spots: [
+                { key: "instituto anglo", text: "Instituto Anglo", minutes: 20, manual: true },
+              ],
+            })
+          }
+          persist={false}
+          fixedNow={NOW}
+        >
+          <Places />
+          <Spots />
+        </StoreProvider>
+      </ToastProvider>,
+    );
+    fireEvent.click(screen.getByText("Eliminar lugar"));
+    expect(
+      screen.getByText(/Dirección borrada · los 20 min de traslado quedan en el evento/),
+    ).toBeTruthy();
+    expect(screen.queryByText("Instituto Anglo")).toBeNull();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByText("Instituto Anglo")).toBeTruthy();
   });
 
   it("asks once per unknown place, only for upcoming busy events", () => {
