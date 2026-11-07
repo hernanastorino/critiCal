@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { localParts } from "../engine.js";
 import { dayAndTime, dayDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import {
@@ -14,12 +15,20 @@ import { plannedVsDone } from "../week-review.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 
+let pastOpen = false;
+
 export function Silos() {
   const { data, now } = useStore();
   const tz = data.settings.timezone;
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
   const [detail, setDetail] = useState<AppTask | null>(null);
-  const [showPast, setShowPast] = useState(false);
+  // Remembered while the app is open, so a trip to another tab does not close it.
+  const [showPast, setShowPastState] = useState(pastOpen);
+  const setShowPast = (open: boolean) => {
+    pastOpen = open;
+    setShowPastState(open);
+  };
+  const thisYear = localParts(tz, now).date.slice(0, 4);
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const { current: items, past } = splitPastSilos(
     progress(data, now).sort((a, b) => a.deadline - b.deadline),
@@ -36,12 +45,18 @@ export function Silos() {
     const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
     const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
     const level = levels.get(p.task.id) ?? "ok";
+    const year = localParts(tz, p.deadline).date.slice(0, 4);
+    const due =
+      p.task.kind === "habit"
+        ? "esta semana"
+        : `${dayAndTime(tz, p.deadline)}${year === thisYear ? "" : ` ${year}`}`;
+    const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
     return (
       <button
         type="button"
         key={p.task.id}
         className="silo"
-        aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}`}
+        aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}, ${overdue ? "venció el" : "entrega"} ${due}`}
         onClick={() => setDetail(p.task)}
       >
         <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
@@ -50,8 +65,8 @@ export function Silos() {
           {p.remainingMinutes > 0 && <span className="left">{hours(p.remainingMinutes)}</span>}
         </div>
         <span className="name">{p.task.title}</span>
-        <span className="due">
-          {p.task.kind === "habit" ? "esta semana" : dayAndTime(tz, p.deadline)}
+        <span className={`due${overdue ? " overdue" : ""}`}>
+          {overdue ? `Venció · ${due}` : due}
         </span>
       </button>
     );

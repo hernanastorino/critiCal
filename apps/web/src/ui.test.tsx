@@ -144,6 +144,9 @@ describe("app", () => {
     fireEvent.click(screen.getByText("Ver anteriores (1)"));
     const group = screen.getByRole("region", { name: "2.º cuatrimestre 2026" });
     expect(within(group).getByLabelText(/TP viejo: faltan/)).toBeTruthy();
+    expect(
+      within(group).getByLabelText(/TP viejo: faltan .*, venció el mar 20\/10 12:00$/),
+    ).toBeTruthy();
     fireEvent.click(screen.getByText("Ocultar anteriores"));
     expect(screen.queryByLabelText(/TP viejo: faltan/)).toBeNull();
   });
