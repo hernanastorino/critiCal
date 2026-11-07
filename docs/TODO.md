@@ -15,6 +15,7 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 | Qué                                                                      | Estado                                                     | Qué falta                                                                                                                            |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| PR #74 «SPEC §18: próximos desarrollos y comidas siempre presentes»      | De **otra sesión**                                         | No mergear ni tocar: lo termina su sesión. Leer su §18 al planificar.                                                                |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
