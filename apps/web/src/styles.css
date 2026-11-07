@@ -1771,3 +1771,102 @@ input[type="datetime-local"] {
 .start-after .inline input {
   width: 4.5em;
 }
+
+/* ---------- Waits, skeletons and notices (SPEC §14) ---------- */
+
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  color: var(--ink-soft);
+  text-align: center;
+}
+
+.loading.inline {
+  flex-direction: row;
+  padding: 4px 0;
+  gap: 8px;
+  text-align: left;
+}
+
+.loading-shape {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--glass-strong);
+  border-top-color: var(--ink-soft);
+  animation: spin 0.9s linear infinite;
+  flex: none;
+}
+
+.loading-bar {
+  width: 160px;
+  height: 4px;
+  accent-color: var(--ink-soft);
+}
+
+.loading.inline .loading-bar {
+  display: none;
+}
+
+.skeleton {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+}
+
+.skeleton-card {
+  display: grid;
+  gap: 8px;
+}
+
+.skeleton-line,
+.skeleton-day {
+  display: block;
+  height: 12px;
+  border-radius: 6px;
+  background: var(--glass);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.skeleton-days {
+  display: flex;
+  gap: 6px;
+}
+
+.skeleton-day {
+  flex: 1;
+  height: 36px;
+  border-radius: 10px;
+}
+
+.week-skeleton {
+  padding: 16px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loading-shape,
+  .skeleton-line,
+  .skeleton-day {
+    animation: none;
+  }
+}
+
+.notice {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: var(--surface);
+  border-left: 4px solid var(--warn);
+}
+
+.notice.error {
+  border-left-color: var(--critical);
+}
+
+.notice-mascot {
+  justify-self: center;
+}

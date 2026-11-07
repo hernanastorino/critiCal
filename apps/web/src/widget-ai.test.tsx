@@ -119,7 +119,7 @@ describe("syllabus import", () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Programa en PDF"), { target: { files: [pdf] } });
     });
-    expect(await screen.findByText("Falta la clave de Gemini en el servidor.")).toBeTruthy();
+    expect(await screen.findByText(/Falta la clave de Gemini en el servidor/)).toBeTruthy();
     const big = new File([new Uint8Array(3_100_000)], "big.pdf", { type: "application/pdf" });
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Programa en PDF"), { target: { files: [big] } });
