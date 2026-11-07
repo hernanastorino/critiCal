@@ -251,6 +251,20 @@ export function Week({
       ).filter((m): m is MealBubble["meal"] => m.at !== null),
     [data, now, tz, firstDay],
   );
+  // Meals skipped for a day («Hoy no»), shown faint where they would be, to bring back.
+  const skipped = useMemo(() => {
+    const skips = (data.mealChoices ?? []).filter((c) => c.skip);
+    if (skips.length === 0) return [];
+    return mealTimes(
+      { ...data, mealChoices: (data.mealChoices ?? []).filter((c) => !c.skip) },
+      now,
+      zonedInstant(tz, firstDay, 0),
+      zonedInstant(tz, addDays(firstDay, 7), 0),
+    ).filter(
+      (m): m is MealBubble["meal"] =>
+        m.at !== null && skips.some((c) => c.date === m.date && c.kind === m.kind),
+    );
+  }, [data, now, tz, firstDay]);
 
   const colorOf = (b: PlanBlock) =>
     data.activities.find((a) => a.id === b.activityId)?.color ?? "#888";
@@ -512,6 +526,27 @@ export function Week({
           const lane = dayLanes(d);
           return (
             <div key={d} className="day" data-date={d}>
+              {skipped.map((m) => {
+                const style = position(d, m.at);
+                if (!style || !m.kind) return null;
+                const kind = m.kind;
+                return (
+                  <button
+                    key={`${d}-skip-${mealKey(m)}`}
+                    type="button"
+                    aria-label={`${mealName(m)} sacado ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ponerlo`}
+                    className="pill meal skipped"
+                    style={style}
+                    onClick={() => {
+                      dispatch({ type: "mealChoice", date: m.date, kind });
+                      toaster.show(`${mealName(m)} otra vez a su hora`, {
+                        undo: () =>
+                          dispatch({ type: "mealChoice", date: m.date, kind, skip: true }),
+                      });
+                    }}
+                  />
+                );
+              })}
               {meals.map((m) => {
                 const key = mealKey(m);
                 const style = position(d, m.at, lane.get(`m:${key}`));
@@ -988,10 +1023,11 @@ function MealCard({
   onClose: () => void;
   onSettings: () => void;
 }) {
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
   const toaster = useToast();
   const tz = data.settings.timezone;
   const { meal } = bubble;
+  const past = meal.at.end <= now;
   const kind = meal.kind;
   const name = mealName(meal);
   const [at, setAt] = useState(time(tz, meal.at.start));
@@ -1045,28 +1081,42 @@ function MealCard({
             </p>
           )
         )}
-        {kind && (
+        {past && <p className="meta">Ya pasó: no se puede mover ni sacar.</p>}
+        {kind && !past && (
           <>
-            <div className="row fields">
+            <form
+              className="row fields"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (at) choose({ start: minuteOf(at) }, `${name} a las ${at}, solo ese día`);
+              }}
+            >
               <label style={{ flex: 1 }}>
                 <span className="meta">Mover a</span>
-                <input type="time" value={at} onChange={(e) => setAt(e.target.value)} />
+                <input
+                  type="time"
+                  aria-label={`Mover ${name.toLowerCase()} a`}
+                  value={at}
+                  onChange={(e) => setAt(e.target.value)}
+                />
               </label>
-              <button
-                type="button"
-                className="btn small"
-                disabled={!at}
-                onClick={() => choose({ start: minuteOf(at) }, `${name} a las ${at}, solo ese día`)}
-              >
+              <button type="submit" className="btn small" disabled={!at}>
                 Mover
               </button>
-            </div>
+            </form>
             <div className="row">
               <button
                 type="button"
                 className="btn small"
                 onClick={() =>
-                  choose({ skip: true }, `Hoy no ${name.toLowerCase()} · el plan usa ese rato`)
+                  choose(
+                    { skip: true },
+                    `Hoy no ${name.toLowerCase()} · ${
+                      meal.date === localParts(tz, now).date
+                        ? "reacomodá hoy para usar ese rato"
+                        : "el plan usa ese rato"
+                    }`,
+                  )
                 }
               >
                 Hoy no {name.toLowerCase()}

@@ -313,6 +313,13 @@ textarea {
   z-index: 2;
 }
 
+/* A meal skipped that day: a faint outline where it would be, to bring it back. */
+.pill.meal.skipped {
+  background: none;
+  outline: 1px dashed color-mix(in srgb, var(--meal) 60%, transparent);
+  opacity: 0.7;
+}
+
 .pill.meal {
   background: color-mix(in srgb, var(--meal) 30%, transparent);
   box-shadow: inset 0 0 0 1.5px var(--meal);

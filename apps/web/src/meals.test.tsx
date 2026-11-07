@@ -148,7 +148,18 @@ describe("meals with no room", () => {
     expect(labels()).not.toContain("Almuerzo, 15:30, movido por vos");
     fireEvent.click(monday());
     fireEvent.click(screen.getByText("Hoy no almuerzo"));
-    expect(lunches()).toHaveLength(6);
-    expect(screen.getByText(/Hoy no almuerzo · el plan usa ese rato/)).toBeTruthy();
+    // Gone that day but still there, faint, to bring it back.
+    expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(6);
+    expect(screen.getByText(/Hoy no almuerzo · reacomodá hoy para usar ese rato/)).toBeTruthy();
+    fireEvent.click(screen.getByLabelText(/^Almuerzo sacado ese día, lun 13:00/));
+    expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(7);
+    // A meal that already happened cannot be moved or skipped.
+    cleanup();
+    render(<App fixedNow={at("2026-11-04", "20:00")} initial={withEvents([])} />);
+    fireEvent.click(
+      mealPills().find((p) => p.getAttribute("aria-label") === "Almuerzo, 13:00") as HTMLElement,
+    );
+    expect(screen.getByText("Ya pasó: no se puede mover ni sacar.")).toBeTruthy();
+    expect(screen.queryByText("Mover")).toBeNull();
   });
 });
