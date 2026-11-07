@@ -28,6 +28,23 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 - **Producción**: https://critical-cal.vercel.app (la PWA cachea: para probar una versión nueva, actualizá el service worker y recargá). Modo demo: «Probar con datos de ejemplo».
 - **Límites de uso**: al 90 % del límite de 5 h, dejar este archivo al día y cortar; al 90 % del semanal, frenar y avisar. Las tareas programadas de relevo arrancan en modo de permisos por defecto y se traban pidiendo permisos: si se usan, configurarlas en modo Auto desde la app.
 
+### Vigilar Sentry desde la cuenta nueva
+
+En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada hora). **Recién cuando el usuario confirmó que la frenó** (ver §0 punto 2), creá en la cuenta nueva una tarea equivalente (herramienta de tareas programadas de Claude Code, cada hora, en **modo de permisos Auto**, si no se traba pidiendo permisos) con este prompt, resumido:
+
+1. Buscar en Sentry (org `hernanastorino`, región https://us.sentry.io, proyecto `critical`) los issues `is:unresolved`, `is:regressed` y `is:escalating` de las últimas 24 h. Si no hay, terminar con «Sentry limpio».
+2. Por cada uno, ver detalle, breadcrumbs y stack trace, y clasificarlo:
+   - **Seguridad** primero (sesión o tokens filtrados, errores de permisos o RLS como Postgres 42501 o PGRST301, XSS o CSP, redirecciones abiertas, 401 o 403 de nuestra API, datos de otro usuario).
+   - **Bug nuestro**: se arregla.
+   - **Ruido** ajeno (extensiones, cortes de red reconocidos): se resuelve en Sentry con el motivo, sin tocar código.
+3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado).
+4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `npx biome check .`, `npx tsc -b`, `npx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
+5. Mergear con las reglas de §2 (CodeRabbit terminado sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
+6. Confirmar el deploy de `main` y marcar el issue como resuelto en Sentry, con el link al PR.
+7. Informe de 2 a 4 líneas. Si un problema de seguridad no quedó resuelto, decirlo arriba de todo.
+
+Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, cargar credenciales ni tocar la barra de pestañas de abajo.
+
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
 - **Mascota (SPEC §18.1)**: elegir uno de los 3 bocetos (Tic el relojito, Punta el lápiz, Dosi la píldora) de `docs/mockups/mascota.html` (presentación privada: https://claude.ai/artifact/XV58NrVM7hPbYX3NJTA1nq). Después: implementar la elegida y los textos con humor del camino infeliz (§18.1) en un PR propio.
