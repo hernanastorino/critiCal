@@ -25,9 +25,9 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 - **Un PR por tema**, rama `claude/<tema>`, en un worktree propio (`git worktree add .claude/worktrees/<tema> -b claude/<tema> origin/main`). La carpeta principal la usa otra tarea (vigilar Sentry cada hora): no cambies su rama ni dejes archivos sueltos ahí.
 - **Validar antes de mergear** (cada merge a `main` despliega a staging y, si el E2E pasa, a producción; §17):
   1. `npx biome check .`, `npx tsc -b`, `npx vitest run` (con coverage en CI: 80 %).
-  2. Probar en el navegador integrado con viewport de iPhone (375×812), modo demo y cuenta de prueba local. Sin el simulador de iOS disponible, ese navegador lo reemplaza.
+  2. Probar en el **simulador de iPhone** (`mcp__Claude_Code_iOS_Simulator__control`, Safari contra el dev server), modo demo y cuenta de prueba local, como pide la SPEC §17. En corridas programadas el simulador no está disponible: ahí se usa el navegador integrado con viewport de iPhone (375×812) y se anota en el PR que la prueba en el simulador queda pendiente.
   3. **Agente atacante**: un subagente sin contexto técnico (solo la URL) intenta romper todo y encontrar vulnerabilidades. Primero en local (destructivo), después en la preview del PR (solo modo demo, sin cambiar datos). Nunca en producción.
-  4. Arreglar todo lo reportado en el mismo PR, con tests, y repetir hasta una vuelta limpia.
+  4. Arreglar todo lo reportado en el mismo PR, con tests, y repetir hasta una vuelta limpia. **Freno** (§17): si la misma falla vuelve 3 veces, o hay 5 vueltas seguidas con fallas nuevas, parar y avisar al usuario con el detalle.
 - **Merge**: solo con el CI en verde, CodeRabbit terminado sobre el **último** commit (la revisión con `commit_id` igual al head) y **sin hilos abiertos**. Squash. Responder cada hilo y resolverlo.
 - **Después del merge**: esperar el workflow Deploy de `main`, revisar Sentry (sin issues nuevos) y una prueba rápida en https://critical-cal.vercel.app en modo demo.
 - **Preguntas que son del usuario** y la SPEC no resuelve: anotarlas en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/pending-questions.md` y seguir con otra cosa.
@@ -37,7 +37,7 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 
 - `supabase start` y, para el seed de la cuenta de prueba, `supabase db reset` (borra la base local).
 - `apps/web/.env.local` del worktree (ignorado por git), con las claves de `supabase status` y `VITE_FAKE_PROVIDERS=1` (ver `.env.example`; ahí están también el email y la contraseña de la cuenta de prueba).
-- Dev server de un worktree en otro puerto: `cd .claude/worktrees/<tema>/apps/web && ../../../../../node_modules/.bin/vite --port 5178 --strictPort`.
+- Dev server de un worktree en otro puerto: `cd .claude/worktrees/<tema>/apps/web && npx vite --port 5178 --strictPort`. Los worktrees dentro de `.claude/worktrees/` usan el `node_modules` del checkout principal; uno creado en otra carpeta necesita su propio `npm ci` primero.
 - Con `VITE_FAKE_PROVIDERS=1`, Google, iCloud, los mapas y Gemini responden datos inventados (`apps/web/api/_lib/fake-providers.ts`). «Reconectar Google» queda dentro de la app.
 
 ## 4. Problemas conocidos del entorno
