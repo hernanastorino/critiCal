@@ -17,6 +17,9 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 | Qué                                                                      | Estado                                                     | Qué falta                                                                                                                            |
 | ------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| PR #89 `claude/esperas-errores-918f4a` (§14.1 esperas, errores, skeletons y textos del camino infeliz) | Código validado, atacante local limpio | Check `preview` frenado por el límite diario de Vercel (100 deploys/día, plan gratis). Con cupo: relanzar preview, atacante en la preview, merge. |
+| PR #90 `claude/ajustes-refuerzos` (§5.3 refuerzos de Ajustes) | Código validado, hilos resueltos | Igual que #89: preview por el límite de Vercel, revisión final de CodeRabbit, merge. |
+| Roy (§18.1, escalera de Jacob toon 3D) | Propuesto como sesión hija, apilado sobre #89 | Decisiones en el brief: Roy también en esperas chicas y en el aviso de salteado; festeja al recuperar salteados y al cerrar una entrega. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -128,11 +131,11 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 4. Hecho (#79, validado en producción).
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
-7. Hecho (#82, validado en producción). Queda: opción «Empezar antes» en las decisiones de la Bandeja cuando no entra.
+7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-(Nada por ahora.)
+- #87 «Empezar antes» en la Bandeja: el deploy de `main` falló en staging por el límite de Vercel (la migración `start_after` ya está en la base de staging, la app no; producción sin tocar). Con cupo: `gh run rerun` del Deploy de `main`, después atacante, prueba en prod y Sentry.
