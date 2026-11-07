@@ -123,6 +123,43 @@ describe("decisions and defaults", () => {
     });
   });
 
+  it("undo leaves an earlier start edited since", () => {
+    const held: AppData = {
+      ...tight(),
+      tasks: tight().tasks.map((t) =>
+        t.id === "parcial-calc"
+          ? {
+              ...t,
+              minMinutes: 600,
+              estimateMinutes: 600,
+              units: [],
+              startAfter: { date: "2026-11-06" },
+              deadline: NOW + 4.5 * 86400000,
+            }
+          : t,
+      ),
+    };
+    const after = reducer(reducer(held, { type: "refresh", now: NOW }), {
+      type: "applyOption",
+      optionId: "start-earlier:parcial-calc",
+      now: NOW,
+    });
+    const edited = {
+      ...after,
+      tasks: after.tasks.map((t) =>
+        t.id === "parcial-calc" ? { ...t, startAfter: { date: "2026-11-04" } } : t,
+      ),
+    };
+    const undone = reducer(edited, {
+      type: "undoDecision",
+      id: after.applied?.[0]?.id as string,
+      now: NOW,
+    });
+    expect(undone.tasks.find((t) => t.id === "parcial-calc")?.startAfter).toEqual({
+      date: "2026-11-04",
+    });
+  });
+
   it("never brings back silos deleted or ended after a decision", () => {
     const d = demoData(NOW);
     const [a, b, c] = d.tasks.filter((t) => t.status === "active");

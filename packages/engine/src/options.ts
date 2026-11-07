@@ -89,7 +89,6 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
   for (const t of involved) {
     const from = t.earliestStart;
     if (from === undefined || from <= input.now) continue;
-    const day = 1440 * MINUTE;
     const feasibleAt = (at: number) => {
       const next = withTasks(
         input,
@@ -99,14 +98,15 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
     };
     // Latest day first: the first that fits is the least change (feasibility need not
     // grow monotonically going back, so every day is tried). Right away is the last try.
-    const days = Math.ceil((from - input.now) / day);
     let at: number | undefined;
     // Candidates are starts of local days, as a saved date is.
     const tz = input.settings.timezone;
     const fromDay = localParts(tz, from).date;
-    for (let back = 1; back < days && at === undefined; back++) {
+    // Counted in local dates (not 24 h periods), from the start's own day if earlier.
+    for (let back = 0; at === undefined; back++) {
       const candidate = zonedInstant(tz, addDays(fromDay, -back), 0);
       if (candidate <= input.now) break;
+      if (candidate >= from) continue;
       if (feasibleAt(candidate).result.feasible) at = candidate;
     }
     if (at === undefined && feasibleAt(input.now).result.feasible) at = input.now;
