@@ -12,7 +12,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 1. **Leé en este orden**: este archivo entero → `SPEC.md` §14–§18 → `OPERATIONS.md`.
 2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Sentry (org `hernanastorino`, proyecto `critical`: `is:unresolved` de las últimas 24 h; un issue nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
-3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo. Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio, leé sus hilos de CodeRabbit y seguí el ciclo de §2.
+3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio, leé sus hilos de CodeRabbit y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
 ### Cómo quiere trabajar el usuario (decidido por él; vale para cualquier cuenta)
@@ -34,7 +34,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 ## 0. Antes de empezar algo nuevo
 
-1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro.
+1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro, salvo los pausados a pedido del usuario (como el #68), que no frenan nada y siguen sin mergearse.
 2. **Una sola corrida a la vez.** Las corridas automáticas de la cuenta original comparten el estado en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/production-ready-handoff.md` (línea `heartbeat:`): con un heartbeat de menos de 30 min, otra corrida trabaja y no se toca nada. **Desde otra cuenta** ese archivo no se ve: antes de seguir, pedile al usuario que frene en la cuenta anterior sus sesiones y tareas programadas (`critical-production-ready-relay-*` y `critical-sentry-watch`, en «Scheduled» de la app) y que confirme que no queda nada corriendo; recién ahí continuá. Mientras tanto, un commit o PR nuevo de otra cuenta en `gh pr list` / `git log origin/main` es señal de que sigue activa.
 3. **Respondé en español rioplatense**, corto (respuesta primero, frases cortas).
 
