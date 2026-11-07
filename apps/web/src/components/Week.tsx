@@ -146,6 +146,17 @@ export function Week({
   const toaster = useToast();
   /** Said only to screen readers: the replan button shows its result itself. */
   const [spoken, setSpoken] = useState("");
+  /** A keyboard move, said once the store shows it (the reducer may refuse a time just gone). */
+  const [moveSaid, setMoveSaid] = useState<{ id: string; start: number; text: string } | null>(
+    null,
+  );
+  useEffect(() => {
+    if (!moveSaid) return;
+    if (data.pins?.some((p) => p.id === moveSaid.id && p.start === moveSaid.start)) {
+      setSpoken(moveSaid.text);
+      setMoveSaid(null);
+    }
+  }, [moveSaid, data.pins]);
   const [critical, setCritical] = useState(false);
   const [bubble, setBubble] = useState<Bubble | null>(null);
   /** The block whose bubble is open: its detail sheet gives focus back to it. */
@@ -762,10 +773,13 @@ export function Week({
                               e.preventDefault();
                               const start = b.start + step;
                               if (start <= now) return;
-                              setFocusId(pinAt(b, start));
-                              setSpoken(
-                                `${titleOf(b)} movido a ${weekdayShort(tz, start)} ${time(tz, start)}`,
-                              );
+                              const pin = pinAt(b, start);
+                              setFocusId(pin);
+                              setMoveSaid({
+                                id: pin,
+                                start,
+                                text: `${titleOf(b)} movido a ${weekdayShort(tz, start)} ${time(tz, start)}`,
+                              });
                             }
                           : undefined
                       }
