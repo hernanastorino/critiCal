@@ -1,6 +1,7 @@
 import { buildSlots } from "./availability.js";
 import { overlaps } from "./intervals.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
+import { addDays, localParts, zonedInstant } from "./time.js";
 import { travelBuffers } from "./travel.js";
 import { type CalendarEvent, type Interval, MINUTE, type Task } from "./types.js";
 
@@ -12,7 +13,8 @@ export type OptionKind =
   | "minimum-only"
   | "move-event"
   | "minimum-viable"
-  | "prioritize";
+  | "prioritize"
+  | "start-earlier";
 
 export interface PlanOption {
   id: string;
@@ -29,6 +31,8 @@ export interface PlanOption {
   moveTo?: Interval;
   /** prioritize: the exam's units left out. */
   unitIds?: string[];
+  /** start-earlier: when the task could start instead (now, or the start of a day). */
+  startAt?: number;
 }
 
 function withTasks(input: ScheduleInput, tasks: Task[]): ScheduleInput {
@@ -77,6 +81,48 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
       label: `Mover «${e.title}» al ${when(input.settings.timezone, to.start)}`,
       input: next,
       result: schedule(next),
+    });
+  }
+
+  // A task that cannot start yet (§18.7): start it on the latest day that still fits
+  // everything, or right away if no later day does.
+  for (const t of involved) {
+    const from = t.earliestStart;
+    if (from === undefined || from <= input.now) continue;
+    const feasibleAt = (at: number) => {
+      const next = withTasks(
+        input,
+        input.tasks.map((x) => (x.id === t.id ? { ...x, earliestStart: at } : x)),
+      );
+      return { next, result: schedule(next) };
+    };
+    // Latest day first: the first that fits is the least change (feasibility need not
+    // grow monotonically going back, so every day is tried). Right away is the last try.
+    let at: number | undefined;
+    // Candidates are starts of local days, as a saved date is.
+    const tz = input.settings.timezone;
+    const fromDay = localParts(tz, from).date;
+    // Counted in local dates (not 24 h periods), from the start's own day if earlier.
+    for (let back = 0; at === undefined; back++) {
+      const candidate = zonedInstant(tz, addDays(fromDay, -back), 0);
+      if (candidate <= input.now) break;
+      if (candidate >= from) continue;
+      if (feasibleAt(candidate).result.feasible) at = candidate;
+    }
+    if (at === undefined && feasibleAt(input.now).result.feasible) at = input.now;
+    if (at === undefined) continue;
+    const { next, result: r } = feasibleAt(at);
+    options.push({
+      id: `start-earlier:${t.id}`,
+      kind: "start-earlier",
+      taskId: t.id,
+      startAt: at,
+      label:
+        at <= input.now
+          ? `Empezar ${t.title} ya, sin esperar a la fecha de inicio`
+          : `Empezar ${t.title} antes: desde el ${when(input.settings.timezone, at).replace(/ \d\d:\d\d$/, "")}`,
+      input: next,
+      result: r,
     });
   }
 
@@ -214,6 +260,7 @@ function duration(minutes: number): string {
 const ORDER: OptionKind[] = [
   "use-free-time",
   "move-event",
+  "start-earlier",
   "lower-minimum",
   "prioritize",
   "minimum-viable",

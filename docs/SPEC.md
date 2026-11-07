@@ -288,6 +288,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - o una fecha exacta, que tiene que ser anterior a la entrega.
      Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
    - Se configura en la **tarea** y en la **materia**: lo de la materia vale para todas sus tareas, salvo que una diga otra cosa.
+   - ✅ Opción **«Empezar antes»** en las decisiones de la Bandeja cuando no entra por la fecha de inicio. Por defecto de Claude: se adelanta a **el último día en que todo entra** (o «ya» si ninguno alcanza), se guarda como fecha en la tarea y se puede deshacer.
    - Por defecto de Claude: el aviso de que no entra sale **al guardar**, con la vista previa del §5.6, y no recién cuando llega la fecha.
 8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Decidido:
    - **Bun** como gestor de paquetes y para correr los scripts y el CI; Vite, Vitest y Vercel siguen como están.

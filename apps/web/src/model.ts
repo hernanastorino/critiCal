@@ -287,6 +287,8 @@ export interface AppliedDecision {
   movedEventId?: string;
   /** The move of that event this decision replaced, if any: undoing restores it. */
   previousMove?: NonNullable<AppData["movedEvents"]>[number];
+  /** «Puedo empezar» this decision set, by task: undo restores `before` while it still stands. */
+  startAfter?: Record<string, StartAfter>;
   /** The move this decision made: undo touches the event only while it still stands. */
   move?: NonNullable<AppData["movedEvents"]>[number];
 }
