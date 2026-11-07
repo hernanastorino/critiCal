@@ -65,6 +65,13 @@ export const ReplanIcon = () => (
   </svg>
 );
 
+export const UndoIcon = () => (
+  <svg {...base} aria-hidden="true">
+    <path d="M9 14L4 9l5-5" />
+    <path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11" />
+  </svg>
+);
+
 export const EditIcon = () => (
   <svg {...base} aria-hidden="true">
     <path d="M12 20h9" />

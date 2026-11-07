@@ -4,6 +4,7 @@ import { overlaps, zonedInstant } from "./engine.js";
 import {
   dayAndTime,
   dayMonth,
+  dayRange,
   hhmmToMinutes,
   hours,
   minutesToHhmm,
@@ -19,6 +20,8 @@ import {
   pendingConfirmations,
   progress,
   refreshPlan,
+  semesterLabel,
+  splitPastSilos,
   toEngineTasks,
   weekDates,
 } from "./planning.js";
@@ -70,6 +73,10 @@ describe("format", () => {
     expect(weekdayShort(TIMEZONE, MON)).toBe("lun");
     expect(dayAndTime(TIMEZONE, MON)).toBe("lun 2/11 17:50");
     expect(dayMonth(TIMEZONE, MON)).toBe("2 nov");
+    expect(dayRange(TIMEZONE, MON, at("2026-11-08", "12:00"))).toBe("2 – 8 nov");
+    expect(dayRange(TIMEZONE, at("2026-10-26", "12:00"), at("2026-11-01", "12:00"))).toBe(
+      "26 oct – 1 nov",
+    );
     expect(hours(0)).toBe("0h");
     expect(hours(45)).toBe("45m");
     expect(hours(120)).toBe("2h");
@@ -918,5 +925,37 @@ describe("undo after deleting a task", () => {
     expect((back.pins ?? []).some((b) => b.id === "kept-pin")).toBe(true);
     expect(back.plan.some((b) => b.taskId === other.id)).toBe(true);
     expect(back.planHistory?.length ?? 0).toBeLessThan(replanned.planHistory?.length ?? 0);
+  });
+});
+
+describe("past silos", () => {
+  const p = (id: string, date: string, kind: "deliverable" | "habit" = "deliverable") => ({
+    task: { ...calc, id, kind },
+    totalMinutes: 60,
+    remainingMinutes: 0,
+    minRemainingMinutes: 0,
+    deadline: at(date, "12:00"),
+  });
+
+  it("keeps this week's and later deadlines, and habits; the rest is past, newest first", () => {
+    const { current, past } = splitPastSilos(
+      [
+        p("old", "2026-10-20"),
+        p("last-week", "2026-11-01"),
+        p("monday", "2026-11-02"),
+        p("later", "2026-11-20"),
+        p("habit", "2026-10-01", "habit"),
+      ],
+      TIMEZONE,
+      at("2026-11-04", "10:00"),
+    );
+    expect(current.map((x) => x.task.id)).toEqual(["monday", "later", "habit"]);
+    expect(past.map((x) => x.task.id)).toEqual(["last-week", "old"]);
+  });
+
+  it("names the cuatrimestre", () => {
+    expect(semesterLabel(TIMEZONE, at("2026-04-10", "12:00"))).toBe("1.er cuatrimestre 2026");
+    expect(semesterLabel(TIMEZONE, at("2026-11-10", "12:00"))).toBe("2.º cuatrimestre 2026");
+    expect(semesterLabel(TIMEZONE, at("2027-02-10", "12:00"))).toBe("1.er cuatrimestre 2027");
   });
 });

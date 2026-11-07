@@ -27,8 +27,24 @@ export const dayDate = (tz: string, t: number) => {
 /** "vie 22/10 08:00" */
 export const dayAndTime = (tz: string, t: number) => `${dayDate(tz, t)} ${time(tz, t)}`;
 
+/** "dom 10/8 10:00", or "dom 10/8/2025 10:00" when it is not this year (`now`'s). */
+export function dueDate(tz: string, t: number, now: number) {
+  const year = (x: number) => fmt(tz, { year: "numeric" }).format(x);
+  return year(t) === year(now) ? dayAndTime(tz, t) : `${dayDate(tz, t)}/${year(t)} ${time(tz, t)}`;
+}
+
 export const dayMonth = (tz: string, t: number) =>
   fmt(tz, { day: "numeric", month: "short" }).format(t).replace(".", "");
+
+/** "2 – 8 nov", or "27 oct – 2 nov" when the range crosses a month. */
+export const dayRange = (tz: string, from: number, to: number) => {
+  const start = dayMonth(tz, from);
+  const end = dayMonth(tz, to);
+  const month = (s: string) => s.slice(s.indexOf(" ") + 1);
+  return month(start) === month(end)
+    ? `${start.slice(0, start.indexOf(" "))} – ${end}`
+    : `${start} – ${end}`;
+};
 
 export function hours(minutes: number): string {
   if (minutes <= 0) return "0h";

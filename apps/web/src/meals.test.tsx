@@ -44,9 +44,9 @@ describe("meals on the calendar", () => {
   it("shows breakfast, lunch and dinner every day, in the meal color", () => {
     render(<App fixedNow={NOW} initial={withEvents([])} />);
     expect(mealPills()).toHaveLength(21);
-    expect(labels()).toContain("Desayuno, 07:30");
-    expect(labels()).toContain("Almuerzo, 13:00");
-    expect(labels()).toContain("Cena, 21:00");
+    expect(labels()).toContain("Desayuno, lun 07:30");
+    expect(labels()).toContain("Almuerzo, lun 13:00");
+    expect(labels()).toContain("Cena, lun 21:00");
     // One look for all three: the class, not the meal, decides the color.
     expect(new Set(mealPills().map((p) => p.className.replace(/ past| selected/g, "")))).toEqual(
       new Set(["pill meal"]),
@@ -60,7 +60,7 @@ describe("meals on the calendar", () => {
         initial={withEvents([busy("Consulta", "2026-11-03", "12:00", "13:30")])}
       />,
     );
-    expect(labels()).toContain("Almuerzo, 13:30, corrido de las 13:00");
+    expect(labels()).toContain("Almuerzo, mar 13:30, corrido de las 13:00");
     const lunch = { start: at("2026-11-03", "13:30"), end: at("2026-11-03", "14:30") };
     expect(stored().plan.some((b) => overlaps(b, lunch))).toBe(false);
   });
@@ -107,7 +107,7 @@ describe("meals on the calendar", () => {
         initial={withEvents([busy("Consulta", "2026-11-03", "12:00", "13:30")])}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Almuerzo, 13:30, corrido de las 13:00"));
+    fireEvent.click(screen.getByLabelText("Almuerzo, mar 13:30, corrido de las 13:00"));
     const bubble = document.querySelector(".bubble") as HTMLElement;
     expect(within(bubble).getByText(/Se corrió de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
@@ -130,7 +130,7 @@ describe("meals with no room", () => {
     expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
     // Next week: lunch every day, Tuesday's on top of the event, at its usual time.
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/9 nov/);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("9 – 15 nov");
     expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(7);
   });
 
@@ -138,14 +138,16 @@ describe("meals with no room", () => {
     render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
     const lunches = () => labels().filter((l) => l?.startsWith("Almuerzo"));
     const monday = () =>
-      mealPills().find((p) => p.getAttribute("aria-label") === "Almuerzo, 13:00") as HTMLElement;
+      mealPills().find(
+        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+      ) as HTMLElement;
     fireEvent.click(monday());
     fireEvent.change(screen.getByLabelText("Mover a"), { target: { value: "15:30" } });
     fireEvent.click(screen.getByText("Mover"));
-    expect(labels()).toContain("Almuerzo, 15:30, movido por vos");
+    expect(labels()).toContain("Almuerzo, lun 15:30, movido por vos");
     expect(screen.getByText(/Almuerzo a las 15:30, solo ese día/)).toBeTruthy();
     fireEvent.click(screen.getByText("Deshacer"));
-    expect(labels()).not.toContain("Almuerzo, 15:30, movido por vos");
+    expect(labels()).not.toContain("Almuerzo, lun 15:30, movido por vos");
     fireEvent.click(monday());
     fireEvent.click(screen.getByText("Hoy no almuerzo"));
     // Gone that day but still there, faint, to bring it back.
@@ -157,7 +159,9 @@ describe("meals with no room", () => {
     cleanup();
     render(<App fixedNow={at("2026-11-04", "20:00")} initial={withEvents([])} />);
     fireEvent.click(
-      mealPills().find((p) => p.getAttribute("aria-label") === "Almuerzo, 13:00") as HTMLElement,
+      mealPills().find(
+        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+      ) as HTMLElement,
     );
     expect(screen.getByText("Ya pasó: no se puede mover ni sacar.")).toBeTruthy();
     expect(screen.queryByText("Mover")).toBeNull();
