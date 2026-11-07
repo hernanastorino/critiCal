@@ -348,9 +348,14 @@ function overridesFor(data: AppData, now: number, from: number, to: number) {
     data.preferences?.holidaysOff === false
       ? withLateNight(data, now)
       : withHolidays(withLateNight(data, now), data.settings.timezone, from, to);
-  // Meals skipped or moved by hand for one day ride along as that day's override.
-  const meals = (data.mealChoices ?? []).map(({ date, ...meal }) => ({ date, meals: [meal] }));
-  return [...base, ...meals];
+  // Meals skipped or moved by hand ride along in that day's override, merged into the
+  // one already there (a late night, a holiday): consumers keep one override per day.
+  const byDate = new Map(base.map((o) => [o.date, o]));
+  for (const { date, ...meal } of data.mealChoices ?? []) {
+    const o = byDate.get(date);
+    byDate.set(date, { ...o, date, meals: [...(o?.meals ?? []), meal] });
+  }
+  return [...byDate.values()];
 }
 
 /**

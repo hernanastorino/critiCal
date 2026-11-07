@@ -47,7 +47,8 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
     midnight: zonedInstant(tz, date, 0),
     awake: [{ start: plannableAt, end: bedAt }],
     meals: base.meals.flatMap((m) => {
-      const choice = override?.meals?.find((c) => c.kind === m.kind);
+      // The latest choice for that meal wins.
+      const choice = override?.meals?.findLast((c) => c.kind === m.kind);
       if (choice?.skip) return [];
       const start = choice?.start ?? m.start;
       return [

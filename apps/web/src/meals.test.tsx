@@ -190,8 +190,11 @@ describe("a meal moved onto today's study", () => {
     const lunch = mealTimes(moved, now, now, at("2026-11-04", "00:00")).find(
       (m) => m.kind === "almuerzo" && m.date === "2026-11-03",
     );
+    // The lunch really is where it was put.
+    expect(lunch?.at?.start).toBe(zonedInstant(tz, "2026-11-03", minute));
     const after = moved.proposals.at(-1)?.plan ?? [];
-    expect(after.some((b) => lunch?.at && b.start > now && overlaps(b, lunch.at))).toBe(false);
+    const eating = lunch?.at as { start: number; end: number };
+    expect(after.some((b) => b.start > now && overlaps(b, eating))).toBe(false);
   });
 });
 
