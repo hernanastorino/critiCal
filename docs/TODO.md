@@ -6,19 +6,64 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 **Que quede corto**: acá va solo lo pendiente, lo que está en curso y lo que está en validación. Un tema se **borra** de este archivo (no se pasa a «hecho») cuando cumple todo esto: PR con todos los checks en verde, mergeado a `main`, vuelta limpia del agente atacante y prueba en producción sin problemas (Sentry incluido). Lo que se hizo queda en la SPEC (✅) y en el historial de git.
 
+## Retomar desde otra cuenta o sin memoria (leer primero)
+
+Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni las sesiones, ni las tareas programadas de la anterior. Todo lo necesario está en el repo: este archivo, [`SPEC.md`](SPEC.md) y [`OPERATIONS.md`](OPERATIONS.md).
+
+1. **Leé en este orden**: este archivo entero → `SPEC.md` §14–§18 → `OPERATIONS.md`.
+2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Sentry (org `hernanastorino`, proyecto `critical`: `is:unresolved` de las últimas 24 h; un issue nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
+3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé sus hilos de CodeRabbit y seguí el ciclo de §2.
+4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
+
+### Cómo quiere trabajar el usuario (decidido por él; vale para cualquier cuenta)
+
+- **Idioma y tono**: español rioplatense («vos»). Respuestas cortas, al estilo «decí menos»: primero la respuesta, una idea por frase, hasta unas 20 palabras, voz activa. Nunca omitir «no», «nunca» ni «solo». Código, comandos y rutas, tal cual. En alertas de seguridad o si el usuario está confundido, frases completas.
+- **Preguntar antes de tocar código**: todas las dudas juntas al principio (decisiones de producto que la SPEC no resuelve son preguntas, no supuestos). Si el usuario no está, anotarlas en §1.1 y seguir con lo que no dependa de ellas.
+- **Todo pedido nuevo se anota primero en la SPEC**, así la idea no se pierde.
+- **Un PR por tema**, rama `claude/<tema>`, worktree propio. **Auto-fix prendido en cada PR.**
+- **Mergear vos mismo** (squash) solo cuando: CI en verde, el check «CodeRabbit» del **último** commit terminado (puede tardar 5–20 min; mergear antes le cancela la revisión), **cero hilos abiertos** y vuelta limpia del agente atacante. Cada hilo de CodeRabbit se responde en una línea con la firma «_🤖 Addressed by [Claude Code](https://claude.com/claude-code)_» y se resuelve. No recortar la config de CodeRabbit (revisión completa siempre).
+- **Tareas separadas → sesiones hijas** (pedido del 2026-11-07, para gastar menos tokens): una sesión por tarea con Sonnet 5.5, esfuerzo medio y permisos Auto, en su worktree, con un brief autosuficiente (qué, sección de la SPEC, plan, metodología de §2, criterios de aceptación intermedios y finales, reglas). Las hijas no tocan este archivo; la sesión principal revisa, mergea de a uno y lo mantiene. El límite semanal es compartido: 2–3 hijas a la vez como mucho.
+- **Lo que no se toca sin pedido**: la barra de pestañas de abajo queda pegada al borde inferior (la app corre como PWA instalada); el PR #68 (buscador de Ajustes) no se mergea hasta que el usuario lo pida.
+- **Datos y cuentas**: nunca contraseñas ni cuentas reales de Google o iCloud; solo la cuenta de prueba local y datos inventados. El agente atacante nunca ataca producción.
+- **Producción**: https://critical-cal.vercel.app (la PWA cachea: para probar una versión nueva, actualizá el service worker y recargá). Modo demo: «Probar con datos de ejemplo».
+- **Límites de uso**: al 90 % del límite de 5 h, dejar este archivo al día y cortar; al 90 % del semanal, frenar y avisar. Las tareas programadas de relevo arrancan en modo de permisos por defecto y se traban pidiendo permisos: si se usan, configurarlas en modo Auto desde la app.
+
+### Vigilar Sentry desde la cuenta nueva
+
+En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada hora). **Recién cuando el usuario confirmó que la frenó** (ver §0 punto 2), creá en la cuenta nueva una tarea equivalente (herramienta de tareas programadas de Claude Code, cada hora, en **modo de permisos Auto**, si no se traba pidiendo permisos) con este prompt, resumido:
+
+1. Buscar en Sentry (org `hernanastorino`, región https://us.sentry.io, proyecto `critical`) los issues `is:unresolved`, `is:regressed` y `is:escalating` de las últimas 24 h, y además los PRs abiertos con «Fixes CRITICAL-» (`gh pr list --search "Fixes CRITICAL"`), aunque su issue ya no salga en esa ventana. Solo si no hay ninguna de las dos cosas, terminar con «Sentry limpio».
+2. Por cada uno, ver detalle, breadcrumbs y stack trace, y clasificarlo:
+   - **Seguridad** primero (sesión o tokens filtrados, errores de permisos o RLS como Postgres 42501 o PGRST301, XSS o CSP, redirecciones abiertas, 401 o 403 de nuestra API, datos de otro usuario).
+   - **Bug nuestro**: se arregla.
+   - **Ruido** ajeno (extensiones, cortes de red reconocidos): se resuelve en Sentry con el motivo, sin tocar código.
+3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado).
+4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `npx biome check .`, `npx tsc -b`, `npx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
+5. Mergear con las reglas de §2 (CodeRabbit terminado sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
+6. Confirmar el deploy de `main` y marcar el issue como resuelto en Sentry, con el link al PR.
+7. Informe de 2 a 4 líneas. Si un problema de seguridad no quedó resuelto, decirlo arriba de todo.
+
+Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, cargar credenciales ni tocar la barra de pestañas de abajo.
+
+### 1.1 Preguntas y decisiones pendientes del usuario
+
+- **Mascota (SPEC §18.1)**: elegir uno de los 3 bocetos (Tic el relojito, Punta el lápiz, Dosi la píldora) de `docs/mockups/mascota.html` (presentación privada: https://claude.ai/artifact/XV58NrVM7hPbYX3NJTA1nq). Después: implementar la elegida y los textos con humor del camino infeliz (§18.1) en un PR propio.
+
 ## 0. Antes de empezar algo nuevo
 
-1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro.
-2. **Una sola corrida a la vez.** Las corridas automáticas comparten el estado en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/production-ready-handoff.md` (línea `heartbeat:`). Con un heartbeat de menos de 30 min, otra corrida trabaja: no toques nada.
+1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro, salvo los pausados a pedido del usuario (como el #68), que no frenan nada y siguen sin mergearse.
+2. **Una sola corrida a la vez.** Las corridas automáticas de la cuenta original comparten el estado en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/production-ready-handoff.md` (línea `heartbeat:`): con un heartbeat de menos de 30 min, otra corrida trabaja y no se toca nada. **Desde otra cuenta** ese archivo no se ve: antes de seguir, pedile al usuario que frene en la cuenta anterior sus sesiones y tareas programadas (`critical-production-ready-relay-*` y `critical-sentry-watch`, en «Scheduled» de la app) y que confirme que no queda nada corriendo; recién ahí continuá. Mientras tanto, un commit o PR nuevo de otra cuenta en `gh pr list` / `git log origin/main` es señal de que sigue activa.
 3. **Respondé en español rioplatense**, corto (respuesta primero, frases cortas).
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                     | Qué falta                                                                                                                            |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| Qué                                                                                                                        | Estado                                                                                                  | Qué falta                                                                                                                                                    |
+| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                   | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                              | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).                         |
+| PR #84 `claude/accessibility` (§14 Accesibilidad + hallazgos de §5.3: contraste, foco, diálogos, etiquetas)                | Abierto (2026-11-07), lo llevaba una sesión hija; dos vueltas del atacante arregladas y hilos resueltos | CI y CodeRabbit sobre el último commit → merge → Sentry y prueba en prod. Después, sacar de §5.1/§5.3 lo que haya quedado hecho (ver la descripción del PR). |
+| PR #85 `claude/messages-and-waits` (§14 Mensajes y esperas: `components/Feedback.tsx` con `Wait`, `ErrorNote` y skeletons) | Abierto (2026-11-07), lo llevaba una sesión hija; comentarios de CodeRabbit arreglados                  | Vuelta limpia del atacante, CodeRabbit sobre el último commit → merge → Sentry y prueba en prod. Después, marcar ✅ en §14 y sacar de §5.1.                  |
 
-Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
+Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
 ## 2. Reglas de trabajo (decididas por el usuario)
 
@@ -30,7 +75,7 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
   4. Arreglar todo lo reportado en el mismo PR, con tests, y repetir hasta una vuelta limpia. **Freno** (§17): si la misma falla vuelve 3 veces, o hay 5 vueltas seguidas con fallas nuevas, parar y avisar al usuario con el detalle.
 - **Merge**: solo con el CI en verde, CodeRabbit terminado sobre el **último** commit (la revisión con `commit_id` igual al head) y **sin hilos abiertos**. Squash. Responder cada hilo y resolverlo.
 - **Después del merge**: esperar el workflow Deploy de `main`, revisar Sentry (sin issues nuevos) y una prueba rápida en https://critical-cal.vercel.app en modo demo.
-- **Preguntas que son del usuario** y la SPEC no resuelve: anotarlas en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/pending-questions.md` y seguir con otra cosa.
+- **Preguntas que son del usuario** y la SPEC no resuelve: anotarlas en §1.1 de este archivo (y, si existe, en la memoria local `pending-questions.md`) y seguir con otra cosa.
 - **Nunca** contraseñas ni cuentas reales de Google o iCloud. Datos de prueba siempre inventados.
 
 ## 3. Cómo correr todo en local
@@ -120,9 +165,9 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8.
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Lo que sigue: terminar #84 y #85; la mascota en cuanto el usuario elija; el resto de §5.1 (Formularios y botones, Consistencia visual, Interacción y animaciones, Primer uso guiado), un PR por grupo; ómnibus (§15) y Bun (§18.8), los dos grandes (partirlos).
 
-1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
+1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota. Bocetos hechos (#83): **esperando que el usuario elija** (§1.1); después implementarla.
 2. Hecho (#80, validado en producción). Queda: arrastrar comidas como a los bloques.
 3. Hecho (#78, validado en producción).
 4. Hecho (#79, validado en producción).
