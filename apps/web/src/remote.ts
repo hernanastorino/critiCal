@@ -166,7 +166,14 @@ export async function readSyllabus(client: SupabaseClient, pdf: string): Promise
       body: JSON.stringify({ pdf }),
     });
     const body = (await res.json().catch(() => null)) as SyllabusResult | { error?: string } | null;
-    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "syllabus_failed" };
+    if (body && "ok" in body) return body;
+    // No usable answer: the HTTP status still says whose problem it is.
+    const byStatus: Record<number, string> = {
+      401: "unauthorized",
+      413: "too_large",
+      429: "gemini_busy",
+    };
+    return { ok: false, error: body?.error ?? byStatus[res.status] ?? "syllabus_failed" };
   } catch {
     return { ok: false, error: "unreachable" };
   }

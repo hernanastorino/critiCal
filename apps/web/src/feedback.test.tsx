@@ -12,6 +12,7 @@ import {
   WAIT_MS,
   Wait,
 } from "./components/Feedback.js";
+import { readTimeout } from "./components/SyllabusImport.js";
 import { clearLocal } from "./offline.js";
 import { session, stubApi } from "./testing.js";
 
@@ -245,6 +246,35 @@ describe("reading a syllabus", () => {
     expect(note.textContent).not.toMatch(/más tarde/);
     await act(async () => fireEvent.click(screen.getByText("Probar de nuevo")));
     expect(calls).toBe(2);
+  });
+
+  it("tells an expired session from a busy Gemini", async () => {
+    stubApi(async () => ({ data: null, error: null }));
+    const { readSyllabus } = await import("./remote.js");
+    const answer = (status: number) =>
+      vi.stubGlobal("fetch", async () => new Response("<html>", { status }));
+    for (const [status, error] of [
+      [401, "unauthorized"],
+      [413, "too_large"],
+      [429, "gemini_busy"],
+      [500, "syllabus_failed"],
+    ] as const) {
+      answer(status);
+      expect(await readSyllabus(client(), "x")).toEqual({ ok: false, error });
+    }
+  });
+
+  it("gives up on a read that never answers and offers to try again", async () => {
+    await openSettings((name) =>
+      name === "syllabus" ? new Promise(() => {}) : { connected: true },
+    );
+    readTimeout.ms = 50;
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText("Programa en PDF"), { target: { files: [pdf()] } });
+    });
+    expect(await screen.findByText(/Gemini tardó demasiado/)).toBeTruthy();
+    readTimeout.ms = 90_000;
+    expect(screen.getByText("Probar de nuevo")).toBeTruthy();
   });
 
   it("offers another file when the PDF is the problem", async () => {

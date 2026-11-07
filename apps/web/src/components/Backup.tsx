@@ -30,7 +30,10 @@ export function Backup() {
   const restore = async (f: File) => {
     const parsed = parseBackup(await f.text());
     if ("error" in parsed) {
-      setMessage({ text: parsed.error, error: true });
+      setMessage({
+        text: `${parsed.error} Elegí otro archivo, o exportá uno nuevo con «Exportar JSON».`,
+        error: true,
+      });
       return;
     }
     // Check-ins are an append-only log: the ones made after the backup stay, as long as

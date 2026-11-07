@@ -20,10 +20,22 @@ const ERRORS: Record<string, string> = {
     "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel.",
   unreadable: "No pude entender el programa. ¿Es el PDF correcto?",
   unreachable: "Sin conexión: no se pudo leer el programa.",
+  unauthorized: "Tu sesión venció. Salí de la app y volvé a entrar.",
+  syllabus_failed: "El servidor falló al leer el programa.",
+  timeout: "Gemini tardó demasiado en responder.",
 };
+/** A read that takes longer than this is given up, so the wait never lasts for ever. */
+export const readTimeout = { ms: 90_000 };
 
 /** Errors where the same file may work on a second try; for the rest another file is the fix. */
-const RETRY = new Set(["gemini_busy", "unreachable", "read_failed", "other"]);
+const RETRY = new Set([
+  "gemini_busy",
+  "unreachable",
+  "read_failed",
+  "other",
+  "syllabus_failed",
+  "timeout",
+]);
 
 function toBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -115,7 +127,13 @@ export function SyllabusImport() {
     try {
       const pdf = await toBase64(file);
       setStage(1);
-      r = await readSyllabus(sync.client, pdf);
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const late = new Promise<{ ok: false; error: string }>((resolve) => {
+        timer = setTimeout(() => resolve({ ok: false, error: "timeout" }), readTimeout.ms);
+      });
+      r = await Promise.race([readSyllabus(sync.client, pdf), late]).finally(() =>
+        clearTimeout(timer),
+      );
     } catch {
       setError({
         text: "No se pudo abrir el archivo PDF en este dispositivo.",

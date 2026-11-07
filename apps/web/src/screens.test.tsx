@@ -469,6 +469,6 @@ describe("backup", () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [bad] } });
     });
-    await waitFor(() => expect(screen.getByText("No es un respaldo de critiCal.")).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^No es un respaldo de critiCal\./)).toBeTruthy());
   });
 });
