@@ -236,6 +236,22 @@ function keptDays(data: AppData, now: number) {
     });
 }
 
+/**
+ * The first instant a deliverable can be worked on (§18.7): its own «puedo empezar»,
+ * else its materia's; a date counts from that day's start, «N días antes» from the start
+ * of that day before the deadline. Undefined: from now.
+ */
+export function earliestStartOf(data: AppData, task: AppTask): number | undefined {
+  if (task.kind === "habit") return undefined;
+  const rule = task.startAfter ?? data.activities.find((a) => a.id === task.activityId)?.startAfter;
+  if (!rule) return undefined;
+  const tz = data.settings.timezone;
+  if ("date" in rule) return zonedInstant(tz, rule.date, 0);
+  if (task.deadline === undefined) return undefined;
+  const day = localParts(tz, task.deadline).date;
+  return zonedInstant(tz, addDays(day, -Math.max(0, Math.round(rule.daysBefore))), 0);
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   const tz = data.settings.timezone;
@@ -262,6 +278,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       maxPerDayMinutes:
         p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
       priority: p.task.priority,
+      earliestStart: earliestStartOf(data, p.task),
       // An entrega can be handed in smaller: half its minimum, never below an hour
       // (study time, planned as block time like the rest).
       mvpMinutes:

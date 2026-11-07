@@ -55,9 +55,17 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
       .map((a) => (a as { id: unknown }).id),
   );
   // A hand-edited deadline («mañana») would blank Silos on every visit.
+  // «Puedo empezar» (§18.7): a real local date, or whole days before the deadline.
+  const validStart = (s: unknown) =>
+    isObject(s) &&
+    ((typeof s.date === "string" &&
+      /^\d{4}-\d{2}-\d{2}$/.test(s.date) &&
+      !Number.isNaN(Date.parse(s.date))) ||
+      (Number.isInteger(s.daysBefore) && between(s.daysBefore, 0, 365)));
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
+    opt(t.startAfter, validStart) &&
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit) &&
@@ -75,6 +83,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const validActivity = (a: unknown) =>
     isObject(a) &&
     str(a.id) &&
+    opt(a.startAfter, validStart) &&
     // Both limits, and the block within the session (as the form requires).
     between(a.maxSessionMinutes, 1, 1440) &&
     between(a.minBlockMinutes, 1, 1440) &&
