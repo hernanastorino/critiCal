@@ -164,7 +164,10 @@ function placeDayMeals(
     const forced = { start, end: start + length };
     taken.push(forced);
     placed.push(forced);
-    return { ...base, at: forced, overlapping: true };
+    // On top of something fixed, or only out of its range: the warning is for the first.
+    return busy.some((b) => b.start < forced.end && forced.start < b.end)
+      ? { ...base, at: forced, overlapping: true }
+      : { ...base, at: forced };
   });
 }
 

@@ -1129,19 +1129,17 @@ function MealCard({
   const [at, setAt] = useState(time(tz, meal.at.start));
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
   const top = bubble.y > window.innerHeight * 0.6 ? bubble.y - 260 : bubble.y + 14;
-  // Minutes since that day's midnight: «00:30» for a late dinner is after midnight
-  // (24:30) when that is closer to its usual time; for lunch it is that morning.
-  const minuteOf = (hhmm: string) => {
-    const m = hhmmToMinutes(hhmm);
-    const usual = (meal.preferred.start - zonedInstant(tz, meal.date, 0)) / MINUTE;
-    // Only a late meal (dinner) reads an early-morning time as after midnight.
-    return usual >= 1080 && Math.abs(m + 1440 - usual) < Math.abs(m - usual) ? m + 1440 : m;
-  };
   // Within that day's waking hours, whole: a meal at 00:30 or one at 23:59 that runs
   // past bedtime would fall off the calendar.
   // As the planner sees that day: a holiday's routine, a late night's wake-up.
   const { wake, bed } = wakingDay(data, now, meal.date);
   const length = (meal.at.end - meal.at.start) / MINUTE;
+  // Minutes since that day's midnight: a time before waking up that still fits before
+  // bedtime is after midnight (00:30 in a day awake until 02:00 is 24:30).
+  const minuteOf = (hhmm: string) => {
+    const m = hhmmToMinutes(hhmm);
+    return m < wake && m + 1440 + length <= bed ? m + 1440 : m;
+  };
   const [moveError, setMoveError] = useState<string | null>(null);
   const today = meal.date === localParts(tz, now).date;
   const dayWord = today ? "Hoy" : `El ${weekdayShort(tz, meal.at.start)}`;
