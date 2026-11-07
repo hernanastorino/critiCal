@@ -273,7 +273,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 6. ✅ **Barra de arriba**:
    - El rango de la semana se escribe «2 – 8 nov» (el mes una sola vez; si cruza de mes, «27 oct – 2 nov»).
    - La flecha de Deshacer usa el mismo ícono de línea de 2 px que el resto (`icons.tsx`).
-7. **Empezar más tarde**: una tarea (o una materia entera) que no puedo empezar hasta cierto momento. Se puede indicar:
+7. ✅ **Empezar más tarde**: una tarea (o una materia entera) que no puedo empezar hasta cierto momento. Se puede indicar:
    - una demora relativa a hoy («dentro de 10 días»);
    - un tiempo antes de la entrega («4 días antes»);
    - o una fecha exacta, que tiene que ser anterior a la entrega.

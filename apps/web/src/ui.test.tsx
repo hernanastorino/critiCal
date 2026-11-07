@@ -182,6 +182,40 @@ describe("app", () => {
     expect(screen.getByText(/Venció mié 10\/12\/2025 12:00/)).toBeTruthy();
   });
 
+  it("warns in the editor when a late start leaves the minimum out, and saves the rule", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    fireEvent.click(screen.getByLabelText(/Parcial Cálculo II: faltan/));
+    fireEvent.click(screen.getByText("Editar"));
+    fireEvent.change(screen.getByLabelText("Puedo empezar"), { target: { value: "before" } });
+    fireEvent.change(screen.getByLabelText("Cuántos días antes de la entrega"), {
+      target: { value: "0" },
+    });
+    expect(screen.getByText(/no llegás al mínimo: faltarían/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Guardar"));
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
+    const task = saved.tasks.find((t: { title: string }) => t.title === "Parcial Cálculo II");
+    expect(task.startAfter).toEqual({ daysBefore: 0 });
+  });
+
+  it("does not save a start that is not valid yet, or one after the deadline", () => {
+    renderApp();
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    fireEvent.click(screen.getByLabelText(/Parcial Cálculo II: faltan/));
+    fireEvent.click(screen.getByText("Editar"));
+    fireEvent.change(screen.getByLabelText("Puedo empezar"), { target: { value: "before" } });
+    const days = screen.getByLabelText("Cuántos días antes de la entrega");
+    for (const bad of ["-1", "2.5", "abc", "99999", ""]) {
+      fireEvent.change(days, { target: { value: bad } });
+      expect(screen.getByRole("alert").textContent).toMatch(/número entero de días/);
+      expect((screen.getByText("Guardar") as HTMLButtonElement).disabled).toBe(true);
+    }
+    fireEvent.change(screen.getByLabelText("Puedo empezar"), { target: { value: "date" } });
+    fireEvent.change(screen.getByLabelText("Desde el día"), { target: { value: "2027-01-01" } });
+    expect(screen.getByText(/Tiene que ser antes de la entrega/)).toBeTruthy();
+    expect((screen.getByText("Guardar") as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("re-plans the day from settings and can reset or leave the demo", () => {
     renderApp();
     fireEvent.click(screen.getByLabelText("Ajustes"));

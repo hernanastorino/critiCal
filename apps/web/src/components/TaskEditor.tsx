@@ -1,11 +1,13 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
-import { minutesToHhmm } from "../format.js";
+import { dayDate, hours, minutesToHhmm } from "../format.js";
 import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
+import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
 import { useModal } from "./modal.js";
+import { describeStart, StartAfterField } from "./StartAfterField.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -19,6 +21,8 @@ const fromLocalInput = (tz: string, v: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
   return zonedInstant(tz, date, h * 60 + m);
 };
+
+const AFTER_DUE = "Tiene que ser antes de la entrega: con esa fecha el plan no le da tiempo.";
 
 export function TaskEditor({
   task,
@@ -49,12 +53,72 @@ export function TaskEditor({
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
+  const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   const [habitError, setHabitError] = useState<string | null>(null);
 
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
 
+  // §18.7: with a late start the minimum may no longer fit; say so before saving (the
+  // inbox then offers the options of §5.6). Checked on the plan as it would be.
+  const startWarning = useMemo(() => {
+    // (null: a number still being typed; the field says what is wrong.)
+    if (kind !== "deliverable" || startAfter === null) return null;
+    const due = fromLocalInput(tz, deadline);
+    if (!Number.isFinite(due)) return null;
+    const hrs = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+    const trial: AppTask = {
+      ...(task ?? {
+        id: "nueva",
+        activityId,
+        title: title || "Nueva",
+        kind,
+        priority,
+        status: "active" as const,
+        units,
+      }),
+      deadline: due,
+      // As save computes it: units can raise the estimate.
+      estimateMinutes: Math.max(
+        hrs(estimate),
+        units.reduce((s, u) => s + u.estimateMinutes, 0),
+      ),
+      minMinutes: hrs(minimum),
+      activityId,
+      startAfter,
+    };
+    // Its own rule or, without one, its materia's.
+    const from = earliestStartOf(data, trial);
+    if (from === undefined) return null;
+    if (from !== undefined && from >= due) return AFTER_DUE;
+    const next = { ...data, tasks: [...data.tasks.filter((t) => t.id !== trial.id), trial] };
+    const status = refreshPlan(next, now).result.status.find((s) => s.taskId === trial.id);
+    return status && status.minDeficit > 0
+      ? `Empezando ${from !== undefined ? `el ${dayDate(tz, from)}` : "así"} no llegás al mínimo: faltarían ${hours(status.minDeficit)}. Se guarda igual y la Bandeja te da opciones.`
+      : null;
+  }, [
+    kind,
+    startAfter,
+    deadline,
+    estimate,
+    minimum,
+    task,
+    activityId,
+    title,
+    priority,
+    units,
+    data,
+    now,
+    tz,
+  ]);
+
+  // §18.7: the start must be before the deadline; a number not valid yet is not «Ya».
+  const startBlocked =
+    kind === "deliverable" && (startAfter === null || startWarning === AFTER_DUE);
+
   const save = () => {
+    if (startBlocked) return;
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     if (due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now))) {
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
@@ -116,6 +180,7 @@ export function TaskEditor({
       status: task?.status ?? "active",
       units,
       exam: (kind === "deliverable" && isExam) || undefined,
+      startAfter: kind === "deliverable" ? (startAfter ?? undefined) : undefined,
       dayBeforeOnly: (kind === "deliverable" && isExam && dayBefore) || undefined,
     };
     dispatch({ type: "saveTask", task: next, activity });
@@ -197,6 +262,7 @@ export function TaskEditor({
               <span>Fecha límite</span>
               <input
                 type="datetime-local"
+                aria-label="Fecha límite"
                 value={deadline}
                 min="2000-01-01T00:00"
                 max={`${deadlineMaxYear(now)}-12-31T23:59`}
@@ -210,6 +276,18 @@ export function TaskEditor({
             {deadlineError && (
               <p className="meta" role="alert">
                 {deadlineError}
+              </p>
+            )}
+            <StartAfterField
+              value={startAfter}
+              onChange={setStartAfter}
+              tz={tz}
+              now={now}
+              inherited={materiaStart ? describeStart(materiaStart, tz) : undefined}
+            />
+            {startWarning && (
+              <p className="meta" role="status">
+                {startWarning}
               </p>
             )}
             <label className="check">
@@ -366,7 +444,7 @@ export function TaskEditor({
               Archivar
             </button>
           )}
-          <button type="button" className="btn primary" onClick={save}>
+          <button type="button" className="btn primary" disabled={startBlocked} onClick={save}>
             Guardar
           </button>
         </div>

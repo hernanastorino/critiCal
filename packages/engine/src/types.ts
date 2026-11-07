@@ -66,6 +66,13 @@ export interface DayOverride {
   asWeekday?: number;
 }
 
+/**
+ * When work on something can start (SPEC §18.7): from a local date (YYYY-MM-DD), a
+ * number of days before its deadline, or right away (`now`: a task that does not follow
+ * its materia's rule). For the app; the planner reads `earliestStart`.
+ */
+export type StartAfter = { date: string } | { daysBefore: number } | { now: true };
+
 export interface Activity {
   id: string;
   name: string;
@@ -80,6 +87,8 @@ export interface Activity {
    * a routine like the gym. Unset for activities from before the distinction.
    */
   kind?: "materia" | "rutina";
+  /** Its tasks can start only then, unless a task says otherwise. */
+  startAfter?: StartAfter;
   /** Other names a materia goes by in events, normalized ("add"). */
   aliases?: string[];
   /** Study minutes before each break (the app's default for materias: 50). */

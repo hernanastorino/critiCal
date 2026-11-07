@@ -214,6 +214,36 @@ describe("restoring into the database", () => {
 });
 
 describe("backup", () => {
+  it("keeps «puedo empezar» and rejects a broken one", () => {
+    const data = demoData(at("2026-11-04", 600));
+    const withStart = {
+      ...data,
+      tasks: data.tasks.map((t, i) => (i === 0 ? { ...t, startAfter: { daysBefore: 4 } } : t)),
+      activities: data.activities.map((a, i) =>
+        i === 0 ? { ...a, startAfter: { date: "2026-11-20" } } : a,
+      ),
+    };
+    expect(parseBackup(exportJson(withStart, 1))).toEqual({
+      data: JSON.parse(JSON.stringify(withStart)),
+    });
+    for (const startAfter of [
+      { daysBefore: -1 },
+      { daysBefore: 2.5 },
+      { date: "mañana" },
+      { date: "2026-02-30" },
+      { date: "2026-11-20", now: false },
+      { date: "2026-11-20", daysBefore: 2 },
+      { now: false },
+      {},
+    ]) {
+      const broken = {
+        ...data,
+        tasks: data.tasks.map((t, i) => (i === 0 ? { ...t, startAfter } : t)),
+      };
+      expect("error" in parseBackup(exportJson(broken as typeof data, 1))).toBe(true);
+    }
+  });
+
   it("round-trips and rejects foreign or broken files", () => {
     const data = demoData(at("2026-11-04", 600));
     expect(parseBackup(exportJson(data, 1))).toEqual({ data: JSON.parse(JSON.stringify(data)) });
