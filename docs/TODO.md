@@ -89,24 +89,50 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 - El gesto o botón «atrás» del sistema no vuelve de una subpantalla de Ajustes (no hay estado en el historial).
 - Validar `settings.data` en el servidor, con cuidado: filas viejas de producción podrían no cumplir una restricción nueva. Hacerlo con `NOT VALID` o como validación en `/api`.
 - Rutinas con nombre repetido al **renombrar** una materia existente (al agregar ya se impide).
-- Avisos (agente atacante sobre #73): después de «Deshacer» el foco queda en `<body>` (debería volver al bloque restaurado); «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante; el `aria-label` de los bloques no dice el día.
+- Avisos (agente atacante sobre #73): después de «Deshacer» el foco queda en `<body>` (debería volver al bloque restaurado); «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante.
+- Semana (agentes atacantes sobre #76 y #78, anteriores a esos PRs):
+  - Escape no cierra la ventanita de un bloque o evento, y la ventanita tapa al bloque vecino.
+  - Después de «Fijar acá» el foco queda en `<body>`.
+  - «Deshacer» sobre una semana que no estás viendo deshace sin mostrar dónde (llevar a esa semana o nombrarla en el aviso).
+  - Arrastrar a un día pasado (o a una hora sin lugar) vuelve sin decir por qué.
+  - El orden de lectura de los bloques no es por hora (comidas, luego eventos, luego plan); no se anuncia la hora de fin ni el borde rojo.
+  - El botón flotante de camino crítico tapa la esquina de abajo a la derecha del domingo.
+- Comidas (#80, detalles que quedaron): en una propuesta por una comida, «Dejar como está» igual saca el bloque de debajo (§5.1: nunca estudio encima; falta un texto propio para ese caso); al volver a poner una comida sacada se olvida la hora a la que se había movido; las acciones de comidas no entran en el historial de «Deshacer» de arriba (solo en el aviso); después de «Reacomodar» el aviso de abajo sigue mostrando el anterior.
+- **Regresión de #78** (no es anterior): con dos cosas lado a lado a 320 px, cada una mide ~17 px de ancho y cuesta tocarla; buscar un ancho mínimo o abrir una lista al tocar.
+- Silos (agente atacante sobre #77): «Archivar» no tiene Deshacer y no hay dónde ver lo archivado; en «Nueva», Enter en el nombre no guarda; el campo «Partes» no tiene etiqueta propia.
+  - Contraste: números blancos sobre tanques naranjas (~1,9:1); «Venció» en rojo de 11 px (~3,9:1); total gris sobre tanque vacío en claro (~3,9:1).
+  - «Entrega / parcial» y «Hábito semanal» no tienen `aria-pressed`; la hoja de un hábito pide «Temas en total».
+  - Registrar 240 min de avance descuenta ~200 (el factor de descanso o de aprendizaje no se explica en pantalla).
+- Semana (3.ª vuelta sobre #76): el anillo de foco naranja en modo claro tiene ~2:1 de contraste; la ventanita de un bloque no es un diálogo (el foco no entra) y en bloques de la tarde tapa la barra; arrastrar no avisa nada (y hoy hace desaparecer la cena: lo resuelve §18.2).
+- Comidas (agente atacante sobre #80, anteriores a ese PR):
+  - Mi semana corrige en silencio valores raros (duración «-20» queda en 0, o sea sin esa comida); la fila de Ajustes muestra el horario de un solo día («09:00 – 00:00») aunque los días difieran; el desayuno puede caer antes de «arreglarse».
+  - Los campos de hora y duración de Mi semana se anuncian por su valor («textbox 13:00»), no por su nombre.
+  - Con la hoja de Ajustes abierta, el lector de pantalla llega a la grilla de atrás; una alerta de validación queda visible después de volver.
+  - Días pasados muestran el plan congelado con las comidas recalculadas: puede verse estudio al lado de una comida de un día que ya pasó.
+  - Una comida movida a 23:59 queda como una rayita al pie del día, difícil de tocar.
+- Lugares (agente atacante sobre #79, anteriores a ese PR):
+  - `spotKey` borra los emojis: «🏠🎉 de 👵» y «💼 de 🏢» quedan las dos como «de» y comparten minutos.
+  - Una dirección que contiene «Casa» («Casa de la abuela Marta») se toma como la casa; la dirección exacta de casa en minúsculas no.
+  - Se puede guardar un lugar con nombre repetido («Casa» dos veces).
+  - Enter no confirma los minutos de la Bandeja ni el nombre de «Guardar como lugar»; «abc» en minutos vuelve al valor anterior sin aviso; los errores no marcan el campo con `aria-invalid`.
+  - En la Bandeja, marcar «Guardar como lugar» no lleva el foco al nombre; cambiar los minutos de un traslado muestra «Un evento nuevo pisa…» aunque no hay evento nuevo; los avisos tapan la última fila de las hojas.
+  - Los campos de minutos de las tarjetas de la Bandeja tienen todos el mismo nombre; «Abrir evento ›» del globito no se anuncia como botón; una dirección larguísima se muestra entera.
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
 Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8.
 
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota (antes, 3 bocetos para que elija).
-2. Comidas siempre presentes: regla nueva en §5.1 (corre lo no fijo; si no hay lugar, aparece superpuesta y se puede arrastrar a cualquier hora). Además: «Hoy no» por comida y merienda opcional. Al implementarlo, ajustar la propiedad de `scheduler.test.ts` («nunca sobre eventos fijos») para que acepte solo las comidas superpuestas del §5.1 y siga rechazando estudio nuevo encima de lo fijo.
-3. Eventos superpuestos lado a lado, en columnas más angostas.
-4. Ubicación de un evento: «Eliminar» borra el lugar exacto y conserva el tiempo de traslado puesto a mano.
-5. Silos: se ocultan solos al terminar la semana en la que pasó su fecha final.
-6. Barra de arriba: «2 – 8 nov» y la flecha de Deshacer con el trazo del resto de los íconos.
-7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
+2. Hecho (#80, validado en producción). Queda: arrastrar comidas como a los bloques.
+3. Hecho (#78, validado en producción).
+4. Hecho (#79, validado en producción).
+5. Hecho (#77, validado en producción).
+6. Hecho (#76, validado en producción).
+7. Hecho (#82, validado en producción). Queda: opción «Empezar antes» en las decisiones de la Bandeja cuando no entra.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- ✅ Confirmados el 2026-11-07: #69, #70, #71 y #73 (atacante limpio, prueba en producción y Sentry sin issues nuevos). Nada pendiente acá.
-- #74 solo cambió `docs/SPEC.md` y `docs/TODO.md`: sin código, no hay validación en producción que hacer.
+(Nada por ahora.)
