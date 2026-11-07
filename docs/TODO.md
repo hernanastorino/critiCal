@@ -14,10 +14,11 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                          | Estado                                                                                                                   | Qué falta                                                                                                                            |
-| -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                               | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
-| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; 1.ª vuelta del atacante y CodeRabbit arreglados (comida de hoy sobre estudio → propuesta); 2.ª vuelta corriendo | Vuelta limpia, CodeRabbit, merge, prod.                                                                                              |
+| Qué                                                                                          | Estado                                                     | Qué falta                                                                                                                            |
+| -------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| PR #80 `claude/meals-always` (§18.2 comidas siempre presentes, mover/sacar un día, merienda) | Abierto; atacante limpio (3.ª vuelta)                      | CodeRabbit sobre el último commit, merge, prod.                                                                                      |
+| PR #82 `claude/start-later` (§18.7 empezar más tarde)                                        | Abierto; atacante corriendo                                | Vuelta limpia, CodeRabbit, merge, prod.                                                                                              |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema.
 
@@ -98,6 +99,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
   - Arrastrar a un día pasado (o a una hora sin lugar) vuelve sin decir por qué.
   - El orden de lectura de los bloques no es por hora (comidas, luego eventos, luego plan); no se anuncia la hora de fin ni el borde rojo.
   - El botón flotante de camino crítico tapa la esquina de abajo a la derecha del domingo.
+- Comidas (#80, detalles que quedaron): en una propuesta por una comida, «Dejar como está» igual saca el bloque de debajo (§5.1: nunca estudio encima; falta un texto propio para ese caso); al volver a poner una comida sacada se olvida la hora a la que se había movido; las acciones de comidas no entran en el historial de «Deshacer» de arriba (solo en el aviso); después de «Reacomodar» el aviso de abajo sigue mostrando el anterior.
 - **Regresión de #78** (no es anterior): con dos cosas lado a lado a 320 px, cada una mide ~17 px de ancho y cuesta tocarla; buscar un ancho mínimo o abrir una lista al tocar.
 - Silos (agente atacante sobre #77): «Archivar» no tiene Deshacer y no hay dónde ver lo archivado; en «Nueva», Enter en el nombre no guarda; el campo «Partes» no tiene etiqueta propia.
   - Contraste: números blancos sobre tanques naranjas (~1,9:1); «Venció» en rojo de 11 px (~3,9:1); total gris sobre tanque vacío en claro (~3,9:1).
@@ -128,7 +130,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 4. Hecho (#79, validado en producción).
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
-7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
+7. Empezar más tarde → PR #82.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
 ## 6. Mergeado, falta confirmar la validación en producción
