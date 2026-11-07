@@ -128,7 +128,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 3. Hecho (#78, validado en producción).
 4. Ubicación de un evento: «Eliminar lugar» → PR #79.
 5. Hecho (#77, validado en producción).
-6. Barra de arriba → #76 mergeado (ver §6).
+6. Hecho (#76, validado en producción).
 7. Empezar más tarde: una tarea o materia que no se puede empezar hasta una fecha, una demora o un tiempo antes de la entrega.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
@@ -136,4 +136,4 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- #76 (barra de arriba): atacante limpio; falta prueba en producción y Sentry.
+(Nada por ahora.)
