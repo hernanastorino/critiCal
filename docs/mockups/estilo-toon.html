@@ -156,7 +156,7 @@ button, select { font: inherit; color: inherit; }
   position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--paper);
   padding-block: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
 }
-.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--panel); }
+.seg { margin: 0; min-width: 0; display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 3px; background: var(--panel); }
 .seg button { border: 0; background: none; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
 .seg button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
 
@@ -212,7 +212,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
     <h2 id="h-casos">Una forma para cada caso</h2>
     <div class="sticky">
       <span class="tag">Viendo</span>
-      <div class="seg" id="seg" role="group" aria-label="Estilo"></div>
+      <fieldset class="seg" id="seg" aria-label="Estilo"></fieldset>
       <span class="soft" id="rm" hidden>Tu sistema pide reducir movimiento: se muestra cada forma quieta.</span>
     </div>
     <div class="cases" id="cases"></div>
@@ -331,14 +331,14 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   const timers = new WeakMap();
 
   function build(scene) {
-    scene.innerHTML = '<div class="stage">' + '<div class="blk"><div class="flip"><i class="f fr"></i><i class="f bk"></i><i class="f rt"></i><i class="f lf"></i><i class="f tp"></i><i class="f bt"></i></div></div>'.repeat(N) + "</div>";
+    scene.innerHTML = `<div class="stage">${'<div class="blk"><div class="flip"><i class="f fr"></i><i class="f bk"></i><i class="f rt"></i><i class="f lf"></i><i class="f tp"></i><i class="f bt"></i></div></div>'.repeat(N)}</div>`;
     return [...scene.querySelectorAll(".blk")];
   }
   const tf = b => `translate3d(${b.x}px,${b.y}px,${b.z || 0}px) rotateZ(${b.r}deg) rotateX(${b.f || 0}deg)`;
   function setPose(blks, pose, dur, stagger) {
     blks.forEach((el, i) => {
-      el.style.transitionDuration = dur + "ms";
-      el.style.transitionDelay = (stagger * i) + "ms";
+      el.style.transitionDuration = `${dur}ms`;
+      el.style.transitionDelay = `${stagger * i}ms`;
       el.style.transform = tf(pose[i]);
     });
   }
@@ -346,7 +346,9 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
 
   function play(scene, key, style) {
     clearTimeout(timers.get(scene));
-    scene.getAnimations({ subtree: true }).forEach(a => a.cancel());
+    scene.getAnimations({ subtree: true }).forEach((a) => {
+      a.cancel();
+    });
     scene.dataset.style = style;
     const a = ANIMS[key];
     scene.style.setProperty("--k", a.k || 1);
@@ -383,7 +385,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   // State
   const load = () => { try { return JSON.parse(localStorage.getItem("toon-choice")) || {}; } catch { return {}; } };
   const saved = load();
-  const state = { style: saved.style || "A", pick: Object.fromEntries(CASES.map(c => [c.id, (saved.pick || {})[c.id] || c.def])) };
+  const state = { style: saved.style || "A", pick: Object.fromEntries(CASES.map(c => [c.id, saved.pick?.[c.id] || c.def])) };
   const save = () => { try { localStorage.setItem("toon-choice", JSON.stringify(state)); } catch {} };
 
   // 1 · style cards
@@ -424,7 +426,7 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   };
   const styleSel = sel("pick-style", "Estilo", Object.entries(STYLES).map(([k, s]) => [k, `${k} · ${s.name}`]), state.style, v => setStyle(v));
   for (const c of CASES) {
-    sel("pick-" + c.id, c.t, Object.entries(ANIMS).map(([k, a]) => [k, a.name]), state.pick[c.id], v => { state.pick[c.id] = v; renderCase(c); renderSum(); save(); });
+    sel(`pick-${c.id}`, c.t, Object.entries(ANIMS).map(([k, a]) => [k, a.name]), state.pick[c.id], v => { state.pick[c.id] = v; renderCase(c); renderSum(); save(); });
   }
 
   function renderCase(c) {
@@ -438,10 +440,10 @@ textarea { width: 100%; min-height: 120px; font: 13px/1.5 var(--mono); backgroun
   }
   function setStyle(k) {
     state.style = k; styleSel.value = k; save();
-    stylesEl.querySelectorAll(".style-card").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === k));
-    seg.querySelectorAll("button").forEach(b => b.setAttribute("aria-pressed", b.dataset.k === k));
+    for (const b of stylesEl.querySelectorAll(".style-card")) b.setAttribute("aria-pressed", b.dataset.k === k);
+    for (const b of seg.querySelectorAll("button")) b.setAttribute("aria-pressed", b.dataset.k === k);
     CASES.forEach(renderCase);
-    document.querySelectorAll(".phone .scene").forEach(s => play(s, s.dataset.anim, k));
+    for (const s of document.querySelectorAll(".phone .scene")) play(s, s.dataset.anim, k);
     renderSum();
   }
   document.getElementById("copy").onclick = async e => {
