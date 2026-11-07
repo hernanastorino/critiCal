@@ -1,11 +1,11 @@
-import { useState } from "react";
 import { DEFAULTS } from "../calendars.js";
+import { useDraft } from "../drafts.js";
 import { localParts, zonedInstant } from "../engine.js";
 import { dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
-import { hasClasses, subjectsOf } from "../subjects.js";
+import { hasClasses, sameName, subjectsOf } from "../subjects.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -15,25 +15,34 @@ export function Semester() {
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const semester = data.preferences?.semester;
-  const [start, setStart] = useState(semester?.start ?? today);
-  const [end, setEnd] = useState(semester?.end ?? "");
-  const [subject, setSubject] = useState("");
-  const [weekly, setWeekly] = useState("");
-  const [exam, setExam] = useState({ activityId: "", title: "Parcial", date: "" });
+  const [start, setStart] = useDraft("semester:start", () => semester?.start ?? today);
+  const [end, setEnd] = useDraft("semester:end", () => semester?.end ?? "");
+  const [subject, setSubject] = useDraft("semester:subject", () => "");
+  const [weekly, setWeekly] = useDraft("semester:weekly", () => "");
+  const [typedExam, setExam] = useDraft("semester:exam", () => ({
+    activityId: "",
+    title: "Parcial",
+    date: "",
+  }));
   const toast = useToast();
   // The calendar's titles are only worked out once its screen is on view.
   const open = useSectionOpen();
   const holidaysOn = data.preferences?.holidaysOff !== false;
   const subjects = subjectsOf(data);
+  // A kept draft may name a materia that is gone since.
+  const exam = subjects.some((a) => a.id === typedExam.activityId)
+    ? typedExam
+    : { ...typedExam, activityId: "" };
   // Both dates are needed: an empty start would mean "from year 0".
   const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
 
   const prefs = (patch: Partial<NonNullable<typeof data.preferences>>) =>
     dispatch({ type: "preferences", preferences: { ...data.preferences, ...patch } });
 
+  const repeated = data.activities.some((a) => sameName(a.name, subject));
   const addSubject = () => {
-    const name = subject.trim();
-    if (!name) return;
+    const name = subject.trim().replace(/\s+/g, " ");
+    if (!name || repeated) return;
     const activity = {
       id: newId(),
       name,
@@ -166,11 +175,19 @@ export function Semester() {
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            disabled={!subject.trim()}
+            disabled={!subject.trim() || repeated}
             onClick={addSubject}
           >
             Agregar materia
           </button>
+          {repeated && subject.trim() && (
+            <p className="meta">Ya hay una materia o rutina con ese nombre.</p>
+          )}
+          {(subject.trim() || weekly.trim()) && (
+            <p className="meta" style={{ margin: "6px 0 0" }}>
+              Cambios sin guardar
+            </p>
+          )}
 
           {subjects.length > 0 && (
             <>
