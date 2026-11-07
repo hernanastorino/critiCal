@@ -203,6 +203,30 @@ describe("buildSlots", () => {
     expect(placeMeal(breakfast, [], bed, t("11:00"))).toBeNull();
   });
 
+  it("never overlaps two meals moved by hand onto the same time", () => {
+    const meals = [
+      { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
+      { kind: "cena" as const, start: 21 * 60, end: 21 * 60 + 30 },
+    ];
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, meals })) };
+    const both = [
+      {
+        date: "2026-11-02",
+        meals: [
+          { kind: "almuerzo" as const, start: 15 * 60 },
+          { kind: "cena" as const, start: 15 * 60 + 30 },
+        ],
+      },
+    ];
+    const day = placeMeals(odd, both, from, at("2026-11-03", "00:00"), []).filter(
+      (m) => m.date === "2026-11-02",
+    );
+    expect(day.map((m) => m.at?.start)).toEqual([
+      at("2026-11-02", "15:00"),
+      at("2026-11-02", "16:00"),
+    ]);
+  });
+
   it("places each day's meals without overlapping each other, the ones with no room on top", () => {
     const meals = [
       { kind: "desayuno" as const, start: 8 * 60, end: 8 * 60 + 30 },

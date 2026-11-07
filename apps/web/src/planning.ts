@@ -388,7 +388,8 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
  */
 export function missedMeals(data: AppData, now: number): MealTime[] {
   return mealTimes(data, now, now, now + 7 * 1440 * MINUTE).filter(
-    (m) => m.overlapping && m.latest > now,
+    // As placeMeals keeps it: until the later of its last possible start and its end.
+    (m) => m.overlapping && Math.max(m.latest, m.at?.end ?? 0) > now,
   );
 }
 

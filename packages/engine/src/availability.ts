@@ -133,10 +133,16 @@ function placeDayMeals(
   const out = (kind?: MealKind) =>
     !!kind && eaten.some((e) => e.meal === kind && e.start < window.bedAt && window.wakeAt < e.end);
   const meals = window.meals.filter((m) => !out(m.kind));
-  // Meals put somewhere by hand go first and stay there; the rest go around them.
-  const placed: Interval[] = meals
-    .filter((m) => m.chosen)
-    .map(({ start, end }) => ({ start, end }));
+  // Meals put somewhere by hand go first and stay there (over anything fixed); of two
+  // that overlap each other, the later one moves to right after the earlier. (The
+  // window is built for this call, so adjusting its meals is safe.)
+  const placed: Interval[] = [];
+  for (const m of meals.filter((x) => x.chosen).sort((a, b) => a.start - b.start)) {
+    const length = m.end - m.start;
+    for (const p of placed) if (p.start < m.start + length && m.start < p.end) m.start = p.end;
+    m.end = m.start + length;
+    placed.push({ start: m.start, end: m.end });
+  }
   const taken: Interval[] = [...busy, ...placed];
   return meals.map(({ kind, chosen, ...preferred }) => {
     const onWaking = kind === "desayuno";
