@@ -55,19 +55,21 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const show = useCallback<ToastApi["show"]>(
     (message, opts) => {
       const t = { message, ...opts };
-      // A notice that left under the pointer never got its «leave»: start fresh.
-      held.current = false;
       setCurrent(t);
-      startTimer(t);
     },
     [startTimer],
   );
   const clear = useCallback<ToastApi["clear"]>((tag) => {
     setCurrent((c) => (tag === undefined || c?.tag === tag ? null : c));
   }, []);
-  // Gone means not held: Firefox fires no blur when a focused «Deshacer» is removed.
+  const box = useRef<HTMLDivElement>(null);
+  // Held is what the page says after each change, not what events said: Firefox fires no
+  // blur for a removed button, and React may keep a focused «Deshacer» for the next notice.
   useEffect(() => {
-    if (!current) held.current = false;
+    const el = box.current;
+    held.current =
+      !!current && !!el && (el.contains(document.activeElement) || el.matches(":hover"));
+    if (current && !held.current) startTimer(current);
   }, [current]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
