@@ -774,7 +774,7 @@ describe("plan history", () => {
     expect(await screen.findByText("Deshecho: reacomodar la semana")).toBeTruthy();
     expect(slot()?.className).toContain("placeholder");
     await act(() => new Promise((r) => requestAnimationFrame(r)));
-    expect(document.activeElement?.getAttribute("aria-label")).toBe("Modo edición");
+    expect(document.activeElement?.getAttribute("aria-label")).toBe("Reacomodar semana");
     cleanup();
   });
 

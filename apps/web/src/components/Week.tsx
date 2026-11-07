@@ -109,7 +109,8 @@ export function Week({
   /** The last long-press drop: the click right after it, on that block, is not a tap. */
   const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
-  const editRef = useRef<HTMLButtonElement>(null);
+  const replanRef = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
   useEffect(() => {
@@ -218,11 +219,10 @@ export function Week({
   const today = localParts(tz, now).date;
   const rangeEnd = zonedInstant(tz, dates[6] as string, 720);
   // Another year's week says which one, so it is never mistaken for this one.
-  const rangeLabel = `${dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd)}${
-    (dates[6] as string).slice(0, 4) === today.slice(0, 4)
-      ? ""
-      : ` ${(dates[6] as string).slice(0, 4)}`
-  }`;
+  const rangeDays = dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd);
+  const rangeYear =
+    (dates[6] as string).slice(0, 4) === today.slice(0, 4) ? "" : (dates[6] as string).slice(0, 4);
+  const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
   const lastChange = data.planHistory?.at(-1)?.label;
 
   // Visible span: earliest wake to latest bedtime of the week.
@@ -375,21 +375,29 @@ export function Week({
         >
           <ChevronLeft />
         </button>
-        <h1 className={`range${offset === 0 ? " current" : ""}`} aria-live="polite">
+        <h1 ref={titleRef} tabIndex={-1} className={`range${offset === 0 ? " current" : ""}`}>
           {offset === 0 ? (
-            rangeLabel
+            rangeDays
           ) : (
             <button
               type="button"
               className="range-today"
               title="Volver a esta semana"
-              onClick={() => setOffset(0)}
+              aria-label={`${rangeLabel}. Volver a esta semana`}
+              onClick={() => {
+                setOffset(0);
+                // The button goes with the other week: the title keeps the focus.
+                requestAnimationFrame(() => titleRef.current?.focus());
+              }}
             >
-              {rangeLabel}
-              <span className="sr-only">. Volver a esta semana</span>
+              {rangeDays}
+              {rangeYear && <span className="range-year">{rangeYear}</span>}
             </button>
           )}
         </h1>
+        <span className="sr-only" aria-live="polite">
+          {offset === 0 ? "" : rangeLabel}
+        </span>
         <button
           type="button"
           className="icon-btn"
@@ -400,7 +408,6 @@ export function Week({
         </button>
         <button
           type="button"
-          ref={editRef}
           className={`icon-btn${editing ? " active" : ""}`}
           aria-label="Modo edición"
           aria-pressed={editing}
@@ -414,9 +421,12 @@ export function Week({
         <button
           type="button"
           className={`icon-btn replan${replanning ? " spinning" : ""}${replanned ? " done" : ""}`}
+          ref={replanRef}
           aria-label="Reacomodar semana"
-          disabled={replanning}
+          // aria-disabled, not disabled: a disabled button drops the keyboard focus.
+          aria-disabled={replanning || undefined}
           onClick={() => {
+            if (replanning) return;
             clearTimeout(replanTimer.current);
             setReplanned(false);
             // Emptied first, so a second replan in the same minute is announced again.
@@ -452,9 +462,8 @@ export function Week({
             dispatch({ type: "undoPlan" });
             flash(`Deshecho: ${lastChange}`);
             setSpoken("");
-            // The button hides with the last change: keep the keyboard nearby (the
-            // replan button may still be busy, and a disabled one takes no focus).
-            if (last) requestAnimationFrame(() => editRef.current?.focus());
+            // The button hides with the last change: the keyboard goes to its neighbour.
+            if (last) requestAnimationFrame(() => replanRef.current?.focus());
           }}
         >
           <UndoIcon />
@@ -528,7 +537,7 @@ export function Week({
                 <button
                   key={`${d}-${key}`}
                   type="button"
-                  aria-label={`${mealName(m)}, ${time(tz, m.at.start)}${moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}`}
+                  aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}${moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}`}
                   className={`pill meal${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
                   style={style}
                   onClick={(e) => {

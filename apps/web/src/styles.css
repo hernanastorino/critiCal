@@ -137,19 +137,31 @@ textarea {
 }
 
 .header h1.range {
-  font-size: clamp(17px, 6vw, 24px);
+  font-size: clamp(15px, 4.8vw, 24px);
   white-space: nowrap;
   text-align: center;
   min-width: 0;
+  outline: none;
 }
 
-/* Another week: the title goes back to this one. */
+/* Another week: the title goes back to this one; another year's, small below. */
 .range-today {
   font: inherit;
   color: inherit;
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+}
+
+.range-year {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.header:has(.range) {
+  gap: 0;
 }
 
 .header .icon-btn {
@@ -163,12 +175,8 @@ textarea {
 }
 
 @media (max-width: 359px) {
-  .header {
-    gap: 2px;
-  }
-
   .header .icon-btn {
-    width: 34px;
+    width: 36px;
   }
 }
 

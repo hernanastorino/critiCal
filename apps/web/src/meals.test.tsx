@@ -44,9 +44,9 @@ describe("meals on the calendar", () => {
   it("shows breakfast, lunch and dinner every day, in the meal color", () => {
     render(<App fixedNow={NOW} initial={withEvents([])} />);
     expect(mealPills()).toHaveLength(21);
-    expect(labels()).toContain("Desayuno, 07:30");
-    expect(labels()).toContain("Almuerzo, 13:00");
-    expect(labels()).toContain("Cena, 21:00");
+    expect(labels()).toContain("Desayuno, lun 07:30");
+    expect(labels()).toContain("Almuerzo, lun 13:00");
+    expect(labels()).toContain("Cena, lun 21:00");
     // One look for all three: the class, not the meal, decides the color.
     expect(new Set(mealPills().map((p) => p.className.replace(/ past| selected/g, "")))).toEqual(
       new Set(["pill meal"]),
@@ -60,7 +60,7 @@ describe("meals on the calendar", () => {
         initial={withEvents([busy("Consulta", "2026-11-03", "12:00", "13:30")])}
       />,
     );
-    expect(labels()).toContain("Almuerzo, 13:30, corrido de las 13:00");
+    expect(labels()).toContain("Almuerzo, mar 13:30, corrido de las 13:00");
     const lunch = { start: at("2026-11-03", "13:30"), end: at("2026-11-03", "14:30") };
     expect(stored().plan.some((b) => overlaps(b, lunch))).toBe(false);
   });
@@ -107,7 +107,7 @@ describe("meals on the calendar", () => {
         initial={withEvents([busy("Consulta", "2026-11-03", "12:00", "13:30")])}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Almuerzo, 13:30, corrido de las 13:00"));
+    fireEvent.click(screen.getByLabelText("Almuerzo, mar 13:30, corrido de las 13:00"));
     const bubble = document.querySelector(".bubble") as HTMLElement;
     expect(within(bubble).getByText(/Corrido de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
@@ -130,7 +130,7 @@ describe("meals with no room", () => {
     expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
     // Next week, with no lunch on Tuesday but the other six.
-    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/^9 – 15 nov\./);
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("9 – 15 nov");
     expect(labels().filter((l) => l?.startsWith("Almuerzo"))).toHaveLength(6);
   });
 });

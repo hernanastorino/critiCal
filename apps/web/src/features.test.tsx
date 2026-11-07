@@ -289,7 +289,7 @@ describe("week", () => {
     const replan = screen.getByLabelText("Reacomodar semana") as HTMLButtonElement;
     fireEvent.click(replan);
     // No second replan (and no overlapping timers) while one is running.
-    expect(replan.disabled).toBe(true);
+    expect(replan.getAttribute("aria-disabled")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: /Camino crítico/ }));
     expect(screen.getByText(/No llegás: faltan .* de Parcial Cálculo II/)).toBeTruthy();
   });
