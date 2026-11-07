@@ -52,13 +52,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       t.undo ? UNDO_MS : TOAST_MS,
     );
   }, []);
-  const show = useCallback<ToastApi["show"]>(
-    (message, opts) => {
-      const t = { message, ...opts };
-      setCurrent(t);
-    },
-    [startTimer],
-  );
+  const show = useCallback<ToastApi["show"]>((message, opts) => {
+    const t = { message, ...opts };
+    setCurrent(t);
+  }, []);
   const clear = useCallback<ToastApi["clear"]>((tag) => {
     setCurrent((c) => (tag === undefined || c?.tag === tag ? null : c));
   }, []);
@@ -70,7 +67,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     held.current =
       !!current && !!el && (el.contains(document.activeElement) || el.matches(":hover"));
     if (current && !held.current) startTimer(current);
-  }, [current]);
+  }, [current, startTimer]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
   const release = () => {
