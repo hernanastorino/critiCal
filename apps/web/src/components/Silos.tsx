@@ -1,19 +1,85 @@
-import { useState } from "react";
-import { dayAndTime, dayDate, hours } from "../format.js";
+import { useEffect, useRef, useState } from "react";
+import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
-import { isRunning, progress, refreshPlan } from "../planning.js";
+import {
+  isRunning,
+  progress,
+  refreshPlan,
+  semesterLabel,
+  splitPastSilos,
+  type TaskProgress,
+} from "../planning.js";
 import { useStore } from "../store.js";
 import { plannedVsDone } from "../week-review.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
+import { useToast } from "./Toast.js";
+
+let pastOpen = false;
 
 export function Silos() {
   const { data, now } = useStore();
   const tz = data.settings.timezone;
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
   const [detail, setDetail] = useState<AppTask | null>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const toast = useToast();
+  // Remembered while the app is open, so a trip to another tab does not close it.
+  const [showPast, setShowPastState] = useState(pastOpen);
+  const setShowPast = (open: boolean) => {
+    pastOpen = open;
+    setShowPastState(open);
+  };
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
-  const items = progress(data, now).sort((a, b) => a.deadline - b.deadline);
+  const { current: items, past } = splitPastSilos(
+    progress(data, now).sort((a, b) => a.deadline - b.deadline),
+    tz,
+    now,
+  );
+  // A task just saved with an old date leaves the view: say where it went.
+  const pastIds = past.map((p) => p.task.id).join(" ");
+  const seenPast = useRef<string | null>(null);
+  useEffect(() => {
+    const before = seenPast.current;
+    seenPast.current = pastIds;
+    if (before === null || showPast) return;
+    const was = new Set(before.split(" "));
+    const moved = past.find((p) => !was.has(p.task.id));
+    if (moved) toast.show(`${moved.task.title} pasó a «Ver anteriores»`);
+  }, [pastIds, past, showPast, toast]);
+  const pastGroups = new Map<string, TaskProgress[]>();
+  for (const p of past) {
+    const label = semesterLabel(tz, p.deadline);
+    pastGroups.set(label, [...(pastGroups.get(label) ?? []), p]);
+  }
+
+  const silo = (p: TaskProgress) => {
+    const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
+    const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
+    const level = levels.get(p.task.id) ?? "ok";
+    const due = p.task.kind === "habit" ? "esta semana" : dueDate(tz, p.deadline, now);
+    const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
+    return (
+      <button
+        type="button"
+        key={p.task.id}
+        data-task={p.task.id}
+        className="silo"
+        aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}, ${p.task.kind === "habit" ? due : `${overdue ? "venció el" : "entrega"} ${due}`}`}
+        onClick={() => setDetail(p.task)}
+      >
+        <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
+          <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>{hours(p.totalMinutes)}</span>
+          <div className="fill" style={{ height: `${ratio * 100}%` }} />
+          {p.remainingMinutes > 0 && <span className="left">{hours(p.remainingMinutes)}</span>}
+        </div>
+        <span className="name">{p.task.title}</span>
+        <span className={`due${overdue ? " overdue" : ""}`}>
+          {overdue ? `Venció · ${due}` : due}
+        </span>
+      </button>
+    );
+  };
   // Weekly silos switched off (this week or until resumed), shown faded.
   const off = data.tasks.filter((t) => t.status === "active" && !isRunning(t, now));
   const week = plannedVsDone(data, now).filter((r) => r.planned > 0 || r.done > 0);
@@ -21,38 +87,13 @@ export function Silos() {
   return (
     <div className="screen">
       <div className="header">
-        <h1>Lo que falta</h1>
+        <h1 ref={titleRef} tabIndex={-1}>
+          Lo que falta
+        </h1>
       </div>
       <div className="scroll">
         <div className="silos">
-          {items.map((p) => {
-            const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
-            const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
-            const level = levels.get(p.task.id) ?? "ok";
-            return (
-              <button
-                type="button"
-                key={p.task.id}
-                className="silo"
-                aria-label={`${p.task.title}: faltan ${hours(p.remainingMinutes)}`}
-                onClick={() => setDetail(p.task)}
-              >
-                <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
-                  <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>
-                    {hours(p.totalMinutes)}
-                  </span>
-                  <div className="fill" style={{ height: `${ratio * 100}%` }} />
-                  {p.remainingMinutes > 0 && (
-                    <span className="left">{hours(p.remainingMinutes)}</span>
-                  )}
-                </div>
-                <span className="name">{p.task.title}</span>
-                <span className="due">
-                  {p.task.kind === "habit" ? "esta semana" : dayAndTime(tz, p.deadline)}
-                </span>
-              </button>
-            );
-          })}
+          {items.map(silo)}
           {off.map((t) => (
             <button
               type="button"
@@ -84,6 +125,25 @@ export function Silos() {
             <span className="name">Nueva</span>
           </button>
         </div>
+        {past.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="btn past-toggle"
+              aria-expanded={showPast}
+              onClick={() => setShowPast(!showPast)}
+            >
+              {showPast ? "Ocultar anteriores" : `Ver anteriores (${past.length})`}
+            </button>
+            {showPast &&
+              [...pastGroups].map(([label, group]) => (
+                <section key={label} className="past-silos" aria-label={label}>
+                  <h2>{label}</h2>
+                  <div className="silos">{group.map(silo)}</div>
+                </section>
+              ))}
+          </>
+        )}
         {week.length > 0 && (
           <div className="card">
             <div className="title">Esta semana: planificado vs. hecho</div>
@@ -120,7 +180,18 @@ export function Silos() {
       {editing && (
         <TaskEditor
           task={editing === "new" ? undefined : editing}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            const id = editing === "new" ? undefined : editing.id;
+            setEditing(null);
+            // A new date may move it to (or out of) «anteriores»: focus follows it, or
+            // goes to the title when it is now hidden.
+            requestAnimationFrame(() => {
+              if (document.activeElement && document.activeElement !== document.body) return;
+              const moved =
+                id && document.querySelector<HTMLElement>(`[data-task="${CSS.escape(id)}"]`);
+              (moved || titleRef.current)?.focus();
+            });
+          }}
         />
       )}
     </div>
