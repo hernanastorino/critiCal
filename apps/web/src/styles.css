@@ -505,6 +505,16 @@ textarea {
   color: #fff;
 }
 
+/* A long word (an address of 2000 «A») wraps instead of pushing «Deshacer» off screen. */
+.snack {
+  max-width: 100%;
+}
+
+.snack > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- Bubble & sheet ---------- */
 
 .bubble-card {

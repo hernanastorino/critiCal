@@ -26,12 +26,14 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  EventTravel,
   Place,
   PlanVersion,
   Preferences,
+  Spot,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { home, spotKey, unlocated } from "./places.js";
+import { eventSpotKey, home, keepableEvents, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -112,6 +114,21 @@ export type Action =
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
+  /** Minutes kept for one event (after «Eliminar lugar») changed, or forgotten (`null`). */
+  | { type: "eventTravelMinutes"; eventId: string; minutes: number | null; now: number }
+  /** Deletes an event address but keeps its minutes on each event that used it. */
+  | { type: "dropSpotAddress"; key: string; now: number }
+  /**
+   * Takes «Eliminar lugar» back: the address returns (unless a newer one took its key)
+   * and each event's kept minutes go back to what they were (`before`), unless they
+   * changed since.
+   */
+  | {
+      type: "restoreSpot";
+      spot: Spot;
+      before: Record<string, EventTravel | undefined>;
+      now: number;
+    }
   /** A flexible event goes back to its own time in the plan. */
   | { type: "unmoveEvent"; eventId: string; now: number }
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
@@ -793,11 +810,63 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
-    case "forgetSpot":
+    case "dropSpotAddress": {
+      const spot = (data.spots ?? []).find((s) => s.key === action.key);
+      if (spot?.minutes === undefined) return data;
+      const eventTravel = { ...data.eventTravel };
+      // Minutes an event already kept for this same address stay as they are; ones
+      // kept for an address it no longer has give way to these.
+      for (const id of keepableEvents(data, spot.key))
+        if (eventTravel[id]?.key !== spot.key)
+          eventTravel[id] = { minutes: spot.minutes, key: spot.key };
       return refresh(
-        { ...data, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
+        { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
         now,
       );
+    }
+    case "eventTravelMinutes": {
+      const eventTravel = { ...data.eventTravel };
+      const event = data.events.find((e) => e.id === action.eventId);
+      if (action.minutes === null) delete eventTravel[action.eventId];
+      else if (!event || !Number.isFinite(action.minutes) || action.minutes < 0) return data;
+      else
+        eventTravel[action.eventId] = {
+          minutes: Math.min(1440, Math.round(action.minutes)),
+          key: eventTravel[action.eventId]?.key ?? eventSpotKey(event),
+        };
+      return refresh({ ...data, eventTravel }, now);
+    }
+    case "restoreSpot": {
+      const eventTravel = { ...data.eventTravel };
+      for (const [id, before] of Object.entries(action.before)) {
+        const current = eventTravel[id];
+        // What the deletion set goes back to what was there; what «Olvidar» removed
+        // comes back; a later change of that event's minutes stays.
+        const set = current?.key === action.spot.key && current.minutes === action.spot.minutes;
+        if (set && before) eventTravel[id] = before;
+        else if (set) delete eventTravel[id];
+        else if (!current && before) eventTravel[id] = before;
+      }
+      const newer = (data.spots ?? []).some((s) => s.key === action.spot.key);
+      return refresh(
+        {
+          ...data,
+          eventTravel,
+          spots: newer ? data.spots : [...(data.spots ?? []), action.spot],
+        },
+        now,
+      );
+    }
+    case "forgetSpot": {
+      // Forgetting an address also forgets the minutes events kept from it.
+      const eventTravel = Object.fromEntries(
+        Object.entries(data.eventTravel ?? {}).filter(([, t]) => t.key !== action.key),
+      );
+      return refresh(
+        { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== action.key) },
+        now,
+      );
+    }
     case "locate": {
       // Answered: a failed lookup for this text is no longer needed.
       data = { ...data, spots: (data.spots ?? []).filter((s) => s.key !== spotKey(action.text)) };
