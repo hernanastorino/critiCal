@@ -1,17 +1,18 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { isPlanCalendar, ROLE_LABEL, roleOf } from "../calendars.js";
 import { time } from "../format.js";
 import type { CalendarRole } from "../model.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
+import { ErrorNote, reloadAction, SESSION_EXPIRED, Skeleton, TIMED_OUT, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const MESSAGES: Record<string, string> = {
   no_refresh_token: "Falta el permiso de Google Calendar. Tocá «Reconectar Google».",
   token_refresh_failed: "Google rechazó el permiso guardado. Tocá «Reconectar Google».",
   google_api_error: "Google Calendar rechazó el pedido.",
-  unreachable: "No se pudo contactar al servidor de sincronización.",
+  unreachable: "No se pudo contactar al servidor de sincronización: revisá tu internet.",
   not_connected: "Sin conectar.",
   icloud_login_failed: "Apple ID o contraseña de app incorrectos.",
   icloud_auth_failed:
@@ -19,6 +20,8 @@ const MESSAGES: Record<string, string> = {
   icloud_unreachable: "No se pudo hablar con iCloud.",
   missing_credentials: "Completá el Apple ID y la contraseña de app.",
   sync_failed: "La sincronización falló.",
+  unauthorized: `${SESSION_EXPIRED} Recargá la app para entrar de nuevo.`,
+  timeout: `${TIMED_OUT} Probá sincronizar otra vez.`,
 };
 
 export function describe(r: SyncResult | undefined, tz: string, at?: number): string {
@@ -30,6 +33,23 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
   if (r.reason === "invalid_grant") return "Google revocó el permiso. Tocá «Reconectar Google».";
   const msg = r.error ? (MESSAGES[r.error] ?? "La sincronización falló.") : "Sin conectar.";
   return r.status ? `${msg} (${r.status})` : msg;
+}
+
+/** What the button next to a failure does: ask Google again, fix the password, or retry. */
+export function fixFor(
+  r: SyncResult | undefined,
+): "reconnect" | "password" | "retry" | "session" | null {
+  if (!r || r.connected || r.error === "not_connected") return null;
+  if (r.error === "unauthorized") return "session";
+  if (r.reason === "invalid_grant" || r.error === "no_refresh_token") return "reconnect";
+  if (r.error === "token_refresh_failed" && r.reason !== "invalid_client") return "reconnect";
+  if (
+    r.error === "icloud_login_failed" ||
+    r.error === "icloud_auth_failed" ||
+    r.error === "missing_credentials"
+  )
+    return "password";
+  return "retry";
 }
 
 const ROLES = Object.keys(ROLE_LABEL) as CalendarRole[];
@@ -75,27 +95,53 @@ export function Calendars() {
   const [appleId, setAppleId] = useState("");
   const [appPassword, setAppPassword] = useState("");
   const [connecting, setConnecting] = useState(false);
+  const password = useRef<HTMLInputElement>(null);
   if (!sync) return null;
   const { status } = sync;
   const icloudConnected = status.icloud?.connected;
+  const googleFix = fixFor(status.google);
+  const icloudFix = fixFor(status.icloud);
+  const retry = () => void sync.syncNow();
 
   return (
     <Section className="calendars">
       <div className="card">
         <div className="title">Google Calendar</div>
-        <p className="meta" data-testid="google-status">
-          {describe(status.google, tz, status.google?.at)}
-        </p>
-        <div className="row">
-          <button
-            type="button"
-            className="btn small"
-            disabled={status.busy}
-            onClick={() => void sync.syncNow()}
+        {!status.google && status.busy ? (
+          <>
+            <Skeleton width="60%" />
+            <Wait label="Sincronizando Google" done={0} total={2} delay={0} />
+          </>
+        ) : googleFix ? (
+          <ErrorNote
+            testId="google-status"
+            action={
+              googleFix === "reconnect"
+                ? { label: "Reconectar Google", onClick: sync.reconnectGoogle }
+                : googleFix === "session"
+                  ? reloadAction
+                  : {
+                      label: status.busy ? "Sincronizando…" : "Reintentar",
+                      onClick: retry,
+                      disabled: status.busy,
+                    }
+            }
           >
-            {status.busy ? "Sincronizando…" : "Sincronizar ahora"}
-          </button>
-          {!status.google?.connected && (
+            {describe(status.google, tz, status.google?.at)}
+          </ErrorNote>
+        ) : (
+          <p className="meta" data-testid="google-status">
+            {describe(status.google, tz, status.google?.at)}
+          </p>
+        )}
+        {status.busy && status.google && <Wait label="Sincronizando Google e iCloud" />}
+        <div className="row">
+          {googleFix !== "retry" && (
+            <button type="button" className="btn small" disabled={status.busy} onClick={retry}>
+              {status.busy ? "Sincronizando…" : "Sincronizar ahora"}
+            </button>
+          )}
+          {!status.google?.connected && !googleFix && (
             <button type="button" className="btn small" onClick={sync.reconnectGoogle}>
               Reconectar Google
             </button>
@@ -105,9 +151,27 @@ export function Calendars() {
 
       <div className="card">
         <div className="title">iCloud</div>
-        <p className="meta" data-testid="icloud-status">
-          {describe(status.icloud, tz, status.icloud?.at)}
-        </p>
+        {icloudFix ? (
+          <ErrorNote
+            testId="icloud-status"
+            action={
+              icloudFix === "session"
+                ? reloadAction
+                : icloudFix === "password"
+                  ? {
+                      label: "Escribir la contraseña de nuevo",
+                      onClick: () => password.current?.focus(),
+                    }
+                  : { label: "Reintentar", onClick: retry, disabled: status.busy }
+            }
+          >
+            {describe(status.icloud, tz, status.icloud?.at)}
+          </ErrorNote>
+        ) : (
+          <p className="meta" data-testid="icloud-status">
+            {describe(status.icloud, tz, status.icloud?.at)}
+          </p>
+        )}
         {icloudConnected ? (
           <button type="button" className="btn small" onClick={() => void sync.disconnectICloud()}>
             Desconectar iCloud
@@ -142,6 +206,7 @@ export function Calendars() {
             <label className="field">
               <span>Contraseña específica de app</span>
               <input
+                ref={password}
                 type="password"
                 autoComplete="off"
                 placeholder="xxxx-xxxx-xxxx-xxxx"
@@ -149,6 +214,7 @@ export function Calendars() {
                 onChange={(e) => setAppPassword(e.target.value)}
               />
             </label>
+            {connecting && <Wait label="Conectando con iCloud" />}
             <button
               type="submit"
               className="btn primary"

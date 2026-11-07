@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -10,6 +10,7 @@ import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
+import { Wait } from "./Feedback.js";
 import { PlaceSearch } from "./PlaceSearch.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
@@ -20,6 +21,17 @@ const EAT: Record<MealKind, string> = {
   merienda: "merendar",
   cena: "cenar",
 };
+
+/**
+ * How far a batch of lookups has got: the most that were waiting at once since the last
+ * time none were, against how many still wait.
+ */
+function useBatch(waiting: number) {
+  const [peak, setPeak] = useState(waiting);
+  useEffect(() => setPeak((p) => (waiting === 0 ? 0 : Math.max(p, waiting))), [waiting]);
+  const total = Math.max(peak, waiting);
+  return { total, done: total - waiting };
+}
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
@@ -36,6 +48,9 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
     const event = data.events.find((e) => e.id === m.eventId);
     return event ? [{ ...m, event }] : [];
   });
+  // Offline it cannot be timed yet: the user may answer meanwhile.
+  const timing = unlocated.filter((u) => u.lookup && !offline).length;
+  const batch = useBatch(timing);
   const late = lateNight(data, now);
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
@@ -101,8 +116,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {late && <LateNightCard key={`${late.date}@${late.assumedWake}`} late={late} />}
 
         {unlocated.length > 0 && <div className="section-title">¿Dónde es?</div>}
+        {timing > 0 && (
+          <Wait label="Calculando traslados" done={batch.done} total={batch.total} delay={0} />
+        )}
         {unlocated.map((u) =>
-          // Offline it cannot be timed yet: the user may answer meanwhile.
           u.lookup && !offline ? (
             <div key={u.key} className="card">
               <div className="title">{u.event.title}</div>

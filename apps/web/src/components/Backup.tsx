@@ -1,9 +1,10 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
-import { type AppData, CRITICAL } from "../model.js";
+import type { AppData } from "../model.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
+import { ErrorNote } from "./Feedback.js";
 import { useToast } from "./Toast.js";
 
 /** Saves everything as a JSON file named after today. */
@@ -29,7 +30,10 @@ export function Backup() {
   const restore = async (f: File) => {
     const parsed = parseBackup(await f.text());
     if ("error" in parsed) {
-      setMessage({ text: parsed.error, error: true });
+      setMessage({
+        text: `${parsed.error} Elegí otro archivo, o exportá uno nuevo con «Exportar JSON».`,
+        error: true,
+      });
       return;
     }
     // Check-ins are an append-only log: the ones made after the backup stay, as long as
@@ -109,11 +113,16 @@ export function Backup() {
           }}
         />
       </div>
-      {message && (
-        <p className="meta" style={message.error ? { color: CRITICAL } : undefined}>
-          {message.text}
-        </p>
-      )}
+      {message &&
+        (message.error ? (
+          <ErrorNote
+            action={{ label: "Elegir otro archivo", onClick: () => file.current?.click() }}
+          >
+            {message.text}
+          </ErrorNote>
+        ) : (
+          <p className="meta">{message.text}</p>
+        ))}
     </>
   );
 }

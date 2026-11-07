@@ -31,6 +31,16 @@ export async function signInWithGoogle(client: SupabaseClient): Promise<void> {
   });
 }
 
+/** Longest wait for an answer from our own functions before giving up (SPEC §14). */
+export const callTimeouts = { ms: 30_000, slowMs: 90_000 };
+
+/** Why a call to the server failed to answer: it took too long, or there is no connection. */
+const failure = (e: unknown): "timeout" | "unreachable" => {
+  // A DOMException is not always an Error, so only its name counts.
+  const name = (e as { name?: string } | null)?.name;
+  return name === "TimeoutError" || name === "AbortError" ? "timeout" : "unreachable";
+};
+
 export interface SyncResult {
   connected: boolean;
   imported?: number;
@@ -51,13 +61,18 @@ async function callSync(client: SupabaseClient, name: string, body: object): Pro
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(callTimeouts.ms),
     });
     const result = (await res.json().catch(() => null)) as SyncResult | null;
     return result && "connected" in result
       ? result
-      : { connected: false, error: "sync_failed", status: res.status };
-  } catch {
-    return { connected: false, error: "unreachable" };
+      : {
+          connected: false,
+          error: res.status === 401 ? "unauthorized" : "sync_failed",
+          status: res.status,
+        };
+  } catch (e) {
+    return { connected: false, error: failure(e) };
   }
 }
 
@@ -84,11 +99,17 @@ export async function computeTravel(client: SupabaseClient): Promise<TravelResul
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: "{}",
+      signal: AbortSignal.timeout(callTimeouts.slowMs),
     });
     const body = (await res.json().catch(() => null)) as TravelResult | { error?: string } | null;
-    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "travel_failed" };
-  } catch {
-    return { ok: false, error: "unreachable" };
+    return body && "ok" in body
+      ? body
+      : {
+          ok: false,
+          error: body?.error ?? (res.status === 401 ? "unauthorized" : "travel_failed"),
+        };
+  } catch (e) {
+    return { ok: false, error: failure(e) };
   }
 }
 
@@ -132,21 +153,21 @@ export async function timeSpots(
 export async function widgetToken(
   client: SupabaseClient,
   action: "create" | "revoke",
-): Promise<{ ok: boolean; token?: string }> {
+): Promise<{ ok: boolean; token?: string; error?: string }> {
   try {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) return { ok: false };
+    if (!token) return { ok: false, error: "unauthorized" };
     const res = await fetch("/api/widget", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action }),
+      signal: AbortSignal.timeout(callTimeouts.ms),
     });
-    return (
-      ((await res.json().catch(() => null)) as { ok: boolean; token?: string }) ?? { ok: false }
-    );
-  } catch {
-    return { ok: false };
+    const body = (await res.json().catch(() => null)) as { ok: boolean; token?: string } | null;
+    return body ?? { ok: false, error: res.status === 401 ? "unauthorized" : "widget_failed" };
+  } catch (e) {
+    return { ok: false, error: failure(e) };
   }
 }
 
@@ -166,7 +187,14 @@ export async function readSyllabus(client: SupabaseClient, pdf: string): Promise
       body: JSON.stringify({ pdf }),
     });
     const body = (await res.json().catch(() => null)) as SyllabusResult | { error?: string } | null;
-    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "syllabus_failed" };
+    if (body && "ok" in body) return body;
+    // No usable answer: the HTTP status still says whose problem it is.
+    const byStatus: Record<number, string> = {
+      401: "unauthorized",
+      413: "too_large",
+      429: "gemini_busy",
+    };
+    return { ok: false, error: body?.error ?? byStatus[res.status] ?? "syllabus_failed" };
   } catch {
     return { ok: false, error: "unreachable" };
   }
@@ -190,14 +218,17 @@ export async function geminiKey(
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action, key }),
+      signal: AbortSignal.timeout(callTimeouts.ms),
     });
     const body = (await res.json().catch(() => null)) as
       | GeminiKeyResult
       | { error?: string }
       | null;
-    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "key_failed" };
-  } catch {
-    return { ok: false, error: "unreachable" };
+    return body && "ok" in body
+      ? body
+      : { ok: false, error: body?.error ?? (res.status === 401 ? "unauthorized" : "key_failed") };
+  } catch (e) {
+    return { ok: false, error: failure(e) };
   }
 }
 
@@ -217,11 +248,14 @@ export async function closeAccount(
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify({ action, deletePlan }),
+      signal: AbortSignal.timeout(callTimeouts.slowMs),
     });
     const body = (await res.json().catch(() => null)) as AccountResult | { error?: string } | null;
-    return body && "ok" in body ? body : { ok: false, error: body?.error ?? "failed" };
-  } catch {
-    return { ok: false, error: "unreachable" };
+    return body && "ok" in body
+      ? body
+      : { ok: false, error: body?.error ?? (res.status === 401 ? "unauthorized" : "failed") };
+  } catch (e) {
+    return { ok: false, error: failure(e) };
   }
 }
 

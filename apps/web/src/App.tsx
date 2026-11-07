@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
+import { AppSkeleton } from "./components/Feedback.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { Settings } from "./components/Settings.js";
@@ -303,7 +304,7 @@ export function App({
     setMode(m);
   };
 
-  if (client && session === undefined) return <main className="login" />;
+  if (client && session === undefined) return <AppSkeleton />;
   if (client && session) {
     const signOut = () => {
       // Nothing of this account stays on the device.

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSync } from "../Connected.js";
-import { errorMessage } from "../monitoring.js";
+import { isNetworkFailure, reportError } from "../monitoring.js";
+import { ErrorNote, Wait } from "./Feedback.js";
 import { Section } from "./Section.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -12,14 +13,25 @@ export function Invites() {
   const [owner, setOwner] = useState(false);
   const [emails, setEmails] = useState<string[]>([]);
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  // `retry` is set for what the server refused: the same try may work again.
+  const [error, setErrorState] = useState<{ text: string; retry?: () => void } | null>(null);
+  const setError = (text: string | null, retry?: () => void) =>
+    setErrorState(text ? { text, retry } : null);
+  const fail = useCallback((e: unknown, what: string, retry: () => void) => {
+    reportError(e);
+    const text = isNetworkFailure(e)
+      ? `Sin conexión: ${what}.`
+      : `El servidor rechazó el pedido: ${what}.`;
+    setErrorState({ text, retry });
+  }, []);
 
   const load = useCallback(async () => {
     if (!client) return;
     const { data, error } = await client.from("invites").select("email").order("email");
-    if (error) setError(errorMessage(error));
+    if (error) fail(error, "no se pudo leer la lista de invitados", () => void load());
     else setEmails((data as { email: string }[]).map((r) => r.email));
-  }, [client]);
+  }, [client, fail]);
 
   useEffect(() => {
     if (!client) return;
@@ -52,15 +64,20 @@ export function Invites() {
       return;
     }
     setError(null);
+    setBusy("Invitando");
     const { error } = await client.from("invites").upsert({ email: value });
-    if (error) return setError(errorMessage(error));
+    setBusy(null);
+    if (error) return fail(error, "no se pudo invitar", () => void add());
     setEmail("");
     await load();
   };
 
   const remove = async (value: string) => {
+    setError(null);
+    setBusy("Quitando la invitación");
     const { error } = await client.from("invites").delete().eq("email", value);
-    if (error) return setError(errorMessage(error));
+    setBusy(null);
+    if (error) return fail(error, "no se pudo quitar", () => void remove(value));
     // An earlier «Ese email no parece válido.» no longer applies.
     setError(null);
     await load();
@@ -75,7 +92,12 @@ export function Invites() {
       {emails.map((e) => (
         <div key={e} className="check">
           <span style={{ flex: 1 }}>{e}</span>
-          <button type="button" aria-label={`Quitar ${e}`} onClick={() => void remove(e)}>
+          <button
+            type="button"
+            aria-label={`Quitar ${e}`}
+            disabled={!!busy}
+            onClick={() => void remove(e)}
+          >
             ✕
           </button>
         </div>
@@ -90,11 +112,18 @@ export function Invites() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <button type="button" className="btn small" onClick={() => void add()}>
+        <button type="button" className="btn small" disabled={!!busy} onClick={() => void add()}>
           Invitar
         </button>
       </div>
-      {error && <p className="meta">{error}</p>}
+      {busy && <Wait label={busy} />}
+      {error && (
+        <ErrorNote
+          action={error.retry ? { label: "Probar de nuevo", onClick: error.retry } : undefined}
+        >
+          {error.text}
+        </ErrorNote>
+      )}
     </Section>
   );
 }

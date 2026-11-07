@@ -26,7 +26,7 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     return (
       <main className="login" role="alert">
         <h1>Algo falló</h1>
-        <p>La pantalla no se pudo dibujar. Probá recargar.</p>
+        <p>La pantalla no se pudo dibujar. Tocá «Recargar» para dibujarla de nuevo.</p>
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Recargar
         </button>

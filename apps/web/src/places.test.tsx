@@ -536,6 +536,27 @@ describe("places screens", () => {
     expect(screen.getByText(/Facultad de Ingeniería → Casa/).textContent).toContain("calculado");
   });
 
+  it("says how far the lookups are: «Calculando traslados 1 de 2…»", () => {
+    render(
+      <StoreProvider
+        initial={() =>
+          data({
+            events: [
+              event("x", "Inglés", 10, "Instituto Anglo"),
+              event("y", "Dentista", 12, "Clínica Sur"),
+            ],
+          })
+        }
+        persist={false}
+        fixedNow={NOW}
+      >
+        <Inbox />
+      </StoreProvider>,
+    );
+    expect(screen.getByText("Calculando traslados 1 de 2…")).toBeTruthy();
+    expect(screen.getByRole("progressbar").getAttribute("aria-valuemax")).toBe("2");
+  });
+
   it("waits for the server to time an address before asking", () => {
     render(
       <StoreProvider
