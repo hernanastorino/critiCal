@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
-import { endOfWeek, progress } from "../planning.js";
+import { earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { useModal } from "./modal.js";
@@ -20,6 +20,7 @@ export function TaskDetail({
   onClose: () => void;
 }) {
   const { data, now, dispatch } = useStore();
+  const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
   const p = progress(data, now).find((x) => x.task.id === task.id);
   const [minutes, setMinutes] = useState("");
@@ -65,6 +66,19 @@ export function TaskDetail({
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
+        {startsAt !== undefined &&
+          startsAt > now &&
+          (task.deadline !== undefined && startsAt >= task.deadline ? (
+            <p className="meta">
+              Empieza el {dayDate(tz, startsAt)}, después de la entrega: el plan no le da tiempo.
+              Cambiá «Puedo empezar» en la tarea o en su materia.
+            </p>
+          ) : (
+            <p className="meta">
+              Empezás el {dayDate(tz, startsAt)}, como pusiste en «Puedo empezar»: antes el plan no
+              le da tiempo.
+            </p>
+          ))}
 
         <div className="section-title" style={{ marginTop: 4 }}>
           Registrar avance
