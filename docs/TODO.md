@@ -48,9 +48,11 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 - Vitest ignora `apps/web/.env.local` (`vite.config.ts`, `test.env`); si un test cambia de comportamiento solo en tu máquina, revisá eso.
 - Auto-fix de PRs no está disponible en corridas programadas.
 
-## 5. Pendientes, en orden
+## 5. Pendientes
 
-Marcá cada uno con ✅ en la SPEC al mergearlo y movelo a «Hecho».
+El orden en que se hacen §5.1, §5.2 y §5.4 está en §5.4.
+
+Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta que cumpla todos los criterios de validación; recién ahí se borra de este archivo.
 
 ### 5.1 Guías de UI/UX del §14 (un PR por grupo)
 
