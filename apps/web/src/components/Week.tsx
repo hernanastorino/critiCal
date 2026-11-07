@@ -1182,7 +1182,8 @@ function BubbleDialog({
       aria-modal="true"
       aria-label={label}
       className="bubble-card"
-      style={style}
+      // Room left under where it sits, minus the tab bar: a tall card scrolls inside it.
+      style={{ ...style, maxHeight: `calc(100dvh - ${Number(style.top ?? 0)}px - 80px)` }}
     >
       {children}
     </div>
