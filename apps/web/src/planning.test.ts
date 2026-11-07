@@ -23,6 +23,7 @@ import {
   semesterLabel,
   splitPastSilos,
   toEngineTasks,
+  wakingDay,
   weekDates,
 } from "./planning.js";
 import { reducer, seedHistory } from "./store.js";
@@ -957,5 +958,18 @@ describe("past silos", () => {
     expect(semesterLabel(TIMEZONE, at("2026-04-10", "12:00"))).toBe("1.er cuatrimestre 2026");
     expect(semesterLabel(TIMEZONE, at("2026-11-10", "12:00"))).toBe("2.º cuatrimestre 2026");
     expect(semesterLabel(TIMEZONE, at("2027-02-10", "12:00"))).toBe("1.er cuatrimestre 2027");
+  });
+});
+
+describe("waking day", () => {
+  it("uses a holiday's borrowed routine and passes midnight at bedtime", () => {
+    const d = demoData(MON);
+    const sunday = d.settings.week[0] as AppData["settings"]["week"][number];
+    // 2026-11-02 is a holiday (Difuntos): planned as a Sunday.
+    expect(wakingDay(d, MON, "2026-11-02").wake).toBe(sunday.wake);
+    const plain = wakingDay({ ...d, preferences: { holidaysOff: false } }, MON, "2026-11-02");
+    const monday = d.settings.week[1] as AppData["settings"]["week"][number];
+    expect(plain.wake).toBe(monday.wake);
+    expect(plain.bed).toBeGreaterThan(plain.wake);
   });
 });

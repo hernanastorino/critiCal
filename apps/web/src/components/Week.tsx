@@ -21,7 +21,15 @@ import {
 } from "../format.js";
 import { lanes } from "../lanes.js";
 import type { AppEvent, PlanVersion } from "../model.js";
-import { isPinned, MEAL_NAMES, mealTimes, pinId, progress, weekDates } from "../planning.js";
+import {
+  isPinned,
+  MEAL_NAMES,
+  mealTimes,
+  pinId,
+  progress,
+  wakingDay,
+  weekDates,
+} from "../planning.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
@@ -1131,9 +1139,8 @@ function MealCard({
   };
   // Within that day's waking hours, whole: a meal at 00:30 or one at 23:59 that runs
   // past bedtime would fall off the calendar.
-  const routine = data.settings.week[localParts(tz, zonedInstant(tz, meal.date, 720)).weekday];
-  const wake = routine?.wake ?? 0;
-  const bed = routine ? (routine.bed <= routine.wake ? routine.bed + 1440 : routine.bed) : 1440;
+  // As the planner sees that day: a holiday's routine, a late night's wake-up.
+  const { wake, bed } = wakingDay(data, now, meal.date);
   const length = (meal.at.end - meal.at.start) / MINUTE;
   const [moveError, setMoveError] = useState<string | null>(null);
   const today = meal.date === localParts(tz, now).date;

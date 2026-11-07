@@ -359,6 +359,20 @@ function overridesFor(data: AppData, now: number, from: number, to: number) {
 }
 
 /**
+ * That day's waking hours as the planner sees them (minutes since its midnight; bed may
+ * pass 1440): its routine, or the one a holiday borrows, with a late night's wake-up.
+ */
+export function wakingDay(data: AppData, now: number, date: string) {
+  const tz = data.settings.timezone;
+  const noon = zonedInstant(tz, date, 720);
+  const o = overridesFor(data, now, noon, noon).find((x) => x.date === date);
+  const routine = data.settings.week[o?.asWeekday ?? localParts(tz, noon).weekday];
+  const wake = o?.wake ?? routine?.wake ?? 0;
+  const rawBed = o?.bed ?? routine?.bed ?? 1440;
+  return { wake, bed: rawBed <= wake ? rawBed + 1440 : rawBed };
+}
+
+/**
  * Where each meal between `from` and `to` happens: at its time unless a fixed event,
  * its travel or a block pinned by hand is there, then at the closest free time.
  */
