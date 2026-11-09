@@ -12,7 +12,7 @@
   "dependencies": {
     "@critical/engine": "^0.0.0",
     "@sentry/browser": "^10.78.0",
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/supabase-js": "^2.119.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "web-push": "^3.6.7",
