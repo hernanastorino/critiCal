@@ -94,9 +94,7 @@ describe("monitoring", () => {
     await m.startMonitoring();
     await m.startMonitoring();
     expect(sentry.init).toHaveBeenCalledTimes(1);
-    expect(sentry.init).toHaveBeenCalledWith(
-      expect.objectContaining({ tracesSampleRate: 0 }),
-    );
+    expect(sentry.init).toHaveBeenCalledWith(expect.objectContaining({ tracesSampleRate: 0 }));
     const e = new Error("boom");
     m.reportError(e);
     expect(sentry.captureException).toHaveBeenCalledWith(e, undefined);
