@@ -511,6 +511,7 @@ function WhereCard({
   // «12,5» and «12.5» are both 13 minutes.
   const typed = Math.round(Number(minutes.replace(",", ".")));
   const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
+  const takenId = `${helpId}-taken`;
   const taken = save && nameTaken(data.places ?? [], name);
   const canUse = valid && !(save && (!name.trim() || taken));
   const use = () => {
@@ -580,10 +581,11 @@ function WhereCard({
             onChange={(e) => setName(e.target.value)}
             onKeyDown={onEnter}
             aria-invalid={taken ? true : undefined}
+            aria-describedby={taken ? takenId : undefined}
             placeholder="Casa de Clara"
           />
           {taken && (
-            <span className="meta" role="alert" style={{ color: "var(--critical)" }}>
+            <span className="meta" id={takenId} role="alert" style={{ color: "var(--critical)" }}>
               Ya tenés un lugar con ese nombre.
             </span>
           )}

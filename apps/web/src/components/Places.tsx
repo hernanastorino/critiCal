@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
@@ -448,6 +448,7 @@ function SpotRow({ spot }: { spot: Spot }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const taken = nameTaken(data.places ?? [], name);
+  const takenId = useId();
   const saveSpot = () => {
     if (name.trim() && !taken) dispatch({ type: "saveSpot", key: spot.key, name });
   };
@@ -481,9 +482,20 @@ function SpotRow({ spot }: { spot: Spot }) {
               saveSpot();
             }}
             aria-invalid={taken ? true : undefined}
+            aria-describedby={taken ? takenId : undefined}
             placeholder="Casa de Clara"
             style={{ flex: 1 }}
           />
+          {taken && (
+            <span
+              className="meta"
+              id={takenId}
+              role="alert"
+              style={{ width: "100%", color: "var(--critical)" }}
+            >
+              Ya tenés un lugar con ese nombre.
+            </span>
+          )}
           <button
             type="button"
             className="btn small"
