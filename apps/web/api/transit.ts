@@ -21,15 +21,7 @@ import {
 } from "../src/transit.js";
 import { limiter } from "./_lib/rate.js";
 import { report } from "./_lib/report.js";
-import {
-  adminClient,
-  authenticate,
-  type Env,
-  json,
-  missing,
-  readBody,
-  readEnv,
-} from "./_lib/server.js";
+import { adminClient, authenticate, type Env, json, missing, readEnv } from "./_lib/server.js";
 import type { Source } from "./_lib/transit/feed.js";
 import { haversine, WALK_DETOUR, WALK_M_PER_MIN } from "./_lib/transit/geo.js";
 import { importSource } from "./_lib/transit/import.js";
@@ -53,11 +45,16 @@ export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
 }
 
+/** The contract's largest request is a few hundred bytes. */
+export const MAX_BODY = 4096;
+
 export async function handle(req: Request, env: Env, now = Date.now()): Promise<Response> {
+  // Refuse before reading: a huge body would cost CPU and memory even for a bad request.
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return fail("bad_request", 413);
   if (req.headers.has("x-cron-key")) return runImport(req, env);
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
-  const body = await readBody(req);
+  const body = await smallBody(req);
   try {
     if (body.action === "status") return json({ ok: true, feed: await feedInfo(caller.admin) });
     if (body.action !== "plan") return fail("bad_request", 400);
@@ -190,6 +187,19 @@ async function walkingTimes(
   }
 }
 
+/** The JSON body, or {} when it is missing, not JSON or over `MAX_BODY` (also without a content-length). */
+async function smallBody(req: Request): Promise<Record<string, unknown>> {
+  if (!req.headers.get("content-type")?.includes("json")) return {};
+  const text = await req.text();
+  if (text.length > MAX_BODY) return {};
+  try {
+    const body = JSON.parse(text);
+    return body && typeof body === "object" ? body : {};
+  } catch {
+    return {};
+  }
+}
+
 /** The weekly refresh, called by the database with its cron key (like /api/cron). */
 async function runImport(req: Request, env: Env): Promise<Response> {
   if (missing(env).length) return json({ error: "server_not_configured" }, 503);
@@ -197,7 +207,7 @@ async function runImport(req: Request, env: Env): Promise<Response> {
   const key = req.headers.get("x-cron-key") ?? "";
   const { data: ok } = await admin.rpc("check_cron_key", { p_key: key });
   if (!key || !ok) return json({ error: "unauthorized" }, 401);
-  const body = await readBody(req);
+  const body = await smallBody(req);
   const only: Source[] =
     body.source === "stm" || body.source === "dnt" ? [body.source] : ["dnt", "stm"];
   const results = [];

@@ -103,6 +103,15 @@ describe("who may ask", () => {
     ).toBe(503);
   });
 
+  it("refuses a huge body without reading it", async () => {
+    const big = { action: "status", pad: "x".repeat(5000) };
+    expect((await call(big, { Authorization: "Bearer t", "content-length": "5100" })).status).toBe(
+      413,
+    );
+    // Without a declared length it is still not parsed: the action is missing.
+    expect((await call(big)).status).toBe(400);
+  });
+
   it("only knows its actions", async () => {
     expect((await call({ action: "what" })).status).toBe(400);
     expect((await call({})).status).toBe(400);
