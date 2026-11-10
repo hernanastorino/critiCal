@@ -670,3 +670,22 @@ describe("spotKey y nombres", () => {
     expect(placeFor([p], "julio herrera 565")?.id).toBe("a");
   });
 });
+
+describe("claves viejas y direcciones", () => {
+  it("re-clava los spots guardados antes de los emojis, dejando el manual", async () => {
+    const { rekeySpots, spotKey, placeFor } = await import("./places.js");
+    const d = {
+      ...emptyData(0),
+      spots: [
+        { key: "casa", text: "🏠 Casa", minutes: 5 },
+        { key: "casa", text: "Casa", minutes: 9, manual: true },
+      ],
+    } as AppData;
+    const r = rekeySpots(d);
+    expect(r.spots?.map((s) => s.key).sort()).toEqual([spotKey("🏠 Casa"), "casa"].sort());
+    expect(rekeySpots(r)).toBe(r);
+    const gym = { id: "g", name: "Gym", aliases: [] };
+    const centro = { id: "c", name: "Otro", aliases: [], address: "Centro" };
+    expect(placeFor([gym, centro], "Gym Centro")?.id).toBe("g");
+  });
+});

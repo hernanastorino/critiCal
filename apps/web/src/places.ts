@@ -8,7 +8,7 @@ const STAY_OUT_MINUTES = 120;
 const DAY = 86_400_000;
 
 const words = (p: Place) =>
-  [p.name, ...p.aliases, ...(p.address ? [p.address] : [])]
+  [p.name, ...p.aliases]
     .map(normalize)
     .filter((w) => w.length > 1)
     .sort((a, b) => b.length - a.length);
@@ -17,6 +17,9 @@ const words = (p: Place) =>
 export function placeFor(places: readonly Place[], text: string | undefined): Place | undefined {
   if (!text) return undefined;
   const t = ` ${normalize(text)} `;
+  // A place's address counts only as the whole text: «Centro» inside «Gym Centro» does not.
+  const whole = places.find((p) => p.address && normalize(p.address) === normalize(text));
+  if (whole && normalize(text)) return whole;
   let best: { place: Place; length: number } | undefined;
   for (const place of places) {
     for (const w of words(place)) {
@@ -56,6 +59,42 @@ export const spotKey = (text: string) => {
   }
   return normalize(text) || text.trim().toLowerCase();
 };
+
+const legacyKey = (text: string) => normalize(text) || text.trim().toLowerCase();
+
+/**
+ * Spots and kept travel saved before emojis counted in `spotKey` are re-keyed from
+ * their text; if two collide, the manual one stays. Same data back when nothing changes.
+ */
+export function rekeySpots(data: AppData): AppData {
+  const spots = data.spots ?? [];
+  let changed = false;
+  const byKey = new Map<string, Spot>();
+  for (const s of spots) {
+    const key = spotKey(s.text);
+    if (key !== s.key) changed = true;
+    const next = key === s.key ? s : { ...s, key };
+    const old = byKey.get(key);
+    if (!old || (next.manual && !old.manual)) byKey.set(key, next);
+    else changed = true;
+  }
+  let eventTravel = data.eventTravel;
+  if (eventTravel) {
+    for (const e of data.events) {
+      const kept = eventTravel[e.id];
+      const key = eventSpotKey(e);
+      if (
+        kept &&
+        kept.key !== key &&
+        kept.key === legacyKey(e.location?.trim() ? e.location : e.title)
+      ) {
+        eventTravel = { ...eventTravel, [e.id]: { ...kept, key } };
+        changed = true;
+      }
+    }
+  }
+  return changed ? { ...data, spots: [...byKey.values()], eventTravel } : data;
+}
 
 /** A saved place (other than `exceptId`) already called `name`, ignoring case and accents. */
 export const nameTaken = (places: readonly Place[], name: string, exceptId?: string) => {
