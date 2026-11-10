@@ -507,8 +507,15 @@ export function Week({
     const slot = data.settings.slotMinutes;
     const { wake, bed } = wakingDay(data, now, date);
     const sinceMidnight = (now - zonedInstant(tz, date, 0)) / MINUTE;
-    const earliest = Math.max(wake, date === today ? Math.ceil(sinceMidnight / slot) * slot : 0);
-    return { earliest, latest: bed - minutes };
+    const from = date === today ? Math.ceil(sinceMidnight / slot) * slot : 0;
+    // On the slot grid, as the blocks are; off it only when that leaves no room at all.
+    const snapped = {
+      earliest: Math.max(Math.ceil(wake / slot) * slot, from),
+      latest: Math.floor((bed - minutes) / slot) * slot,
+    };
+    return snapped.latest >= snapped.earliest
+      ? snapped
+      : { earliest: Math.max(wake, from), latest: bed - minutes };
   };
 
   /** The day column under `x`, if the finger is over one. */
