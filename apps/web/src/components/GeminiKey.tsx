@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { geminiKey } from "../remote.js";
+import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
 
 const ERRORS: Record<string, string> = {
   invalid_key: "Gemini no aceptó esa clave. Revisá que esté completa.",
-  gemini_busy: "Gemini no responde ahora. Probá de nuevo en un rato.",
-  unreachable: "Sin conexión. Probá de nuevo.",
+  gemini_busy: "Gemini no responde ahora. Tocá «Guardar» de nuevo en un rato.",
+  unreachable: "Sin conexión. Reconectate y tocá «Guardar» de nuevo.",
 };
 
 /** Your own Gemini key for reading syllabi; without one, the app's is used. */
@@ -52,7 +53,7 @@ export function GeminiKey() {
     const r = await geminiKey(client, action, action === "set_key" ? key : undefined);
     setBusy(false);
     if (!r.ok) {
-      setError(ERRORS[r.error] ?? "No se pudo guardar. Probá más tarde.");
+      setError(ERRORS[r.error] ?? "No se pudo guardar la clave. Tocá «Guardar» de nuevo.");
       return;
     }
     // A status answer still on its way is older than this change: it must not count.
@@ -64,9 +65,10 @@ export function GeminiKey() {
 
   return (
     <Section>
+      {own === null && !error && <Loading kind="generic" label="Cargando qué clave usás" inline />}
       <p className="meta">
         {own === null
-          ? "Cargando qué clave usás…"
+          ? ""
           : own
             ? "Usás tu propia clave de Gemini para leer programas."
             : fallback

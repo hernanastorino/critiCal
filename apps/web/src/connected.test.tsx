@@ -231,7 +231,7 @@ describe("Connected", () => {
         <Shell />
       </Connected>,
     );
-    expect(await screen.findByText("tabla rota")).toBeTruthy();
+    expect(await screen.findByText(/tabla rota/)).toBeTruthy();
     expect(screen.queryByText("[object Object]")).toBeNull();
     expect(screen.getByText("Descartar lo de este dispositivo y recargar")).toBeTruthy();
   });
