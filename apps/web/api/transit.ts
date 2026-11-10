@@ -25,7 +25,7 @@ import { adminClient, authenticate, type Env, json, missing, readEnv } from "./_
 import type { Source } from "./_lib/transit/feed.js";
 import { haversine, WALK_DETOUR, WALK_M_PER_MIN } from "./_lib/transit/geo.js";
 import { importSource } from "./_lib/transit/import.js";
-import { endpoints, plan } from "./_lib/transit/network.js";
+import { endpoints, planAuto } from "./_lib/transit/network.js";
 import { feedInfo, loadNetwork, scheduleOn } from "./_lib/transit/store.js";
 
 /** The weekly import downloads ~15 MB and parses 2.7 million rows: well under a minute. */
@@ -80,10 +80,11 @@ export function parsePlan(body: Record<string, unknown>, now: number): PlanReque
   };
   const from = point(body.from);
   const to = point(body.to);
-  const { date, time, mode, dayType } = body;
+  const { date, time, mode, dayType, maxTransfers } = body;
   if (!from || !to || typeof date !== "string" || typeof time !== "string") return "bad_request";
   if (mode !== "arrive" && mode !== "depart") return "bad_request";
   if (dayType !== undefined && ![1, 2, 3].includes(dayType as number)) return "bad_request";
+  if (maxTransfers !== undefined && ![1, 2].includes(maxTransfers as number)) return "bad_request";
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || parseHhmm(time) === null) return "bad_request";
   const day = Date.parse(`${date}T12:00:00Z`);
   // A real date within a year ahead and a couple of days back: schedules do not go further.
@@ -91,7 +92,16 @@ export function parsePlan(body: Record<string, unknown>, now: number): PlanReque
     return "bad_request";
   if (day < now - 3 * 86_400_000 || day > now + 366 * 86_400_000) return "bad_request";
   if (!inArea(from) || !inArea(to)) return "out_of_area";
-  return { action: "plan", from, to, date, time, mode, dayType: dayType as DayType | undefined };
+  return {
+    action: "plan",
+    from,
+    to,
+    date,
+    time,
+    mode,
+    dayType: dayType as DayType | undefined,
+    maxTransfers: maxTransfers as 1 | 2 | undefined,
+  };
 }
 
 async function computePlan(admin: ReturnType<typeof adminClient>, env: Env, req: PlanRequest) {
@@ -113,7 +123,7 @@ async function computePlan(admin: ReturnType<typeof adminClient>, env: Env, req:
     .slice(0, 10);
   const schedule = scheduleOn(loaded, req.date, today, dayTypeOf(previous), previous);
   const routed = env.orsKey ? await walkingTimes(env.orsKey, req.from, req.to, net, ends) : null;
-  const options = plan(
+  const found = planAuto(
     net,
     {
       from: req.from,
@@ -121,12 +131,15 @@ async function computePlan(admin: ReturnType<typeof adminClient>, env: Env, req:
       mode: req.mode,
       at: parseHhmm(req.time) as number,
       schedule,
+      maxTransfers: req.maxTransfers,
       routedIn: routed?.in,
       routedOut: routed?.out,
     },
     ends,
   );
-  return json(answer(req, info, options, walkOnly));
+  return json(
+    answer(req, info, found.options, walkOnly, found.maxTransfers as 1 | 2, found.raised),
+  );
 }
 
 function answer(
@@ -134,12 +147,16 @@ function answer(
   info: PlanOk["feed"],
   options: PlanOk["options"],
   walkOnly: PlanOk["walkOnly"],
+  maxTransfers: 1 | 2 = req.maxTransfers ?? 1,
+  raised = false,
 ): PlanOk {
   return {
     ok: true,
     options,
     walkOnly,
     dayType: req.dayType ?? dayTypeOf(req.date),
+    maxTransfers,
+    raised,
     feed: info,
     attribution: ATTRIBUTION,
   };

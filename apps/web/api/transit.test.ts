@@ -143,6 +143,7 @@ describe("checking a request", () => {
   it("accepts a well-formed one", () => {
     expect(parsePlan(ok, NOW)).toMatchObject({ date: "2026-11-10", mode: "arrive" });
     expect(parsePlan(plan({ dayType: 3 }), NOW)).toMatchObject({ dayType: 3 });
+    expect(parsePlan(plan({ maxTransfers: 2 }), NOW)).toMatchObject({ maxTransfers: 2 });
   });
 
   it.each([
@@ -155,6 +156,8 @@ describe("checking a request", () => {
     ["a date long past", { date: "2026-01-01" }],
     ["a date too far ahead", { date: "2028-01-01" }],
     ["a bad day type", { dayType: 4 }],
+    ["too many transfers", { maxTransfers: 3 }],
+    ["no transfers asked as a number of text", { maxTransfers: "2" }],
   ])("refuses %s", (_name, extra) => {
     expect(parsePlan(plan(extra), NOW)).toBe("bad_request");
   });
@@ -187,6 +190,7 @@ describe("planning", () => {
     expect(body.options[0].legs[0].source).toBe("route");
     expect(body.walkOnly).toBeNull();
     expect(body.dayType).toBe(1);
+    expect(body).toMatchObject({ maxTransfers: 1, raised: false });
     expect(body.feed.version).toMatch(/^dnt:/);
     expect(body.attribution).toMatch(/Intendencia de Montevideo/);
   });
@@ -231,6 +235,17 @@ describe("planning", () => {
     const sunday = await (await call(plan({ dayType: 3 }))).json();
     expect(sunday.dayType).toBe(3);
     expect(sunday.options.length).toBeGreaterThan(0);
+  });
+
+  it("searches with two transfers when asked", async () => {
+    await seed();
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(fetch, () => NOW),
+    );
+    const body = await (await call(plan({ maxTransfers: 2 }))).json();
+    expect(body).toMatchObject({ ok: true, maxTransfers: 2, raised: false });
+    expect(body.options.length).toBeGreaterThan(0);
   });
 
   it("offers the walk when it is short, and says when no stop is near", async () => {

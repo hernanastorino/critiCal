@@ -186,14 +186,24 @@ export function stopsNear(
   return found.sort((a, b) => a.meters - b.meters).slice(0, limit);
 }
 
+/** One bus ride of a journey: pattern `p` from index `i` to `j`, on the trip leaving at `dep`. */
+interface Ride {
+  p: number;
+  i: number;
+  j: number;
+  dep: number;
+}
+
 interface Candidate {
   arrive: number;
   leave: number;
+  /** The lines taken, in order (journeys with the same lines are the same option). */
   chain: string;
   inn: Endpoint;
   out: Endpoint;
-  a: { p: number; i: number; j: number; dep: number };
-  b?: { p: number; i: number; j: number; dep: number; wait: number; walk: number; meters: number };
+  rides: Ride[];
+  /** Walk between rides `n` and `n + 1`. */
+  changes: { walk: number; meters: number }[];
 }
 
 export interface SearchInput {
@@ -204,6 +214,8 @@ export interface SearchInput {
   schedule: Schedule;
   /** Earliest minute (of the date's clock) the traveler can set off. */
   ready: number;
+  /** Most transfers allowed: 0, 1 or 2 (one search round per bus taken). */
+  maxTransfers: number;
 }
 
 interface Search {
@@ -224,29 +236,25 @@ function nextDep(net: Network, sched: Schedule, p: number, i: number, at: number
 const nearCache = new WeakMap<Network, Map<number, { stop: number; meters: number }[]>>();
 /** Journeys arriving this much later than the earliest are not worth listing. */
 const SLACK = 45;
+const INF = 1 << 30;
 
+/**
+ * Earliest arrival by rounds, one per bus taken (RAPTOR): round k holds, for every stop,
+ * the earliest a traveler can get off at it on their k-th bus. Allowing one more transfer
+ * is one more round, not another nested loop.
+ */
 export function search(net: Network, input: SearchInput): Search {
-  const { origin, dest, schedule, ready, earliestOnly } = input;
+  const { origin, dest, schedule, ready, earliestOnly, maxTransfers } = input;
+  const nStops = net.stops.length;
   const limit = ready + HORIZON;
-  const destAt = new Map<number, Endpoint>();
-  for (const d of dest) destAt.set(d.stop, d);
-  // For each pattern that serves a destination stop: those indexes, in order.
-  const destIdx = new Map<number, { i: number; end: Endpoint }[]>();
-  for (const d of dest) {
-    for (let e = net.atIdx[d.stop] as number; e < (net.atIdx[d.stop + 1] as number); e++) {
-      const p = net.atList[e * 2] as number;
-      const list = destIdx.get(p) ?? [];
-      list.push({ i: net.atList[e * 2 + 1] as number, end: d });
-      destIdx.set(p, list);
-    }
-  }
   let near = nearCache.get(net);
   if (!near) {
     near = new Map();
     nearCache.set(net, near);
   }
+  const cache = near;
   const nearOf = (s: number) => {
-    let list = (near as Map<number, { stop: number; meters: number }[]>).get(s);
+    let list = cache.get(s);
     if (!list) {
       const here = net.stops[s] as NetStop;
       list = stopsNear(net, here, MAX_TRANSFER_M, 8).map((e) => ({
@@ -254,90 +262,159 @@ export function search(net: Network, input: SearchInput): Search {
         meters: e.meters,
       }));
       if (!list.some((n) => n.stop === s)) list.push({ stop: s, meters: 0 });
-      (near as Map<number, { stop: number; meters: number }[]>).set(s, list);
+      cache.set(s, list);
     }
     return list;
   };
+  const destAt = new Map<number, Endpoint>();
+  for (const d of dest) destAt.set(d.stop, d);
 
-  const bestByChain = new Map<string, Candidate>();
-  let earliest = Number.POSITIVE_INFINITY;
-  const offer = (c: Candidate) => {
-    if (c.arrive > limit) return;
-    if (c.arrive < earliest) earliest = c.arrive;
-    const old = bestByChain.get(c.chain);
-    if (!old || c.arrive < old.arrive || (c.arrive === old.arrive && c.leave > old.leave))
-      bestByChain.set(c.chain, c);
-  };
+  const rounds = maxTransfers + 1;
+  // Per round: arrival at each stop by that round's ride, and how (the ride and the stop
+  // the traveler boarded it at, which says how they got there).
+  const arrive: Int32Array[] = [];
+  const rideOf: (Ride | undefined)[][] = [];
+  // Per round: when the traveler can board at each stop, and where from.
+  const boardAt: Int32Array[] = [];
+  const boardFrom: { stop: number; walk: number; meters: number }[][] = [];
 
-  for (const inn of origin) {
-    const readyAtStop = ready + inn.minutes;
-    for (let e = net.atIdx[inn.stop] as number; e < (net.atIdx[inn.stop + 1] as number); e++) {
-      const p = net.atList[e * 2] as number;
-      const i = net.atList[e * 2 + 1] as number;
+  let readyAt = new Int32Array(nStops).fill(INF);
+  let from: { stop: number; walk: number; meters: number }[] = [];
+  let marked: number[] = [];
+  for (const o of origin) {
+    const t = ready + o.minutes;
+    if (t < (readyAt[o.stop] as number)) {
+      if (readyAt[o.stop] === INF) marked.push(o.stop);
+      readyAt[o.stop] = t;
+      from[o.stop] = { stop: -1, walk: o.minutes, meters: o.meters };
+    }
+  }
+
+  let bestDest = INF;
+  const best = new Int32Array(nStops).fill(INF);
+  const found: { round: number; stop: number }[] = [];
+  for (let k = 0; k < rounds && marked.length; k++) {
+    boardAt.push(readyAt);
+    boardFrom.push(from);
+    // Patterns to scan: each from the earliest of the marked stops it serves.
+    const scan = new Map<number, number>();
+    for (const s of marked) {
+      for (let e = net.atIdx[s] as number; e < (net.atIdx[s + 1] as number); e++) {
+        const p = net.atList[e * 2] as number;
+        const i = net.atList[e * 2 + 1] as number;
+        const seen = scan.get(p);
+        if (seen === undefined || i < seen) scan.set(p, i);
+      }
+    }
+    const here = new Int32Array(nStops).fill(INF);
+    const rides: (Ride | undefined)[] = [];
+    const reached: number[] = [];
+    const cutoff = earliestOnly ? bestDest : bestDest + SLACK;
+    for (const [p, i0] of scan) {
       const pat = net.patterns[p] as NetPattern;
-      const dep = nextDep(net, schedule, p, i, readyAtStop);
-      if (dep == null) continue;
-      const boardAt = dep + (pat.off[i] as number);
-      for (let j = i + 1; j < pat.seq.length; j++) {
-        const stopJ = pat.seq[j] as number;
-        const arrJ = dep + (pat.off[j] as number);
-        // Nothing from here on can beat what is already found (or come close, in the full search).
-        if (arrJ > limit || arrJ >= earliest + (earliestOnly ? 0 : SLACK)) break;
-        const direct = destAt.get(stopJ);
-        if (direct && stopJ !== inn.stop)
-          offer({
-            arrive: arrJ + direct.minutes,
-            leave: boardAt - inn.minutes,
-            chain: `${pat.src}${pat.line}`,
-            inn,
-            out: direct,
-            a: { p, i, j, dep },
-          });
-        for (const n of nearOf(stopJ)) {
+      let dep = -1;
+      let boarded = 0;
+      for (let j = i0; j < pat.seq.length; j++) {
+        const s = pat.seq[j] as number;
+        if (dep >= 0) {
+          const a = dep + (pat.off[j] as number);
+          if (a > limit || a >= cutoff) break;
+          if (a < (best[s] as number)) {
+            best[s] = a;
+            if (here[s] === INF) reached.push(s);
+            here[s] = a;
+            rides[s] = { p, i: boarded, j, dep };
+          }
+        }
+        const r = readyAt[s] as number;
+        if (r < INF) {
+          const d = nextDep(net, schedule, p, j, r);
+          if (d != null && (dep < 0 || d < dep)) {
+            dep = d;
+            boarded = j;
+          }
+        }
+      }
+    }
+    arrive.push(here);
+    rideOf.push(rides);
+    for (const s of reached) {
+      const d = destAt.get(s);
+      if (!d) continue;
+      const total = (here[s] as number) + d.minutes;
+      if (total < bestDest) bestDest = total;
+      found.push({ round: k, stop: s });
+    }
+    // Walk to stops where the next bus can be boarded, with the transfer margin.
+    readyAt = new Int32Array(nStops).fill(INF);
+    from = [];
+    marked = [];
+    if (k + 1 < rounds) {
+      for (const s of reached) {
+        for (const n of nearOf(s)) {
           const walk = n.meters === 0 ? 0 : walkMinutes(n.meters);
-          const r2 = arrJ + walk + TRANSFER_MARGIN;
-          for (let f = net.atIdx[n.stop] as number; f < (net.atIdx[n.stop + 1] as number); f++) {
-            const q = net.atList[f * 2] as number;
-            const targets = destIdx.get(q);
-            if (!targets) continue;
-            const qat = net.patterns[q] as NetPattern;
-            // Same line again is not a transfer.
-            if (qat.line === pat.line && qat.src === pat.src) continue;
-            const m = net.atList[f * 2 + 1] as number;
-            const dep2 = nextDep(net, schedule, q, m, r2);
-            if (dep2 == null) continue;
-            for (const t of targets) {
-              if (t.i <= m) continue;
-              const arrive = dep2 + (qat.off[t.i] as number) + t.end.minutes;
-              if (arrive <= arrJ) continue;
-              offer({
-                arrive,
-                leave: boardAt - inn.minutes,
-                chain: `${pat.src}${pat.line}>${qat.src}${qat.line}`,
-                inn,
-                out: t.end,
-                a: { p, i, j, dep },
-                b: {
-                  p: q,
-                  i: m,
-                  j: t.i,
-                  dep: dep2,
-                  wait: dep2 + (qat.off[m] as number) - (arrJ + walk),
-                  walk,
-                  meters: n.meters,
-                },
-              });
-            }
+          const t = (here[s] as number) + walk + TRANSFER_MARGIN;
+          if (t < (readyAt[n.stop] as number)) {
+            if (readyAt[n.stop] === INF) marked.push(n.stop);
+            readyAt[n.stop] = t;
+            from[n.stop] = { stop: s, walk, meters: n.meters };
           }
         }
       }
     }
   }
-  const best = [...bestByChain.values()].sort((x, y) => score(x) - score(y) || y.leave - x.leave);
-  return { best, earliest };
+
+  // Rebuild each journey that ends at a destination stop, back through the rounds.
+  const bestByChain = new Map<string, Candidate>();
+  let earliest = Number.POSITIVE_INFINITY;
+  for (const { round, stop } of found) {
+    const out = destAt.get(stop) as Endpoint;
+    const rides: Ride[] = [];
+    const changes: { walk: number; meters: number }[] = [];
+    let s = stop;
+    let inn: Endpoint | undefined;
+    for (let k = round; k >= 0; k--) {
+      const ride = (rideOf[k] as (Ride | undefined)[])[s] as Ride;
+      rides.unshift(ride);
+      const boarded = (net.patterns[ride.p] as NetPattern).seq[ride.i] as number;
+      const via = (boardFrom[k] as { stop: number; walk: number; meters: number }[])[boarded];
+      if (!via) break;
+      if (via.stop < 0) inn = origin.find((o) => o.stop === boarded);
+      else {
+        changes.unshift({ walk: via.walk, meters: via.meters });
+        s = via.stop;
+      }
+    }
+    const last = rides[rides.length - 1] as Ride;
+    const arrive =
+      last.dep + ((net.patterns[last.p] as NetPattern).off[last.j] as number) + out.minutes;
+    const firstRide = rides[0] as Ride;
+    const first = net.patterns[firstRide.p] as NetPattern;
+    if (!inn || arrive > limit) continue;
+    // Changing onto the same line again is not a transfer worth making.
+    const ls = rides.map(
+      (r) => `${(net.patterns[r.p] as NetPattern).src}${(net.patterns[r.p] as NetPattern).line}`,
+    );
+    if (ls.some((l, i) => i > 0 && l === ls[i - 1])) continue;
+    if (arrive < earliest) earliest = arrive;
+    const c: Candidate = {
+      arrive,
+      leave: firstRide.dep + (first.off[firstRide.i] as number) - inn.minutes,
+      chain: ls.join(">"),
+      inn,
+      out,
+      rides,
+      changes,
+    };
+    const old = bestByChain.get(c.chain);
+    if (!old || c.arrive < old.arrive || (c.arrive === old.arrive && c.leave > old.leave))
+      bestByChain.set(c.chain, c);
+  }
+  const list = [...bestByChain.values()].sort((x, y) => score(x) - score(y) || y.leave - x.leave);
+  return { best: list, earliest };
 }
 
-const score = (c: Candidate) => c.arrive + (c.b ? TRANSFER_PENALTY : 0);
+const score = (c: Candidate) => c.arrive + (c.rides.length - 1) * TRANSFER_PENALTY;
 
 function stopOf(net: Network, i: number): BusStop {
   const s = net.stops[i] as NetStop;
@@ -347,7 +424,7 @@ function stopOf(net: Network, i: number): BusStop {
 /** A found journey as the legs the app shows. */
 export function toOption(net: Network, c: Candidate): TransitOption {
   const legs: Leg[] = [];
-  const ride = (r: { p: number; i: number; j: number; dep: number }, wait: number): BusLeg => {
+  const ride = (r: Ride, wait: number): BusLeg => {
     const pat = net.patterns[r.p] as NetPattern;
     return {
       kind: "bus",
@@ -364,36 +441,40 @@ export function toOption(net: Network, c: Candidate): TransitOption {
       theoretical: true,
     };
   };
-  const first = ride(c.a, 0);
-  legs.push({
-    kind: "walk",
-    minutes: c.inn.minutes,
-    meters: Math.round(c.inn.meters),
-    source: c.inn.routed ? "route" : "estimate",
-    to: first.board,
-  });
-  legs.push(first);
-  let last = first;
-  if (c.b) {
-    const second = ride(c.b, c.b.wait);
-    if (c.b.walk > 0)
+  let previous: BusLeg | undefined;
+  c.rides.forEach((r, n) => {
+    const change = c.changes[n - 1];
+    const leg = ride(r, 0);
+    if (previous && change) {
+      // Waiting is what is left of the gap once the walk is taken out.
+      leg.waitMinutes = leg.boardMin - previous.alightMin - change.walk;
+      if (change.walk > 0)
+        legs.push({
+          kind: "walk",
+          minutes: change.walk,
+          meters: Math.round(change.meters),
+          source: "estimate",
+          from: previous.alight,
+          to: leg.board,
+        });
+    } else {
       legs.push({
         kind: "walk",
-        minutes: c.b.walk,
-        meters: Math.round(c.b.meters),
-        source: "estimate",
-        from: first.alight,
-        to: second.board,
+        minutes: c.inn.minutes,
+        meters: Math.round(c.inn.meters),
+        source: c.inn.routed ? "route" : "estimate",
+        to: leg.board,
       });
-    legs.push(second);
-    last = second;
-  }
+    }
+    legs.push(leg);
+    previous = leg;
+  });
   legs.push({
     kind: "walk",
     minutes: c.out.minutes,
     meters: Math.round(c.out.meters),
     source: c.out.routed ? "route" : "estimate",
-    from: last.alight,
+    from: previous?.alight,
   });
   const buses = legs.filter((l): l is BusLeg => l.kind === "bus");
   const walk = legs.reduce((n, l) => n + (l.kind === "walk" ? l.minutes : 0), 0);
@@ -419,6 +500,8 @@ export interface PlanInput {
   /** Minutes of the date's clock: the arrival deadline or the departure time. */
   at: number;
   schedule: Schedule;
+  /** Most transfers (0–2). Default 1. */
+  maxTransfers?: number;
   /** Walking times from the routing service, by stop index, replacing the estimate. */
   routedIn?: Map<number, number>;
   routedOut?: Map<number, number>;
@@ -439,7 +522,7 @@ const withRouted = (list: Endpoint[], routed?: Map<number, number>): Endpoint[] 
       })
     : list;
 
-/** The best options between two points, or none if no bus gets there. */
+/** The best options between two points allowing `maxTransfers` (default 1), or none. */
 export function plan(
   net: Network,
   input: PlanInput,
@@ -448,8 +531,9 @@ export function plan(
   const origin = withRouted(ends.origin, input.routedIn);
   const dest = withRouted(ends.dest, input.routedOut);
   if (!origin.length || !dest.length) return [];
+  const maxTransfers = Math.min(2, Math.max(0, input.maxTransfers ?? 1));
   const run = (ready: number, earliestOnly = false) =>
-    search(net, { origin, dest, schedule: input.schedule, ready, earliestOnly });
+    search(net, { origin, dest, schedule: input.schedule, ready, earliestOnly, maxTransfers });
   let found: Candidate[];
   if (input.mode === "depart") {
     found = run(input.at).best;
@@ -467,4 +551,30 @@ export function plan(
     found = run(lo).best.filter((c) => c.arrive <= input.at);
   }
   return found.slice(0, MAX_OPTIONS).map((c) => toOption(net, c));
+}
+
+export interface AutoPlan {
+  options: TransitOption[];
+  /** Transfers the options were searched with. */
+  maxTransfers: number;
+  /** True when nothing was found with the one asked for and a second transfer was allowed. */
+  raised: boolean;
+}
+
+/**
+ * `plan`, raising the limit on its own: with `maxTransfers` omitted it starts at 1 and,
+ * if no bus gets there, tries again with 2 (the far-off university). An explicit limit is
+ * kept as asked.
+ */
+export function planAuto(
+  net: Network,
+  input: PlanInput,
+  ends = endpoints(net, input.from, input.to),
+): AutoPlan {
+  const explicit = input.maxTransfers;
+  const first = Math.min(2, Math.max(0, explicit ?? 1));
+  const options = plan(net, { ...input, maxTransfers: first }, ends);
+  if (options.length || explicit !== undefined || first >= 2)
+    return { options, maxTransfers: first, raised: false };
+  return { options: plan(net, { ...input, maxTransfers: 2 }, ends), maxTransfers: 2, raised: true };
 }
