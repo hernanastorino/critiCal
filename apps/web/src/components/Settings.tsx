@@ -195,6 +195,18 @@ export function Settings({
   const { data, now, dispatch } = useStore();
   const sync = useSync();
   const owner = useOwner();
+  // Signing out wipes this device's copy: save what is pending first, and if that is not
+  // possible (offline), say so before it is lost.
+  const leave = async () => {
+    if (!onSignOut) return;
+    if (sync?.status.pending && !(await sync.flush())) {
+      const ok = window.confirm(
+        "Hay cambios que todavía no se guardaron (sin internet). Si salís ahora, se pierden. ¿Salir igual?",
+      );
+      if (!ok) return;
+    }
+    onSignOut();
+  };
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const override = data.overrides.find((o) => o.date === today);
@@ -494,7 +506,7 @@ export function Settings({
                     <Row icon={I.repeat} label="Reiniciar demo" onClick={onReset} />
                   )}
                   {g.label === "Cuenta" && onSignOut && (
-                    <Row icon={I.out} label="Salir" onClick={onSignOut} />
+                    <Row icon={I.out} label="Salir" onClick={leave} />
                   )}
                 </div>
               </section>
