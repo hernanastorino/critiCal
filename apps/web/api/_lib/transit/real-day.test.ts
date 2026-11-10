@@ -141,6 +141,13 @@ describe("two transfers (the far-off university)", () => {
     const auto = planAuto(net, input);
     expect(auto).toMatchObject({ maxTransfers: 2, raised: true });
     expect(summary(auto.options[0])).toBe(expected);
+    // Nothing even with two: not marked as raised.
+    const none = planAuto(net, {
+      ...input,
+      from: { lat: -35.15, lon: -56.9 },
+      to: { lat: -35.15, lon: -56.88 },
+    });
+    expect(none).toMatchObject({ options: [], maxTransfers: 2, raised: false });
     // Asked for one on purpose: kept, nothing raised.
     expect(planAuto(net, { ...input, maxTransfers: 1 })).toMatchObject({
       options: [],

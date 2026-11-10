@@ -576,5 +576,7 @@ export function planAuto(
   const options = plan(net, { ...input, maxTransfers: first }, ends);
   if (options.length || explicit !== undefined || first >= 2)
     return { options, maxTransfers: first, raised: false };
-  return { options: plan(net, { ...input, maxTransfers: 2 }, ends), maxTransfers: 2, raised: true };
+  const retry = plan(net, { ...input, maxTransfers: 2 }, ends);
+  // `raised` says the options needed the second change, so only when there are any.
+  return { options: retry, maxTransfers: 2, raised: retry.length > 0 };
 }
