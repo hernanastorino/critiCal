@@ -231,7 +231,8 @@ export function Week({
       said,
       () => {
         toaster.clear();
-        dispatch({ type: "undoPlan" });
+        // Only this change: if another one came after (this screen may be gone), nothing.
+        dispatch({ type: "undoPlan", only: latest?.at });
       },
       latest,
     );

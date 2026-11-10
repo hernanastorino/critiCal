@@ -103,6 +103,9 @@ describe("meals saved as data", () => {
     expect(skipped.mealChoices).toEqual([
       { date: "2026-11-04", kind: "cena", skip: true, start: 1200 },
     ]);
+    // A toast's undo does nothing when a later change is on top of its version.
+    const stale = (skipped.planHistory?.at(-1)?.at ?? 0) - 1;
+    expect(reducer(skipped, { type: "undoPlan", only: stale, now: NOW })).toBe(skipped);
     const undone = reducer(skipped, { type: "undoPlan", now: NOW }) as AppData;
     expect(undone.mealChoices).toEqual([{ date: "2026-11-04", kind: "cena", start: 1200 }]);
   });

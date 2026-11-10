@@ -4,6 +4,7 @@ import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { home } from "../places.js";
+import { mealsOf } from "../planning.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
 import { Account } from "./Account.js";
@@ -276,8 +277,11 @@ export function Settings({
     : undefined;
   const weekDay = data.settings.week[localParts(tz, now).weekday];
   // Every field «Mi semana» edits, not only wake and bed: meals and the rest count too.
+  // Normalized: a day without `morningMinutes` is the same as one with 0, and meals as the planner reads them.
+  const routineKey = (d: (typeof data.settings.week)[number]) =>
+    JSON.stringify({ ...d, morningMinutes: d.morningMinutes ?? 0, meals: mealsOf(d) });
   const sameRoutine = data.settings.week.every(
-    (d) => JSON.stringify(d) === JSON.stringify(data.settings.week[0]),
+    (d) => routineKey(d) === routineKey(data.settings.week[0] as typeof d),
   );
 
   const groups: { label: string; pages: (Page | false)[] }[] = [
