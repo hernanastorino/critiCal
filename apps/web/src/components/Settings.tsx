@@ -219,6 +219,8 @@ export function Settings({
       );
       if (!ok) return;
     }
+    // Whatever save is still running must not write this device's copy after it is wiped.
+    sync?.seal();
     onSignOut();
   };
   const tz = data.settings.timezone;

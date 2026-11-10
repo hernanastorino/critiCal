@@ -55,6 +55,8 @@ interface SyncApi {
   /** Writes pending changes now; false if they could not be written (offline). */
   /** `quiet`: a failure that is not the network's is reported but does not take over the screen. */
   flush: (quiet?: boolean) => Promise<boolean>;
+  /** The account is leaving: no save still running may write this device's copy again. */
+  seal: () => void;
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
@@ -155,6 +157,11 @@ export function Connected({
   const flushing = useRef<Promise<boolean> | null>(null);
   // A save still running when the account signs out must not put its copy back on the device.
   const alive = useRef(true);
+  // Set by a caller that joins a save already running: its failure stays off the screen.
+  const quietFlush = useRef(false);
+  const seal = useCallback(() => {
+    alive.current = false;
+  }, []);
   useEffect(() => {
     alive.current = true;
     return () => {
@@ -165,7 +172,11 @@ export function Connected({
   /** Writes what is pending; true once the database has everything this device has. */
   const flush = useCallback(
     (quiet = false): Promise<boolean> => {
-      if (flushing.current) return flushing.current;
+      if (flushing.current) {
+        if (quiet) quietFlush.current = true;
+        return flushing.current;
+      }
+      quietFlush.current = quiet;
       const run = async () => {
         // Never finish synchronously: `flushing` must be set before it is cleared.
         await Promise.resolve();
@@ -213,7 +224,7 @@ export function Connected({
           if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
           else {
             reportError(e);
-            if (!quiet) setError(errorMessage(e));
+            if (!quietFlush.current) setError(errorMessage(e));
           }
           return false;
         } finally {
@@ -301,6 +312,7 @@ export function Connected({
         setStatus={setStatus}
         refreshOnMount={local !== null}
         flush={flush}
+        seal={seal}
         stored={stored}
         replace={replace}
         latest={latest}
@@ -322,6 +334,7 @@ function SyncProvider({
   setStatus,
   refreshOnMount,
   flush,
+  seal,
   stored,
   replace,
   latest,
@@ -336,6 +349,7 @@ function SyncProvider({
   /** Opened from the device cache: pull everything fresh right away. */
   refreshOnMount: boolean;
   flush: () => Promise<boolean>;
+  seal: () => void;
   stored: React.MutableRefObject<AppData | null>;
   replace: React.MutableRefObject<((d: AppData) => void) | null>;
   latest: React.MutableRefObject<AppData | null>;
@@ -451,6 +465,7 @@ function SyncProvider({
       status,
       syncNow,
       flush,
+      seal,
       // In development with invented providers, "Reconectar" stays in the app.
       reconnectGoogle: fakeProviders
         ? () => void connectFakeGoogle(client, FAKE_GOOGLE_REFRESH).then(() => syncNow())
@@ -468,7 +483,7 @@ function SyncProvider({
         await reload();
       },
     }),
-    [status, syncNow, flush, client, setStatus, reload],
+    [status, syncNow, flush, seal, client, setStatus, reload],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;
