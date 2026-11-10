@@ -156,9 +156,9 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 ### Mensajes y esperas
 
 - ✅ **Éxito**: un solo aviso para toda la app (toast, `components/Toast.tsx`), con el mismo tono y duración (2,5 s; 6 s si ofrece «Deshacer»), anunciado a VoiceOver y que no se va mientras tiene el puntero o el foco encima. Los errores siguen junto a su campo.
-- **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
-- **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. (Hoy no avisan ni la sincronización, ni la IA, ni los traslados).
-- **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.
+- ✅ **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
+- ✅ **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. Componente único `components/Loading.tsx` (`kind`: sync, ai, travel, generic; con hueco `mascot`), `Skeleton.tsx` y `Notice.tsx`; textos del camino infeliz en `friendly.ts` (tono seco y breve, humor solo en lo leve; decidido 2026-11-07).
+- ✅ **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.
 
 ### Formularios y botones
 
@@ -225,6 +225,7 @@ Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las s
   - Arriba, solo si algo pide acción: Google o iCloud sin sincronizar (con «Reconectar Google» o «Ver Calendarios») y la casa sin guardar («Agregar casa»). Si todo está bien no se muestra nada.
   - Después «Hoy» y cinco grupos: Planificar, Mi tiempo, Lugares, Conexiones y Cuenta. «Revocar todo y borrar la cuenta» va solo, en rojo, al final. Cada fila dice su estado a la derecha.
   - Cada sección es una pantalla que entra de costado (con resorte; con «reducir movimiento», un fundido). El foco pasa a «‹ Ajustes» y, al volver, a la fila que la abrió. Lo de atrás queda inerte. Las pantallas siguen montadas, así un formulario a medio llenar no se pierde al volver.
+  - ✅ **Refuerzos**: lo escrito y no guardado (Mi semana, Reglas, Horas, una materia abierta, Rutinas, Inicio de cuatrimestre) **se conserva aunque se cierre Ajustes** (hasta recargar la app, cambiar de cuenta o reiniciar la demo) y dice «Cambios sin guardar»; sin diálogo de confirmación (§14). El «atrás» del sistema vuelve de la pantalla a la lista y de la lista a la app; cerrar con ✕ o Escape no deja entradas de más en el historial. Renombrar una materia o rutina a un nombre que ya existe se impide, como al agregar. En la base, un disparador rechaza `settings.data` que la app nunca escribiría (semana que no tiene 7 días, número como texto, más de 64 KB) y solo mira filas nuevas o cuyo `data` cambia, así una fila vieja de producción no queda bloqueada.
   - «Materias» y «Rutinas» son filas distintas (antes «Materias y rutinas» y «Rutinas» se pisaban).
   - La **búsqueda del mockup B** queda lista en una rama aparte, encima de A, para sumarla arriba de todo cuando las secciones crezcan mucho. No se mergea hasta que el usuario lo pida.
 
