@@ -3,7 +3,7 @@ import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
-import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
+import { keepableEvents, keptTravel, minutesBetween, nameTaken } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Loading } from "./Loading.js";
@@ -263,10 +263,19 @@ function MinutesInput({
   onCommit: (minutes: number) => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
+  const [bad, setBad] = useState(false);
   const commit = () => {
+    if (draft === null) return;
     // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
-    const n = Math.min(1440, Math.round(Number(draft?.replace(",", "."))));
-    if (draft !== null && /^\s*\d+(?:[.,]\d+)?\s*$/.test(draft) && n !== value) onCommit(n);
+    const n = Math.min(1440, Math.round(Number(draft.replace(",", "."))));
+    if (/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft)) {
+      if (n !== value) onCommit(n);
+    } else if (draft.trim() !== "") {
+      // Not minutes: the field says so instead of quietly going back.
+      setBad(true);
+      return;
+    }
+    setBad(false);
     setDraft(null);
   };
   return (
@@ -275,9 +284,14 @@ function MinutesInput({
       type="text"
       inputMode="decimal"
       aria-label={label}
-      style={{ width: 72 }}
+      aria-invalid={bad ? true : undefined}
+      title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
+      style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
       value={draft ?? value ?? ""}
-      onChange={(e) => setDraft(e.target.value)}
+      onChange={(e) => {
+        setBad(false);
+        setDraft(e.target.value);
+      }}
       onBlur={commit}
       onKeyDown={(e) => {
         if (e.key === "Enter") e.currentTarget.blur();
@@ -311,12 +325,30 @@ function PlaceForm({
   const setIsHome = (v: boolean) => setForm({ ...form, isHome: v });
   // Done with the form: what was typed is not kept.
   const finish = () => saved(fresh());
+  const { data } = useStore();
+  const taken = nameTaken(data.places ?? [], name, place.id);
   return (
     <div className="card">
       <label className="field">
         <span>Nombre</span>
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Facu" />
+        <input
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Facu"
+          aria-invalid={taken ? true : undefined}
+          aria-describedby={taken ? `taken-${place.id}` : undefined}
+        />
       </label>
+      {taken && (
+        <p
+          className="meta"
+          id={`taken-${place.id}`}
+          role="alert"
+          style={{ color: "var(--critical)" }}
+        >
+          Ya tenés un lugar con ese nombre: elegí otro o editá ese.
+        </p>
+      )}
       <label className="field">
         <span>Dirección (para calcular tiempos)</span>
         <input
@@ -346,7 +378,7 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          disabled={!name.trim()}
+          disabled={!name.trim() || taken}
           onClick={() => {
             finish();
             onSave({
@@ -392,7 +424,7 @@ function PlaceForm({
 }
 
 /** A label-sized piece of a long address or title (a 3000-character one is still read whole). */
-const short = (s: string) => (s.length > 40 ? `${s.slice(0, 40)}…` : s);
+const short = (s: string, max = 40) => (s.length > max ? `${s.slice(0, max)}…` : s);
 
 /** After a row goes away, the keyboard stays nearby: on the section heading. */
 const refocus = (id: string) =>
@@ -415,10 +447,14 @@ function SpotRow({ spot }: { spot: Spot }) {
   const keepable = spot.minutes !== undefined && keepableEvents(data, spot.key).length > 0;
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
+  const taken = nameTaken(data.places ?? [], name);
+  const saveSpot = () => {
+    if (name.trim() && !taken) dispatch({ type: "saveSpot", key: spot.key, name });
+  };
   return (
     <div className="check" style={{ flexWrap: "wrap" }}>
-      <span style={{ flex: 1, minWidth: 0 }}>
-        {spot.text}
+      <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }} title={spot.text}>
+        {short(spot.text, 120)}
         {spot.failed && (
           <span className="meta" style={{ margin: 0 }}>
             {" "}
@@ -439,14 +475,20 @@ function SpotRow({ spot }: { spot: Spot }) {
             ref={(el) => el?.focus()}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+              e.preventDefault();
+              saveSpot();
+            }}
+            aria-invalid={taken ? true : undefined}
             placeholder="Casa de Clara"
             style={{ flex: 1 }}
           />
           <button
             type="button"
             className="btn small"
-            disabled={!name.trim()}
-            onClick={() => dispatch({ type: "saveSpot", key: spot.key, name })}
+            disabled={!name.trim() || taken}
+            onClick={saveSpot}
           >
             Guardar
           </button>

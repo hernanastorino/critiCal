@@ -655,3 +655,18 @@ describe("places screens", () => {
     expect(screen.queryByText("¿Dónde es?")).toBeNull();
   });
 });
+
+describe("spotKey y nombres", () => {
+  it("los emojis distinguen direcciones que sin ellos coinciden", async () => {
+    const { spotKey, nameTaken } = await import("./places.js");
+    expect(spotKey("🏠🎉 de 👵")).not.toBe(spotKey("💼 de 🏢"));
+    expect(spotKey("Casa  de Clara")).toBe("casa de clara");
+    expect(nameTaken([{ id: "a", name: "Casa", aliases: [] }], " casa ")).toBe(true);
+    expect(nameTaken([{ id: "a", name: "Casa", aliases: [] }], "Casa", "a")).toBe(false);
+  });
+  it("la dirección exacta de un lugar lo encuentra", async () => {
+    const { placeFor } = await import("./places.js");
+    const p = { id: "a", name: "Casa", aliases: [], address: "Julio Herrera 565" };
+    expect(placeFor([p], "julio herrera 565")?.id).toBe("a");
+  });
+});

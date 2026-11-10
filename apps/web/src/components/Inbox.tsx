@@ -6,7 +6,7 @@ import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "
 import { FREE_TODAY, mealNoRoom, SKIPPED_TOAST, STILL_SHORT } from "../friendly.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
-import { spotFor, spotKey } from "../places.js";
+import { nameTaken, spotFor, spotKey } from "../places.js";
 import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
@@ -511,12 +511,26 @@ function WhereCard({
   // «12,5» and «12.5» are both 13 minutes.
   const typed = Math.round(Number(minutes.replace(",", ".")));
   const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
+  const taken = save && nameTaken(data.places ?? [], name);
+  const canUse = valid && !(save && (!name.trim() || taken));
+  const use = () => {
+    if (!canUse) return;
+    dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
+    if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
+  };
+  const onEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    use();
+  };
   return (
     <div className="card">
       <div className="title">{item.event.title}</div>
       <p className="meta">
         {dayAndTime(tz, item.event.start)}
-        {item.event.location ? ` · ${item.event.location}` : " · sin ubicación"}
+        {item.event.location
+          ? ` · ${item.event.location.length > 120 ? `${item.event.location.slice(0, 120)}…` : item.event.location}`
+          : " · sin ubicación"}
         {failed ? " · no encontré esa dirección" : ""}
         {later ? " · sin conexión: lo calculo al volver, o respondé acá" : ""}
       </p>
@@ -531,20 +545,14 @@ function WhereCard({
             type="text"
             inputMode="decimal"
             value={minutes}
+            aria-label={`O minutos desde casa para ${item.event.title.slice(0, 40)}`}
+            onKeyDown={onEnter}
             aria-invalid={minutes.trim() !== "" && !valid ? true : undefined}
             aria-describedby={helpId}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
-        <button
-          type="button"
-          className="btn small"
-          disabled={!valid || (save && !name.trim())}
-          onClick={() => {
-            dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
-            if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
-          }}
-        >
+        <button type="button" className="btn small" disabled={!canUse} onClick={use}>
           Usar
         </button>
       </div>
@@ -566,10 +574,19 @@ function WhereCard({
         <label className="field">
           <span>Nombre del lugar</span>
           <input
+            // Ticking «Guardar como lugar» goes straight to typing the name.
+            ref={(el) => el?.focus()}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={onEnter}
+            aria-invalid={taken ? true : undefined}
             placeholder="Casa de Clara"
           />
+          {taken && (
+            <span className="meta" role="alert" style={{ color: "var(--critical)" }}>
+              Ya tenés un lugar con ese nombre.
+            </span>
+          )}
         </label>
       )}
       <button
