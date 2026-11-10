@@ -454,7 +454,12 @@ export function TaskEditor({
               onClick={() => {
                 dispatch({ type: "saveTask", task: { ...task, status: "dropped" } });
                 toast.show(`${task.title} archivada`, {
-                  undo: () => dispatch({ type: "saveTask", task }),
+                  undo: () =>
+                    dispatch({
+                      type: "unarchive",
+                      taskId: task.id,
+                      status: task.status === "done" ? "done" : "active",
+                    }),
                 });
                 onClose();
               }}

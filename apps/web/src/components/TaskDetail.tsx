@@ -97,6 +97,8 @@ export function TaskDetail({
             <span className="meta" id="break-note" style={{ margin: 0 }}>
               Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
               {hours(Math.round(240 / factor))} de estudio.
+              {task.units.length > 0 &&
+                " Marcá también las partes hechas: lo que falta se mide por ellas."}
             </span>
           )}
         </label>
