@@ -18,8 +18,8 @@ export function placeFor(places: readonly Place[], text: string | undefined): Pl
   if (!text) return undefined;
   const t = ` ${normalize(text)} `;
   // A place's address counts only as the whole text: «Centro» inside «Gym Centro» does not.
-  const whole = places.find((p) => p.address && normalize(p.address) === normalize(text));
-  if (whole && normalize(text)) return whole;
+  const whole = places.find((p) => p.address && spotKey(p.address) === spotKey(text));
+  if (whole) return whole;
   let best: { place: Place; length: number } | undefined;
   for (const place of places) {
     for (const w of words(place)) {

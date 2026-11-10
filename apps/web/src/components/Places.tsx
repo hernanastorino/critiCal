@@ -264,6 +264,7 @@ function MinutesInput({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [bad, setBad] = useState(false);
+  const errorId = useId();
   const commit = () => {
     if (draft === null) return;
     // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
@@ -279,24 +280,37 @@ function MinutesInput({
     setDraft(null);
   };
   return (
-    <input
-      // Text, not number: Safari drops a decimal comma from number fields (12,5 → 125).
-      type="text"
-      inputMode="decimal"
-      aria-label={label}
-      aria-invalid={bad ? true : undefined}
-      title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
-      style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
-      value={draft ?? value ?? ""}
-      onChange={(e) => {
-        setBad(false);
-        setDraft(e.target.value);
-      }}
-      onBlur={commit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") e.currentTarget.blur();
-      }}
-    />
+    <>
+      <input
+        // Text, not number: Safari drops a decimal comma from number fields (12,5 → 125).
+        type="text"
+        inputMode="decimal"
+        aria-label={label}
+        aria-invalid={bad ? true : undefined}
+        aria-describedby={bad ? errorId : undefined}
+        title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
+        style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
+        value={draft ?? value ?? ""}
+        onChange={(e) => {
+          setBad(false);
+          setDraft(e.target.value);
+        }}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+        }}
+      />
+      {bad && (
+        <span
+          className="meta"
+          id={errorId}
+          role="alert"
+          style={{ color: "var(--critical)", margin: 0 }}
+        >
+          Minutos de 0 a 1440, solo cifras.
+        </span>
+      )}
+    </>
   );
 }
 
