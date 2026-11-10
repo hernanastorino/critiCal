@@ -141,7 +141,7 @@ export function Connected({
         const loaded = owned(await loadData(client));
         stored.current = loaded;
         latest.current = loaded;
-        void writeLocal(uid, { data: loaded, stored: loaded });
+        if (alive.current) void writeLocal(uid, { data: loaded, stored: loaded });
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
@@ -245,7 +245,9 @@ export function Connected({
       // Held from the start, so no reload for a new version slips in before the saves
       // report; stored nowhere, it stays held until a later save succeeds.
       hold("unsaved", true);
-      const local = writeLocal(uid, { data: next, stored: stored.current });
+      const local = alive.current
+        ? writeLocal(uid, { data: next, stored: stored.current })
+        : Promise.resolve(false);
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
       const remote = flush();
       void Promise.all([local, remote]).then(([l, r]) => {
