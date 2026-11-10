@@ -1,6 +1,6 @@
 // Sends the push notifications due for one user (Web Push with VAPID).
 import type { SupabaseClient } from "@supabase/supabase-js";
-import webpush from "web-push";
+import { sendNotification } from "web-push";
 import type { Preferences, Proposal } from "../../src/model.js";
 import { dueNotes, type Note } from "./notify.js";
 import type { Env } from "./server.js";
@@ -78,7 +78,7 @@ async function send(
   };
   for (const sub of subs) {
     try {
-      await webpush.sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload, {
+      await sendNotification({ endpoint: sub.endpoint, keys: sub.keys }, payload, {
         vapidDetails,
         TTL: 60 * 60,
         urgency: "high",

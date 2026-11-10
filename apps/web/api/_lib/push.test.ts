@@ -5,7 +5,7 @@ import { notifyUser, subscribedUsers } from "./push.js";
 import { parseDsn, report } from "./report.js";
 
 const sendNotification = vi.hoisted(() => vi.fn());
-vi.mock("web-push", () => ({ default: { sendNotification } }));
+vi.mock("web-push", () => ({ sendNotification }));
 
 const tz = "America/Montevideo";
 const MIN = 60_000;
