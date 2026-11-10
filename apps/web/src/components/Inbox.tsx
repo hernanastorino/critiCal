@@ -389,6 +389,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 <button
                   type="button"
                   className="btn small"
+                  aria-label={`Elegir: ${o.label}`}
                   onClick={() => dispatch({ type: "applyOption", optionId: o.id })}
                 >
                   Elegir
