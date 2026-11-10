@@ -50,6 +50,14 @@ describe("fixed settings", () => {
     expect(stored().settings.week[1].morningMinutes).toBe(before);
     expect(screen.getByText(/«Arreglarse, traslado \(min\)».*0 y 240/)).toBeTruthy();
     expect(field.value).toBe("-60");
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toMatch(/0 y 240/);
+    // 240,4 rounds to 240 but is out of range as typed.
+    fireEvent.change(field, { target: { value: "240,4" } });
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(screen.getByText(/«Arreglarse, traslado \(min\)».*0 y 240/)).toBeTruthy();
   });
 
   it("drops a meal whose duration is zero and keeps at least one day selected", () => {

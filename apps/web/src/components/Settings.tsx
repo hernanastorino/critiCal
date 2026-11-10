@@ -275,8 +275,9 @@ export function Settings({
         .join(" · ")
     : undefined;
   const weekDay = data.settings.week[localParts(tz, now).weekday];
+  // Every field «Mi semana» edits, not only wake and bed: meals and the rest count too.
   const sameRoutine = data.settings.week.every(
-    (d) => d.wake === weekDay?.wake && d.bed === weekDay?.bed,
+    (d) => JSON.stringify(d) === JSON.stringify(data.settings.week[0]),
   );
 
   const groups: { label: string; pages: (Page | false)[] }[] = [

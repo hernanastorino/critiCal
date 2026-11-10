@@ -60,10 +60,14 @@ export function WeekSettings() {
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
     setError(null);
+    setBadField(null);
   };
 
   const [error, setError] = useState<string | null>(null);
+  /** The field a minutes error is about, so its input says it is invalid. */
+  const [badField, setBadField] = useState<string | null>(null);
   const save = () => {
+    setBadField(null);
     const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
       kind,
       start: hhmmToMinutes(at),
@@ -81,10 +85,13 @@ export function WeekSettings() {
       ] as const
     ).find(([, v]) => {
       if (v.trim() === "") return false;
-      const n = clampMinutes(v, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY);
-      return n === undefined || n < 0 || n > 240;
+      // The figure as typed, not rounded: «240,4» is out of range too.
+      if (!isFigure(v)) return true;
+      const n = Number(v.replace(",", "."));
+      return !Number.isFinite(n) || n < 0 || n > 240;
     });
     if (badMinutes) {
+      setBadField(badMinutes[0]);
       setError(`«${badMinutes[0]}» tiene que ser un número de minutos entre 0 y 240.`);
       return;
     }
@@ -168,13 +175,19 @@ export function WeekSettings() {
       </div>
       <div className="grid2">
         <Field label="Me levanto" type="time" value={form.wake} onChange={set("wake")} />
-        <Field label="Arreglarse, traslado (min)" value={form.morning} onChange={set("morning")} />
+        <Field
+          label="Arreglarse, traslado (min)"
+          value={form.morning}
+          onChange={set("morning")}
+          invalid={badField === "Arreglarse, traslado (min)"}
+        />
         <Field label="Desayuno" type="time" value={form.breakfast} onChange={set("breakfast")} />
         <Field
           label="Dura (min)"
           name="Dura (min), desayuno"
           value={form.breakfastMin}
           onChange={set("breakfastMin")}
+          invalid={badField === "Dura (min), desayuno"}
         />
         <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
         <Field
@@ -182,6 +195,7 @@ export function WeekSettings() {
           name="Dura (min), almuerzo"
           value={form.lunchMin}
           onChange={set("lunchMin")}
+          invalid={badField === "Dura (min), almuerzo"}
         />
         <Field label="Merienda" type="time" value={form.snack} onChange={set("snack")} />
         <Field
@@ -189,6 +203,7 @@ export function WeekSettings() {
           name="Dura (min), merienda"
           value={form.snackMin}
           onChange={set("snackMin")}
+          invalid={badField === "Dura (min), merienda"}
         />
         <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
         <Field
@@ -196,6 +211,7 @@ export function WeekSettings() {
           name="Dura (min), cena"
           value={form.dinnerMin}
           onChange={set("dinnerMin")}
+          invalid={badField === "Dura (min), cena"}
         />
         <Field
           label="Nada de estudio desde"
@@ -233,7 +249,7 @@ export function WeekSettings() {
         {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
       </button>
       {error && (
-        <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+        <p id="week-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
           {error}
         </p>
       )}
@@ -268,6 +284,7 @@ function Field({
   type = "text",
   value,
   onChange,
+  invalid,
 }: {
   label: string;
   /** What a screen reader says when several fields share the same visible label. */
@@ -275,6 +292,8 @@ function Field({
   type?: string;
   value: string;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  /** The field the error shown below is about. */
+  invalid?: boolean;
 }) {
   return (
     <label className="field">
@@ -285,6 +304,8 @@ function Field({
         inputMode={type === "text" ? "decimal" : undefined}
         value={value}
         onChange={onChange}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={invalid ? "week-error" : undefined}
       />
     </label>
   );
