@@ -675,7 +675,7 @@ describe("claves viejas y direcciones", () => {
   it("re-clava los spots guardados antes de los emojis, dejando el manual", async () => {
     const { rekeySpots, spotKey, placeFor } = await import("./places.js");
     const d = {
-      ...emptyData(0),
+      ...emptyData(),
       spots: [
         { key: "casa", text: "🏠 Casa", minutes: 5 },
         { key: "casa", text: "Casa", minutes: 9, manual: true },

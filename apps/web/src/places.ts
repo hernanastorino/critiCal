@@ -81,7 +81,7 @@ export function rekeySpots(data: AppData): AppData {
   let eventTravel = data.eventTravel;
   if (eventTravel) {
     for (const e of data.events) {
-      const kept = eventTravel[e.id];
+      const kept: { key: string; minutes: number } | undefined = eventTravel[e.id];
       const key = eventSpotKey(e);
       if (
         kept &&
