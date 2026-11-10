@@ -110,3 +110,32 @@ describe("meals saved as data", () => {
     expect(undone.mealChoices).toEqual([{ date: "2026-11-04", kind: "cena", start: 1200 }]);
   });
 });
+
+describe("Ajustes: Mi semana", () => {
+  it("says «Varía» only when the days really differ, not for another key order", () => {
+    const d = demoData(NOW);
+    const mon = d.settings.week[1];
+    if (!mon) throw new Error("a week");
+    const reordered = {
+      morningMinutes: mon.morningMinutes,
+      freeFrom: mon.freeFrom,
+      meals: mon.meals,
+      bed: mon.bed,
+      wake: mon.wake,
+    };
+    const same = d.settings.week.map(() => ({ ...mon }));
+    same[2] = reordered as typeof mon;
+    const render1 = (week: typeof same) =>
+      render(<App fixedNow={NOW} initial={() => ({ ...d, settings: { ...d.settings, week } })} />);
+    render1(same);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    expect(screen.queryByText("Varía")).toBeNull();
+    cleanup();
+    localStorage.clear();
+    localStorage.setItem("critical.mode", "demo");
+    const differ = same.map((x, i) => (i === 3 ? { ...x, freeFrom: x.freeFrom + 60 } : x));
+    render1(differ);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    expect(screen.getByText("Varía")).toBeTruthy();
+  });
+});
