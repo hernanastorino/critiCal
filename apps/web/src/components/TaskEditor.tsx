@@ -349,8 +349,8 @@ export function TaskEditor({
                 />
               </label>
             </div>
-            <div className="field" role="group" aria-labelledby="units-label">
-              <span id="units-label">Partes (opcional)</span>
+            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              <legend style={{ padding: 0 }}>Partes (opcional)</legend>
               <span className="meta" style={{ margin: 0 }}>
                 Lo que falta se mide por partes hechas. Con peso, si no llegás se pueden dejar
                 afuera las que menos pesan.
@@ -403,7 +403,7 @@ export function TaskEditor({
                   Agregar
                 </button>
               </div>
-            </div>
+            </fieldset>
           </>
         ) : (
           <div className="row">
