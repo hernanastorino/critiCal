@@ -198,13 +198,15 @@ describe("schedules by date", () => {
   const deps = (s: ReturnType<typeof scheduleFor>) => [...(s.deps[0] ?? [])];
 
   it("adds yesterday's trips that run past midnight, 1440 earlier, to today's own", () => {
-    expect(deps(scheduleFor(small, "2026-11-10", 1, 1, "2026-11-09"))).toEqual([-2, 60, 700, 1438, 1500]);
+    expect(deps(scheduleFor(small, "2026-11-10", 1, 1, "2026-11-09"))).toEqual([
+      -2, 60, 700, 1438, 1500,
+    ]);
   });
 
   it("leaves out yesterday's when it was another day type, and out-of-range services", () => {
     expect(deps(scheduleFor(small, "2026-11-10", 1, 3, "2026-11-09"))).toEqual([700, 1438, 1500]);
     expect(deps(scheduleFor(small, "2026-12-10", 1, 1, "2026-12-09"))).toEqual([
-      60, 600, 700, 1500,
+      -2, 60, 600, 700, 1438, 1500,
     ]);
     expect(deps(scheduleFor(small, "2026-11-10", 2, 2, "2026-11-09"))).toEqual([]);
   });
