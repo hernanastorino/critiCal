@@ -53,7 +53,10 @@ interface SyncApi {
   status: SyncStatus;
   syncNow: () => Promise<void>;
   /** Writes pending changes now; false if they could not be written (offline). */
-  flush: () => Promise<boolean>;
+  /** `quiet`: a failure that is not the network's is reported but does not take over the screen. */
+  flush: (quiet?: boolean) => Promise<boolean>;
+  /** The account is leaving: no save still running may write this device's copy again. */
+  seal: () => void;
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
@@ -138,7 +141,7 @@ export function Connected({
         const loaded = owned(await loadData(client));
         stored.current = loaded;
         latest.current = loaded;
-        void writeLocal(uid, { data: loaded, stored: loaded });
+        if (alive.current) void writeLocal(uid, { data: loaded, stored: loaded });
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
@@ -152,67 +155,88 @@ export function Connected({
 
   // One flush at a time, so parents always land before children.
   const flushing = useRef<Promise<boolean> | null>(null);
+  // A save still running when the account signs out must not put its copy back on the device.
+  const alive = useRef(true);
+  // Set by a caller that joins a save already running: its failure stays off the screen.
+  const quietFlush = useRef(false);
+  const seal = useCallback(() => {
+    alive.current = false;
+  }, []);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Writes what is pending; true once the database has everything this device has. */
-  const flush = useCallback((): Promise<boolean> => {
-    if (flushing.current) return flushing.current;
-    const run = async () => {
-      // Never finish synchronously: `flushing` must be set before it is cleared.
-      await Promise.resolve();
-      let wrote = false;
-      let rebased = false;
-      try {
-        for (;;) {
-          const target = latest.current;
-          if (!target) break;
-          // Nothing to compare with yet: the database may lack these changes, so this
-          // is not a save (and must not release the unsaved hold).
-          if (stored.current === null) return false;
-          const writes = diffData(stored.current, target);
-          if (nothing(writes)) break;
-          try {
-            await applyWrites(client, writes);
-          } catch (e) {
-            // Another device deleted a task or subject this copy still writes to: drop
-            // them here too and retry once. The baseline stays, so only this device's
-            // own pending changes are written; the server's copy just says what is gone,
-            // and the next reload brings everything else.
-            if (rebased || !isMissingParent(e)) throw e;
-            rebased = true;
-            const server = owned(await loadData(client));
-            const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
-            if (pruned === (latest.current ?? target)) throw e;
-            latest.current = pruned;
-            replace.current?.(pruned);
-            continue;
-          }
-          stored.current = target;
-          wrote = true;
-          void writeLocal(uid, { data: latest.current ?? target, stored: target });
-        }
-        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
-        hold("unsaved", false);
-        if (wrote) {
-          // Mirror the new plan into Google once the burst of edits settles.
-          clearTimeout(pushTimer.current);
-          pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
-        }
-        return true;
-      } catch (e) {
-        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
-        else {
-          reportError(e);
-          setError(errorMessage(e));
-        }
-        return false;
-      } finally {
-        flushing.current = null;
+  const flush = useCallback(
+    (quiet = false): Promise<boolean> => {
+      if (flushing.current) {
+        if (quiet) quietFlush.current = true;
+        return flushing.current;
       }
-    };
-    // A reload for a new version waits until this lands.
-    flushing.current = saving(run());
-    return flushing.current;
-  }, [client, session, uid, owned]);
+      quietFlush.current = quiet;
+      const run = async () => {
+        // Never finish synchronously: `flushing` must be set before it is cleared.
+        await Promise.resolve();
+        let wrote = false;
+        let rebased = false;
+        try {
+          for (;;) {
+            const target = latest.current;
+            if (!target) break;
+            // Nothing to compare with yet: the database may lack these changes, so this
+            // is not a save (and must not release the unsaved hold).
+            if (stored.current === null) return false;
+            const writes = diffData(stored.current, target);
+            if (nothing(writes)) break;
+            try {
+              await applyWrites(client, writes);
+            } catch (e) {
+              // Another device deleted a task or subject this copy still writes to: drop
+              // them here too and retry once. The baseline stays, so only this device's
+              // own pending changes are written; the server's copy just says what is gone,
+              // and the next reload brings everything else.
+              if (rebased || !isMissingParent(e)) throw e;
+              rebased = true;
+              const server = owned(await loadData(client));
+              const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
+              if (pruned === (latest.current ?? target)) throw e;
+              latest.current = pruned;
+              replace.current?.(pruned);
+              continue;
+            }
+            stored.current = target;
+            wrote = true;
+            if (alive.current)
+              void writeLocal(uid, { data: latest.current ?? target, stored: target });
+          }
+          setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+          hold("unsaved", false);
+          if (wrote) {
+            // Mirror the new plan into Google once the burst of edits settles.
+            clearTimeout(pushTimer.current);
+            pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
+          }
+          return true;
+        } catch (e) {
+          if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+          else {
+            reportError(e);
+            if (!quietFlush.current) setError(errorMessage(e));
+          }
+          return false;
+        } finally {
+          flushing.current = null;
+        }
+      };
+      // A reload for a new version waits until this lands.
+      flushing.current = saving(run());
+      return flushing.current;
+    },
+    [client, session, uid, owned],
+  );
 
   const onChange = useCallback(
     (_prev: AppData, next: AppData) => {
@@ -221,7 +245,9 @@ export function Connected({
       // Held from the start, so no reload for a new version slips in before the saves
       // report; stored nowhere, it stays held until a later save succeeds.
       hold("unsaved", true);
-      const local = writeLocal(uid, { data: next, stored: stored.current });
+      const local = alive.current
+        ? writeLocal(uid, { data: next, stored: stored.current })
+        : Promise.resolve(false);
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
       const remote = flush();
       void Promise.all([local, remote]).then(([l, r]) => {
@@ -288,6 +314,7 @@ export function Connected({
         setStatus={setStatus}
         refreshOnMount={local !== null}
         flush={flush}
+        seal={seal}
         stored={stored}
         replace={replace}
         latest={latest}
@@ -309,6 +336,7 @@ function SyncProvider({
   setStatus,
   refreshOnMount,
   flush,
+  seal,
   stored,
   replace,
   latest,
@@ -323,6 +351,7 @@ function SyncProvider({
   /** Opened from the device cache: pull everything fresh right away. */
   refreshOnMount: boolean;
   flush: () => Promise<boolean>;
+  seal: () => void;
   stored: React.MutableRefObject<AppData | null>;
   replace: React.MutableRefObject<((d: AppData) => void) | null>;
   latest: React.MutableRefObject<AppData | null>;
@@ -438,6 +467,7 @@ function SyncProvider({
       status,
       syncNow,
       flush,
+      seal,
       // In development with invented providers, "Reconectar" stays in the app.
       reconnectGoogle: fakeProviders
         ? () => void connectFakeGoogle(client, FAKE_GOOGLE_REFRESH).then(() => syncNow())
@@ -455,7 +485,7 @@ function SyncProvider({
         await reload();
       },
     }),
-    [status, syncNow, flush, client, setStatus, reload],
+    [status, syncNow, flush, seal, client, setStatus, reload],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;

@@ -202,6 +202,33 @@ export function Settings({
   const { data, now, dispatch } = useStore();
   const sync = useSync();
   const owner = useOwner();
+  // Signing out wipes this device's copy: save what is pending first, and if that is not
+  // possible (offline), say so before it is lost.
+  const leaving = useRef(false);
+  const leave = async () => {
+    // A second tap while the save is awaited would open a second confirmation.
+    if (!onSignOut || leaving.current) return;
+    leaving.current = true;
+    // Bounded: a stalled request must not keep the account from signing out.
+    const saved = sync
+      ? await Promise.race([
+          sync.flush(true),
+          new Promise<boolean>((r) => setTimeout(r, 3000, false)),
+        ])
+      : true;
+    if (!saved) {
+      const ok = window.confirm(
+        "Hay cambios que todavía no se guardaron (sin internet). Si salís ahora, se pierden. ¿Salir igual?",
+      );
+      if (!ok) {
+        leaving.current = false;
+        return;
+      }
+    }
+    // Whatever save is still running must not write this device's copy after it is wiped.
+    sync?.seal();
+    onSignOut();
+  };
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
   const override = data.overrides.find((o) => o.date === today);
@@ -522,7 +549,7 @@ export function Settings({
                     <Row icon={I.repeat} label="Reiniciar demo" onClick={onReset} />
                   )}
                   {g.label === "Cuenta" && onSignOut && (
-                    <Row icon={I.out} label="Salir" onClick={onSignOut} />
+                    <Row icon={I.out} label="Salir" onClick={leave} />
                   )}
                 </div>
               </section>

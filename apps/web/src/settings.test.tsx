@@ -1,10 +1,10 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
-import { Connected } from "./Connected.js";
+import { Connected, useSync } from "./Connected.js";
 import { Settings } from "./components/Settings.js";
 import { demoData } from "./demo.js";
-import { clearLocal } from "./offline.js";
+import { clearLocal, readLocal, writeLocal } from "./offline.js";
 import { StoreProvider } from "./store.js";
 import { session, stubApi } from "./testing.js";
 
@@ -169,6 +169,12 @@ describe("sheets on top of each other", () => {
   });
 });
 
+let api: ReturnType<typeof useSync> = null;
+function Probe() {
+  api = useSync();
+  return null;
+}
+
 describe("Ajustes for a signed-in account", () => {
   function client(owner: boolean) {
     const ok = Promise.resolve({ data: [], error: null });
@@ -229,5 +235,94 @@ describe("Ajustes for a signed-in account", () => {
     await open(false, { connected: true, imported: 3 });
     expect(screen.getByRole("button", { name: /Calendarios/ })).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Invitaciones" })).toBeNull();
+  });
+  it("leaving after a failed save asks first and never lands on the error screen", async () => {
+    stubApi(async () => ({ data: { connected: false, error: "not_connected" }, error: null }));
+    const c = client(true);
+    // Fails late, so «Salir» is tapped while the start-up save is still running.
+    const fail = () =>
+      new Promise((r) => setTimeout(r, 150, { error: { message: "boom", code: "XX000" } }));
+    const base = demoData(Date.parse("2026-11-04T13:00:00Z"));
+    await writeLocal("u-quiet", {
+      data: { ...base, overrides: [{ date: "2026-12-01", wake: 480 }] },
+      stored: base,
+    });
+    const ok = Promise.resolve({ data: [], error: null });
+    c.from = () =>
+      ({
+        select: () =>
+          Object.assign(ok, {
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            order: () => ok,
+          }),
+        upsert: fail,
+        insert: fail,
+        delete: () => ({ in: () => Promise.resolve({ error: null }) }),
+      }) as never;
+    const onSignOut = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    render(
+      <Connected client={c as never} session={{ user: { id: "u-quiet" } } as never}>
+        <Settings onClose={() => {}} onSignOut={onSignOut} />
+      </Connected>,
+    );
+    const leave = await screen.findByRole("button", { name: "Salir" });
+    // A double tap while the save is awaited asks once.
+    await act(async () => {
+      fireEvent.click(leave);
+      fireEvent.click(leave);
+    });
+    await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
+    expect(onSignOut).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toMatch(/No pude cargar/);
+    // Declining frees the button for another try.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Salir" }));
+    });
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(2));
+    expect(screen.getByRole("button", { name: "Salir" })).toBeTruthy();
+    confirm.mockRestore();
+    await clearLocal();
+  });
+  it("a save that ends after the account left does not write the device copy again", async () => {
+    stubApi(async () => ({ data: { connected: false, error: "not_connected" }, error: null }));
+    const c = client(true);
+    const base = demoData(Date.parse("2026-11-04T13:00:00Z"));
+    await writeLocal("u-seal", {
+      data: { ...base, overrides: [{ date: "2026-12-01", wake: 480 }] },
+      stored: base,
+    });
+    let release: (v: { error: null }) => void = () => {};
+    const slow = new Promise<{ error: null }>((r) => {
+      release = r;
+    });
+    const started = vi.fn(() => slow);
+    const ok = Promise.resolve({ data: [], error: null });
+    c.from = () =>
+      ({
+        select: () =>
+          Object.assign(ok, {
+            maybeSingle: () => Promise.resolve({ data: null, error: null }),
+            order: () => ok,
+          }),
+        upsert: started,
+        insert: started,
+        delete: () => ({ in: () => Promise.resolve({ error: null }) }),
+      }) as never;
+    render(
+      <Connected client={c as never} session={{ user: { id: "u-seal" } } as never}>
+        <Probe />
+      </Connected>,
+    );
+    await waitFor(() => expect(started).toHaveBeenCalled());
+    // Signing out: the copy is wiped and sealed while the save is still in the air.
+    await clearLocal();
+    api?.seal();
+    release({ error: null });
+    await act(async () => {
+      await api?.flush();
+    });
+    expect(await readLocal("u-seal")).toBeNull();
+    await clearLocal();
   });
 });

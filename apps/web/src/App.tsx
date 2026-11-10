@@ -329,7 +329,11 @@ export function App({
       void Promise.race([unsubscribe, timeout])
         .then(() => clearLocal())
         .then(clearDrafts)
-        .then(() => client.auth.signOut());
+        .then(async () => {
+          // Global revocation needs the network; offline, the device still signs out.
+          const { error } = await client.auth.signOut();
+          if (error) await client.auth.signOut({ scope: "local" });
+        });
     };
     return (
       // Another account signing in starts from scratch: nothing of the previous one
