@@ -5,20 +5,26 @@ import { time } from "../format.js";
 import type { CalendarRole } from "../model.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
+import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
+
+const SYNC_FAILED =
+  "La sincronización falló. Tocá «Sincronizar ahora»; si sigue, reconectá la cuenta.";
 
 const MESSAGES: Record<string, string> = {
   no_refresh_token: "Falta el permiso de Google Calendar. Tocá «Reconectar Google».",
   token_refresh_failed: "Google rechazó el permiso guardado. Tocá «Reconectar Google».",
-  google_api_error: "Google Calendar rechazó el pedido.",
-  unreachable: "No se pudo contactar al servidor de sincronización.",
+  google_api_error:
+    "Google Calendar rechazó el pedido. Tocá «Sincronizar ahora»; si sigue, «Reconectar Google».",
+  unreachable:
+    "No llego al servidor de sincronización. Revisá el internet y tocá «Sincronizar ahora».",
   not_connected: "Sin conectar.",
   icloud_login_failed: "Apple ID o contraseña de app incorrectos.",
   icloud_auth_failed:
     "iCloud rechazó el Apple ID o la contraseña de app. Usá el mail principal del Apple ID y una contraseña específica de app recién creada.",
-  icloud_unreachable: "No se pudo hablar con iCloud.",
+  icloud_unreachable: "No llego a iCloud. Revisá el internet y tocá «Sincronizar ahora».",
   missing_credentials: "Completá el Apple ID y la contraseña de app.",
-  sync_failed: "La sincronización falló.",
+  sync_failed: SYNC_FAILED,
 };
 
 export function describe(r: SyncResult | undefined, tz: string, at?: number): string {
@@ -28,7 +34,7 @@ export function describe(r: SyncResult | undefined, tz: string, at?: number): st
     return "Google no acepta las credenciales del cliente: revisá que GOOGLE_CLIENT_ID y GOOGLE_CLIENT_SECRET en Supabase sean los mismos que usa el login con Google.";
   }
   if (r.reason === "invalid_grant") return "Google revocó el permiso. Tocá «Reconectar Google».";
-  const msg = r.error ? (MESSAGES[r.error] ?? "La sincronización falló.") : "Sin conectar.";
+  const msg = r.error ? (MESSAGES[r.error] ?? SYNC_FAILED) : "Sin conectar.";
   return r.status ? `${msg} (${r.status})` : msg;
 }
 
@@ -86,6 +92,7 @@ export function Calendars() {
         <p className="meta" data-testid="google-status">
           {describe(status.google, tz, status.google?.at)}
         </p>
+        {status.busy && <Loading kind="sync" inline />}
         <div className="row">
           <button
             type="button"

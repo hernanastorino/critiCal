@@ -47,7 +47,7 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-- **Mascota (SPEC §18.1)**: elegir uno de los 3 bocetos (Tic el relojito, Punta el lápiz, Dosi la píldora) de `docs/mockups/mascota.html` (presentación privada: https://claude.ai/artifact/XV58NrVM7hPbYX3NJTA1nq). Después: implementar la elegida y los textos con humor del camino infeliz (§18.1) en un PR propio.
+Ninguna por ahora. (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
 
@@ -57,11 +57,11 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                                                        | Estado                                                                                                  | Qué falta                                                                                                                                                    |
-| -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                   | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                              | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).                         |
-| PR #84 `claude/accessibility` (§14 Accesibilidad + hallazgos de §5.3: contraste, foco, diálogos, etiquetas)                | Abierto (2026-11-07), lo llevaba una sesión hija; dos vueltas del atacante arregladas y hilos resueltos | CI y CodeRabbit sobre el último commit → merge → Sentry y prueba en prod. Después, sacar de §5.1/§5.3 lo que haya quedado hecho (ver la descripción del PR). |
-| PR #85 `claude/messages-and-waits` (§14 Mensajes y esperas: `components/Feedback.tsx` con `Wait`, `ErrorNote` y skeletons) | Abierto (2026-11-07), lo llevaba una sesión hija; comentarios de CodeRabbit arreglados                  | Vuelta limpia del atacante, CodeRabbit sobre el último commit → merge → Sentry y prueba en prod. Después, marcar ✅ en §14 y sacar de §5.1.                  |
+| Qué                                                                                                                          | Estado                                                     | Qué falta                                                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                     | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).     |
+| Roy (§18.1, escalera de Jacob toon 3D), sesión `roy`                                                                         | En curso; toca `styles.css` y `Loading`                    | Decisiones en el brief: Roy también en esperas chicas y en el aviso de salteado; festeja al recuperar salteados y al cerrar una entrega. |
+| PRs de Dependabot #93 (dev-dependencies), #94 (`supabase-js` 2.119.0) y #95 (`@sentry/browser` 11.11.0), sesión `dependabot` | Abiertos (#92 ya mergeado)                                 | Validar cada uno (el de Sentry es una versión mayor) y mergear con las reglas de §2.                                                     |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -100,11 +100,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 
 ### 5.1 Guías de UI/UX del §14 (un PR por grupo)
 
-1. **Mensajes y esperas**
-   - ✅ Un solo aviso de éxito (#73, `components/Toast.tsx`).
-   - Errores que dicen qué pasó y qué hacer, con el botón para hacerlo.
-   - Esperas de más de ~1 s con texto: sincronización, IA, traslados («Calculando traslados 3 de 8…»).
-   - Skeletons en vez de pantallas vacías al cargar.
+1. ✅ **Mensajes y esperas**: hecho (#89: `Loading`, `Notice`, skeletons, errores con salida), ver §6.
 2. **Formularios y botones**: ayuda bajo los campos no obvios, botones con verbo concreto, cada sección termina con una acción, nada pedido dos veces, estados vacíos útiles.
 3. **Consistencia visual**:
    - Íconos de línea de 2 px desde `icons.tsx`, sin emojis como íconos de interfaz. Quedan en algunos componentes y el ícono de critiCal es relleno.
@@ -117,11 +113,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
    - **Deshacer en vez de confirmar**, por ejemplo «Reiniciar demo», que hoy borra todo sin Deshacer.
    - Gestos: deslizar un bloque para marcarlo y deslizar para cambiar de día o semana, siempre con su botón equivalente.
    - Háptica como extra.
-5. **Accesibilidad**:
-   - Contraste AA y criticidad marcada con algo más que el color.
-   - VoiceOver en bloques y silos.
-   - Respetar la letra del sistema: hoy casi todo está en px y no escala.
-   - Teclado completo en la Mac.
+5. ✅ **Accesibilidad**: hecha (#84: contraste AA, letra del sistema en `rem`, foco, diálogos, etiquetas, orden de lectura), ver §6.
 6. **Primer uso guiado**: recorrido corto (conectar Google → primera materia o entrega → primer plan) que se puede saltar y retomar desde Ajustes.
 
 ### 5.2 Traslados en ómnibus (§15)
@@ -130,28 +122,20 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
 
-- Cambios sin guardar en Ajustes que se pierden sin aviso al cerrar.
-- El gesto o botón «atrás» del sistema no vuelve de una subpantalla de Ajustes (no hay estado en el historial).
-- Validar `settings.data` en el servidor, con cuidado: filas viejas de producción podrían no cumplir una restricción nueva. Hacerlo con `NOT VALID` o como validación en `/api`.
-- Rutinas con nombre repetido al **renombrar** una materia existente (al agregar ya se impide).
-- Avisos (agente atacante sobre #73): después de «Deshacer» el foco queda en `<body>` (debería volver al bloque restaurado); «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante.
+- **Borradores de Ajustes** (caso muy raro, decidido no arreglarlo en #90): si otro dispositivo cambia una fecha guardada del cuatrimestre con Ajustes abierto y se vuelve a tipear la fecha vieja, el borrador se borra y se pierde la edición (`useDraft`, `Semester.tsx`).
+- Avisos (agente atacante sobre #73): «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante.
 - Semana (agentes atacantes sobre #76 y #78, anteriores a esos PRs):
-  - Escape no cierra la ventanita de un bloque o evento, y la ventanita tapa al bloque vecino.
   - Después de «Fijar acá» el foco queda en `<body>`.
   - «Deshacer» sobre una semana que no estás viendo deshace sin mostrar dónde (llevar a esa semana o nombrarla en el aviso).
   - Arrastrar a un día pasado (o a una hora sin lugar) vuelve sin decir por qué.
-  - El orden de lectura de los bloques no es por hora (comidas, luego eventos, luego plan); no se anuncia la hora de fin ni el borde rojo.
   - El botón flotante de camino crítico tapa la esquina de abajo a la derecha del domingo.
 - Comidas (#80, detalles que quedaron): en una propuesta por una comida, «Dejar como está» igual saca el bloque de debajo (§5.1: nunca estudio encima; falta un texto propio para ese caso); al volver a poner una comida sacada se olvida la hora a la que se había movido; las acciones de comidas no entran en el historial de «Deshacer» de arriba (solo en el aviso); después de «Reacomodar» el aviso de abajo sigue mostrando el anterior.
-- **Regresión de #78** (no es anterior): con dos cosas lado a lado a 320 px, cada una mide ~17 px de ancho y cuesta tocarla; buscar un ancho mínimo o abrir una lista al tocar.
-- Silos (agente atacante sobre #77): «Archivar» no tiene Deshacer y no hay dónde ver lo archivado; en «Nueva», Enter en el nombre no guarda; el campo «Partes» no tiene etiqueta propia.
-  - Contraste: números blancos sobre tanques naranjas (~1,9:1); «Venció» en rojo de 11 px (~3,9:1); total gris sobre tanque vacío en claro (~3,9:1).
-  - «Entrega / parcial» y «Hábito semanal» no tienen `aria-pressed`; la hoja de un hábito pide «Temas en total».
+- Silos (agente atacante sobre #77): «Archivar» no tiene Deshacer y no hay dónde ver lo archivado.
+  - La hoja de un hábito pide «Temas en total».
   - Registrar 240 min de avance descuenta ~200 (el factor de descanso o de aprendizaje no se explica en pantalla).
-- Semana (3.ª vuelta sobre #76): el anillo de foco naranja en modo claro tiene ~2:1 de contraste; la ventanita de un bloque no es un diálogo (el foco no entra) y en bloques de la tarde tapa la barra; arrastrar no avisa nada (y hoy hace desaparecer la cena: lo resuelve §18.2).
+- Semana (3.ª vuelta sobre #76): arrastrar no avisa nada (y hoy hace desaparecer la cena: lo resuelve §18.2).
 - Comidas (agente atacante sobre #80, anteriores a ese PR):
   - Mi semana corrige en silencio valores raros (duración «-20» queda en 0, o sea sin esa comida); la fila de Ajustes muestra el horario de un solo día («09:00 – 00:00») aunque los días difieran; el desayuno puede caer antes de «arreglarse».
-  - Los campos de hora y duración de Mi semana se anuncian por su valor («textbox 13:00»), no por su nombre.
   - Con la hoja de Ajustes abierta, el lector de pantalla llega a la grilla de atrás; una alerta de validación queda visible después de volver.
   - Días pasados muestran el plan congelado con las comidas recalculadas: puede verse estudio al lado de una comida de un día que ya pasó.
   - Una comida movida a 23:59 queda como una rayita al pie del día, difícil de tocar.
@@ -165,19 +149,22 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Lo que sigue: terminar #84 y #85; la mascota en cuanto el usuario elija; el resto de §5.1 (Formularios y botones, Consistencia visual, Interacción y animaciones, Primer uso guiado), un PR por grupo; ómnibus (§15) y Bun (§18.8), los dos grandes (partirlos).
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Lo que sigue: Roy (§1) y Dependabot (§1); el resto de §5.1 (Formularios y botones, Consistencia visual, Interacción y animaciones, Primer uso guiado), un PR por grupo; ómnibus (§15) y Bun (§18.8), los dos grandes (partirlos).
 
-1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + mascota. Bocetos hechos (#83): **esperando que el usuario elija** (§1.1); después implementarla.
+1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + **Roy** (escalera de Jacob toon 3D, estilo A · Madera pintada, elegido; animación por caso en SPEC §18.1) como personaje y animación de carga. Implementarlo enchufándolo al `<Loading>` de la sesión `esperas-errores`. Textos y esperas: sesión hija `esperas-errores`.
 2. Hecho (#80, validado en producción). Queda: arrastrar comidas como a los bloques.
 3. Hecho (#78, validado en producción).
 4. Hecho (#79, validado en producción).
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
-7. Hecho (#82, validado en producción). Queda: opción «Empezar antes» en las decisiones de la Bandeja cuando no entra.
+7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-(Nada por ahora.)
+- #84 Accesibilidad (§14, hallazgos de §5.3): falta la prueba en producción en modo demo (tamaño de letra, foco con teclado, ventanita de un bloque) y revisar Sentry.
+- #89 Mensajes y esperas: la vuelta del atacante en la **preview** no se hizo (Vercel la protege con login, el enlace compartible da 403; decisión del usuario). Falta la prueba en producción en modo demo (carga, sin conexión, Reintentar) y revisar Sentry.
+- #90 Refuerzos de Ajustes (borradores, «atrás» del sistema, nombre repetido, validación de `settings.data`): falta la prueba en producción y revisar Sentry.
+- #87 «Empezar antes» en la Bandeja: desplegado a producción el 2026-11-07 (el deploy de `main` se repitió sobre el mismo SHA `aff9f1f`, que seguía siendo el último de `main`). Falta la prueba en prod y revisar Sentry. Si un deploy vuelve a fallar por el límite de Vercel y ya hay otro merge, lanzá un Deploy nuevo sobre el `main` actual en vez de `gh run rerun`.

@@ -5,3 +5,9 @@ import "fake-indexeddb/auto";
 import { configure } from "@testing-library/react";
 
 configure({ asyncUtilTimeout: 5000 });
+
+// What was typed in Ajustes outlives its sheet: one test's drafts must not reach the next.
+import { afterEach } from "vitest";
+import { clearDrafts } from "./drafts.js";
+
+afterEach(clearDrafts);

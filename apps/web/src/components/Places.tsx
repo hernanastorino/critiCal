@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
+import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
 import { keepableEvents, keptTravel, minutesBetween } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -15,9 +17,11 @@ export function Places() {
   const { data, dispatch } = useStore();
   const sync = useSync();
   const places = data.places ?? [];
-  const [editing, setEditing] = useState<Place | null>(null);
+  const [editing, setEditing] = useDraft<Place | null>("places:editing", () => null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  // The last try failed for a reason that trying again can fix.
+  const [retry, setRetry] = useState(false);
   const toast = useToast();
   const kept = data.events.flatMap((event) => {
     const minutes = keptTravel(data, event);
@@ -28,19 +32,24 @@ export function Places() {
     if (!sync) return;
     setBusy(true);
     setNote(null);
+    setRetry(false);
     // An address just edited must reach the database before the server reads it.
     if (!(await sync.flush())) {
       setBusy(false);
-      setNote("Hay cambios sin guardar (¿sin conexión?): probá de nuevo cuando se sincronicen.");
+      setRetry(true);
+      setNote("Hay cambios sin guardar (¿sin conexión?). Reintentá cuando se sincronicen.");
       return;
     }
     const r = await computeTravel(sync.client);
     setBusy(false);
     if (!r.ok) {
+      setRetry(r.error !== "server_not_configured" && r.error !== "unauthorized");
       setNote(
         r.error === "server_not_configured"
           ? "Falta la clave de OpenRouteService en el servidor: cargá los tiempos a mano."
-          : "No se pudieron calcular los tiempos. Probá de nuevo más tarde.",
+          : r.error === "unauthorized"
+            ? "Se venció tu sesión. Volvé a iniciar sesión y calculá de nuevo, o cargá los minutos a mano."
+            : "No pude calcular los tiempos ahora (el servicio de mapas no contestó). Reintentá, o cargá los minutos a mano.",
       );
       return;
     }
@@ -224,9 +233,10 @@ export function Places() {
               disabled={busy}
               onClick={() => void compute()}
             >
-              {busy ? "Calculando…" : "Calcular con las direcciones"}
+              {busy ? "Calculando…" : retry ? "Reintentar" : "Calcular con las direcciones"}
             </button>
           )}
+          {busy && <Loading kind="travel" label="Calculando traslados entre tus lugares" inline />}
           {note && (
             <p className="meta" style={{ color: CRITICAL }}>
               {note}
@@ -287,10 +297,20 @@ function PlaceForm({
   onCancel: () => void;
   onDelete?: () => void;
 }) {
-  const [name, setName] = useState(place.name);
-  const [address, setAddress] = useState(place.address ?? "");
-  const [aliases, setAliases] = useState(place.aliases.join(", "));
-  const [isHome, setIsHome] = useState(!!place.isHome);
+  const fresh = () => ({
+    name: place.name,
+    address: place.address ?? "",
+    aliases: place.aliases.join(", "),
+    isHome: !!place.isHome,
+  });
+  const [form, setForm, saved, dirty] = useDraft(`place:${place.id}`, fresh);
+  const { name, address, aliases, isHome } = form;
+  const setName = (v: string) => setForm({ ...form, name: v });
+  const setAddress = (v: string) => setForm({ ...form, address: v });
+  const setAliases = (v: string) => setForm({ ...form, aliases: v });
+  const setIsHome = (v: boolean) => setForm({ ...form, isHome: v });
+  // Done with the form: what was typed is not kept.
+  const finish = () => saved(fresh());
   return (
     <div className="card">
       <label className="field">
@@ -317,12 +337,18 @@ function PlaceForm({
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>
       </label>
+      {dirty && (
+        <p className="meta" style={{ margin: "6px 0 0" }}>
+          Cambios sin guardar
+        </p>
+      )}
       <div className="row">
         <button
           type="button"
           className="btn primary"
           disabled={!name.trim()}
-          onClick={() =>
+          onClick={() => {
+            finish();
             onSave({
               ...place,
               name: name.trim(),
@@ -340,12 +366,19 @@ function PlaceForm({
                     a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
                 ),
               isHome: isHome || undefined,
-            })
-          }
+            });
+          }}
         >
           Guardar
         </button>
-        <button type="button" className="btn" onClick={onCancel}>
+        <button
+          type="button"
+          className="btn"
+          onClick={() => {
+            finish();
+            onCancel();
+          }}
+        >
           Cancelar
         </button>
         {onDelete && (

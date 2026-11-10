@@ -9,10 +9,12 @@ import {
   useRef,
   useState,
 } from "react";
+import { Loading } from "./components/Loading.js";
+import { WeekSkeleton } from "./components/Skeleton.js";
 import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
-import { errorMessage, reportError } from "./monitoring.js";
+import { errorMessage, isNetworkFailure, reportError } from "./monitoring.js";
 import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
 import { home } from "./places.js";
 import {
@@ -241,10 +243,15 @@ export function Connected({
   }, [status.offline, flush]);
 
   if (error) {
+    const offline = isNetworkFailure(error);
     return (
       <main className="login">
-        <h1>Algo falló</h1>
-        <p>{error}</p>
+        <h1>{offline ? "Sin conexión" : "Algo falló"}</h1>
+        <p>
+          {offline
+            ? "No pude traer tu calendario. Revisá el internet y reintentá."
+            : `No pude cargar tu calendario (${error}). Reintentá; si sigue igual, descartá lo de este dispositivo.`}
+        </p>
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Reintentar
         </button>
@@ -267,7 +274,8 @@ export function Connected({
     return (
       <main className="login">
         <img src="/icon-192.png" alt="" />
-        <p>Sincronizando tu calendario…</p>
+        <Loading kind="sync" />
+        <WeekSkeleton />
       </main>
     );
   }
