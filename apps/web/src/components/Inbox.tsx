@@ -3,16 +3,23 @@ import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
-import { FREE_TODAY, mealNoRoom, SKIPPED_TOAST, STILL_SHORT } from "../friendly.js";
+import {
+  FREE_TODAY,
+  mealNoRoom,
+  REPLANNED_TOAST,
+  SKIPPED_TOAST,
+  STILL_SHORT,
+} from "../friendly.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
-import { spotFor, spotKey } from "../places.js";
+import { nameTaken, spotFor, spotKey } from "../places.js";
 import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
+import { RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -23,6 +30,11 @@ const EAT: Record<MealKind, string> = {
   merienda: "merendar",
   cena: "cenar",
 };
+
+/** What a plan B leaves for today: Roy rests when there is nothing left (SPEC §18.1). */
+function ProposalToday({ text }: { text: string }) {
+  return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
+}
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
@@ -83,7 +95,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
-    if (status === "missed") toast.show(SKIPPED_TOAST);
+    if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros" });
   };
 
   return (
@@ -259,12 +271,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {data.proposals.map((p) => (
           <div key={p.id} className="card">
             <div className="title">{p.message}</div>
-            <p className="meta">
-              {p.plan
+            <ProposalToday
+              text={p.plan
                 .filter((b) => b.start >= now && b.start < endOfDay(tz, now))
                 .map((b) => `${titleOf(b)} ${time(tz, b.start)}`)
-                .join(" · ") || FREE_TODAY}
-            </p>
+                .join(" · ")}
+            />
             <div className="row">
               <button
                 type="button"
@@ -276,7 +288,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn primary"
-                onClick={() => dispatch({ type: "acceptProposal", id: p.id })}
+                onClick={() => {
+                  dispatch({ type: "acceptProposal", id: p.id });
+                  toast.show(REPLANNED_TOAST, { roy: "festejo" });
+                }}
               >
                 Reacomodar
               </button>
@@ -358,13 +373,13 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <div className="title">
               Sin lugar para {m.kind ? EAT[m.kind] : "comer"} · {dayDate(tz, m.preferred.start)}
             </div>
-            <p className="meta">
+            <RoyLine anim="puente">
               {mealNoRoom(
                 time(tz, m.preferred.start - MEAL_RANGE),
                 time(tz, m.preferred.end + MEAL_RANGE),
                 time(tz, (m.at ?? m.preferred).start),
               )}
-            </p>
+            </RoyLine>
             {onDay && (
               <button type="button" className="btn small" onClick={() => onDay(m.date)}>
                 Ver el día
@@ -383,13 +398,17 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
                 <div className="title">{o.label}</div>
-                <p className="meta">
+                <RoyLine anim="puente">
                   {o.result.feasible ? "Con esto llegás a todos los mínimos." : STILL_SHORT}
-                </p>
+                </RoyLine>
                 <button
                   type="button"
                   className="btn small"
-                  onClick={() => dispatch({ type: "applyOption", optionId: o.id })}
+                  aria-label={`Elegir: ${o.label}`}
+                  onClick={() => {
+                    dispatch({ type: "applyOption", optionId: o.id });
+                    toast.show(REPLANNED_TOAST, { roy: "festejo" });
+                  }}
                 >
                   Elegir
                 </button>
@@ -510,12 +529,27 @@ function WhereCard({
   // «12,5» and «12.5» are both 13 minutes.
   const typed = Math.round(Number(minutes.replace(",", ".")));
   const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
+  const takenId = `${helpId}-taken`;
+  const taken = save && nameTaken(data.places ?? [], name);
+  const canUse = valid && !(save && (!name.trim() || taken));
+  const use = () => {
+    if (!canUse) return;
+    dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
+    if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
+  };
+  const onEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    e.preventDefault();
+    use();
+  };
   return (
     <div className="card">
       <div className="title">{item.event.title}</div>
       <p className="meta">
         {dayAndTime(tz, item.event.start)}
-        {item.event.location ? ` · ${item.event.location}` : " · sin ubicación"}
+        {item.event.location
+          ? ` · ${item.event.location.length > 120 ? `${item.event.location.slice(0, 120)}…` : item.event.location}`
+          : " · sin ubicación"}
         {failed ? " · no encontré esa dirección" : ""}
         {later ? " · sin conexión: lo calculo al volver, o respondé acá" : ""}
       </p>
@@ -530,20 +564,14 @@ function WhereCard({
             type="text"
             inputMode="decimal"
             value={minutes}
+            aria-label={`O minutos desde casa para ${item.event.title.slice(0, 40)}`}
+            onKeyDown={onEnter}
             aria-invalid={minutes.trim() !== "" && !valid ? true : undefined}
             aria-describedby={helpId}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
-        <button
-          type="button"
-          className="btn small"
-          disabled={!valid || (save && !name.trim())}
-          onClick={() => {
-            dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
-            if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
-          }}
-        >
+        <button type="button" className="btn small" disabled={!canUse} onClick={use}>
           Usar
         </button>
       </div>
@@ -565,10 +593,20 @@ function WhereCard({
         <label className="field">
           <span>Nombre del lugar</span>
           <input
+            // Ticking «Guardar como lugar» goes straight to typing the name.
+            ref={(el) => el?.focus()}
             value={name}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={onEnter}
+            aria-invalid={taken ? true : undefined}
+            aria-describedby={taken ? takenId : undefined}
             placeholder="Casa de Clara"
           />
+          {taken && (
+            <span className="meta" id={takenId} role="alert" style={{ color: "var(--critical)" }}>
+              Ya tenés un lugar con ese nombre.
+            </span>
+          )}
         </label>
       )}
       <button

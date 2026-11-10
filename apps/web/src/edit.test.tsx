@@ -284,7 +284,7 @@ describe("edit mode", () => {
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
     const capture = vi.fn();
     HTMLElement.prototype.setPointerCapture = capture;
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     // A cancelled gesture (system swipe, context menu) leaves nothing behind.
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 9 });
     fireEvent.pointerMove(pill, { clientX: 60, clientY: 300, pointerId: 9 });
@@ -301,7 +301,7 @@ describe("edit mode", () => {
     expect(document.querySelector(".pill.pinned")).toBeTruthy();
 
     // A tap (no movement) in edit mode opens the bubble instead.
-    const again = document.querySelector(".pill.movable") as HTMLElement;
+    const again = document.querySelector(".pill.planned.movable") as HTMLElement;
     fireEvent.pointerDown(again, { clientX: 10, clientY: 110, pointerId: 2 });
     fireEvent.pointerUp(again, { clientX: 11, clientY: 111, pointerId: 2 });
     expect(document.querySelector(".bubble")).toBeTruthy();
@@ -321,7 +321,7 @@ describe("edit mode", () => {
   it("moves a block with the arrow keys and keeps focus on it", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     pill.focus();
     fireEvent.keyDown(pill, { key: "ArrowDown" });
     const moved = document.querySelector(".pill.pinned") as HTMLElement;
@@ -361,7 +361,7 @@ describe("edit mode", () => {
     const startMin = Math.min(...week.map((d) => d.wake));
     const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
     const hot = () => [...document.querySelectorAll(".hours .hot")].map((e) => e.textContent);
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     // Grab 10px below the pill's top; aim its top at 12:00 exactly.
     const y = ((720 - startMin) / (endMin - startMin)) * 1000 + 10;
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
@@ -423,7 +423,7 @@ describe("edit mode", () => {
     const week = demoData(NOW).settings.week;
     const startMin = Math.min(...week.map((d) => d.wake));
     const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const y = ((750 - startMin) / (endMin - startMin)) * 1000 + 10;
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: 160, clientY: y, pointerId: 4 });
@@ -447,7 +447,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const at = zonedInstant(tz, "2026-11-05", 750);
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
@@ -481,14 +481,16 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={() => first} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
-    const pill = screen.getByLabelText(
-      `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+    const pill = screen.getByLabelText((_c, el) =>
+      (el?.getAttribute("aria-label") ?? "").startsWith(
+        `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+      ),
     );
     const { x, y } = spot(d, at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
     // The pin under it is shown as about to move.
-    expect(screen.getByLabelText(/, fijado$/).classList.contains("displaced")).toBe(true);
+    expect(screen.getByLabelText(/, fijado/).classList.contains("displaced")).toBe(true);
     fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 7 });
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins?.map((p) => [p.taskId, p.start])).toEqual([[b?.taskId, at]]);
@@ -507,8 +509,10 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={() => first} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
-    const pill = screen.getByLabelText(
-      `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+    const pill = screen.getByLabelText((_c, el) =>
+      (el?.getAttribute("aria-label") ?? "").startsWith(
+        `${title}, ${weekdayShort(tz, b?.start as number)} ${time(tz, b?.start as number)}`,
+      ),
     );
     const { x, y } = spot(d, at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 7 });
@@ -534,7 +538,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
@@ -560,7 +564,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, trip] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
@@ -585,8 +589,10 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={tight} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const title = d.tasks.find((t) => t.id === other.taskId)?.title;
-    const pill = screen.getByLabelText(
-      `${title}, ${weekdayShort(tz, other.start)} ${time(tz, other.start)}`,
+    const pill = screen.getByLabelText((_c, el) =>
+      (el?.getAttribute("aria-label") ?? "").startsWith(
+        `${title}, ${weekdayShort(tz, other.start)} ${time(tz, other.start)}`,
+      ),
     );
     const { x, y } = spot(d, session?.start as number);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
@@ -620,7 +626,7 @@ describe("edit mode", () => {
     render(<App fixedNow={NOW} initial={() => first} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
     const { x, y } = spot(d, session?.start as number);
-    const pill = screen.getByLabelText(/, fijado$/);
+    const pill = screen.getByLabelText(/, fijado/);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 8 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 8 });
     fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 8 });
@@ -659,7 +665,7 @@ describe("edit mode", () => {
     expect(screen.getByText("Lo puso el plan")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Fijar acá" }));
     expect(document.querySelector(".bubble")).toBeNull();
-    expect(screen.getByLabelText(/, fijado$/)).toBeTruthy();
+    expect(screen.getByLabelText(/, fijado/)).toBeTruthy();
     expect(screen.getByText(/Fijado acá/)).toBeTruthy();
   });
 
@@ -738,12 +744,12 @@ describe("edit mode", () => {
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
     const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
     render(<App fixedNow={NOW} initial={() => pinned} />);
-    const pill = screen.getByLabelText(/, fijado$/);
+    const pill = screen.getByLabelText(/, fijado/);
     fireEvent.click(pill, { clientX: 10, clientY: 10 });
     expect(screen.getByText(/Fijado por vos/)).toBeTruthy();
     fireEvent.click(document.querySelector(".bubble") as HTMLElement);
     fireEvent.click(screen.getByText(/Soltar/));
-    expect(screen.queryByLabelText(/, fijado$/)).toBeNull();
+    expect(screen.queryByLabelText(/, fijado/)).toBeNull();
   });
 
   it("lets a pinned block go straight from its bubble", () => {
@@ -751,9 +757,9 @@ describe("edit mode", () => {
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];
     const pinned = reducer(d, { type: "pin", blockId: block.id, start: block.start, now: NOW });
     render(<App fixedNow={NOW} initial={() => pinned} />);
-    fireEvent.click(screen.getByLabelText(/, fijado$/), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByLabelText(/, fijado/), { clientX: 10, clientY: 10 });
     fireEvent.click(screen.getByRole("button", { name: "Soltar" }));
-    expect(screen.queryByLabelText(/, fijado$/)).toBeNull();
+    expect(screen.queryByLabelText(/, fijado/)).toBeNull();
     expect(document.querySelector(".bubble")).toBeNull();
     expect(screen.getByText(/Soltado/)).toBeTruthy();
   });

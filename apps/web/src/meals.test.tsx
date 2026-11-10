@@ -39,7 +39,11 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const mealPills = () => [...screen.getByTestId("week").querySelectorAll<HTMLElement>(".pill.meal")];
-const labels = () => mealPills().map((p) => p.getAttribute("aria-label"));
+/** The label without the end time («13:00 a 14:00»), which these tests do not care about. */
+const strip = (l: string | null | undefined) => l?.replace(/ a \d\d:\d\d(?=,|$)/, "") ?? null;
+const labels = () => mealPills().map((p) => strip(p.getAttribute("aria-label")));
+const byLabel = (l: string) =>
+  screen.getByLabelText((c, el) => strip(el?.getAttribute("aria-label")) === l && c !== undefined);
 
 describe("meals on the calendar", () => {
   it("shows breakfast, lunch and dinner every day, in the meal color", () => {
@@ -108,7 +112,7 @@ describe("meals on the calendar", () => {
         initial={withEvents([busy("Consulta", "2026-11-03", "12:00", "13:30")])}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Almuerzo, mar 13:30, corrido de las 13:00"));
+    fireEvent.click(byLabel("Almuerzo, mar 13:30, corrido de las 13:00"));
     const bubble = document.querySelector(".bubble") as HTMLElement;
     expect(within(bubble).getByText(/Se corrió de las 13:00/)).toBeTruthy();
     fireEvent.click(within(bubble).getByText(/Cambiar hora y duración/));
@@ -140,7 +144,7 @@ describe("meals with no room", () => {
     const lunches = () => labels().filter((l) => l?.startsWith("Almuerzo"));
     const monday = () =>
       mealPills().find(
-        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+        (p) => strip(p.getAttribute("aria-label")) === "Almuerzo, lun 13:00",
       ) as HTMLElement;
     fireEvent.click(monday());
     fireEvent.change(screen.getByLabelText("Mover a"), { target: { value: "15:30" } });
@@ -161,7 +165,7 @@ describe("meals with no room", () => {
     render(<App fixedNow={at("2026-11-04", "20:00")} initial={withEvents([])} />);
     fireEvent.click(
       mealPills().find(
-        (p) => p.getAttribute("aria-label") === "Almuerzo, lun 13:00",
+        (p) => strip(p.getAttribute("aria-label")) === "Almuerzo, lun 13:00",
       ) as HTMLElement,
     );
     expect(screen.getByText("Ya pasó: no se puede mover ni sacar.")).toBeTruthy();
@@ -202,7 +206,9 @@ describe("moving a meal stays within the waking day", () => {
   it("refuses a time before waking or one that runs past bedtime, and Escape closes", () => {
     render(<App fixedNow={at("2026-11-02", "08:00")} initial={withEvents([])} />);
     const dinner = () =>
-      mealPills().find((p) => p.getAttribute("aria-label") === "Cena, mar 21:00") as HTMLElement;
+      mealPills().find(
+        (p) => strip(p.getAttribute("aria-label")) === "Cena, mar 21:00",
+      ) as HTMLElement;
     fireEvent.click(dinner());
     fireEvent.change(screen.getByLabelText("Mover cena a"), { target: { value: "00:30" } });
     fireEvent.click(screen.getByText("Mover"));

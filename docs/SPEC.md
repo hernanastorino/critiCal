@@ -83,7 +83,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 ## 7. Pantallas
 
 - **Bandeja** (se abre al entrar): bloques por confirmar · cambios propuestos para hoy · decisiones de infactibilidad · eventos sin ubicación · entregas detectadas.
-- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. Se mueven solas (§5.1) y además, al tocarlas, se pueden **mover a cualquier hora** solo ese día («Mover a…», también encima de un evento fijo, y «A su hora» para volver) o sacar ese día («Hoy no almuerzo»), siempre con Deshacer. La que quedó encima de algo fijo se ve con borde punteado; las superpuestas van lado a lado (§18.3). Arrastrarlas como a los bloques queda para más adelante. No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
+- **Calendario**: día/semana, colores por criticidad, tap en bloque → ✓ / ✗ / parcial con unidades. Las comidas se ven como bloques del mismo color ámbar las tres (`--meal`), a la hora en que quedaron; el tap dice si se corrieron y lleva a Ajustes para cambiar hora y duración. Se mueven solas (§5.1) y además, al tocarlas, se pueden **mover a cualquier hora** solo ese día («Mover a…», también encima de un evento fijo, y «A su hora» para volver) o sacar ese día («Hoy no almuerzo»), siempre con Deshacer. La que quedó encima de algo fijo se ve con borde punteado; las superpuestas van lado a lado (§18.3). **Arrastrarlas como a los bloques**: mantené apretado (o en el modo edición, directo) y llevala; el mismo gesto y la misma vista previa (fantasma, lupa y marcas en el eje), solo dentro de su día y de lo despierto (§5.1), con Deshacer; en el modo edición, con ↑/↓ del teclado. Una que ya pasó no se mueve. Soltarla sobre otro día no hace nada y lo dice. El botón equivalente es «Mover a…» de arriba. No van a «📚 Plan» (sumarían 21 eventos por semana a Google sin decir nada nuevo).
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
 - **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
@@ -193,25 +193,25 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 ### Accesibilidad
 
 - Contraste AA en texto y en los colores de criticidad (además del color, un ícono o una palabra).
-- Etiquetas para VoiceOver en todo lo que se toca, incluidos los bloques del calendario y los silos.
-- El texto respeta el tamaño de letra del sistema sin romper la grilla.
-- Foco visible y uso completo con teclado en la Mac.
+- ✅ Etiquetas para VoiceOver en todo lo que se toca, incluidos los bloques del calendario y los silos.
+- ✅ El texto respeta el tamaño de letra del sistema sin romper la grilla.
+- ✅ Foco visible y uso completo con teclado en la Mac.
 
 ### Primer uso guiado
 
 - La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
 
-## 15. Traslados en ómnibus (Montevideo y Canelones) — pendiente
+## 15. Traslados en ómnibus (Montevideo y Canelones) — datos y servidor ✅, interfaz pendiente
 
 - Elegir por traslado (o por par de lugares) entre **auto** y **ómnibus**.
-- Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas reales por parada, **esperas** y **transbordos**.
+- Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas por parada, **esperas** y **transbordos**.
 - Sugerir qué ómnibus tomar para minimizar el tiempo puerta a puerta.
 - **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
 - Decisiones (noviembre 2026, tomadas por Claude a pedido del usuario; se pueden revisar):
-  - **Fuentes**: GTFS del STM publicado en el catálogo de datos abiertos de la IM (incluye las líneas metropolitanas que entran a Canelones) y, si está disponible, el tiempo real de pasadas por parada de la API de la IM. Si alguna línea de Canelones no figura, se usa su horario publicado y se marca como «horario teórico».
-  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y se recalculan si cambia el GTFS, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (feriado, fin de semana, horario de verano) o si el usuario lo pide. Antes de salir, si hay pasadas en tiempo real, se usan para avisar si el ómnibus elegido ya no llega y proponer otro.
-  - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
-  - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
+  - **Fuentes** (verificadas el 10/11/2026): **no existe un GTFS del STM**. La Intendencia publica las pasadas teóricas por parada de cada variante (CSV, 2,25 millones de filas, regeneradas a diario) y las paradas y variantes como shapefile en UTM; el MTOP/DNT publica un **GTFS real** de las líneas metropolitanas (Canelones y San José). Se importan ambos a un modelo común (`apps/web/api/_lib/transit`). Licencia de Datos Abiertos de Uruguay: se cita la fuente en la interfaz. **No hay tiempo real**: la API de pasadas en vivo de la IM no figura en el catálogo abierto, así que todo se marca como «horario teórico» (queda pendiente si aparece una API pública).
+  - **Caché**: el servidor descarga y compacta los horarios una vez por semana (cron de la base) y los guarda en `transit_feed` (~1 MB: por variante, la hora de salida y los minutos a cada parada; no las 2,3 millones de pasadas). Las rutas habituales (`bus_routes`) guardan la opción elegida y la versión de los horarios; la app las recalcula si cambia la versión, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (otro día de la semana, feriado o fin de horarios) o si el usuario lo pide (`staleReason` en `apps/web/src/transit.ts`).
+  - **Cálculo**: `POST /api/transit` `{action:"plan"}`: directo o con **un** transbordo por defecto (y, si con uno no llega ningún ómnibus, el servidor reintenta solo con **dos** y lo marca en `raised`); `maxTransfers: 2` lo permite siempre («solo esta vez» en un traslado, o fijo en un lugar o ruta; los selectores son de la UI), `maxTransfers: 1` lo impide. Paradas a menos de 900 m a pie, 5 min de margen por transbordo, hasta 3 opciones. La búsqueda es por rondas (una por ómnibus tomado): sumar un transbordo es una ronda más. «Llegar a las HH:MM» devuelve la salida más tardía que llega a tiempo; «salir a las HH:MM», el primer ómnibus que se alcanza. Los tramos a pie usan OpenRouteService (perfil a pie) y, sin respuesta, la línea recta ×1,3 a 4,8 km/h. Los feriados corren con el horario de domingo (la app manda `dayType: 3`).
+  - **Interfaz** (pendiente): un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí; hoy no hay columna en `places`) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada, y debajo la atribución que devuelve la API.
 
 ## 16. Rediseño de Configuración ✅
 
@@ -272,6 +272,13 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Elegido** (2026-11-07): estilo **A · Madera pintada** (madera saturada con cintas, veta y sombra en dos tonos, easing con golpe). Animación por caso:
      - Cargando: cascada. Sincronizando: va y vuelve. La IA piensa: acordeón. Calculando traslados: oruga.
      - Me recuperé o todo hecho: festejo. No llego o salteé bloques: hombros. Falla la sync: desarmado. No hay lugar: puente. Nada para hoy: reposo.
+   - ✅ **Implementado** (`components/Roy.tsx`, siempre `aria-hidden`; con «reducir movimiento» queda la forma quieta del caso). Decidido (2026-11-09):
+     - `<Loading>` dibuja a Roy según el caso (genérico: cascada; sync: va y vuelve; IA: acordeón; traslados: oruga), también en `inline`, en miniatura (24 px) en vez de la ruedita. `mascot` lo reemplaza.
+     - Falla la sync (Google o iCloud, en los avisos de Ajustes): desarmado.
+     - No entra o no hay lugar (comidas sin lugar y opciones de «No llegás a todo»): puente.
+     - Nada para hoy (un cambio que deja el día libre): reposo.
+     - Salteé bloques: hombros, también en el aviso de abajo («Anotado, sin culpa»): Roy chico a la izquierda del texto, encoge los hombros una vez y queda quieto.
+     - Festejo: al reacomodar el plan (aceptar un cambio o elegir una salida de la Bandeja) y cuando una entrega llega al 100 % (un silo se cierra; los hábitos no cuentan porque empiezan de nuevo cada semana). No al terminar el día.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
 2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.

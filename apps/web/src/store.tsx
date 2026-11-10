@@ -36,7 +36,7 @@ import type {
   Spot,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
-import { eventSpotKey, home, keepableEvents, spotKey, unlocated } from "./places.js";
+import { eventSpotKey, home, keepableEvents, rekeySpots, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -149,7 +149,8 @@ export type Action =
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
   | { type: "moveEvent"; eventId: string; start: number; end: number; now: number }
   /** Back to the plan as it was before the last reorganization. */
-  | { type: "undoPlan"; now: number }
+  /** `only`: the version to take back; if another is on top now, nothing happens. */
+  | { type: "undoPlan"; only?: PlanVersion; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
   | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
   /** A class-calendar title that is another name of an existing materia. */
@@ -186,13 +187,16 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   override: "ajustar el día",
   acceptProposal: "aceptar un cambio propuesto",
   rejectProposal: "rechazar un cambio propuesto",
+  mealChoice: "mover o sacar una comida",
 };
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
 
 /** Applies `action` and records a plan version for the ones that can be undone. */
 export function reducer(data: AppData, action: Action): AppData {
-  const next = versioned(data, action, apply(data, action));
+  // Old keys are fixed before planning, so the plan sees the saved minutes.
+  const base = rekeySpots(data);
+  const next = rekeySpots(versioned(base, action, apply(base, action)));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
   const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
@@ -212,7 +216,7 @@ function apply(data: AppData, action: Action): AppData {
     case "refresh":
       return refresh(data, now);
     case "replace":
-      return refresh(action.data, now);
+      return refresh(rekeySpots(action.data), now);
     case "checkIn": {
       const checkIn: CheckIn = {
         ...action.checkIn,
@@ -817,7 +821,7 @@ function apply(data: AppData, action: Action): AppData {
     case "undoPlan": {
       const history = data.planHistory ?? [];
       const v = history.at(-1);
-      if (!v) return data;
+      if (!v || (action.only !== undefined && v !== action.only)) return data;
       // What already started stays; today's blocks ahead and the inputs come back.
       const kept = data.plan.filter((b) => b.start <= now);
       // A task deleted since then does not come back with its blocks.
@@ -829,6 +833,8 @@ function apply(data: AppData, action: Action): AppData {
           pins: v.pins.filter((b) => live.has(b.taskId)),
           overrides: v.overrides,
           proposals: v.proposals,
+          // Versions from before meals were kept do not say: the choices stay as they are.
+          ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
           freeTimeUntil: v.freeTimeUntil,
           relaxContextUntil: v.relaxContextUntil,
           tentativeHoldUntil: v.tentativeHoldUntil,
@@ -851,7 +857,10 @@ function apply(data: AppData, action: Action): AppData {
               {
                 date: action.date,
                 kind: action.kind,
-                ...(action.skip ? { skip: true } : { start }),
+                // Skipped, its moved time is kept: putting it back returns it there.
+                ...(action.skip
+                  ? { skip: true, ...(start !== undefined ? { start } : {}) }
+                  : { start }),
               },
             ]
           : [];
@@ -1239,6 +1248,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     ),
     overrides: data.overrides,
     proposals: data.proposals,
+    mealChoices: data.mealChoices ?? [],
     freeTimeUntil: data.freeTimeUntil,
     tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,

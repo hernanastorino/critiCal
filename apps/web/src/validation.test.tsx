@@ -76,15 +76,15 @@ describe("Reglas", () => {
 });
 
 describe("Mi semana", () => {
-  it("caps a meal's length, so the backup still restores", () => {
+  it("does not save a meal longer than 4 h, so the backup still restores", () => {
     renderWith(<WeekSettings />);
     fireEvent.change(screen.getAllByLabelText("Dura (min)")[0] as HTMLElement, {
       target: { value: "99999" },
     });
+    const before = latest?.settings.week[1]?.meals.find((m) => m.kind === "desayuno");
     fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
-    const breakfast = latest?.settings.week[1]?.meals.find((m) => m.kind === "desayuno");
-    expect(breakfast ? breakfast.end - breakfast.start : 0).toBe(240);
-    expect((screen.getAllByLabelText("Dura (min)")[0] as HTMLInputElement).value).toBe("240");
+    expect(screen.getByRole("alert").textContent).toMatch(/desayuno.*0 y 240/);
+    expect(latest?.settings.week[1]?.meals.find((m) => m.kind === "desayuno")).toEqual(before);
     roundTrips();
   });
 

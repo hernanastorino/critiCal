@@ -1,7 +1,9 @@
 // Development only: invented answers from Google Calendar, iCloud (CalDAV), OpenStreetMap,
-// OpenRouteService and Gemini, so the app runs end to end against the local Supabase
+// OpenRouteService, the open-data catalogs (bus schedules) and Gemini, so the app runs end to end against the local Supabase
 // without real accounts. The Vite dev server (dev-api.ts) installs it when
 // VITE_FAKE_PROVIDERS=1; no deployed function imports it.
+
+import { deflateRawSync } from "node:zlib";
 
 /** The refresh token that works. Anything else is refused like a revoked grant. */
 export const FAKE_GOOGLE_REFRESH = "fake-google-refresh";
@@ -254,12 +256,167 @@ function fakeGeocode(url: URL): Response {
   ]);
 }
 
-/** Driving seconds at an average 30 km/h along the straight line. */
-function fakeMatrix(init: RequestInit): Response {
-  const { locations } = JSON.parse(String(init.body)) as { locations: [number, number][] };
+/**
+ * Seconds along the straight line: 30 km/h by car, 5 km/h on foot. Honors `sources` and
+ * `destinations` (indexes into `locations`) like the real matrix.
+ */
+function fakeMatrix(url: URL, init: RequestInit): Response {
+  const { locations, sources, destinations } = JSON.parse(String(init.body)) as {
+    locations: [number, number][];
+    sources?: number[];
+    destinations?: number[];
+  };
+  const kmh = url.pathname.endsWith("foot-walking") ? 5 : 30;
   const km = ([lon1, lat1]: [number, number], [lon2, lat2]: [number, number]) =>
     Math.hypot((lon2 - lon1) * 91, (lat2 - lat1) * 111);
-  return reply({ durations: locations.map((a) => locations.map((b) => (km(a, b) / 30) * 3600)) });
+  const pick = (idx: number[] | undefined) =>
+    (idx ?? locations.map((_, i) => i)).map((i) => locations[i] as [number, number]);
+  const to = pick(destinations);
+  return reply({
+    durations: pick(sources).map((a) => to.map((b) => (km(a, b) / kmh) * 3600)),
+  });
+}
+
+const CRC = (() => {
+  const table = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+    table[n] = c >>> 0;
+  }
+  return table;
+})();
+
+/** A .zip of text files, stored uncompressed or (for tests) deflated; the importer's reader takes both. */
+export function zipStore(files: Record<string, string | Buffer>, deflate = false): Buffer {
+  const parts: Buffer[] = [];
+  const central: Buffer[] = [];
+  let offset = 0;
+  for (const [name, text] of Object.entries(files)) {
+    const raw = typeof text === "string" ? Buffer.from(text, "utf8") : text;
+    const data = deflate ? deflateRawSync(raw) : raw;
+    let crc = 0xffffffff;
+    for (const byte of raw) crc = (CRC[(crc ^ byte) & 0xff] as number) ^ (crc >>> 8);
+    crc = (crc ^ 0xffffffff) >>> 0;
+    const nameBuf = Buffer.from(name);
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(20, 4);
+    local.writeUInt16LE(deflate ? 8 : 0, 8);
+    local.writeUInt32LE(crc, 14);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(raw.length, 22);
+    local.writeUInt16LE(nameBuf.length, 26);
+    const head = Buffer.alloc(46);
+    head.writeUInt32LE(0x02014b50, 0);
+    head.writeUInt16LE(20, 4);
+    head.writeUInt16LE(20, 6);
+    head.writeUInt16LE(deflate ? 8 : 0, 10);
+    head.writeUInt32LE(crc, 16);
+    head.writeUInt32LE(data.length, 20);
+    head.writeUInt32LE(raw.length, 24);
+    head.writeUInt16LE(nameBuf.length, 28);
+    head.writeUInt32LE(offset, 42);
+    central.push(Buffer.concat([head, nameBuf]));
+    parts.push(local, nameBuf, data);
+    offset += 30 + nameBuf.length + data.length;
+  }
+  const dir = Buffer.concat(central);
+  const end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0);
+  end.writeUInt16LE(central.length, 8);
+  end.writeUInt16LE(central.length, 10);
+  end.writeUInt32LE(dir.length, 12);
+  end.writeUInt32LE(offset, 16);
+  return Buffer.concat([...parts, dir, end]);
+}
+
+const FAKE_GTFS_URL = "https://catalogodatos.gub.uy/fake/horarios_gtfs_inventado.zip";
+
+/**
+ * An invented metropolitan GTFS: two crossing lines over the area the fake geocoder
+ * returns (an east-west "L1" along latitude −34.85 and a north-south "L2" along
+ * longitude −56.11, both ways, a stop every ~370 m, 1.2 min apart): every 15 min on
+ * weekdays, every 30 on weekends.
+ */
+export function fakeGtfs(): Buffer {
+  const hhmmss = (m: number) =>
+    `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(Math.floor(m % 60)).padStart(2, "0")}:00`;
+  const stops: string[] = ['"stop_id","stop_code","stop_name","stop_desc","stop_lat","stop_lon"'];
+  const line = (id: string, at: (i: number) => [number, number]) =>
+    Array.from({ length: 31 }, (_, i) => {
+      const [lat, lon] = at(i);
+      stops.push(
+        `"${id}${i}","${id}${i}","Parada ${id} ${i}","",${lat.toFixed(5)},${lon.toFixed(5)}`,
+      );
+      return `${id}${i}`;
+    });
+  const l1 = line("A", (i) => [-34.85, -56.17 + i * 0.004]);
+  const l2 = line("B", (i) => [-34.91 + i * 0.004, -56.11]);
+  const routes = ['"route_id","agency_id","route_short_name","route_long_name","route_type"'];
+  const trips = ['"route_id","service_id","trip_id"'];
+  const times = ['"trip_id","arrival_time","departure_time","stop_id","stop_sequence"'];
+  const defs = [
+    ["1", "L1", "OESTE/ESTE", l1],
+    ["2", "L1", "ESTE/OESTE", [...l1].reverse()],
+    ["3", "L2", "SUR/NORTE", l2],
+    ["4", "L2", "NORTE/SUR", [...l2].reverse()],
+  ] as const;
+  let trip = 1000;
+  for (const [id, name, long, seq] of defs) {
+    routes.push(`${id},1,"${name}","${long}",3`);
+    for (const [service, every] of [
+      ["1", 15],
+      ["2", 30],
+    ] as const) {
+      for (let t = 6 * 60; t <= 23 * 60; t += every) {
+        trips.push(`${id},${service},${trip}`);
+        seq.forEach((stop, i) => {
+          times.push(`${trip},${hhmmss(t + i * 1.2)},${hhmmss(t + i * 1.2)},${stop},${i + 1}`);
+        });
+        trip++;
+      }
+    }
+  }
+  return zipStore({
+    "agency.txt":
+      '"agency_id","agency_name","agency_url","agency_timezone"\n1,"EMPRESA INVENTADA","https://ejemplo.test","America/Montevideo"',
+    "calendar.txt": [
+      '"service_id","monday","tuesday","wednesday","thursday","friday","saturday","sunday","start_date","end_date"',
+      "1,1,1,1,1,1,0,0,20200101,20991231",
+      "2,0,0,0,0,0,1,1,20200101,20991231",
+    ].join("\n"),
+    "routes.txt": routes.join("\n"),
+    "trips.txt": trips.join("\n"),
+    "stops.txt": stops.join("\n"),
+    "stop_times.txt": times.join("\n"),
+  });
+}
+
+/** The open-data catalog and the bus schedule downloads: only the invented metropolitan GTFS exists. */
+function fakeTransit(url: URL): Response {
+  if (url.hostname === "catalogodatos.gub.uy" && url.pathname.endsWith("/package_show")) {
+    return reply({
+      success: true,
+      result: {
+        resources: [
+          {
+            name: "Horarios Metropolitanos GTFS (inventados)",
+            format: "ZIP",
+            url: FAKE_GTFS_URL,
+            last_modified: "2026-01-01T00:00:00",
+          },
+        ],
+      },
+    });
+  }
+  if (url.href === FAKE_GTFS_URL) {
+    return new Response(new Uint8Array(fakeGtfs()), {
+      headers: { "Content-Type": "application/zip" },
+    });
+  }
+  // The Intendencia's downloads are not invented: the STM import fails, the metropolitan one works.
+  return new Response("", { status: 503 });
 }
 
 /** Gemini: "fake-bad-key" is refused; a programa always reads as the same invented subject. */
@@ -300,7 +457,8 @@ export function fakeFetch(real: typeof fetch, now: () => number = Date.now): typ
     }
     if (/(^|\.)icloud\.com$/.test(url.hostname)) return icloud(url, init);
     if (url.hostname === "nominatim.openstreetmap.org") return fakeGeocode(url);
-    if (url.hostname === "api.openrouteservice.org") return fakeMatrix(init);
+    if (url.hostname === "api.openrouteservice.org") return fakeMatrix(url, init);
+    if (/(^|\.)(montevideo|catalogodatos)\.gub\.uy$/.test(url.hostname)) return fakeTransit(url);
     if (url.hostname === "generativelanguage.googleapis.com") return fakeGemini(url, init, now);
     return real(input, init);
   };

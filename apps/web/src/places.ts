@@ -17,6 +17,9 @@ const words = (p: Place) =>
 export function placeFor(places: readonly Place[], text: string | undefined): Place | undefined {
   if (!text) return undefined;
   const t = ` ${normalize(text)} `;
+  // A place's address counts only as the whole text: «Centro» inside «Gym Centro» does not.
+  const whole = places.find((p) => p.address && spotKey(p.address) === spotKey(text));
+  if (whole) return whole;
   let best: { place: Place; length: number } | undefined;
   for (const place of places) {
     for (const w of words(place)) {
@@ -42,7 +45,62 @@ const skipped = (data: AppData, text: string | undefined) =>
  * How an event's text is told apart from others: normalized, or (for addresses with no
  * Latin letters or digits, which normalize away) its lower-cased self. Never empty.
  */
-export const spotKey = (text: string) => normalize(text) || text.trim().toLowerCase();
+export const spotKey = (text: string) => {
+  // Emojis tell «🏠🎉 de 👵» from «💼 de 🏢»: keep them when the text has any.
+  if (/\p{Extended_Pictographic}/u.test(text)) {
+    const kept = text
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-z0-9 \p{Extended_Pictographic}]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (kept) return kept;
+  }
+  return normalize(text) || text.trim().toLowerCase();
+};
+
+const legacyKey = (text: string) => normalize(text) || text.trim().toLowerCase();
+
+/**
+ * Spots and kept travel saved before emojis counted in `spotKey` are re-keyed from
+ * their text; if two collide, the manual one stays. Same data back when nothing changes.
+ */
+export function rekeySpots(data: AppData): AppData {
+  const spots = data.spots ?? [];
+  let changed = false;
+  const byKey = new Map<string, Spot>();
+  for (const s of spots) {
+    const key = spotKey(s.text);
+    if (key !== s.key) changed = true;
+    const next = key === s.key ? s : { ...s, key };
+    const old = byKey.get(key);
+    if (old) changed = true;
+    if (!old || (next.manual && !old.manual)) byKey.set(key, next);
+  }
+  let eventTravel = data.eventTravel;
+  if (eventTravel) {
+    for (const e of data.events) {
+      const kept: { key: string; minutes: number } | undefined = eventTravel[e.id];
+      const key = eventSpotKey(e);
+      if (
+        kept &&
+        kept.key !== key &&
+        kept.key === legacyKey(e.location?.trim() ? e.location : e.title)
+      ) {
+        eventTravel = { ...eventTravel, [e.id]: { ...kept, key } };
+        changed = true;
+      }
+    }
+  }
+  return changed ? { ...data, spots: [...byKey.values()], eventTravel } : data;
+}
+
+/** A saved place (other than `exceptId`) already called `name`, ignoring case and accents. */
+export const nameTaken = (places: readonly Place[], name: string, exceptId?: string) => {
+  const key = spotKey(name);
+  return !!key && places.some((p) => p.id !== exceptId && spotKey(p.name) === key);
+};
 
 /** The one-off address an event's text refers to, if the app already has it. */
 export const spotFor = (data: AppData, text: string | undefined): Spot | undefined =>

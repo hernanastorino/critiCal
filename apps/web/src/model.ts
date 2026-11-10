@@ -400,6 +400,8 @@ export interface PlanVersion {
   today: PlanBlock[];
   overrides: DayOverride[];
   proposals: Proposal[];
+  /** Meals skipped or moved for a day; older versions do not have it. */
+  mealChoices?: NonNullable<AppData["mealChoices"]>;
   freeTimeUntil?: number;
   relaxContextUntil?: number;
   tentativeHoldUntil?: number;

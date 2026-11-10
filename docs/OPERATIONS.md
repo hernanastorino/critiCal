@@ -62,6 +62,14 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - «Calcular con las direcciones»: geocodifica con OpenStreetMap (una vez por lugar) y pide los tiempos en auto a OpenRouteService. Los tiempos cargados a mano nunca se pisan.
 - La Bandeja pregunta «¿Dónde es?» por los eventos de los próximos 7 días sin lugar conocido; la respuesta queda como alias (o «no hace falta traslado»), así que no vuelve a preguntar.
 
+## Ómnibus (horarios y rutas)
+
+- **Fuentes** (datos abiertos de Uruguay, «Licencia de Datos Abiertos»: se puede usar citando la fuente; la app la muestra junto a los horarios): STM de Montevideo (Intendencia: `uptu_pasada_variante`, `uptu_pasada_circular`, paradas y variantes del portal GIS; horarios **teóricos**, la IM los regenera todos los días) y líneas metropolitanas (MTOP/DNT: GTFS del catálogo de datos abiertos, «Horarios Metropolitanos GTFS»; «en etapa de revisión», sin garantía de la DNT). No existe un GTFS del STM.
+- **Caché semanal**: `pg_cron` (`critical-transit-import`, lunes 03:00 de Montevideo) llama a `/api/transit` con la clave de cron; la función descarga, compacta y guarda cada fuente en `public.transit_feed` (unos 1 MB en total; las ~2,3 millones de pasadas crudas no se guardan). Si una descarga falla, queda lo guardado; si la nueva trae menos del 60 % de las variantes guardadas, se rechaza. Los errores van a Sentry (`transit-import`). Solo corre donde la app registró su origen (producción).
+- **Primera carga** (o forzarla): leé la clave (`select value from private.app_config where key = 'cron_key'`, en el editor SQL de Supabase o con `psql`) y corré `curl -X POST <origen>/api/transit -H "x-cron-key: <clave>" -H "content-type: application/json" -d '{}'` (un solo origen: `{"source":"stm"}` o `{"source":"dnt"}`). En local, con `VITE_FAKE_PROVIDERS=1`, importa un GTFS inventado (dos líneas que se cruzan sobre la zona del geocodificador falso); el STM falla a propósito.
+- **Cálculo**: `POST /api/transit` con `{action:"plan"}` (contrato en `apps/web/src/transit.ts`). Hasta 1 transbordo (si no hay opción, reintenta con 2; `maxTransfers` lo fija), paradas a menos de 900 m, 5 min de margen por transbordo, 3 opciones; los tramos a pie usan OpenRouteService (perfil a pie, una llamada por cálculo) y, si no responde, la distancia en línea recta ×1,3 a 4,8 km/h. Cada persona puede pedir 10 cálculos por minuto y 200 por día (por instancia de la función).
+- Tabla `bus_routes`: rutas habituales por persona (RLS), con la opción elegida, la versión de los horarios con que se calculó (`feed_version`) y si es teórica.
+
 ## Planificación y cuatrimestre
 
 - **Planificación semanal**: Ajustes → «Planificación semanal» (o el aviso del domingo). Muestra la semana (la próxima en fin de semana), horas por día, críticos, lo que no llega al mínimo y cuántas decisiones esperan en la Bandeja.

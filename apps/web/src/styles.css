@@ -5,12 +5,19 @@
   --glass-strong: rgba(110, 110, 118, 0.42);
   --line: rgba(60, 60, 67, 0.12);
   --ink: #1c1c1e;
-  --ink-soft: #6c6c72;
+  --ink-soft: #595960;
   --critical: #e0262e;
   --warn: #f5a524;
   --ok: #12a150;
   /* Meals: one warm color for breakfast, lunch and dinner. */
   --meal: #d9822b;
+  /* Text-safe variants (AA on --bg and --surface): the fills above stay for backgrounds and borders. */
+  --critical-ink: #c0171f;
+  --warn-ink: #7a4d00;
+  --ok-ink: #0b7236;
+  /* Focus ring: ≥3:1 on both the page and the colored blocks (WCAG 1.4.11), plus a halo. */
+  --focus: #0a4fc4;
+  --focus-halo: #ffffff;
   --radius: 999px;
   --tab-h: 64px;
   --safe-b: env(safe-area-inset-bottom, 0px);
@@ -28,6 +35,11 @@
     --ink: #f2f2f4;
     --ink-soft: #9a9aa3;
     --meal: #f0a35e;
+    --critical-ink: #ff7a80;
+    --warn-ink: #f5b84a;
+    --ok-ink: #4cd98a;
+    --focus: #8ab8ff;
+    --focus-halo: #12141a;
   }
 }
 
@@ -84,6 +96,12 @@ body {
   overscroll-behavior: none;
 }
 
+html {
+  /* Follows the system text size on iOS (Dynamic Type); everything below is in rem. */
+  /* biome-ignore lint/a11y/useGenericFontNames: a system font keyword, not a family */
+  font: -apple-system-body;
+}
+
 button {
   font: inherit;
   color: inherit;
@@ -98,7 +116,7 @@ select,
 textarea {
   font: inherit;
   /* iOS zooms into any field under 16px. */
-  font-size: 16px;
+  font-size: 1rem;
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -129,7 +147,7 @@ textarea {
 }
 
 .header h1 {
-  font-size: 22px;
+  font-size: 1.375rem;
   font-weight: 700;
   margin: 0;
   flex: 1;
@@ -137,7 +155,7 @@ textarea {
 }
 
 .header h1.range {
-  font-size: clamp(16px, 5vw, 22px);
+  font-size: clamp(1rem, 5vw, 1.375rem);
   white-space: nowrap;
   text-align: center;
   min-width: 0;
@@ -160,7 +178,7 @@ textarea {
 }
 
 .range-year {
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -184,7 +202,7 @@ textarea {
 .week-nav h1.range {
   flex: none;
   width: clamp(96px, 30vw, 150px);
-  font-size: clamp(15px, 4.4vw, 22px);
+  font-size: clamp(0.9375rem, 4.4vw, 1.375rem);
 }
 
 .week-tools {
@@ -223,11 +241,11 @@ textarea {
 }
 
 .header h1.range.current {
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .header .sub {
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
   font-weight: 500;
 }
@@ -246,7 +264,7 @@ textarea {
 }
 
 .icon-btn.replan.done {
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 
 .icon-btn.replan.done svg {
@@ -293,14 +311,15 @@ textarea {
   position: relative;
   display: grid;
   /* Wide enough for a "14:30" drag mark, so the days never shift mid-drag. */
-  grid-template-columns: 32px repeat(7, 1fr);
+  grid-template-columns: 2rem repeat(7, 1fr);
   grid-template-rows: auto 1fr;
-  padding-bottom: 8px;
+  /* Room for the round button: it floats over the corner, and Sunday's last hours were under it. */
+  padding-bottom: 62px;
 }
 
 .day-head {
   text-align: center;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--ink-soft);
   padding-bottom: 6px;
   line-height: 1.3;
@@ -308,13 +327,13 @@ textarea {
 
 .day-head b {
   display: block;
-  font-size: 15px;
+  font-size: 0.9375rem;
   color: var(--ink);
   font-weight: 600;
 }
 
 .day-head.today b {
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .hours {
@@ -325,14 +344,14 @@ textarea {
   position: absolute;
   right: 4px;
   transform: translateY(-50%);
-  font-size: 9px;
+  font-size: 0.5625rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 
 .hours span.hot {
-  color: var(--critical);
+  color: var(--critical-ink);
   font-weight: 700;
   right: 2px;
 }
@@ -509,7 +528,7 @@ textarea {
   background: var(--surface);
   padding: 8px 14px;
   border-radius: 16px;
-  font-size: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
@@ -522,6 +541,11 @@ textarea {
 /* A long word (an address of 2000 «A») wraps instead of pushing «Deshacer» off screen. */
 .snack {
   max-width: 100%;
+}
+
+.snack .roy {
+  margin-block: -6px;
+  margin-inline: -4px 0;
 }
 
 .snack > span {
@@ -539,7 +563,10 @@ textarea {
   border-radius: 18px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.2);
   border-left: 5px solid var(--c);
-  overflow: hidden;
+  /* With large system text a tall card scrolls instead of leaving its buttons below the screen. */
+  max-height: calc(100dvh - 16px);
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /* A text-like button inside a bubble (its last line). */
@@ -575,24 +602,24 @@ textarea {
   gap: 8px;
   padding: 8px 14px 10px;
   border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
 .bubble h3 {
   margin: 0 0 2px;
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .bubble p {
   margin: 2px 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
 .bubble .more {
   margin-top: 6px;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--ink);
 }
@@ -638,7 +665,7 @@ textarea {
   place-items: center;
   background: var(--glass);
   color: var(--ink-soft);
-  font-size: 18px;
+  font-size: 1.125rem;
   line-height: 1;
 }
 
@@ -654,7 +681,7 @@ textarea {
 
 .sheet h2 {
   margin: 0 0 4px;
-  font-size: 20px;
+  font-size: 1.25rem;
 }
 
 @keyframes up {
@@ -666,7 +693,7 @@ textarea {
 
 .meta {
   color: var(--ink-soft);
-  font-size: 14px;
+  font-size: 0.875rem;
   margin: 0 0 14px;
 }
 
@@ -713,28 +740,28 @@ textarea {
 
 .btn.done {
   background: color-mix(in srgb, var(--ok) 18%, transparent);
-  color: var(--ok);
+  color: var(--ok-ink);
 }
 
 .btn.missed {
   background: color-mix(in srgb, var(--critical) 14%, transparent);
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .btn.danger {
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .btn.small {
   flex: none;
   padding: 8px 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .field {
   display: block;
   margin-bottom: 12px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
@@ -761,7 +788,7 @@ textarea {
   align-items: center;
   padding: 10px 0;
   border-bottom: 1px solid var(--line);
-  font-size: 15px;
+  font-size: 0.9375rem;
 }
 
 .check input {
@@ -771,7 +798,7 @@ textarea {
 
 .tag {
   display: inline-block;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 600;
   padding: 2px 8px;
   border-radius: 999px;
@@ -842,9 +869,22 @@ textarea {
   left: 0;
   right: 0;
   text-align: center;
-  font-size: 12px;
+  font-size: 0.75rem;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+}
+
+/* White numbers over any fill color: a dark chip keeps them ≥4.5:1 (orange alone is ~1.9:1). */
+.tank .total.on-fill,
+.tank .left {
+  left: 50%;
+  right: auto;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 100%;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.62);
 }
 
 .tank .total {
@@ -855,18 +895,16 @@ textarea {
 
 .tank .total.on-fill {
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .tank .left {
   bottom: 12px;
   z-index: 1;
   color: #fff;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
 .silo .name {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   text-align: center;
   line-height: 1.2;
@@ -879,7 +917,7 @@ textarea {
 }
 
 .silo .due {
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--ink-soft);
 }
 
@@ -890,14 +928,14 @@ textarea {
   border: 2px dashed var(--line);
   display: grid;
   place-items: center;
-  font-size: 28px;
+  font-size: 1.75rem;
   color: var(--ink-soft);
 }
 
 /* ---------- Inbox ---------- */
 
 .section-title {
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -919,7 +957,7 @@ textarea {
 
 .card .meta {
   margin: 2px 0 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
 }
 
 .empty {
@@ -952,7 +990,7 @@ textarea {
   align-items: center;
   justify-content: center;
   gap: 3px;
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--ink-soft);
   position: relative;
 }
@@ -972,7 +1010,7 @@ textarea {
   border-radius: 9px;
   background: var(--critical);
   color: #fff;
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   display: grid;
   place-items: center;
@@ -1007,7 +1045,7 @@ textarea {
 
 .login h1 {
   margin: 8px 0 0;
-  font-size: 30px;
+  font-size: 1.875rem;
   letter-spacing: -0.03em;
 }
 
@@ -1086,7 +1124,7 @@ textarea {
   align-items: center;
   gap: 8px;
   margin: 0 0 4px;
-  font-size: 16px;
+  font-size: 1rem;
 }
 
 .settings-group {
@@ -1108,7 +1146,7 @@ textarea {
   border: 0;
   color: var(--ink);
   font: inherit;
-  font-size: 15px;
+  font-size: 0.9375rem;
   text-align: left;
   text-decoration: none;
   cursor: pointer;
@@ -1134,7 +1172,7 @@ textarea {
 }
 
 .settings-row.danger {
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .settings-icon {
@@ -1164,7 +1202,7 @@ textarea {
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--ink-soft);
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -1178,9 +1216,9 @@ textarea {
   padding: 0 6px;
   background: none;
   border: 0;
-  color: var(--critical);
+  color: var(--critical-ink);
   font: inherit;
-  font-size: 16px;
+  font-size: 1rem;
   cursor: pointer;
 }
 
@@ -1248,7 +1286,7 @@ textarea {
 
 .notice p {
   margin: 0;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
@@ -1287,7 +1325,7 @@ input[type="datetime-local"] {
 }
 
 .grid3-label {
-  font-size: 14px;
+  font-size: 0.875rem;
   padding-bottom: 22px;
 }
 
@@ -1366,7 +1404,7 @@ input[type="datetime-local"] {
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
   margin: -4px 4px 8px;
 }
@@ -1437,9 +1475,9 @@ input[type="datetime-local"] {
 
 .loupe-head {
   padding: 6px 10px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   font-weight: 700;
-  color: var(--critical);
+  color: var(--critical-ink);
   font-variant-numeric: tabular-nums;
 }
 
@@ -1459,7 +1497,7 @@ input[type="datetime-local"] {
   position: absolute;
   right: calc(100% + 4px);
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: 0.6875rem;
   color: var(--ink-soft);
   font-variant-numeric: tabular-nums;
 }
@@ -1470,7 +1508,7 @@ input[type="datetime-local"] {
   right: 4px;
   border-radius: 6px;
   overflow: hidden;
-  font-size: 10px;
+  font-size: 0.625rem;
   line-height: 1.2;
   padding: 1px 4px;
 }
@@ -1534,7 +1572,7 @@ input[type="datetime-local"] {
   gap: 2px;
   padding: 12px 16px;
   text-align: center;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
   border-bottom: 1px solid var(--line);
 }
@@ -1554,7 +1592,7 @@ input[type="datetime-local"] {
   background: var(--surface);
   color: #0a72ff;
   font: inherit;
-  font-size: 17px;
+  font-size: 1.0625rem;
 }
 
 .action + .action {
@@ -1562,12 +1600,12 @@ input[type="datetime-local"] {
 }
 
 .action small {
-  font-size: 12px;
+  font-size: 0.75rem;
   color: var(--ink-soft);
 }
 
 .action.danger {
-  color: var(--critical);
+  color: var(--critical-ink);
 }
 
 .action.cancel {
@@ -1585,7 +1623,7 @@ input[type="datetime-local"] {
 
 .past-silos h2 {
   margin: 16px 0 12px;
-  font-size: 15px;
+  font-size: 0.9375rem;
   font-weight: 600;
   color: var(--ink-soft);
 }
@@ -1597,7 +1635,7 @@ input[type="datetime-local"] {
 }
 
 .silo .due.overdue {
-  color: var(--critical);
+  color: var(--critical-ink);
   font-weight: 600;
 }
 
@@ -1614,7 +1652,7 @@ input[type="datetime-local"] {
 
 .repeat .state {
   margin: 0 0 8px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
@@ -1632,7 +1670,7 @@ input[type="datetime-local"] {
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  font-size: 12px;
+  font-size: 0.75rem;
   /* Short labels («feriado») stay whole: the sheet's anywhere-wrapping is for long names. */
   overflow-wrap: normal;
 }
@@ -1665,7 +1703,7 @@ input[type="datetime-local"] {
   grid-template-columns: 1fr auto;
   gap: 4px 10px;
   align-items: center;
-  font-size: 14px;
+  font-size: 0.875rem;
 }
 
 .pvd .track {
@@ -1720,7 +1758,7 @@ input[type="datetime-local"] {
 
 .suggestion .meta {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 0.75rem;
 }
 
 .suggestions > .meta {
@@ -1758,7 +1796,7 @@ input[type="datetime-local"] {
 .start-after legend {
   padding: 0;
   margin-bottom: 4px;
-  font-size: 13px;
+  font-size: 0.8125rem;
   color: var(--ink-soft);
 }
 
@@ -1770,6 +1808,60 @@ input[type="datetime-local"] {
 
 .start-after .inline input {
   width: 4.5em;
+}
+
+/* ---------- Keyboard focus ---------- */
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+}
+
+/* A block sits in a clipped grid: ring inside, so the neighbour does not hide it. */
+/* Above every state a block can be in (past, meal over a fixed event, pinned, critical mode). */
+.pill:focus-visible,
+.pill.meal:focus-visible,
+.pill.planned:focus-visible,
+.week.critical-mode .pill:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+  box-shadow: 0 0 0 4px var(--focus-halo);
+  opacity: 1;
+  z-index: 5;
+}
+
+/* A past block keeps a cue of its own while focused (its fade would hide the ring). */
+.pill.past:focus-visible {
+  filter: grayscale(0.7);
+}
+
+@media (forced-colors: active) {
+  .pill:focus-visible,
+  .pill.meal:focus-visible,
+  .pill.planned:focus-visible {
+    outline-color: Highlight;
+  }
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline-offset: 0;
+}
+
+/* Touch targets: two blocks side by side at 320 px are ~17 px wide each; the invisible
+   margin brings the tappable width to ~23 px without moving what is drawn. */
+.pill::before {
+  content: "";
+  position: absolute;
+  inset: -3px -3px;
+}
+
+@media (forced-colors: active) {
+  :focus-visible {
+    outline-color: Highlight;
+  }
 }
 
 /* ---------- Waits, skeletons and notices (SPEC §14) ---------- */
@@ -1789,16 +1881,6 @@ input[type="datetime-local"] {
   padding: 4px 0;
   gap: 8px;
   text-align: left;
-}
-
-.loading-shape {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--glass-strong);
-  border-top-color: var(--ink-soft);
-  animation: spin 0.9s linear infinite;
-  flex: none;
 }
 
 .loading-bar {
@@ -1847,7 +1929,6 @@ input[type="datetime-local"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-shape,
   .skeleton-line,
   .skeleton-day {
     animation: none;
@@ -1869,4 +1950,197 @@ input[type="datetime-local"] {
 
 .notice-mascot {
   justify-self: center;
+}
+
+/* ---------- Roy (SPEC §18.1): style A, «Madera pintada». Its own block. ---------- */
+
+.roy {
+  --roy-floor: rgba(29, 28, 26, 0.18);
+  --p1: #e5246f;
+  --p2: #6d2a8e;
+  --p3: #ea3f7c;
+  --p4: #f2bd1d;
+  --p5: #1fa88a;
+  --p6: #e5246f;
+  --q1: #f7d64a;
+  --q2: #4fc3e8;
+  --q3: #f59bb8;
+  --roy-ease: cubic-bezier(0.55, 0, 0.25, 1.3);
+  position: relative;
+  display: block;
+  flex: none;
+  perspective: var(--roy-d, 500px);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .roy {
+    --roy-floor: rgba(0, 0, 0, 0.45);
+  }
+}
+
+.roy::after {
+  content: "";
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 2%;
+  height: 8%;
+  background: radial-gradient(closest-side, var(--roy-floor), transparent);
+}
+
+.roy-stage {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: scale(var(--roy-s, 0.35)) rotateX(-16deg) rotateY(-30deg);
+}
+
+.roy-blk {
+  --w: 44px;
+  --h: 58px;
+  --d: 8px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transition-property: transform;
+  transition-timing-function: var(--roy-ease);
+  --grain: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 4px);
+  --front:
+    var(--grain),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      var(--r1) 24% 34%,
+      transparent 34% 62%,
+      var(--r2) 62% 72%,
+      transparent 72%
+    ),
+    linear-gradient(160deg, var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000) 55%);
+  --back:
+    var(--grain), linear-gradient(90deg, transparent 42%, var(--r1) 42% 58%, transparent 58%),
+    color-mix(in srgb, var(--c) 90%, #000);
+  --side: color-mix(in srgb, var(--c) 62%, #000);
+  --top: color-mix(in srgb, var(--c) 75%, #fff);
+}
+
+.roy-flip {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+.roy-f {
+  position: absolute;
+  left: 0;
+  top: 0;
+  backface-visibility: hidden;
+}
+
+.roy-fr,
+.roy-bk {
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+}
+
+.roy-fr {
+  transform: translateZ(calc(var(--d) / 2));
+  background: var(--front);
+}
+
+.roy-bk {
+  transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
+  background: var(--back);
+}
+
+.roy-rt,
+.roy-lf {
+  width: var(--d);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--d) / -2);
+  background: var(--side);
+}
+
+.roy-rt {
+  transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+}
+
+.roy-lf {
+  transform: rotateY(-90deg) translateZ(calc(var(--w) / 2));
+}
+
+.roy-tp,
+.roy-bt {
+  width: var(--w);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--w) / -2);
+  background: var(--top);
+}
+
+.roy-tp {
+  transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+}
+
+.roy-bt {
+  transform: rotateX(-90deg) translateZ(calc(var(--h) / 2));
+}
+
+.roy-blk:nth-child(1) {
+  --c: var(--p1);
+  --r1: var(--q1);
+  --r2: var(--q2);
+}
+.roy-blk:nth-child(2) {
+  --c: var(--p2);
+  --r1: var(--q2);
+  --r2: var(--q3);
+}
+.roy-blk:nth-child(3) {
+  --c: var(--p3);
+  --r1: var(--q3);
+  --r2: var(--q1);
+}
+.roy-blk:nth-child(4) {
+  --c: var(--p4);
+  --r1: var(--q1);
+  --r2: var(--q3);
+}
+.roy-blk:nth-child(5) {
+  --c: var(--p5);
+  --r1: var(--q2);
+  --r2: var(--q1);
+}
+.roy-blk:nth-child(6) {
+  --c: var(--p6);
+  --r1: var(--q3);
+  --r2: var(--q2);
+}
+
+/* Small Roy next to a line of text: no floor shadow. */
+.loading.inline .roy::after,
+.snack .roy::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roy-blk {
+    transition: none;
+  }
+}
+
+.roy-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roy-line .meta {
+  margin: 0;
+  min-width: 0;
 }

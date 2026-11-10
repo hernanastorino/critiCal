@@ -655,3 +655,55 @@ describe("places screens", () => {
     expect(screen.queryByText("¿Dónde es?")).toBeNull();
   });
 });
+
+describe("spotKey y nombres", () => {
+  it("los emojis distinguen direcciones que sin ellos coinciden", async () => {
+    const { spotKey, nameTaken } = await import("./places.js");
+    expect(spotKey("🏠🎉 de 👵")).not.toBe(spotKey("💼 de 🏢"));
+    expect(spotKey("Casa  de Clara")).toBe("casa de clara");
+    expect(nameTaken([{ id: "a", name: "Casa", aliases: [] }], " casa ")).toBe(true);
+    expect(nameTaken([{ id: "a", name: "Casa", aliases: [] }], "Casa", "a")).toBe(false);
+  });
+  it("la dirección exacta de un lugar lo encuentra", async () => {
+    const { placeFor } = await import("./places.js");
+    const p = { id: "a", name: "Casa", aliases: [], address: "Julio Herrera 565" };
+    expect(placeFor([p], "julio herrera 565")?.id).toBe("a");
+  });
+});
+
+describe("claves viejas y direcciones", () => {
+  it("re-clava los spots guardados antes de los emojis, dejando el manual", async () => {
+    const { rekeySpots, spotKey, placeFor } = await import("./places.js");
+    const d = {
+      ...emptyData(),
+      spots: [
+        { key: "casa", text: "🏠 Casa", minutes: 5 },
+        { key: "casa", text: "Casa", minutes: 9, manual: true },
+      ],
+    } as AppData;
+    const r = rekeySpots(d);
+    expect(r.spots?.map((s) => s.key).sort()).toEqual([spotKey("🏠 Casa"), "casa"].sort());
+    expect(rekeySpots(r)).toBe(r);
+    // Same key already twice: the manual one wins in either order.
+    const dup = (list: AppData["spots"]) => rekeySpots({ ...d, spots: list });
+    const auto = { key: "casa", text: "Casa", minutes: 5 };
+    const hand = { key: "casa", text: "Casa", minutes: 9, manual: true };
+    expect(dup([auto, hand]).spots).toEqual([hand]);
+    expect(dup([hand, auto]).spots).toEqual([hand]);
+    const gym = { id: "g", name: "Gym", aliases: [] };
+    const centro = { id: "c", name: "Otro", aliases: [], address: "Centro" };
+    expect(placeFor([gym, centro], "Gym Centro")?.id).toBe("g");
+  });
+});
+
+describe("replace con claves viejas", () => {
+  it("migra los spots antes de planificar", async () => {
+    const { reducer } = await import("./store.js");
+    const old = {
+      ...emptyData(),
+      spots: [{ key: "casa", text: "🏠 Casa", minutes: 7, manual: true }],
+    } as AppData;
+    const r = reducer(emptyData(), { type: "replace", data: old, now: 0 } as never);
+    expect(r.spots?.[0]?.key).not.toBe("casa");
+  });
+});
