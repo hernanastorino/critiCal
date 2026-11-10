@@ -153,6 +153,14 @@ export function Connected({
 
   // One flush at a time, so parents always land before children.
   const flushing = useRef<Promise<boolean> | null>(null);
+  // A save still running when the account signs out must not put its copy back on the device.
+  const alive = useRef(true);
+  useEffect(() => {
+    alive.current = true;
+    return () => {
+      alive.current = false;
+    };
+  }, []);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Writes what is pending; true once the database has everything this device has. */
   const flush = useCallback(
@@ -190,7 +198,8 @@ export function Connected({
             }
             stored.current = target;
             wrote = true;
-            void writeLocal(uid, { data: latest.current ?? target, stored: target });
+            if (alive.current)
+              void writeLocal(uid, { data: latest.current ?? target, stored: target });
           }
           setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
           hold("unsaved", false);
