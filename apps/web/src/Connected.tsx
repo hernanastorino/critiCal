@@ -53,7 +53,8 @@ interface SyncApi {
   status: SyncStatus;
   syncNow: () => Promise<void>;
   /** Writes pending changes now; false if they could not be written (offline). */
-  flush: () => Promise<boolean>;
+  /** `quiet`: a failure that is not the network's is reported but does not take over the screen. */
+  flush: (quiet?: boolean) => Promise<boolean>;
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
@@ -154,7 +155,7 @@ export function Connected({
   const flushing = useRef<Promise<boolean> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Writes what is pending; true once the database has everything this device has. */
-  const flush = useCallback((): Promise<boolean> => {
+  const flush = useCallback((quiet = false): Promise<boolean> => {
     if (flushing.current) return flushing.current;
     const run = async () => {
       // Never finish synchronously: `flushing` must be set before it is cleared.
@@ -202,7 +203,7 @@ export function Connected({
         if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
         else {
           reportError(e);
-          setError(errorMessage(e));
+          if (!quiet) setError(errorMessage(e));
         }
         return false;
       } finally {
