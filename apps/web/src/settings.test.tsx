@@ -267,12 +267,19 @@ describe("Ajustes for a signed-in account", () => {
       </Connected>,
     );
     const leave = await screen.findByRole("button", { name: "Salir" });
+    // A double tap while the save is awaited asks once.
     await act(async () => {
+      fireEvent.click(leave);
       fireEvent.click(leave);
     });
     await waitFor(() => expect(confirm).toHaveBeenCalledOnce());
     expect(onSignOut).not.toHaveBeenCalled();
     expect(document.body.textContent).not.toMatch(/No pude cargar/);
+    // Declining frees the button for another try.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Salir" }));
+    });
+    await waitFor(() => expect(confirm).toHaveBeenCalledTimes(2));
     expect(screen.getByRole("button", { name: "Salir" })).toBeTruthy();
     confirm.mockRestore();
     await clearLocal();

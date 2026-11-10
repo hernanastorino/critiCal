@@ -204,8 +204,11 @@ export function Settings({
   const owner = useOwner();
   // Signing out wipes this device's copy: save what is pending first, and if that is not
   // possible (offline), say so before it is lost.
+  const leaving = useRef(false);
   const leave = async () => {
-    if (!onSignOut) return;
+    // A second tap while the save is awaited would open a second confirmation.
+    if (!onSignOut || leaving.current) return;
+    leaving.current = true;
     // Bounded: a stalled request must not keep the account from signing out.
     const saved = sync
       ? await Promise.race([
@@ -217,7 +220,10 @@ export function Settings({
       const ok = window.confirm(
         "Hay cambios que todavía no se guardaron (sin internet). Si salís ahora, se pierden. ¿Salir igual?",
       );
-      if (!ok) return;
+      if (!ok) {
+        leaving.current = false;
+        return;
+      }
     }
     // Whatever save is still running must not write this device's copy after it is wiped.
     sync?.seal();
