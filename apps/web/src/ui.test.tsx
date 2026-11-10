@@ -109,6 +109,9 @@ describe("app", () => {
     expect(screen.getByLabelText(/Parcial Cálculo II: faltan/)).toBeTruthy();
 
     fireEvent.click(screen.getByLabelText("Nueva actividad"));
+    expect(
+      screen.getByRole("button", { name: "Entrega / parcial" }).getAttribute("aria-pressed"),
+    ).toBe("true");
     fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
       target: { value: "Parcial Química" },
     });
@@ -134,6 +137,12 @@ describe("app", () => {
     fireEvent.click(screen.getByText("Editar"));
     fireEvent.click(screen.getByText("Archivar"));
     expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
+    // «Deshacer» brings it back.
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByLabelText(/Correr: faltan/)).toBeTruthy();
+    // A habit's sheet does not ask for topics.
+    fireEvent.click(screen.getByLabelText(/Correr: faltan/));
+    expect(screen.queryByText("Temas en total")).toBeNull();
   });
 
   it("hides silos due before this week behind «Ver anteriores»", () => {
