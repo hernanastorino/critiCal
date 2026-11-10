@@ -70,6 +70,24 @@ export function WeekSettings() {
       // At most 4 h: a 99999-minute breakfast would not even fit a backup.
       end: hhmmToMinutes(at) + (clampMinutes(minutes, 0, 240) ?? 0),
     });
+    // A figure out of range would be corrected without a word (−20 → 0, 999 → 240).
+    const badMinutes = (
+      [
+        ["Arreglarse, traslado (min)", form.morning],
+        ["Dura (min), desayuno", form.breakfastMin],
+        ["Dura (min), almuerzo", form.lunchMin],
+        ["Dura (min), merienda", form.snackMin],
+        ["Dura (min), cena", form.dinnerMin],
+      ] as const
+    ).find(([, v]) => {
+      if (v.trim() === "") return false;
+      const n = clampMinutes(v, Number.NEGATIVE_INFINITY, Number.POSITIVE_INFINITY);
+      return n === undefined || n < 0 || n > 240;
+    });
+    if (badMinutes) {
+      setError(`«${badMinutes[0]}» tiene que ser un número de minutos entre 0 y 240.`);
+      return;
+    }
     const wake = hhmmToMinutes(form.wake);
     const bed = hhmmToMinutes(form.bed);
     if (wake === bed) {

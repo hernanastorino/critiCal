@@ -313,7 +313,8 @@ textarea {
   /* Wide enough for a "14:30" drag mark, so the days never shift mid-drag. */
   grid-template-columns: 2rem repeat(7, 1fr);
   grid-template-rows: auto 1fr;
-  padding-bottom: 8px;
+  /* Room for the round button: it floats over the corner, and Sunday's last hours were under it. */
+  padding-bottom: 62px;
 }
 
 .day-head {

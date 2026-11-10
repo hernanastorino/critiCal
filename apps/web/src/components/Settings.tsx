@@ -275,6 +275,9 @@ export function Settings({
         .join(" · ")
     : undefined;
   const weekDay = data.settings.week[localParts(tz, now).weekday];
+  const sameRoutine = data.settings.week.every(
+    (d) => d.wake === weekDay?.wake && d.bed === weekDay?.bed,
+  );
 
   const groups: { label: string; pages: (Page | false)[] }[] = [
     {
@@ -296,7 +299,12 @@ export function Settings({
           id: "week",
           title: "Mi semana",
           icon: I.clock,
-          value: weekDay ? `${minutesToHhmm(weekDay.wake)} – ${minutesToHhmm(weekDay.bed)}` : "",
+          // One schedule when the days agree; else it says they differ, not today's alone.
+          value: sameRoutine
+            ? weekDay
+              ? `${minutesToHhmm(weekDay.wake)} – ${minutesToHhmm(weekDay.bed)}`
+              : ""
+            : "Varía",
           content: <WeekSettings />,
         },
         {

@@ -186,6 +186,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   override: "ajustar el día",
   acceptProposal: "aceptar un cambio propuesto",
   rejectProposal: "rechazar un cambio propuesto",
+  mealChoice: "mover o sacar una comida",
 };
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
@@ -829,6 +830,8 @@ function apply(data: AppData, action: Action): AppData {
           pins: v.pins.filter((b) => live.has(b.taskId)),
           overrides: v.overrides,
           proposals: v.proposals,
+          // Versions from before meals were kept do not say: the choices stay as they are.
+          ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
           freeTimeUntil: v.freeTimeUntil,
           relaxContextUntil: v.relaxContextUntil,
           tentativeHoldUntil: v.tentativeHoldUntil,
@@ -851,7 +854,10 @@ function apply(data: AppData, action: Action): AppData {
               {
                 date: action.date,
                 kind: action.kind,
-                ...(action.skip ? { skip: true } : { start }),
+                // Skipped, its moved time is kept: putting it back returns it there.
+                ...(action.skip
+                  ? { skip: true, ...(start !== undefined ? { start } : {}) }
+                  : { start }),
               },
             ]
           : [];
@@ -1239,6 +1245,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     ),
     overrides: data.overrides,
     proposals: data.proposals,
+    mealChoices: data.mealChoices ?? [],
     freeTimeUntil: data.freeTimeUntil,
     tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,
