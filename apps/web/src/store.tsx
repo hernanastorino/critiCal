@@ -282,6 +282,7 @@ function apply(data: AppData, action: Action): AppData {
           (n.minMinutes !== t.minMinutes ||
             n.estimateMinutes !== t.estimateMinutes ||
             n.status !== t.status ||
+            JSON.stringify(n.startAfter) !== JSON.stringify(t.startAfter) ||
             n.units.some((u, i) => !!u.skipped !== !!t.units[i]?.skipped))
         );
       });
@@ -315,6 +316,12 @@ function apply(data: AppData, action: Action): AppData {
           }),
         ),
         freeTimeUntil: data.freeTimeUntil,
+        ...(option.kind === "start-earlier" && option.taskId
+          ? (() => {
+              const set = next.tasks.find((x) => x.id === option.taskId)?.startAfter;
+              return set ? { startAfter: { [option.taskId]: set } } : {};
+            })()
+          : {}),
         ...(option.kind === "move-event" && option.eventId
           ? {
               movedEventId: option.eventId,
@@ -352,6 +359,11 @@ function apply(data: AppData, action: Action): AppData {
                   : { minMinutes: old.minMinutes, estimateMinutes: old.estimateMinutes };
               })(),
               status: old.status,
+              // An earlier start comes back unless the rule was changed since.
+              ...(record.startAfter?.[t.id] &&
+              JSON.stringify(t.startAfter) === JSON.stringify(record.startAfter[t.id])
+                ? { startAfter: old.startAfter }
+                : {}),
               // Units this decision left out come back; ones a later decision left out
               // stay out (whatever was done since stays done).
               units: t.units.map((u) =>

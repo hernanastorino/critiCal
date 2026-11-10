@@ -3,6 +3,7 @@ import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
+import { FREE_TODAY, mealNoRoom, SKIPPED_TOAST, STILL_SHORT } from "../friendly.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
@@ -10,9 +11,11 @@ import { endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
+import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
+import { useToast } from "./Toast.js";
 
 const EAT: Record<MealKind, string> = {
   desayuno: "desayunar",
@@ -26,6 +29,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
     useStore();
   const offline = !!useSync()?.status.offline;
+  const toast = useToast();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   const [editing, setEditing] = useState<AppTask | null>(null);
@@ -61,7 +65,14 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
       unsorted.length ===
     0;
 
-  const quick = (b: PlanBlock, status: "done" | "missed") =>
+  // Addresses being timed now, and the most there were at once: «Calculando traslados 3 de 8».
+  const looking = offline ? 0 : unlocated.filter((u) => u.lookup).length;
+  // Adjusting state while rendering settles at once: `seen` catches up with `lookTotal`.
+  const [seen, setSeen] = useState(0);
+  const lookTotal = looking === 0 ? 0 : Math.max(seen, looking);
+  if (lookTotal !== seen) setSeen(lookTotal);
+
+  const quick = (b: PlanBlock, status: "done" | "missed") => {
     dispatch({
       type: "checkIn",
       checkIn: {
@@ -72,6 +83,8 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
+    if (status === "missed") toast.show(SKIPPED_TOAST);
+  };
 
   return (
     <div className="screen">
@@ -107,6 +120,13 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <div key={u.key} className="card">
               <div className="title">{u.event.title}</div>
               <p className="meta">Calculando el traslado a «{u.event.location}»…</p>
+              {lookTotal > 1 && (
+                <Loading
+                  kind="travel"
+                  inline
+                  progress={{ done: lookTotal - looking, total: lookTotal }}
+                />
+              )}
             </div>
           ) : (
             <WhereCard key={u.key} item={u} later={u.lookup} />
@@ -243,7 +263,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               {p.plan
                 .filter((b) => b.start >= now && b.start < endOfDay(tz, now))
                 .map((b) => `${titleOf(b)} ${time(tz, b.start)}`)
-                .join(" · ") || "Hoy queda libre"}
+                .join(" · ") || FREE_TODAY}
             </p>
             <div className="row">
               <button
@@ -339,10 +359,11 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               Sin lugar para {m.kind ? EAT[m.kind] : "comer"} · {dayDate(tz, m.preferred.start)}
             </div>
             <p className="meta">
-              Entre las {time(tz, m.preferred.start - MEAL_RANGE)} y las{" "}
-              {time(tz, m.preferred.end + MEAL_RANGE)} todo está ocupado por eventos fijos o bloques
-              📌, así que quedó a las {time(tz, (m.at ?? m.preferred).start)}, encima de lo que hay.
-              Dejala ahí o tocala en la semana para moverla a cualquier hora (o «Hoy no»).
+              {mealNoRoom(
+                time(tz, m.preferred.start - MEAL_RANGE),
+                time(tz, m.preferred.end + MEAL_RANGE),
+                time(tz, (m.at ?? m.preferred).start),
+              )}
             </p>
             {onDay && (
               <button type="button" className="btn small" onClick={() => onDay(m.date)}>
@@ -363,9 +384,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               >
                 <div className="title">{o.label}</div>
                 <p className="meta">
-                  {o.result.feasible
-                    ? "Con esto llegás a todos los mínimos."
-                    : "Todavía faltaría tiempo."}
+                  {o.result.feasible ? "Con esto llegás a todos los mínimos." : STILL_SHORT}
                 </p>
                 <button
                   type="button"

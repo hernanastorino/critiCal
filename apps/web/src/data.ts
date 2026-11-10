@@ -74,6 +74,7 @@ export function rowsToData(r: {
         aliases: (a.aliases as string[] | null)?.length ? (a.aliases as string[]) : undefined,
         studyMinutes: (a.study_minutes as number | null) ?? undefined,
         breakMinutes: (a.break_minutes as number | null) ?? undefined,
+        startAfter: (a.start_after as Activity["startAfter"] | null) ?? undefined,
       }),
     ),
     tasks: r.tasks.map(
@@ -100,6 +101,7 @@ export function rowsToData(r: {
         paused: (t.paused as boolean) || undefined,
         endedAt: t.ended_at ? ms(t.ended_at as string) : undefined,
         autoDroppedAt: t.auto_dropped_at ? ms(t.auto_dropped_at as string) : undefined,
+        startAfter: (t.start_after as AppTask["startAfter"] | null) ?? undefined,
         units: r.units
           .filter((u) => u.task_id === t.id)
           .sort((a, b) => (a.position as number) - (b.position as number))
@@ -392,6 +394,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         aliases: a.aliases ?? [],
         study_minutes: a.studyMinutes ?? null,
         break_minutes: a.breakMinutes ?? null,
+        start_after: a.startAfter ?? null,
       })),
     });
   }
@@ -423,6 +426,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         paused: !!t.paused,
         ended_at: t.endedAt ? iso(t.endedAt) : null,
         auto_dropped_at: t.autoDroppedAt ? iso(t.autoDroppedAt) : null,
+        start_after: t.startAfter ?? null,
       })),
     });
     const units = tasks.flatMap((t) =>

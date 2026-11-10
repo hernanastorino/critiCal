@@ -6,17 +6,19 @@ import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
 import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
+import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
 
 const MAX_BYTES = 3_000_000;
 
 const ERRORS: Record<string, string> = {
-  server_not_configured: "Falta la clave de Gemini en el servidor.",
+  server_not_configured: "Falta la clave de Gemini en el servidor: cargá la tuya en Ajustes.",
   too_large: "El PDF es muy grande (máximo 3 MB).",
-  gemini_busy: "Gemini está saturado o sin cuota gratis por hoy. Probá más tarde.",
+  gemini_busy:
+    "Gemini está saturado o sin cuota gratis por hoy. Tocá «Reintentar» en un rato, o cargá tu propia clave en Ajustes.",
   model_unavailable:
-    "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel.",
-  unreadable: "No pude entender el programa. ¿Es el PDF correcto?",
+    "El modelo configurado en GEMINI_MODEL no existe: hay que corregirlo en Vercel. Mientras, cargá las evaluaciones a mano.",
+  unreadable: "No pude entender el programa. Probá con otro PDF, o cargá las evaluaciones a mano.",
 };
 
 function toBase64(file: File): Promise<string> {
@@ -90,11 +92,14 @@ export function SyllabusImport() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [done, setDone] = useState<string | null>(null);
+  // The file that just failed for a reason that trying again can fix.
+  const [retryFile, setRetryFile] = useState<File | null>(null);
   if (!sync) return null;
 
   const read = async (file: File) => {
     setError(null);
     setDone(null);
+    setRetryFile(null);
     if (file.size > MAX_BYTES) {
       setError(ERRORS.too_large ?? null);
       return;
@@ -104,13 +109,14 @@ export function SyllabusImport() {
     try {
       r = await readSyllabus(sync.client, await toBase64(file));
     } catch {
-      setError("No se pudo leer el archivo PDF.");
+      setError("No pude abrir ese archivo. Elegí el PDF de nuevo.");
       return;
     } finally {
       setBusy(false);
     }
     if (!r.ok) {
-      setError(ERRORS[r.error] ?? "No se pudo leer el programa.");
+      if (r.error === "gemini_busy" || !ERRORS[r.error]) setRetryFile(file);
+      setError(ERRORS[r.error] ?? "No pude leer el programa. Tocá «Reintentar».");
       return;
     }
     setDraft(draftOf(r.syllabus));
@@ -174,10 +180,16 @@ export function SyllabusImport() {
           />
         </label>
       )}
+      {busy && <Loading kind="ai" label="Leyendo el programa (puede tardar un rato)" />}
       {error && (
         <p className="meta" style={{ color: CRITICAL }}>
           {error}
         </p>
+      )}
+      {error && retryFile && !busy && (
+        <button type="button" className="btn small" onClick={() => void read(retryFile)}>
+          Reintentar
+        </button>
       )}
       {done && <p className="meta">{done}</p>}
       {draft && (

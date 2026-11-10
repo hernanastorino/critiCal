@@ -156,9 +156,9 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 ### Mensajes y esperas
 
 - ✅ **Éxito**: un solo aviso para toda la app (toast, `components/Toast.tsx`), con el mismo tono y duración (2,5 s; 6 s si ofrece «Deshacer»), anunciado a VoiceOver y que no se va mientras tiene el puntero o el foco encima. Los errores siguen junto a su campo.
-- **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
-- **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. (Hoy no avisan ni la sincronización, ni la IA, ni los traslados).
-- **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.
+- ✅ **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
+- ✅ **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. Componente único `components/Loading.tsx` (`kind`: sync, ai, travel, generic; con hueco `mascot`), `Skeleton.tsx` y `Notice.tsx`; textos del camino infeliz en `friendly.ts` (tono seco y breve, humor solo en lo leve; decidido 2026-11-07).
+- ✅ **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.
 
 ### Formularios y botones
 
@@ -225,6 +225,7 @@ Problemas reportados: el panel de Ajustes quedó muy largo; los botones de las s
   - Arriba, solo si algo pide acción: Google o iCloud sin sincronizar (con «Reconectar Google» o «Ver Calendarios») y la casa sin guardar («Agregar casa»). Si todo está bien no se muestra nada.
   - Después «Hoy» y cinco grupos: Planificar, Mi tiempo, Lugares, Conexiones y Cuenta. «Revocar todo y borrar la cuenta» va solo, en rojo, al final. Cada fila dice su estado a la derecha.
   - Cada sección es una pantalla que entra de costado (con resorte; con «reducir movimiento», un fundido). El foco pasa a «‹ Ajustes» y, al volver, a la fila que la abrió. Lo de atrás queda inerte. Las pantallas siguen montadas, así un formulario a medio llenar no se pierde al volver.
+  - ✅ **Refuerzos**: lo escrito y no guardado (Mi semana, Reglas, Horas, una materia abierta, Rutinas, Inicio de cuatrimestre) **se conserva aunque se cierre Ajustes** (hasta recargar la app, cambiar de cuenta o reiniciar la demo) y dice «Cambios sin guardar»; sin diálogo de confirmación (§14). El «atrás» del sistema vuelve de la pantalla a la lista y de la lista a la app; cerrar con ✕ o Escape no deja entradas de más en el historial. Renombrar una materia o rutina a un nombre que ya existe se impide, como al agregar. En la base, un disparador rechaza `settings.data` que la app nunca escribiría (semana que no tiene 7 días, número como texto, más de 64 KB) y solo mira filas nuevas o cuyo `data` cambia, así una fila vieja de producción no queda bloqueada.
   - «Materias» y «Rutinas» son filas distintas (antes «Materias y rutinas» y «Rutinas» se pisaban).
   - La **búsqueda del mockup B** queda lista en una rama aparte, encima de A, para sumarla arriba de todo cuando las secciones crezcan mucho. No se mergea hasta que el usuario lo pida.
 
@@ -261,7 +262,16 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Valor antes de registrarse**: el modo demo deja ver un plan completo antes de pedir Google.
    - **Efecto IKEA**: lo que el usuario arma (sus materias, rutinas, lugares) se muestra como suyo y crece con el uso (por ejemplo, «tu semana tipo»).
    - **Encuadre de pérdidas**, sin manipular: «si salteás este bloque perdés 2 h de margen para el parcial» en vez de «estudiá».
-   - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + una mascota** simple de línea de 2 px que reacciona (se encoge de hombros cuando algo sale mal, festeja cuando me recupero). Claude hace **3 bocetos** de la mascota, con sus reacciones, en una presentación como la de Configuración (link privado + copia en `docs/mockups/`); se implementa recién cuando el usuario elija uno. Mientras tanto se puede avanzar con los textos.
+   - **Compensar el camino infeliz** (lo que el usuario más quiere ver): cuando algo sale mal (no llego, salteé bloques, falla la sync, no hay lugar) la app responde con gracia y algo de humor, sin culpa, y siempre con la salida concreta (las opciones del §5.6, «Reconectar», «Reacomodar hoy»). Decidido: **texto con humor + un personaje animado**.
+   - Bocetos de mascotas (Tic el reloj, Punta el lápiz, Dosi la píldora): [`mockups/mascota.html`](mockups/mascota.html). **Descartados** (2026-11-07): en vez de elegir una mascota, el usuario elige un **estilo toon 3D** y sus animaciones.
+   - **Escalera de Jacob** (el juguete de tablitas de madera unidas con cintas, https://en.wikipedia.org/wiki/Jacob%27s_ladder_(toy)): es el personaje y se llama **Roy**. Cuando un texto de la app se refiere a él, dice «Roy», nunca «la escalera» («Se le desarmó Roy»). Se dibuja en 3D medio isométrico, con las tablitas de colores del juguete de referencia del usuario (fotos y videos del 2026-11-07, no van al repo).
+     - **Cargando**: el juguete en movimiento, la tabla de arriba se da vuelta y el golpe baja tablita por tablita, en bucle. Reemplaza al indicador de espera del §14 (el componente `<Loading>` recibe el caso y dibuja la forma que corresponde).
+     - **Una forma por caso**: con las mismas tablitas arma figuras distintas (colgando, festejo con los brazos arriba, encogerse de hombros, desarmado en el piso, puente, acordeón que piensa, oruga que avanza para los traslados).
+     - Con «reducir movimiento» se muestra la forma quieta, con fundido.
+   - Claude hace **3 estilos toon 3D** con todas las animaciones, en una presentación (link privado + copia en [`mockups/estilo-toon.html`](mockups/estilo-toon.html); https://claude.ai/artifact/XGtofmsjQxt3fqQT7MXTwv). El usuario elige estilo y, por caso, qué animación usar; se implementa recién después.
+   - **Elegido** (2026-11-07): estilo **A · Madera pintada** (madera saturada con cintas, veta y sombra en dos tonos, easing con golpe). Animación por caso:
+     - Cargando: cascada. Sincronizando: va y vuelve. La IA piensa: acordeón. Calculando traslados: oruga.
+     - Me recuperé o todo hecho: festejo. No llego o salteé bloques: hombros. Falla la sync: desarmado. No hay lugar: puente. Nada para hoy: reposo.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
 2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.
@@ -279,6 +289,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - o una fecha exacta, que tiene que ser anterior a la entrega.
      Antes de esa fecha el plan no le asigna bloques. Desde ese momento el plan reparte el trabajo en los días que quedan, y si no entra avisa con las opciones del §5.6. Decidido:
    - Se configura en la **tarea** y en la **materia**: lo de la materia vale para todas sus tareas, salvo que una diga otra cosa.
+   - ✅ Opción **«Empezar antes»** en las decisiones de la Bandeja cuando no entra por la fecha de inicio. Por defecto de Claude: se adelanta a **el último día en que todo entra** (o «ya» si ninguno alcanza), se guarda como fecha en la tarea y se puede deshacer.
    - Por defecto de Claude: el aviso de que no entra sale **al guardar**, con la vista previa del §5.6, y no recién cuando llega la fecha.
 8. **Bun y Rust**: pasar el sistema a Bun y Rust para mejorar los tiempos de compilado y de ejecución. Decidido:
    - **Bun** como gestor de paquetes y para correr los scripts y el CI; Vite, Vitest y Vercel siguen como están.

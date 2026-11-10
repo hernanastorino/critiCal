@@ -1,0 +1,430 @@
+<!doctype html>
+<html lang="es">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mascota de critiCal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&display=swap">
+<style>
+/* Layout: one slide per mascot (resumen first). Each slide = two phones with real app situations,
+   a strip of the four states, then pros/cons and the four design questions.
+   Deck chrome has its own palette; phones use critiCal's real tokens. */
+:root {
+  --paper: #eceae6;
+  --panel: #f8f7f5;
+  --ink: #1d1c1a;
+  --ink-soft: #66625c;
+  --rule: rgba(29, 28, 26, 0.14);
+  --accent: #e0262e;
+  --good: #12804a;
+  --bad: #b3261e;
+  --display: "Bricolage Grotesque", "Avenir Next", system-ui, sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+
+  /* critiCal (apps/web/src/styles.css) */
+  --a-bg: #f3f3f4;
+  --a-surface: #ffffff;
+  --a-glass: rgba(120, 120, 128, 0.18);
+  --a-line: rgba(60, 60, 67, 0.12);
+  --a-ink: #1c1c1e;
+  --a-soft: #6c6c72;
+  --a-critical: #e0262e;
+  --a-warn: #b86e00;
+  --a-ok: #12a150;
+  --a-frame: #1d1d1f;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #17171a; --panel: #202024; --ink: #efede9; --ink-soft: #a29e97;
+    --rule: rgba(239, 237, 233, 0.14); --accent: #ff5a5f; --good: #4cc98a; --bad: #ff8a80;
+    --a-bg: #12141a; --a-surface: #1c1f27; --a-glass: rgba(170, 170, 180, 0.16);
+    --a-line: rgba(235, 235, 245, 0.1); --a-ink: #f2f2f4; --a-soft: #9a9aa3;
+    --a-critical: #ff4d55; --a-warn: #f5a524; --a-ok: #34c773; --a-frame: #3a3a3e;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #17171a; --panel: #202024; --ink: #efede9; --ink-soft: #a29e97;
+  --rule: rgba(239, 237, 233, 0.14); --accent: #ff5a5f; --good: #4cc98a; --bad: #ff8a80;
+  --a-bg: #12141a; --a-surface: #1c1f27; --a-glass: rgba(170, 170, 180, 0.16);
+  --a-line: rgba(235, 235, 245, 0.1); --a-ink: #f2f2f4; --a-soft: #9a9aa3;
+  --a-critical: #ff4d55; --a-warn: #f5a524; --a-ok: #34c773; --a-frame: #3a3a3e;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink); font: 15px/1.55 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 0 48px;
+}
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--paper); }
+
+/* Deck nav */
+.deck-head {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--paper); border-bottom: 1px solid var(--rule);
+  display: flex; align-items: center; gap: 12px; padding-block: 12px;
+  max-width: 1120px; margin: 0 auto; flex-wrap: wrap;
+}
+.brand { font: 700 18px/1 var(--display); letter-spacing: -0.01em; margin-right: auto; }
+.brand b { color: var(--accent); font-weight: 700; }
+.steps { display: flex; gap: 4px; flex-wrap: wrap; }
+.steps button, .theme {
+  border: 1px solid var(--rule); background: transparent; border-radius: 999px;
+  padding: 6px 12px; font-size: 13px; cursor: pointer; min-height: 32px;
+}
+.steps button[aria-current="true"] { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+.slide { max-width: 1120px; margin: 0 auto; padding-block: 28px 8px; }
+.slide[hidden] { display: none !important; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft); }
+h1, h2 { font-family: var(--display); letter-spacing: -0.02em; text-wrap: balance; margin: 8px 0 12px; }
+h1 { font-size: clamp(30px, 5vw, 46px); line-height: 1.05; }
+h2 { font-size: clamp(26px, 4vw, 36px); line-height: 1.08; }
+h3 { font: 600 15px/1.3 var(--body); margin: 24px 0 8px; }
+.lede { font-size: 17px; max-width: 62ch; margin: 0; }
+.verdict { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 8px; }
+@media (max-width: 560px) { .verdict { grid-template-columns: minmax(0, 1fr); } }
+.verdict > div { border-top: 2px solid var(--rule); padding-top: 10px; }
+.verdict .pro { border-color: var(--good); }
+.verdict .con { border-color: var(--bad); }
+.verdict h3 { margin-top: 0; }
+.verdict ul { padding-left: 18px; margin: 0; display: grid; gap: 6px; }
+.crit { margin: 24px 0 0; border-top: 1px solid var(--rule); }
+.crit div { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--rule); }
+@media (max-width: 560px) { .crit div { grid-template-columns: minmax(0, 1fr); gap: 2px; } }
+.crit dt { font-weight: 600; }
+.crit dd { margin: 0; }
+.pager { display: flex; justify-content: space-between; gap: 12px; margin-top: 32px; }
+.pager button { border: 1px solid var(--rule); background: var(--panel); border-radius: 999px; padding: 10px 18px; cursor: pointer; min-height: 44px; }
+.pager button[disabled] { visibility: hidden; }
+
+/* Mascot drawing: 32 x 32 grid, 2px line at any size (non-scaling stroke) */
+.m {
+  --m-acc: var(--a-critical);
+  width: var(--s, 48px); height: var(--s, 48px); overflow: visible; flex: none;
+  fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+}
+.m * { vector-effect: non-scaling-stroke; }
+.m .dot { fill: currentColor; stroke: none; }
+.m .acc { stroke: var(--m-acc); }
+.m .ok { stroke: var(--a-ok); }
+.m .warn { stroke: var(--a-warn); }
+.m .mm, .m .arms { transform-box: fill-box; transform-origin: 50% 100%; }
+.s-neutral .mm { animation: breathe 3.2s ease-in-out infinite; }
+.s-shrug .arms { animation: lift 0.6s cubic-bezier(0.2, 0.9, 0.3, 1.3) both; }
+.s-shrug .sweat { animation: drip 2.4s ease-in infinite; }
+.s-cheer .mm { animation: hop 0.7s ease-in-out infinite; }
+.s-cheer .spark { animation: twinkle 1.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.s-wait .mm { animation: sway 2.4s ease-in-out infinite; }
+.s-wait .bub { animation: pulse 1.2s ease-in-out infinite; }
+.s-wait .bub:nth-child(2) { animation-delay: 0.2s; }
+.s-wait .bub:nth-child(3) { animation-delay: 0.4s; }
+@keyframes breathe { 50% { transform: scaleY(1.04); } }
+@keyframes lift { from { transform: translateY(3px); } to { transform: translateY(0); } }
+@keyframes drip { 0%, 60% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(3px); opacity: 0; } }
+@keyframes hop { 50% { transform: translateY(-2.5px); } }
+@keyframes twinkle { 50% { transform: scale(0.6); opacity: 0.5; } }
+@keyframes sway { 50% { transform: rotate(3deg); } }
+@keyframes pulse { 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .m, .m * { animation: none !important; } }
+
+/* Strip of states */
+.states { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+@media (max-width: 720px) { .states { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.state { background: var(--panel); border: 1px solid var(--rule); border-radius: 16px; padding: 14px; display: grid; gap: 8px; justify-items: start; }
+.state .m { color: var(--ink); --m-acc: var(--accent); }
+.state b { font-size: 14px; }
+.state span { font-size: 13px; color: var(--ink-soft); }
+.sizes { display: flex; gap: 14px; align-items: flex-end; }
+.sizes small { font: 11px/1 var(--mono); color: var(--ink-soft); }
+
+/* Resumen grid */
+.sum { margin-top: 20px; overflow-x: auto; }
+.sum-grid { display: grid; grid-template-columns: 150px repeat(4, minmax(110px, 1fr)); min-width: 640px; border-top: 1px solid var(--rule); }
+.sum-grid > * { padding: 14px 8px; border-bottom: 1px solid var(--rule); display: flex; flex-direction: column; justify-content: center; }
+.sum-grid .h { font: 500 11px/1.2 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); padding-block: 8px; }
+.sum-grid .name { font: 700 18px/1.1 var(--display); }
+.sum-grid .name small { font: 12px/1.3 var(--body); color: var(--ink-soft); display: block; margin-top: 2px; }
+.sum-grid .m { color: var(--ink); --m-acc: var(--accent); }
+.sum-grid button { all: unset; cursor: pointer; font-size: 13px; color: var(--accent); margin-top: 6px; }
+.sum-grid button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.note { margin: 20px 0 0; max-width: 62ch; color: var(--ink-soft); font-size: 14px; }
+
+/* Phones */
+.phones { display: flex; flex-wrap: wrap; gap: 40px; margin-top: 20px; }
+.phone-wrap { display: grid; gap: 10px; justify-items: center; align-content: start; max-width: 100%; }
+.cap { font: 500 12px/1.3 var(--mono); letter-spacing: 0.04em; color: var(--ink-soft); text-align: center; max-width: 280px; }
+.phone {
+  width: 280px; max-width: 100%; aspect-ratio: 393 / 760; border-radius: 46px;
+  background: var(--a-frame); padding: 10px; position: relative;
+  box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.45);
+}
+.screen {
+  position: relative; width: 100%; height: 100%; border-radius: 37px; overflow: hidden;
+  background: var(--a-bg); color: var(--a-ink);
+  font: 13px/1.35 -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif;
+  display: flex; flex-direction: column;
+}
+.island { position: absolute; top: 9px; left: 50%; translate: -50% 0; width: 80px; height: 23px; border-radius: 20px; background: #000; z-index: 9; }
+.status { height: 42px; flex: none; display: flex; justify-content: space-between; align-items: center; padding: 6px 24px 0; font-weight: 600; font-size: 12px; }
+.body { flex: 1; min-height: 0; padding: 4px 12px 12px; display: grid; gap: 12px; align-content: start; overflow: hidden; }
+.large { font-weight: 700; font-size: 26px; letter-spacing: -0.02em; margin: 6px 2px 0; }
+.ssub { font-size: 12px; color: var(--a-soft); margin: -8px 2px 0; }
+.card { background: var(--a-surface); border-radius: 16px; padding: 12px; display: grid; gap: 8px; }
+.card .top { display: flex; align-items: center; gap: 8px; justify-content: space-between; }
+.card .m { color: var(--a-ink); }
+.chip { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px; background: var(--a-glass); }
+.chip.crit-c { color: var(--a-critical); }
+.chip.ok-c { color: var(--a-ok); }
+.card h4 { margin: 0; font-size: 14px; line-height: 1.25; }
+.card p { margin: 0; font-size: 12.5px; color: var(--a-soft); }
+.btns { display: grid; gap: 6px; margin-top: 4px; }
+.btn { min-height: 40px; border-radius: 999px; border: 0; font-weight: 600; font-size: 13px; background: var(--a-glass); color: var(--a-ink); }
+.btn.primary { background: var(--a-critical); color: #fff; }
+.btn.primary.ok-b { background: var(--a-ok); }
+.mini { background: var(--a-surface); border-radius: 14px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; font-size: 12.5px; }
+.mini small { color: var(--a-soft); display: block; font-size: 11.5px; }
+.silo { background: var(--a-surface); border-radius: 14px; padding: 10px 12px; display: grid; gap: 6px; font-size: 12.5px; }
+.silo div:first-child { display: flex; justify-content: space-between; }
+.bar { height: 6px; border-radius: 99px; background: var(--a-glass); overflow: hidden; }
+.bar i { display: block; height: 100%; border-radius: 99px; background: var(--a-ok); }
+.bar i.w { background: var(--a-warn); }
+.tabs { flex: none; display: flex; justify-content: space-around; padding: 8px 6px 16px; border-top: 1px solid var(--a-line); background: var(--a-surface); }
+.tabs div { display: grid; justify-items: center; gap: 2px; font-size: 10px; color: var(--a-soft); }
+.tabs div.on { color: var(--a-critical); }
+.tabs svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+
+<header class="deck-head">
+  <div class="brand">criti<b>Cal</b> · mascota</div>
+  <nav class="steps" id="steps" aria-label="Bocetos"></nav>
+  <button class="theme" id="theme" type="button">Tema: auto</button>
+</header>
+<main id="slides"></main>
+
+<script>
+/* ---------- Mascots: 32x32 grid, 2px line, details in one accent ---------- */
+const MASCOTS = {
+  tic: {
+    name: "Tic", tag: "El relojito", ax: [6, 26], ay: 18, ex: [12.5, 19.5], ey: 15, my: 20.5,
+    body: '<circle cx="16" cy="17" r="10"/><path class="acc" d="M14 4h4M16 4v3"/><path d="M12 27v2.5M20 27v2.5"/>',
+  },
+  punta: {
+    name: "Punta", tag: "El lápiz", ax: [10, 22], ay: 17, ex: [13, 19], ey: 14, my: 19.5,
+    body: '<path d="M10 6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v17H10z"/><path class="acc" d="M10 9h12"/><path d="M10 23l6 7 6-7"/>',
+  },
+  dosi: {
+    name: "Dosi", tag: "La píldora", ax: [9, 23], ay: 18, ex: [13, 19], ey: 16, my: 21.5,
+    body: '<rect x="9" y="2" width="14" height="26" rx="7"/><path class="acc" d="M9 11h14"/><path d="M13 28v2M19 28v2"/>',
+  },
+};
+
+function arm(x, y, s, state) {
+  const p = {
+    neutral: [`l${s * 2.5} 3`, `l${s * 0.5} 2.5`],
+    wait: [`l${s * 2.5} 3`, `l${s * 0.5} 2.5`],
+    shrug: [`l${s * 3.5} 1.5`, `l${s * 0.5} -3.5`],
+    cheer: [`l${s * 3} -2`, `l${s * 0.5} -4`],
+  }[state];
+  return `<path d="M${x} ${y}${p[0]}${p[1]}"/>`;
+}
+
+function face(m, state) {
+  const [l, r] = m.ex, { ey, my } = m;
+  const eye = (x, y) => `<circle class="dot" cx="${x}" cy="${y}" r="1.2"/>`;
+  if (state === "cheer") {
+    return `<path d="M${l - 1.5} ${ey + 0.8}q1.5-2.4 3 0M${r - 1.5} ${ey + 0.8}q1.5-2.4 3 0"/><path d="M13 ${my - 0.5}q3 4.5 6 0z"/>`;
+  }
+  if (state === "shrug") {
+    return `${eye(l, ey)}${eye(r, ey)}<path d="M${l - 1.5} ${ey - 2.2}l3-1.2M${r + 1.5} ${ey - 2.2}l-3-1.2"/><path d="M13.5 ${my}q1.25-1.2 2.5 0t2.5 0"/>`;
+  }
+  if (state === "wait") {
+    return `${eye(l + 0.7, ey - 0.8)}${eye(r + 0.7, ey - 0.8)}<path d="M14.5 ${my}h3"/>`;
+  }
+  return `${eye(l, ey)}${eye(r, ey)}<path d="M13.5 ${my}q2.5 2 5 0"/>`;
+}
+
+function mascot(key, state, size) {
+  const m = MASCOTS[key];
+  const extra = {
+    shrug: '<path class="warn sweat" d="M27 3c1.2 1.6 1.8 2.6 1.8 3.4a1.8 1.8 0 0 1-3.6 0c0-.8.6-1.8 1.8-3.4z"/>',
+    cheer: '<g class="spark ok"><path d="M4 3v4M2 5h4"/></g><g class="spark ok" style="animation-delay:.4s"><path d="M28 6v4M26 8h4"/></g>',
+    wait: '<g><circle class="dot bub" cx="24" cy="6" r="1"/><circle class="dot bub" cx="27" cy="4" r="1.2"/><circle class="dot bub" cx="30" cy="2" r="1.4"/></g>',
+    neutral: "",
+  }[state];
+  const arms = `<g class="arms">${arm(m.ax[0], m.ay, -1, state)}${arm(m.ax[1], m.ay, 1, state)}</g>`;
+  return `<svg class="m s-${state}" style="--s:${size}px" viewBox="0 0 32 32" role="img" aria-label="${m.name}, ${LABEL[state]}"><g class="mm">${m.body}${arms}${face(m, state)}</g>${extra}</svg>`;
+}
+const LABEL = { neutral: "neutra", shrug: "se encoge de hombros", cheer: "festeja", wait: "pensando" };
+
+/* ---------- Copy per mascot (humor sin culpa, siempre con salida) ---------- */
+const COPY = {
+  tic: {
+    badA: "Esta semana el tiempo no da para las 6 h mínimas. Pasa: mejor verlo hoy que el jueves a la noche.",
+    okT: "Volviste a verde", okB: "Parcial Cálculo II ya llega al mínimo. Tic, tac, todo en hora.",
+    shrug: ["Se encoge de hombros", "Algo no entró: no llegás al mínimo, salteaste bloques."],
+    cheer: ["Festeja", "Te recuperaste y volviste a verde."],
+    wait: ["Piensa", "Cargas largas: «Calculando traslados 3 de 8…»."],
+    neutral: ["Neutra", "Vacíos y pantallas sin novedades."],
+    pros: ["El tiempo es el tema de la app: el personaje se entiende sin explicar.", "El círculo es la forma más legible a 32 px.", "Redondo y con línea simple: convive bien con los íconos."],
+    cons: ["Un reloj con cara es lo más visto; se siente genérico.", "Se parece al ícono de «hora» y suma sensación de apuro, justo lo que el §18.1 evita.", "Poco carácter propio: depende del texto para tener gracia."],
+    q: ["Sí. Con ojos de 2 px y la boca se entiende hasta a 32 px.", "Poco. Es sobrio y casi no se mueve en neutro.", "Mucho: círculo y trazo de 2 px, como la rueda de Ajustes.", "Aguanta bien porque es neutro, pero no suma sorpresa."],
+  },
+  punta: {
+    badA: "Se me rompió la punta con este plan: faltan 2 h 30 min del mínimo de esta semana.",
+    okT: "Punta nueva", okB: "Parcial Cálculo II otra vez en verde, con 1 h de margen.",
+    shrug: ["Se encoge de hombros", "Algo no entró: no llegás, salteaste bloques."],
+    cheer: ["Festeja", "Te recuperaste y volviste a verde."],
+    wait: ["Piensa", "Cargas largas mientras «escribe»."],
+    neutral: ["Neutra", "Vacíos y pantallas sin novedades."],
+    pros: ["Silueta propia: nadie lo confunde con otra cosa.", "Es de estudio: parciales, entregas, apuntes.", "Sus reacciones van por la postura (se dobla, salta), no solo por la cara."],
+    cons: ["Es fino: a 32 px la cara queda en 6 px de ancho y los brazos casi se pierden.", "Se parece al ícono de editar; en un botón podría confundirse.", "Los chistes de «punta rota» se agotan rápido."],
+    q: ["Es el que peor se lee: la cara tiene poco lugar. Funciona desde 40 px.", "Poco. Si se muestra como lápiz que escribe, acompaña las cargas.", "Medio: es línea de 2 px, pero su forma es larga y las demás son compactas.", "Varía con la postura; los chistes sí cansan."],
+  },
+  dosi: {
+    badA: "Esto no se arregla con una pastilla, pero sí con dos opciones. Faltan 2 h 30 min del mínimo.",
+    okT: "Receta cumplida", okB: "Parcial Cálculo II vuelve a verde. Dosis justa de estudio.",
+    shrug: ["Se encoge de hombros", "Algo no entró: no llegás, salteaste bloques."],
+    cheer: ["Festeja", "Te recuperaste y volviste a verde."],
+    wait: ["Piensa", "Cargas largas: espera con la tapa en el aire."],
+    neutral: ["Neutra", "Vacíos y pantallas sin novedades."],
+    pros: ["Sale del logo (tres píldoras) y de los silos: es la marca, no un agregado.", "Cápsula de 14 × 26: cara cómoda y ancha a 32 px.", "La división es un buen detalle para el acento rojo."],
+    cons: ["Una pastilla suena a salud o remedio; los chistes de «receta» pueden caer mal.", "Forma simple: menos expresiva en el cuerpo.", "El rojo del detalle está cerca del rojo de «crítico»."],
+    q: ["Sí. Es compacta y tiene la cara más grande de los tres.", "Poco, y la identidad es la de la marca.", "Es el que más encaja: es el logo con cara.", "Cansa poco porque es la marca; el humor depende del texto."],
+  },
+};
+
+const TABS = {
+  week: '<path d="M5 4v16M10 7v10M15 4v8M20 9v11"/>',
+  silo: '<rect x="4" y="3" width="6" height="18" rx="3"/><rect x="14" y="3" width="6" height="18" rx="3"/><path d="M4 14h6M14 9h6"/>',
+  inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v6a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-6z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+};
+const tabBar = (on) =>
+  `<div class="tabs">${[["week", "Semana"], ["silo", "Silos"], ["inbox", "Bandeja"], ["gear", "Ajustes"]]
+    .map(([k, l]) => `<div class="${k === on ? "on" : ""}"><svg viewBox="0 0 24 24" aria-hidden="true">${TABS[k]}</svg>${l}</div>`)
+    .join("")}</div>`;
+
+const phone = (inner) =>
+  `<div class="phone"><div class="island"></div><div class="screen"><div class="status"><span>9:41</span><span>5G</span></div>${inner}</div></div>`;
+
+function screenBandeja(k) {
+  const c = COPY[k];
+  return phone(`<div class="body">
+    <h3 class="large">Bandeja</h3><p class="ssub">2 avisos · 2 – 8 nov</p>
+    <div class="card">
+      <div class="top">${mascot(k, "shrug", 52)}<span class="chip crit-c">Crítico</span></div>
+      <h4>No llegás al mínimo de Parcial Cálculo II</h4>
+      <p>${c.badA}</p>
+      <div class="btns"><button class="btn primary" type="button">Ver opciones</button><button class="btn" type="button">Reacomodar hoy</button></div>
+    </div>
+    <div class="mini"><div>Almuerzo del jueves sin lugar<small>Aviso chico, sin mascota</small></div><span aria-hidden="true">›</span></div>
+  </div>${tabBar("inbox")}`);
+}
+function screenVerde(k) {
+  const c = COPY[k];
+  return phone(`<div class="body">
+    <h3 class="large">Silos</h3><p class="ssub">Cuatrimestre en curso</p>
+    <div class="card">
+      <div class="top">${mascot(k, "cheer", 52)}<span class="chip ok-c">En verde</span></div>
+      <h4>${c.okT}</h4>
+      <p>${c.okB}</p>
+      <div class="btns"><button class="btn primary ok-b" type="button">Ver la semana</button></div>
+    </div>
+    <div class="silo"><div><b>Parcial Cálculo II</b><span>6 h / 6 h</span></div><div class="bar"><i style="width:100%"></i></div></div>
+    <div class="silo"><div><b>Informe Física</b><span>3 h / 5 h</span></div><div class="bar"><i class="w" style="width:60%"></i></div></div>
+  </div>${tabBar("silo")}`);
+}
+
+const stateCard = (k, s) => {
+  const [t, d] = COPY[k][s];
+  return `<div class="state">${mascot(k, s, 64)}<b>${t}</b><span>${d}</span></div>`;
+};
+
+function slideMascot(k, i, prev, next) {
+  const c = COPY[k], m = MASCOTS[k];
+  return `<section class="slide" id="s-${k}" hidden>
+    <div class="eyebrow">Boceto ${i} de 3</div>
+    <h2>${m.name}, ${m.tag.toLowerCase()}</h2>
+    <p class="lede">Línea de 2 px, extremos redondeados y un solo detalle de color. Abajo, dos situaciones reales y sus cuatro estados.</p>
+    <div class="phones">
+      <div class="phone-wrap">${screenBandeja(k)}<div class="cap">Algo sale mal · Bandeja</div></div>
+      <div class="phone-wrap">${screenVerde(k)}<div class="cap">Te recuperás · aviso «Volviste a verde»</div></div>
+    </div>
+    <h3>Los cuatro estados</h3>
+    <div class="states">${["neutral", "shrug", "cheer", "wait"].map((s) => stateCard(k, s)).join("")}</div>
+    <h3>Tamaños reales (32, 40, 64 px)</h3>
+    <div class="sizes state" style="display:flex;flex-wrap:wrap;align-items:flex-end">${["neutral", "shrug", "cheer", "wait"]
+      .map((s) => `<span class="sizes" style="color:var(--ink)">${mascot(k, s, 32)}${mascot(k, s, 40)}${mascot(k, s, 64)}</span>`)
+      .join("")}</div>
+    <div class="verdict">
+      <div class="pro"><h3>Pros</h3><ul>${c.pros.map((x) => `<li>${x}</li>`).join("")}</ul></div>
+      <div class="con"><h3>Contras</h3><ul>${c.cons.map((x) => `<li>${x}</li>`).join("")}</ul></div>
+    </div>
+    <dl class="crit">
+      <div><dt>¿Se lee chica?</dt><dd>${c.q[0]}</dd></div>
+      <div><dt>¿Distrae?</dt><dd>${c.q[1]}</dd></div>
+      <div><dt>¿Encaja con los íconos?</dt><dd>${c.q[2]}</dd></div>
+      <div><dt>¿Cansa a la décima vez?</dt><dd>${c.q[3]}</dd></div>
+    </dl>
+    <div class="pager"><button type="button" data-go="${prev}">← Anterior</button><button type="button" data-go="${next}">Siguiente →</button></div>
+  </section>`;
+}
+
+function slideResumen() {
+  const keys = Object.keys(MASCOTS), states = ["neutral", "shrug", "cheer", "wait"];
+  return `<section class="slide" id="s-resumen">
+    <div class="eyebrow">SPEC §18.1 · Compensar el camino infeliz</div>
+    <h1>Tres mascotas para cuando algo sale mal</h1>
+    <p class="lede">Texto con humor, sin culpa y siempre con el botón que arregla. La mascota se encoge de hombros cuando algo falla y festeja cuando te recuperás. Elegí una; no está implementada.</p>
+    <div class="sum"><div class="sum-grid">
+      <div class="h">Mascota</div>${states.map((s) => `<div class="h">${LABEL[s]}</div>`).join("")}
+      ${keys.map((k) => `<div class="name">${MASCOTS[k].name}<small>${MASCOTS[k].tag}</small><button type="button" data-go="${k}">Ver pantallas →</button></div>${states.map((s) => `<div>${mascot(k, s, 64)}</div>`).join("")}`).join("")}
+    </div></div>
+    <p class="note">Cuándo se encoge de hombros: no llegás al mínimo, salteaste bloques, falló la sincronización, no hay lugar para comer. Cuándo piensa: cargas de más de 1 segundo. Los avisos chicos y los errores junto a un campo no llevan mascota, para que no canse.</p>
+    <p class="note">Con «reducir movimiento» activado ninguna se anima.</p>
+    <div class="pager"><span></span><button type="button" data-go="tic">Empezar con Tic →</button></div>
+  </section>`;
+}
+
+const ORDER = ["resumen", "tic", "punta", "dosi"];
+const NAMES = { resumen: "Resumen", tic: "1 · Tic", punta: "2 · Punta", dosi: "3 · Dosi" };
+document.getElementById("slides").innerHTML =
+  slideResumen() + slideMascot("tic", 1, "resumen", "punta") + slideMascot("punta", 2, "tic", "dosi") + slideMascot("dosi", 3, "punta", "resumen");
+document.getElementById("steps").innerHTML = ORDER.map((k) => `<button type="button" data-go="${k}">${NAMES[k]}</button>`).join("");
+
+function show(k) {
+  if (!ORDER.includes(k)) k = "resumen";
+  for (const id of ORDER) document.getElementById(`s-${id}`).hidden = id !== k;
+  for (const b of document.querySelectorAll(".steps button")) b.setAttribute("aria-current", String(b.dataset.go === k));
+  window.scrollTo(0, 0);
+}
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-go]");
+  if (!b) return;
+  show(b.dataset.go);
+  try {
+    history.replaceState(null, "", `#${b.dataset.go}`);
+  } catch {}
+});
+window.addEventListener("hashchange", () => show(location.hash.slice(1)));
+show(location.hash.slice(1));
+
+const themes = ["auto", "light", "dark"];
+let ti = 0;
+document.getElementById("theme").addEventListener("click", (e) => {
+  ti = (ti + 1) % 3;
+  const t = themes[ti];
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  e.currentTarget.textContent = `Tema: ${t}`;
+});
+</script>
+</html>

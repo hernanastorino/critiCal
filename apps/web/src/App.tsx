@@ -9,6 +9,7 @@ import { ToastProvider } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { localDev } from "./devAuth.js";
+import { clearDrafts } from "./drafts.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { disablePush } from "./push.js";
@@ -299,6 +300,13 @@ export function App({
   const [key, setKey] = useState(0);
   const client = initial ? null : supabase;
   const session = useSession(client);
+  // Whatever way a session ends, the next account does not see what the last one typed.
+  const uid = session?.user?.id;
+  const lastUid = useRef(uid);
+  useEffect(() => {
+    if (lastUid.current !== uid) clearDrafts();
+    lastUid.current = uid;
+  }, [uid]);
   const remember = (m: "login" | "demo") => {
     try {
       globalThis.localStorage?.setItem("critical.mode", m);
@@ -318,6 +326,7 @@ export function App({
       const timeout = new Promise((resolve) => setTimeout(resolve, 3000));
       void Promise.race([unsubscribe, timeout])
         .then(() => clearLocal())
+        .then(clearDrafts)
         .then(() => client.auth.signOut());
     };
     return (
@@ -349,9 +358,13 @@ export function App({
       <Shell
         onReset={() => {
           resetDemo();
+          clearDrafts();
           setKey(key + 1);
         }}
-        onSignOut={() => remember("login")}
+        onSignOut={() => {
+          clearDrafts();
+          remember("login");
+        }}
       />
     </StoreProvider>
   );

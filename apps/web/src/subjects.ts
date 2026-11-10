@@ -8,6 +8,10 @@ export const NO_SUBJECT = "Sin materia";
 /** Seed of its id, so the app and the server create the same one. */
 export const NO_SUBJECT_SEED = "activity:sin-materia";
 
+/** Two names are the same ignoring case and any run of spaces: «Cálculo   II» is «cálculo ii». */
+export const sameName = (a: string, b: string) =>
+  a.trim().replace(/\s+/g, " ").toLowerCase() === b.trim().replace(/\s+/g, " ").toLowerCase();
+
 export const isMateria = (a: Activity) => a.kind === "materia";
 export const isNoSubject = (a: Activity) => !a.kind && a.name === NO_SUBJECT;
 
