@@ -37,7 +37,7 @@ En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada 
    - **Seguridad** primero (sesión o tokens filtrados, errores de permisos o RLS como Postgres 42501 o PGRST301, XSS o CSP, redirecciones abiertas, 401 o 403 de nuestra API, datos de otro usuario).
    - **Bug nuestro**: se arregla.
    - **Ruido** ajeno (extensiones, cortes de red reconocidos): se resuelve en Sentry con el motivo, sin tocar código.
-3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado).
+3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado). Si el PR ya está mergeado pero el Deploy de `main` falló, recuperar ese deploy (un Deploy nuevo sobre el `main` actual) antes de crear otro PR.
 4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `npx biome check .`, `npx tsc -b`, `npx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
 5. Mergear con las reglas de §2 (CodeRabbit terminado sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
 6. Confirmar el deploy de `main` y marcar el issue como resuelto en Sentry, con el link al PR.
@@ -122,6 +122,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
 
+- **Contraste AA que quedó sin cerrar en #84** (SPEC §14 «Contraste AA» sin ✅): en modo claro, las opciones de `ActionSheet` usan `#0a72ff` sobre blanco (4,32:1, menos de 4,5:1); se ve, por ejemplo, al desactivar un hábito. Oscurecer el azul de texto y revisar el resto de los textos azules.
 - **Borradores de Ajustes** (caso muy raro, decidido no arreglarlo en #90): si otro dispositivo cambia una fecha guardada del cuatrimestre con Ajustes abierto y se vuelve a tipear la fecha vieja, el borrador se borra y se pierde la edición (`useDraft`, `Semester.tsx`).
 - Avisos (agente atacante sobre #73): «Deshacer» dura 6 s y por teclado no se llega a tiempo (WCAG 2.2.1: ofrecer más tiempo o un atajo); el aviso tapa la mitad del botón «Guardar» en las hojas; mover un bloque sin consecuencias o «Fijar acá» no ofrecen «Deshacer»; con camino crítico activo se apilan dos avisos rojos que repiten el faltante.
 - Semana (agentes atacantes sobre #76 y #78, anteriores a esos PRs):

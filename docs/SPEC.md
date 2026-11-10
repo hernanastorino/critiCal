@@ -192,7 +192,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Accesibilidad
 
-- ✅ Contraste AA en texto y en los colores de criticidad (además del color, un ícono o una palabra).
+- Contraste AA en texto y en los colores de criticidad (además del color, un ícono o una palabra).
 - ✅ Etiquetas para VoiceOver en todo lo que se toca, incluidos los bloques del calendario y los silos.
 - ✅ El texto respeta el tamaño de letra del sistema sin romper la grilla.
 - ✅ Foco visible y uso completo con teclado en la Mac.
