@@ -155,65 +155,68 @@ export function Connected({
   const flushing = useRef<Promise<boolean> | null>(null);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   /** Writes what is pending; true once the database has everything this device has. */
-  const flush = useCallback((quiet = false): Promise<boolean> => {
-    if (flushing.current) return flushing.current;
-    const run = async () => {
-      // Never finish synchronously: `flushing` must be set before it is cleared.
-      await Promise.resolve();
-      let wrote = false;
-      let rebased = false;
-      try {
-        for (;;) {
-          const target = latest.current;
-          if (!target) break;
-          // Nothing to compare with yet: the database may lack these changes, so this
-          // is not a save (and must not release the unsaved hold).
-          if (stored.current === null) return false;
-          const writes = diffData(stored.current, target);
-          if (nothing(writes)) break;
-          try {
-            await applyWrites(client, writes);
-          } catch (e) {
-            // Another device deleted a task or subject this copy still writes to: drop
-            // them here too and retry once. The baseline stays, so only this device's
-            // own pending changes are written; the server's copy just says what is gone,
-            // and the next reload brings everything else.
-            if (rebased || !isMissingParent(e)) throw e;
-            rebased = true;
-            const server = owned(await loadData(client));
-            const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
-            if (pruned === (latest.current ?? target)) throw e;
-            latest.current = pruned;
-            replace.current?.(pruned);
-            continue;
+  const flush = useCallback(
+    (quiet = false): Promise<boolean> => {
+      if (flushing.current) return flushing.current;
+      const run = async () => {
+        // Never finish synchronously: `flushing` must be set before it is cleared.
+        await Promise.resolve();
+        let wrote = false;
+        let rebased = false;
+        try {
+          for (;;) {
+            const target = latest.current;
+            if (!target) break;
+            // Nothing to compare with yet: the database may lack these changes, so this
+            // is not a save (and must not release the unsaved hold).
+            if (stored.current === null) return false;
+            const writes = diffData(stored.current, target);
+            if (nothing(writes)) break;
+            try {
+              await applyWrites(client, writes);
+            } catch (e) {
+              // Another device deleted a task or subject this copy still writes to: drop
+              // them here too and retry once. The baseline stays, so only this device's
+              // own pending changes are written; the server's copy just says what is gone,
+              // and the next reload brings everything else.
+              if (rebased || !isMissingParent(e)) throw e;
+              rebased = true;
+              const server = owned(await loadData(client));
+              const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
+              if (pruned === (latest.current ?? target)) throw e;
+              latest.current = pruned;
+              replace.current?.(pruned);
+              continue;
+            }
+            stored.current = target;
+            wrote = true;
+            void writeLocal(uid, { data: latest.current ?? target, stored: target });
           }
-          stored.current = target;
-          wrote = true;
-          void writeLocal(uid, { data: latest.current ?? target, stored: target });
+          setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
+          hold("unsaved", false);
+          if (wrote) {
+            // Mirror the new plan into Google once the burst of edits settles.
+            clearTimeout(pushTimer.current);
+            pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
+          }
+          return true;
+        } catch (e) {
+          if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
+          else {
+            reportError(e);
+            if (!quiet) setError(errorMessage(e));
+          }
+          return false;
+        } finally {
+          flushing.current = null;
         }
-        setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
-        hold("unsaved", false);
-        if (wrote) {
-          // Mirror the new plan into Google once the burst of edits settles.
-          clearTimeout(pushTimer.current);
-          pushTimer.current = setTimeout(() => void syncGoogle(client, session), 5000);
-        }
-        return true;
-      } catch (e) {
-        if (isOffline(e)) setStatus((s) => ({ ...s, pending: true, offline: true }));
-        else {
-          reportError(e);
-          if (!quiet) setError(errorMessage(e));
-        }
-        return false;
-      } finally {
-        flushing.current = null;
-      }
-    };
-    // A reload for a new version waits until this lands.
-    flushing.current = saving(run());
-    return flushing.current;
-  }, [client, session, uid, owned]);
+      };
+      // A reload for a new version waits until this lands.
+      flushing.current = saving(run());
+      return flushing.current;
+    },
+    [client, session, uid, owned],
+  );
 
   const onChange = useCallback(
     (_prev: AppData, next: AppData) => {

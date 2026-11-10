@@ -208,7 +208,10 @@ export function Settings({
     if (!onSignOut) return;
     // Bounded: a stalled request must not keep the account from signing out.
     const saved = sync
-      ? await Promise.race([sync.flush(true), new Promise<boolean>((r) => setTimeout(r, 3000, false))])
+      ? await Promise.race([
+          sync.flush(true),
+          new Promise<boolean>((r) => setTimeout(r, 3000, false)),
+        ])
       : true;
     if (!saved) {
       const ok = window.confirm(
