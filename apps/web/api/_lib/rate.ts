@@ -29,6 +29,14 @@ export function limiter(perMinute: number, perDay: number) {
       h.day++;
       return true;
     },
+    /** Gives back the last request's slot (it cost nothing, e.g. no stops near). */
+    refund(user: string) {
+      const h = users.get(user);
+      if (h && h.day > 0) {
+        h.recent.pop();
+        h.day--;
+      }
+    },
     reset() {
       users.clear();
     },

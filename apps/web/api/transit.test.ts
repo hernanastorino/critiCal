@@ -143,6 +143,7 @@ describe("checking a request", () => {
   it("accepts a well-formed one", () => {
     expect(parsePlan(ok, NOW)).toMatchObject({ date: "2026-11-10", mode: "arrive" });
     expect(parsePlan(plan({ dayType: 3 }), NOW)).toMatchObject({ dayType: 3 });
+    expect(parsePlan(plan({ maxTransfers: 2 }), NOW)).toMatchObject({ maxTransfers: 2 });
   });
 
   it.each([
@@ -155,6 +156,8 @@ describe("checking a request", () => {
     ["a date long past", { date: "2026-01-01" }],
     ["a date too far ahead", { date: "2028-01-01" }],
     ["a bad day type", { dayType: 4 }],
+    ["too many transfers", { maxTransfers: 3 }],
+    ["no transfers asked as a number of text", { maxTransfers: "2" }],
   ])("refuses %s", (_name, extra) => {
     expect(parsePlan(plan(extra), NOW)).toBe("bad_request");
   });
@@ -187,6 +190,7 @@ describe("planning", () => {
     expect(body.options[0].legs[0].source).toBe("route");
     expect(body.walkOnly).toBeNull();
     expect(body.dayType).toBe(1);
+    expect(body).toMatchObject({ maxTransfers: 1, raised: false });
     expect(body.feed.version).toMatch(/^dnt:/);
     expect(body.attribution).toMatch(/Intendencia de Montevideo/);
   });
@@ -233,6 +237,17 @@ describe("planning", () => {
     expect(sunday.options.length).toBeGreaterThan(0);
   });
 
+  it("searches with two transfers when asked", async () => {
+    await seed();
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(fetch, () => NOW),
+    );
+    const body = await (await call(plan({ maxTransfers: 2 }))).json();
+    expect(body).toMatchObject({ ok: true, maxTransfers: 2, raised: false });
+    expect(body.options.length).toBeGreaterThan(0);
+  });
+
   it("offers the walk when it is short, and says when no stop is near", async () => {
     await seed();
     vi.stubGlobal(
@@ -276,10 +291,22 @@ describe("planning", () => {
     for (let i = 0; i < 10; i++) expect((await call(plan())).status).toBe(200);
     const res = await call(plan());
     expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
     expect((await res.json()).error).toBe("rate_limited");
     // A bad request does not use up the budget.
     plans.reset();
     for (let i = 0; i < 20; i++) await call(plan({ mode: "x" }));
+    expect((await call(plan())).status).toBe(200);
+  });
+
+  it("does not charge for points with no stop near", async () => {
+    await seed();
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(fetch, () => NOW),
+    );
+    const lost = plan({ from: { lat: -35.1, lon: -56.8 }, to: { lat: -35.1, lon: -56.5 } });
+    for (let i = 0; i < 15; i++) expect((await call(lost)).status).toBe(422);
     expect((await call(plan())).status).toBe(200);
   });
 
@@ -365,5 +392,8 @@ describe("request budget", () => {
     expect(l.take("a", t + 61_000)).toBe(true);
     expect(l.take("a", t + 122_000)).toBe(false);
     expect(l.take("a", t + 86_400_001)).toBe(true);
+    l.refund("a");
+    l.refund("nobody");
+    expect(l.take("a", t + 86_400_002)).toBe(true);
   });
 });

@@ -75,6 +75,12 @@ export interface PlanRequest {
   mode: "arrive" | "depart";
   /** Overrides the weekday's schedule (a holiday runs as Sunday: 3). */
   dayType?: DayType;
+  /**
+   * Most bus changes allowed. Omitted: one, and if no bus gets there the server tries
+   * again with two (`PlanOk.raised`). 1: exactly that, no retry. 2: up to two ("just this
+   * once", or a place that always needs it).
+   */
+  maxTransfers?: 1 | 2;
 }
 
 export interface FeedInfo {
@@ -94,6 +100,10 @@ export interface PlanOk {
   walkOnly: { minutes: number; meters: number } | null;
   /** The day type the schedules were read for. */
   dayType: DayType;
+  /** The most changes the options were searched with. */
+  maxTransfers: 1 | 2;
+  /** True when the options needed a second change that was not asked for (none had one). */
+  raised: boolean;
   feed: FeedInfo;
   /** Always the attribution to show next to bus times. */
   attribution: string;
