@@ -58,6 +58,20 @@ describe("week: details found by the attacker", () => {
     expect(screen.getByText(/semana del 2 – 8 nov/)).toBeTruthy();
   });
 
+  it("«Deshacer» on a meal changed in another week goes to that week", () => {
+    const d = reducer(demoData(NOW), {
+      type: "mealChoice",
+      date: "2026-11-04",
+      kind: "cena",
+      start: 1200,
+      now: NOW,
+    });
+    render(<App fixedNow={NOW} initial={() => d} />);
+    fireEvent.click(screen.getByRole("button", { name: "Semana siguiente" }));
+    fireEvent.click(screen.getByRole("button", { name: /^Deshacer: / }));
+    expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/2 – 8 nov/);
+  });
+
   it("a meal skipped after moving it comes back at the moved time", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(mealPill(/^Cena, mié 21:00/));
@@ -104,8 +118,10 @@ describe("meals saved as data", () => {
       { date: "2026-11-04", kind: "cena", skip: true, start: 1200 },
     ]);
     // A toast's undo does nothing when a later change is on top of its version.
-    const stale = (skipped.planHistory?.at(-1)?.at ?? 0) - 1;
-    expect(reducer(skipped, { type: "undoPlan", only: stale, now: NOW })).toBe(skipped);
+    // Even when two versions carry the same time (the clock did not move).
+    const older = moved.planHistory?.at(-1);
+    expect(older?.at).toBe(skipped.planHistory?.at(-1)?.at);
+    expect(reducer(skipped, { type: "undoPlan", only: older, now: NOW })).toBe(skipped);
     const undone = reducer(skipped, { type: "undoPlan", now: NOW }) as AppData;
     expect(undone.mealChoices).toEqual([{ date: "2026-11-04", kind: "cena", start: 1200 }]);
   });

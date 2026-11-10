@@ -20,7 +20,7 @@ import {
   weekdayShort,
 } from "../format.js";
 import { lanes } from "../lanes.js";
-import type { AppEvent, PlanVersion } from "../model.js";
+import type { AppData, AppEvent, PlanVersion } from "../model.js";
 import {
   isPinned,
   MEAL_NAMES,
@@ -88,16 +88,31 @@ interface Drag {
 }
 
 /**
- * The day an undo will change on the calendar: the first pin that differs between the
- * plan now and the version it goes back to.
+ * The day an undo will change on the calendar: the first pin or meal choice that differs
+ * between the plan now and the version it goes back to.
  */
-function changedWeek(v: PlanVersion | undefined, pins: PlanBlock[], tz: string) {
+function changedWeek(
+  v: PlanVersion | undefined,
+  now: { pins: PlanBlock[]; meals: NonNullable<AppData["mealChoices"]> },
+  tz: string,
+) {
   if (!v) return null;
   const ids = (l: PlanBlock[]) => new Set(l.map((p) => p.id));
-  const [was, is] = [ids(v.pins), ids(pins)];
-  const diff = [...v.pins.filter((p) => !is.has(p.id)), ...pins.filter((p) => !was.has(p.id))];
-  const first = diff.sort((a, b) => a.start - b.start)[0];
-  return first ? localParts(tz, first.start).date : null;
+  const [was, is] = [ids(v.pins), ids(now.pins)];
+  const days = [
+    ...[...v.pins.filter((p) => !is.has(p.id)), ...now.pins.filter((p) => !was.has(p.id))].map(
+      (p) => localParts(tz, p.start).date,
+    ),
+  ];
+  // Meal choices: those only in one of the two lists (by what they say).
+  if (v.mealChoices) {
+    const key = (c: (typeof now.meals)[number]) =>
+      `${c.date}|${c.kind}|${c.skip ?? ""}|${c.start ?? ""}`;
+    const [a, b] = [new Set(v.mealChoices.map(key)), new Set(now.meals.map(key))];
+    for (const c of v.mealChoices) if (!b.has(key(c))) days.push(c.date);
+    for (const c of now.meals) if (!a.has(key(c))) days.push(c.date);
+  }
+  return days.sort()[0] ?? null;
 }
 
 /** Minute of day as the axis writes it: "14" on the hour, "14:30" otherwise. */
@@ -232,7 +247,7 @@ export function Week({
       () => {
         toaster.clear();
         // Only this change: if another one came after (this screen may be gone), nothing.
-        dispatch({ type: "undoPlan", only: latest?.at });
+        dispatch({ type: "undoPlan", only: latest });
       },
       latest,
     );
@@ -615,7 +630,11 @@ export function Week({
               const last = (data.planHistory ?? []).length === 1;
               // What the change touched, if it is in another week: go there, so the
               // undo is seen and not blind.
-              const where = changedWeek(data.planHistory?.at(-1), data.pins ?? [], tz);
+              const where = changedWeek(
+                data.planHistory?.at(-1),
+                { pins: data.pins ?? [], meals: data.mealChoices ?? [] },
+                tz,
+              );
               const away = where && !dates.includes(where) ? where : null;
               dispatch({ type: "undoPlan" });
               if (away) setOffset(weekOffset(away));

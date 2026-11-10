@@ -149,8 +149,8 @@ export type Action =
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
   | { type: "moveEvent"; eventId: string; start: number; end: number; now: number }
   /** Back to the plan as it was before the last reorganization. */
-  /** `only`: the `at` of the version to take back; if another is on top now, nothing happens. */
-  | { type: "undoPlan"; only?: number; now: number }
+  /** `only`: the version to take back; if another is on top now, nothing happens. */
+  | { type: "undoPlan"; only?: PlanVersion; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
   | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
   /** A class-calendar title that is another name of an existing materia. */
@@ -819,7 +819,7 @@ function apply(data: AppData, action: Action): AppData {
     case "undoPlan": {
       const history = data.planHistory ?? [];
       const v = history.at(-1);
-      if (!v || (action.only !== undefined && v.at !== action.only)) return data;
+      if (!v || (action.only !== undefined && v !== action.only)) return data;
       // What already started stays; today's blocks ahead and the inputs come back.
       const kept = data.plan.filter((b) => b.start <= now);
       // A task deleted since then does not come back with its blocks.
