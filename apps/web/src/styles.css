@@ -542,6 +542,11 @@ textarea {
   max-width: 100%;
 }
 
+.snack .roy {
+  margin-block: -6px;
+  margin-inline: -4px 0;
+}
+
 .snack > span {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -1877,16 +1882,6 @@ textarea:focus-visible {
   text-align: left;
 }
 
-.loading-shape {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: 2px solid var(--glass-strong);
-  border-top-color: var(--ink-soft);
-  animation: spin 0.9s linear infinite;
-  flex: none;
-}
-
 .loading-bar {
   width: 160px;
   height: 4px;
@@ -1933,7 +1928,6 @@ textarea:focus-visible {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .loading-shape,
   .skeleton-line,
   .skeleton-day {
     animation: none;
@@ -1955,4 +1949,197 @@ textarea:focus-visible {
 
 .notice-mascot {
   justify-self: center;
+}
+
+/* ---------- Roy (SPEC §18.1): style A, «Madera pintada». Its own block. ---------- */
+
+.roy {
+  --roy-floor: rgba(29, 28, 26, 0.18);
+  --p1: #e5246f;
+  --p2: #6d2a8e;
+  --p3: #ea3f7c;
+  --p4: #f2bd1d;
+  --p5: #1fa88a;
+  --p6: #e5246f;
+  --q1: #f7d64a;
+  --q2: #4fc3e8;
+  --q3: #f59bb8;
+  --roy-ease: cubic-bezier(0.55, 0, 0.25, 1.3);
+  position: relative;
+  display: block;
+  flex: none;
+  perspective: var(--roy-d, 500px);
+  pointer-events: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .roy {
+    --roy-floor: rgba(0, 0, 0, 0.45);
+  }
+}
+
+.roy::after {
+  content: "";
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 2%;
+  height: 8%;
+  background: radial-gradient(closest-side, var(--roy-floor), transparent);
+}
+
+.roy-stage {
+  position: absolute;
+  left: 50%;
+  top: 46%;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transform: scale(var(--roy-s, 0.35)) rotateX(-16deg) rotateY(-30deg);
+}
+
+.roy-blk {
+  --w: 44px;
+  --h: 58px;
+  --d: 8px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  transform-style: preserve-3d;
+  transition-property: transform;
+  transition-timing-function: var(--roy-ease);
+  --grain: repeating-linear-gradient(0deg, rgba(0, 0, 0, 0.05) 0 1px, transparent 1px 4px);
+  --front:
+    var(--grain),
+    linear-gradient(
+      90deg,
+      transparent 24%,
+      var(--r1) 24% 34%,
+      transparent 34% 62%,
+      var(--r2) 62% 72%,
+      transparent 72%
+    ),
+    linear-gradient(160deg, var(--c) 55%, color-mix(in srgb, var(--c) 82%, #000) 55%);
+  --back:
+    var(--grain), linear-gradient(90deg, transparent 42%, var(--r1) 42% 58%, transparent 58%),
+    color-mix(in srgb, var(--c) 90%, #000);
+  --side: color-mix(in srgb, var(--c) 62%, #000);
+  --top: color-mix(in srgb, var(--c) 75%, #fff);
+}
+
+.roy-flip {
+  position: absolute;
+  transform-style: preserve-3d;
+}
+
+.roy-f {
+  position: absolute;
+  left: 0;
+  top: 0;
+  backface-visibility: hidden;
+}
+
+.roy-fr,
+.roy-bk {
+  width: var(--w);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--w) / -2);
+}
+
+.roy-fr {
+  transform: translateZ(calc(var(--d) / 2));
+  background: var(--front);
+}
+
+.roy-bk {
+  transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
+  background: var(--back);
+}
+
+.roy-rt,
+.roy-lf {
+  width: var(--d);
+  height: var(--h);
+  margin: calc(var(--h) / -2) 0 0 calc(var(--d) / -2);
+  background: var(--side);
+}
+
+.roy-rt {
+  transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+}
+
+.roy-lf {
+  transform: rotateY(-90deg) translateZ(calc(var(--w) / 2));
+}
+
+.roy-tp,
+.roy-bt {
+  width: var(--w);
+  height: var(--d);
+  margin: calc(var(--d) / -2) 0 0 calc(var(--w) / -2);
+  background: var(--top);
+}
+
+.roy-tp {
+  transform: rotateX(90deg) translateZ(calc(var(--h) / 2));
+}
+
+.roy-bt {
+  transform: rotateX(-90deg) translateZ(calc(var(--h) / 2));
+}
+
+.roy-blk:nth-child(1) {
+  --c: var(--p1);
+  --r1: var(--q1);
+  --r2: var(--q2);
+}
+.roy-blk:nth-child(2) {
+  --c: var(--p2);
+  --r1: var(--q2);
+  --r2: var(--q3);
+}
+.roy-blk:nth-child(3) {
+  --c: var(--p3);
+  --r1: var(--q3);
+  --r2: var(--q1);
+}
+.roy-blk:nth-child(4) {
+  --c: var(--p4);
+  --r1: var(--q1);
+  --r2: var(--q3);
+}
+.roy-blk:nth-child(5) {
+  --c: var(--p5);
+  --r1: var(--q2);
+  --r2: var(--q1);
+}
+.roy-blk:nth-child(6) {
+  --c: var(--p6);
+  --r1: var(--q3);
+  --r2: var(--q2);
+}
+
+/* Small Roy next to a line of text: no floor shadow. */
+.loading.inline .roy::after,
+.snack .roy::after {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .roy-blk {
+    transition: none;
+  }
+}
+
+.roy-line {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.roy-line .meta {
+  margin: 0;
+  min-width: 0;
 }

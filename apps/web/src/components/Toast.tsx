@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { Roy, type RoyAnim } from "./Roy.js";
 
 /** One notice for the whole app: the same look, tone and time everywhere (SPEC §14). */
 export interface Toast {
@@ -15,10 +16,12 @@ export interface Toast {
   undo?: () => void;
   /** Lets its owner take it back (a plan change makes a drop's undo stale). */
   tag?: unknown;
+  /** Roy at the left of the text, in this shape: plays once and stays still (SPEC §18.1). */
+  roy?: RoyAnim;
 }
 
 interface ToastApi {
-  show: (message: string, opts?: { undo?: () => void; tag?: unknown }) => void;
+  show: (message: string, opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim }) => void;
   /** Takes the notice away, only if it is still the one tagged `tag` when given. */
   clear: (tag?: unknown) => void;
   current: Toast | null;
@@ -106,6 +109,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }}
               onBlur={() => release(focus)}
             >
+              {current.roy && <Roy anim={current.roy} size={36} once />}
               <span>{current.message}</span>
               {current.undo && (
                 <button

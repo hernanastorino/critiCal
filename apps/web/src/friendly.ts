@@ -16,3 +16,6 @@ export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opci�
 
 /** Today has nothing left in the plan. */
 export const FREE_TODAY = "Hoy no queda nada por hacer: día libre.";
+
+/** After a replan that fits skipped or moved blocks again (Roy celebrates). */
+export const REPLANNED_TOAST = "Listo, reacomodé el plan. Bien ahí.";

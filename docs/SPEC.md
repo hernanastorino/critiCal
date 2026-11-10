@@ -272,6 +272,13 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Elegido** (2026-11-07): estilo **A · Madera pintada** (madera saturada con cintas, veta y sombra en dos tonos, easing con golpe). Animación por caso:
      - Cargando: cascada. Sincronizando: va y vuelve. La IA piensa: acordeón. Calculando traslados: oruga.
      - Me recuperé o todo hecho: festejo. No llego o salteé bloques: hombros. Falla la sync: desarmado. No hay lugar: puente. Nada para hoy: reposo.
+   - ✅ **Implementado** (`components/Roy.tsx`, siempre `aria-hidden`; con «reducir movimiento» queda la forma quieta del caso). Decidido (2026-11-09):
+     - `<Loading>` dibuja a Roy según el caso (genérico: cascada; sync: va y vuelve; IA: acordeón; traslados: oruga), también en `inline`, en miniatura (24 px) en vez de la ruedita. `mascot` lo reemplaza.
+     - Falla la sync (Google o iCloud, en los avisos de Ajustes): desarmado.
+     - No entra o no hay lugar (comidas sin lugar y opciones de «No llegás a todo»): puente.
+     - Nada para hoy (un cambio que deja el día libre): reposo.
+     - Salteé bloques: hombros, también en el aviso de abajo («Anotado, sin culpa»): Roy chico a la izquierda del texto, encoge los hombros una vez y queda quieto.
+     - Festejo: al reacomodar el plan (aceptar un cambio o elegir una salida de la Bandeja) y cuando una entrega llega al 100 % (un silo se cierra; los hábitos no cuentan porque empiezan de nuevo cada semana). No al terminar el día.
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
 2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.

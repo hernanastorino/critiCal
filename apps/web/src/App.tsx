@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
+import { Celebrations } from "./components/Celebrations.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { Settings } from "./components/Settings.js";
@@ -57,6 +58,7 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
   return (
     // The one notice area of the app, above the tab bar.
     <ToastProvider>
+      <Celebrations />
       <div className="app">
         {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
         {tab === "silos" && <Silos />}

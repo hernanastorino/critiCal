@@ -3,7 +3,13 @@ import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
-import { FREE_TODAY, mealNoRoom, SKIPPED_TOAST, STILL_SHORT } from "../friendly.js";
+import {
+  FREE_TODAY,
+  mealNoRoom,
+  REPLANNED_TOAST,
+  SKIPPED_TOAST,
+  STILL_SHORT,
+} from "../friendly.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { spotFor, spotKey } from "../places.js";
@@ -13,6 +19,7 @@ import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects
 import { BlockSheet } from "./BlockSheet.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
+import { RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -23,6 +30,11 @@ const EAT: Record<MealKind, string> = {
   merienda: "merendar",
   cena: "cenar",
 };
+
+/** What a plan B leaves for today: Roy rests when there is nothing left (SPEC §18.1). */
+function ProposalToday({ text }: { text: string }) {
+  return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
+}
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
@@ -83,7 +95,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
-    if (status === "missed") toast.show(SKIPPED_TOAST);
+    if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros" });
   };
 
   return (
@@ -259,12 +271,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {data.proposals.map((p) => (
           <div key={p.id} className="card">
             <div className="title">{p.message}</div>
-            <p className="meta">
-              {p.plan
+            <ProposalToday
+              text={p.plan
                 .filter((b) => b.start >= now && b.start < endOfDay(tz, now))
                 .map((b) => `${titleOf(b)} ${time(tz, b.start)}`)
-                .join(" · ") || FREE_TODAY}
-            </p>
+                .join(" · ")}
+            />
             <div className="row">
               <button
                 type="button"
@@ -276,7 +288,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn primary"
-                onClick={() => dispatch({ type: "acceptProposal", id: p.id })}
+                onClick={() => {
+                  dispatch({ type: "acceptProposal", id: p.id });
+                  toast.show(REPLANNED_TOAST, { roy: "festejo" });
+                }}
               >
                 Reacomodar
               </button>
@@ -358,13 +373,13 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <div className="title">
               Sin lugar para {m.kind ? EAT[m.kind] : "comer"} · {dayDate(tz, m.preferred.start)}
             </div>
-            <p className="meta">
+            <RoyLine anim="puente">
               {mealNoRoom(
                 time(tz, m.preferred.start - MEAL_RANGE),
                 time(tz, m.preferred.end + MEAL_RANGE),
                 time(tz, (m.at ?? m.preferred).start),
               )}
-            </p>
+            </RoyLine>
             {onDay && (
               <button type="button" className="btn small" onClick={() => onDay(m.date)}>
                 Ver el día
@@ -383,14 +398,17 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
                 <div className="title">{o.label}</div>
-                <p className="meta">
+                <RoyLine anim="puente">
                   {o.result.feasible ? "Con esto llegás a todos los mínimos." : STILL_SHORT}
-                </p>
+                </RoyLine>
                 <button
                   type="button"
                   className="btn small"
                   aria-label={`Elegir: ${o.label}`}
-                  onClick={() => dispatch({ type: "applyOption", optionId: o.id })}
+                  onClick={() => {
+                    dispatch({ type: "applyOption", optionId: o.id });
+                    toast.show(REPLANNED_TOAST, { roy: "festejo" });
+                  }}
                 >
                   Elegir
                 </button>
