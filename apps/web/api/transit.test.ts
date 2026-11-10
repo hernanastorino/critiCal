@@ -108,8 +108,9 @@ describe("who may ask", () => {
     expect((await call(big, { Authorization: "Bearer t", "content-length": "5100" })).status).toBe(
       413,
     );
-    // Without a declared length it is still not parsed: the action is missing.
-    expect((await call(big)).status).toBe(400);
+    // Without a declared length it is cut off while reading.
+    expect((await call(big)).status).toBe(413);
+    expect((await call(big, { "x-cron-key": "good-key" })).status).toBe(413);
   });
 
   it("only knows its actions", async () => {

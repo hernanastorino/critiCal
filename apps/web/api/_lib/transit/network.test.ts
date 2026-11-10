@@ -130,6 +130,10 @@ describe("a transfer", () => {
     expect(b?.line).toBe("L2");
     expect(b?.waitMinutes).toBeGreaterThanOrEqual(5);
     expect(b ? b.boardMin - (a?.alightMin ?? 0) : 0).toBeGreaterThanOrEqual(5);
+    // Every minute is counted once: the walk between stops is not also waiting.
+    expect((best?.walkMinutes ?? 0) + (best?.waitMinutes ?? 0) + (best?.rideMinutes ?? 0)).toBe(
+      best?.totalMinutes,
+    );
     expect(best?.legs.map((l) => l.kind)).toContain("bus");
     expect(best?.theoretical).toBe(true);
   });
@@ -189,15 +193,16 @@ describe("schedules by date", () => {
   b.trip(r, [s0, s1], [0, 5], 1, 1500); // weekday service, 01:00 the next morning
   b.trip(r, [s0, s1], [0, 5], 1, 600, { from: 20261201, to: 20261231 });
   b.trip(r, [s0, s1], [0, 5], 1, 700);
+  b.trip(r, [s0, s1], [0, 5], 1, 1438); // leaves 23:58, passes the second stop at 00:03
   const small = buildNetwork([b.build("dnt", null)]);
   const deps = (s: ReturnType<typeof scheduleFor>) => [...(s.deps[0] ?? [])];
 
   it("adds yesterday's trips that run past midnight, 1440 earlier, to today's own", () => {
-    expect(deps(scheduleFor(small, "2026-11-10", 1, 1, "2026-11-09"))).toEqual([60, 700, 1500]);
+    expect(deps(scheduleFor(small, "2026-11-10", 1, 1, "2026-11-09"))).toEqual([-2, 60, 700, 1438, 1500]);
   });
 
   it("leaves out yesterday's when it was another day type, and out-of-range services", () => {
-    expect(deps(scheduleFor(small, "2026-11-10", 1, 3, "2026-11-09"))).toEqual([700, 1500]);
+    expect(deps(scheduleFor(small, "2026-11-10", 1, 3, "2026-11-09"))).toEqual([700, 1438, 1500]);
     expect(deps(scheduleFor(small, "2026-12-10", 1, 1, "2026-12-09"))).toEqual([
       60, 600, 700, 1500,
     ]);

@@ -27,6 +27,7 @@ const schedules = new Map<string, Schedule>();
 /** Tests only. */
 export function resetTransitCache() {
   cache = null;
+  loading = null;
   schedules.clear();
 }
 
@@ -59,22 +60,35 @@ export async function feedInfo(admin: SupabaseClient): Promise<FeedInfo | null> 
   return rows.length ? describeFeeds(rows) : null;
 }
 
+let loading: Promise<Loaded | null> | null = null;
+
 /** The searchable network of the stored feeds, or null before the first import. */
 export async function loadNetwork(admin: SupabaseClient, now = Date.now()): Promise<Loaded | null> {
   if (cache && now - cache.checkedAt < FRESH_MS) return cache.loaded;
+  // Requests that arrive while one is loading share it (the payloads are several MB).
+  loading ??= load(admin, now).finally(() => {
+    loading = null;
+  });
+  return loading;
+}
+
+async function load(admin: SupabaseClient, now: number): Promise<Loaded | null> {
   const info = await feedInfo(admin);
   if (!info) return null;
   if (cache && cache.key === info.version) {
     cache.checkedAt = now;
     return cache.loaded;
   }
-  const { data, error } = await admin.from("transit_feed").select("source, payload");
+  // Versions and payloads in one read, so an import in between cannot mix them.
+  const { data, error } = await admin.from("transit_feed").select(`${COLUMNS}, payload`);
   if (error) throw error;
-  const feeds = ((data ?? []) as { source: Source; payload: string }[]).map((r) =>
-    decodeFeed(r.payload),
-  );
-  const loaded = { net: buildNetwork(feeds), info };
-  cache = { key: info.version, checkedAt: now, loaded };
+  const rows = (data ?? []) as (Row & { payload: string })[];
+  if (!rows.length) return null;
+  const loaded = {
+    net: buildNetwork(rows.map((r) => decodeFeed(r.payload))),
+    info: describeFeeds(rows),
+  };
+  cache = { key: loaded.info.version, checkedAt: now, loaded };
   schedules.clear();
   return loaded;
 }

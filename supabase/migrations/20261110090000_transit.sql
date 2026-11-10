@@ -66,7 +66,7 @@ begin
   select value into cron_key from private.app_config where key = 'cron_key';
   if origin is null then return; end if;
   perform net.http_post(
-    url := origin || '/api/transit-import',
+    url := origin || '/api/transit',
     body := '{}'::jsonb,
     headers := jsonb_build_object('Content-Type', 'application/json', 'X-Cron-Key', cron_key),
     timeout_milliseconds := 60000

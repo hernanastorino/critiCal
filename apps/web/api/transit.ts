@@ -55,6 +55,7 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
   const body = await smallBody(req);
+  if (body === null) return fail("bad_request", 413);
   try {
     if (body.action === "status") return json({ ok: true, feed: await feedInfo(caller.admin) });
     if (body.action !== "plan") return fail("bad_request", 400);
@@ -187,13 +188,28 @@ async function walkingTimes(
   }
 }
 
-/** The JSON body, or {} when it is missing, not JSON or over `MAX_BODY` (also without a content-length). */
-async function smallBody(req: Request): Promise<Record<string, unknown>> {
-  if (!req.headers.get("content-type")?.includes("json")) return {};
-  const text = await req.text();
-  if (text.length > MAX_BODY) return {};
+/**
+ * The JSON body, {} when it is missing or not JSON, or null when it is over `MAX_BODY`:
+ * read as a stream and cut off at the limit, so a body without a content-length is not
+ * buffered whole.
+ */
+async function smallBody(req: Request): Promise<Record<string, unknown> | null> {
+  if (!req.headers.get("content-type")?.includes("json") || !req.body) return {};
+  const reader = req.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY) {
+      await reader.cancel();
+      return null;
+    }
+    chunks.push(value);
+  }
   try {
-    const body = JSON.parse(text);
+    const body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
     return body && typeof body === "object" ? body : {};
   } catch {
     return {};
@@ -208,6 +224,7 @@ async function runImport(req: Request, env: Env): Promise<Response> {
   const { data: ok } = await admin.rpc("check_cron_key", { p_key: key });
   if (!key || !ok) return json({ error: "unauthorized" }, 401);
   const body = await smallBody(req);
+  if (body === null) return fail("bad_request", 413);
   const only: Source[] =
     body.source === "stm" || body.source === "dnt" ? [body.source] : ["dnt", "stm"];
   const results = [];

@@ -86,7 +86,8 @@ export function parseStm(files: StmFiles): { feed: Feed; stats: StmStats } {
     rows.sort((a, c) => a.part - c.part || a.ordinal - c.ordinal);
     const first = rows[0];
     const last = rows[rows.length - 1];
-    if (!first || !last || day < 1 || day > 3) return void skipped++;
+    if (!first || !last || !(day >= 1 && day <= 3) || !Number.isFinite(frecuencia))
+      return void skipped++;
     const route = resolve(first.variant);
     if (!route) {
       unresolved.add(first.variant);
@@ -99,7 +100,7 @@ export function parseStm(files: StmFiles): { feed: Feed; stats: StmStats } {
     let previous = base - WRAP_SLACK;
     for (const row of rows) {
       const at = coords.get(row.stop);
-      if (!at) continue;
+      if (!at || !Number.isFinite(row.hora)) continue;
       let pass = clock(row.hora);
       // Passes only go forward in a trip: a smaller clock time is past midnight.
       while (pass < previous) pass += 1440;

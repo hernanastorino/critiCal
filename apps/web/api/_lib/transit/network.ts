@@ -131,9 +131,12 @@ export function scheduleFor(
     const list = lists[d.p];
     if (!list) continue;
     if (d.d === today && within(d, day)) for (const t of d.t) list.push(t);
-    // Yesterday's trips that run past midnight; earlier ones are over.
-    if (d.d === yesterday && within(d, before))
-      for (const t of d.t) if (t >= 1440) list.push(t - 1440);
+    // Yesterday's trips still running after midnight: they leave late, or reach their last
+    // stop after it. A negative departure still works: stop passes add the offset.
+    if (d.d === yesterday && within(d, before)) {
+      const last = net.patterns[d.p]?.off.at(-1) ?? 0;
+      for (const t of d.t) if (t + last >= 1440) list.push(t - 1440);
+    }
   }
   return { deps: lists.map((l) => Int32Array.from(l.sort((a, b) => a - b))) };
 }
@@ -372,7 +375,7 @@ export function toOption(net: Network, c: Candidate): TransitOption {
   legs.push(first);
   let last = first;
   if (c.b) {
-    const second = ride(c.b, c.b.wait + c.b.walk);
+    const second = ride(c.b, c.b.wait);
     if (c.b.walk > 0)
       legs.push({
         kind: "walk",
