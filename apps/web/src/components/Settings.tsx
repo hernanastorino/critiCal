@@ -22,6 +22,7 @@ import {
   RuleSettings,
   WeekSettings,
 } from "./Preferences.js";
+import { Roy } from "./Roy.js";
 import { SectionOpen } from "./Section.js";
 import { Semester } from "./Semester.js";
 import { SyllabusImport } from "./SyllabusImport.js";
@@ -110,6 +111,11 @@ function Notices({ onOpen }: { onOpen: (id: PageId, from?: HTMLElement) => void 
     <section className="notices" aria-label="Avisos">
       {notices.map((n) => (
         <div key={n.key} className={`notice ${n.key === "home" ? "warn" : "critical"}`}>
+          {n.key !== "home" && (
+            <div className="notice-mascot">
+              <Roy anim="desarmado" size={64} />
+            </div>
+          )}
           <div className="notice-title">
             <I.warn />
             {n.title}
