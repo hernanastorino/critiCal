@@ -52,6 +52,19 @@ export function TaskEditor({
   const [isExam, setIsExam] = useState(!!task?.exam);
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
+  const addUnit = () => {
+    const m = unitTitle.match(/^(.*?)\s*\((\d+)\)\s*$/);
+    if (!unitTitle.trim()) return;
+    setUnits([
+      ...units,
+      {
+        id: newId(),
+        title: (m?.[1] ?? unitTitle).trim(),
+        estimateMinutes: Number(m?.[2] ?? 60),
+      },
+    ]);
+    setUnitTitle("");
+  };
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
@@ -214,6 +227,7 @@ export function TaskEditor({
         <div className="row" style={{ marginBottom: 12 }}>
           <button
             type="button"
+            aria-pressed={kind === "deliverable"}
             className={`btn small${kind === "deliverable" ? " primary" : ""}`}
             onClick={() => setKind("deliverable")}
           >
@@ -221,6 +235,7 @@ export function TaskEditor({
           </button>
           <button
             type="button"
+            aria-pressed={kind === "habit"}
             className={`btn small${kind === "habit" ? " primary" : ""}`}
             onClick={() => setKind("habit")}
           >
@@ -364,27 +379,18 @@ export function TaskEditor({
               ))}
               <div className="row" style={{ marginTop: 8 }}>
                 <input
+                  aria-label="Nueva parte: nombre y minutos entre paréntesis"
                   value={unitTitle}
                   onChange={(e) => setUnitTitle(e.target.value)}
+                  onKeyDown={(e) => {
+                    // Enter that confirms an IME character is not «add».
+                    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                    e.preventDefault();
+                    addUnit();
+                  }}
                   placeholder="Práctico 5 (60)"
                 />
-                <button
-                  type="button"
-                  className="btn small"
-                  onClick={() => {
-                    const m = unitTitle.match(/^(.*?)\s*\((\d+)\)\s*$/);
-                    if (!unitTitle.trim()) return;
-                    setUnits([
-                      ...units,
-                      {
-                        id: newId(),
-                        title: (m?.[1] ?? unitTitle).trim(),
-                        estimateMinutes: Number(m?.[2] ?? 60),
-                      },
-                    ]);
-                    setUnitTitle("");
-                  }}
-                >
+                <button type="button" className="btn small" onClick={addUnit}>
                   Agregar
                 </button>
               </div>
