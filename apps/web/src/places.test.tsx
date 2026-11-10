@@ -684,6 +684,12 @@ describe("claves viejas y direcciones", () => {
     const r = rekeySpots(d);
     expect(r.spots?.map((s) => s.key).sort()).toEqual([spotKey("🏠 Casa"), "casa"].sort());
     expect(rekeySpots(r)).toBe(r);
+    // Same key already twice: the manual one wins in either order.
+    const dup = (list: AppData["spots"]) => rekeySpots({ ...d, spots: list });
+    const auto = { key: "casa", text: "Casa", minutes: 5 };
+    const hand = { key: "casa", text: "Casa", minutes: 9, manual: true };
+    expect(dup([auto, hand]).spots).toEqual([hand]);
+    expect(dup([hand, auto]).spots).toEqual([hand]);
     const gym = { id: "g", name: "Gym", aliases: [] };
     const centro = { id: "c", name: "Otro", aliases: [], address: "Centro" };
     expect(placeFor([gym, centro], "Gym Centro")?.id).toBe("g");

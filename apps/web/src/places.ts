@@ -75,8 +75,8 @@ export function rekeySpots(data: AppData): AppData {
     if (key !== s.key) changed = true;
     const next = key === s.key ? s : { ...s, key };
     const old = byKey.get(key);
+    if (old) changed = true;
     if (!old || (next.manual && !old.manual)) byKey.set(key, next);
-    else changed = true;
   }
   let eventTravel = data.eventTravel;
   if (eventTravel) {

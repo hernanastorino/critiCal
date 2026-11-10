@@ -192,7 +192,9 @@ export const PLAN_HISTORY = 20;
 
 /** Applies `action` and records a plan version for the ones that can be undone. */
 export function reducer(data: AppData, action: Action): AppData {
-  const next = rekeySpots(versioned(data, action, apply(data, action)));
+  // Old keys are fixed before planning, so the plan sees the saved minutes.
+  const base = rekeySpots(data);
+  const next = rekeySpots(versioned(base, action, apply(base, action)));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
   const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
