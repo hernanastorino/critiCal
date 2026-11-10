@@ -27,6 +27,7 @@ type Step = [pose: Pose[], ms: number, hold: number, stagger: number];
 const N = 6;
 const P = 61;
 const V: Pose[] = [...Array(N)].map((_, i) => ({ x: 0, y: (i - 2.5) * P, r: 0 }));
+/** The six boards lying side by side, `dy` px from the middle. */
 const flat = (dy = 52): Pose[] =>
   [...Array(N)].map((_, i) => ({ x: (i - 2.5) * 60, y: dy, r: 90 }));
 const F1: Pose[] = [
@@ -94,6 +95,7 @@ const BR2 = BR.map((b, i) =>
 );
 const REST = flat(46);
 const REST2 = REST.map((b, i) => (i === 5 ? { x: b.x - 4, y: 30, r: 62 } : b));
+/** Lying flat with board `k` lifted: the caterpillar's step. */
 const wave = (k: number): Pose[] =>
   flat(46).map((b, i) =>
     i === k ? { ...b, y: 18 } : Math.abs(i - k) === 1 ? { ...b, y: 32, r: i < k ? 66 : 114 } : b,
@@ -179,6 +181,7 @@ const PERIOD = 2400;
 const STEP = 110;
 const FLIP = 0.13;
 
+/** The CSS transform that puts a board in a pose. */
 const transform = (b: Pose) =>
   `translate3d(${b.x}px,${b.y}px,0) rotateZ(${b.r}deg) rotateX(${b.f ?? 0}deg)`;
 
@@ -197,8 +200,10 @@ function useReducedMotion(): boolean {
   return reduce;
 }
 
+/** The six faces of a board: front, back, right, left, top, bottom. */
 const FACES = ["fr", "bk", "rt", "lf", "tp", "bt"] as const;
 
+/** Draws Roy in the shape `anim`: looping, or once and still with `once` (SPEC §18.1). */
 export function Roy({
   anim,
   size = 120,
