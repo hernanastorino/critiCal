@@ -291,10 +291,22 @@ describe("planning", () => {
     for (let i = 0; i < 10; i++) expect((await call(plan())).status).toBe(200);
     const res = await call(plan());
     expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
     expect((await res.json()).error).toBe("rate_limited");
     // A bad request does not use up the budget.
     plans.reset();
     for (let i = 0; i < 20; i++) await call(plan({ mode: "x" }));
+    expect((await call(plan())).status).toBe(200);
+  });
+
+  it("does not charge for points with no stop near", async () => {
+    await seed();
+    vi.stubGlobal(
+      "fetch",
+      fakeFetch(fetch, () => NOW),
+    );
+    const lost = plan({ from: { lat: -35.1, lon: -56.8 }, to: { lat: -35.1, lon: -56.5 } });
+    for (let i = 0; i < 15; i++) expect((await call(lost)).status).toBe(422);
     expect((await call(plan())).status).toBe(200);
   });
 
@@ -380,5 +392,8 @@ describe("request budget", () => {
     expect(l.take("a", t + 61_000)).toBe(true);
     expect(l.take("a", t + 122_000)).toBe(false);
     expect(l.take("a", t + 86_400_001)).toBe(true);
+    l.refund("a");
+    l.refund("nobody");
+    expect(l.take("a", t + 86_400_002)).toBe(true);
   });
 });

@@ -61,8 +61,15 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
     if (body.action !== "plan") return fail("bad_request", 400);
     const request = parsePlan(body, now);
     if (typeof request === "string") return fail(request, request === "out_of_area" ? 422 : 400);
-    if (!plans.take(caller.uid, now)) return fail("rate_limited", 429);
-    return await computePlan(caller.admin, env, request);
+    if (!plans.take(caller.uid, now)) {
+      const res = fail("rate_limited", 429);
+      res.headers.set("Retry-After", "60");
+      return res;
+    }
+    const res = await computePlan(caller.admin, env, request);
+    // Points with no stop near cost almost nothing: a bad guess does not use up the budget.
+    if (res.status === 422) plans.refund(caller.uid);
+    return res;
   } catch (e) {
     console.error(e);
     await report(env, e, "transit");
