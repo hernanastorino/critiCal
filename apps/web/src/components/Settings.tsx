@@ -206,7 +206,7 @@ export function Settings({
   // possible (offline), say so before it is lost.
   const leave = async () => {
     if (!onSignOut) return;
-    if (sync?.status.pending && !(await sync.flush())) {
+    if (sync && !(await sync.flush())) {
       const ok = window.confirm(
         "Hay cambios que todavía no se guardaron (sin internet). Si salís ahora, se pierden. ¿Salir igual?",
       );
