@@ -201,17 +201,17 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 - La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
 
-## 15. Traslados en ómnibus (Montevideo y Canelones) — pendiente
+## 15. Traslados en ómnibus (Montevideo y Canelones) — datos y servidor ✅, interfaz pendiente
 
 - Elegir por traslado (o por par de lugares) entre **auto** y **ómnibus**.
-- Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas reales por parada, **esperas** y **transbordos**.
+- Tiempos del sistema real: STM de Montevideo y líneas metropolitanas de Canelones — horarios y pasadas por parada, **esperas** y **transbordos**.
 - Sugerir qué ómnibus tomar para minimizar el tiempo puerta a puerta.
 - **Rutas habituales** (ej. casa → trabajo cada día de la semana) guardadas en los datos del usuario con los ómnibus y tiempos elegidos, para no recalcular a diario y tenerlas aunque el teléfono se haya apagado.
 - Decisiones (noviembre 2026, tomadas por Claude a pedido del usuario; se pueden revisar):
-  - **Fuentes**: GTFS del STM publicado en el catálogo de datos abiertos de la IM (incluye las líneas metropolitanas que entran a Canelones) y, si está disponible, el tiempo real de pasadas por parada de la API de la IM. Si alguna línea de Canelones no figura, se usa su horario publicado y se marca como «horario teórico».
-  - **Caché**: el GTFS se descarga y procesa del lado del servidor una vez por semana (cron); las rutas habituales quedan guardadas en los datos del usuario y se recalculan si cambia el GTFS, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (feriado, fin de semana, horario de verano) o si el usuario lo pide. Antes de salir, si hay pasadas en tiempo real, se usan para avisar si el ómnibus elegido ya no llega y proponer otro.
-  - **Interfaz**: un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada.
-  - Para calcular el puerta a puerta, el tramo a pie hasta la parada y desde ella se estima con la distancia a pie (OpenRouteService, perfil a pie).
+  - **Fuentes** (verificadas el 10/11/2026): **no existe un GTFS del STM**. La Intendencia publica las pasadas teóricas por parada de cada variante (CSV, 2,25 millones de filas, regeneradas a diario) y las paradas y variantes como shapefile en UTM; el MTOP/DNT publica un **GTFS real** de las líneas metropolitanas (Canelones y San José). Se importan ambos a un modelo común (`apps/web/api/_lib/transit`). Licencia de Datos Abiertos de Uruguay: se cita la fuente en la interfaz. **No hay tiempo real**: la API de pasadas en vivo de la IM no figura en el catálogo abierto, así que todo se marca como «horario teórico» (queda pendiente si aparece una API pública).
+  - **Caché**: el servidor descarga y compacta los horarios una vez por semana (cron de la base) y los guarda en `transit_feed` (~1 MB: por variante, la hora de salida y los minutos a cada parada; no las 2,3 millones de pasadas). Las rutas habituales (`bus_routes`) guardan la opción elegida y la versión de los horarios; la app las recalcula si cambia la versión, si cambia la hora del evento o del traslado, si el horario guardado no corre ese día (otro día de la semana, feriado o fin de horarios) o si el usuario lo pide (`staleReason` en `apps/web/src/transit.ts`).
+  - **Cálculo**: `POST /api/transit` `{action:"plan"}`: directo o con **un** transbordo, paradas a menos de 900 m a pie, 5 min de margen por transbordo, hasta 3 opciones. «Llegar a las HH:MM» devuelve la salida más tardía que llega a tiempo; «salir a las HH:MM», el primer ómnibus que se alcanza. Los tramos a pie usan OpenRouteService (perfil a pie) y, sin respuesta, la línea recta ×1,3 a 4,8 km/h. Los feriados corren con el horario de domingo (la app manda `dayType: 3`).
+  - **Interfaz** (pendiente): un selector auto/ómnibus en cada lugar guardado (modo por defecto para llegar ahí; hoy no hay columna en `places`) y en cada traslado (para cambiarlo esa vez); el bloque de traslado en ómnibus muestra la línea, la parada y la hora de pasada, y debajo la atribución que devuelve la API.
 
 ## 16. Rediseño de Configuración ✅
 
