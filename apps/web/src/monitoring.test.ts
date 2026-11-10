@@ -13,6 +13,25 @@ describe("monitoring", () => {
     expect(sentry.init).not.toHaveBeenCalled();
   });
 
+  it("starts with everything personal off and no tracing (v11 collects more by default)", async () => {
+    vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
+    vi.resetModules();
+    sentry.init.mockClear();
+    const m = await import("./monitoring.js");
+    await m.startMonitoring();
+    const opts = sentry.init.mock.calls[0]?.[0];
+    expect(opts.tracesSampleRate).toBe(0);
+    expect(opts.dataCollection).toMatchObject({
+      userInfo: false,
+      cookies: false,
+      httpBodies: [],
+      databaseQueryData: false,
+    });
+    expect(opts.integrations).toBeUndefined();
+    expect(opts.replaysSessionSampleRate).toBeUndefined();
+    vi.unstubAllEnvs();
+  });
+
   it("keeps a report made while the SDK loads and sends it once ready", async () => {
     vi.stubEnv("VITE_SENTRY_DSN", "https://k@o1.ingest.sentry.io/1");
     vi.resetModules();
@@ -76,7 +95,7 @@ describe("monitoring", () => {
     await m.startMonitoring();
     expect(sentry.init).toHaveBeenCalledTimes(1);
     expect(sentry.init).toHaveBeenCalledWith(
-      expect.objectContaining({ sendDefaultPii: false, tracesSampleRate: 0 }),
+      expect.objectContaining({ tracesSampleRate: 0 }),
     );
     const e = new Error("boom");
     m.reportError(e);
