@@ -5,6 +5,10 @@ updates:
     schedule: { interval: weekly }
     groups:
       dev-dependencies: { dependency-type: development }
+    # Runtime is Node 24 (.nvmrc, engines): the types stay on major 24.
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

@@ -83,7 +83,12 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
             >
               {t.icon}
               {t.label}
-              {t.id === "inbox" && inboxCount > 0 && <span className="badge">{inboxCount}</span>}
+              {t.id === "inbox" && inboxCount > 0 && (
+                <span className="badge">
+                  <span className="sr-only">, </span>
+                  {inboxCount}
+                </span>
+              )}
             </button>
           ))}
         </nav>

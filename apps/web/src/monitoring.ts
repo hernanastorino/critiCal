@@ -42,7 +42,22 @@ async function load(dsn: string) {
     dsn,
     environment: import.meta.env.MODE,
     // Errors only: no tracing, no replays, nothing about the calendar's contents.
-    sendDefaultPii: false,
+    // v11 collects more unless told otherwise (it replaced sendDefaultPii): everything
+    // that can carry personal data or contents stays off, as it was in v10.
+    dataCollection: {
+      userInfo: false,
+      cookies: false,
+      httpHeaders: {
+        request: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+        response: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+      },
+      httpBodies: [],
+      urlQueryParams: { deny: ["forwarded", "-ip", "remote-", "via", "-user"] },
+      genAI: { inputs: false, outputs: false },
+      databaseQueryData: false,
+      queues: false,
+      graphQL: { document: false, variables: false },
+    },
     tracesSampleRate: 0,
   });
   capture = (e, extra) => Sentry.captureException(e, extra ? { extra } : undefined);
