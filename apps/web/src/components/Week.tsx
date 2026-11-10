@@ -1182,8 +1182,16 @@ function BubbleDialog({
       aria-modal="true"
       aria-label={label}
       className="bubble-card"
-      // Room left under where it sits, minus the tab bar: a tall card scrolls inside it.
-      style={{ ...style, maxHeight: `calc(100dvh - ${Number(style.top ?? 0)}px - 80px)` }}
+      // Where it sits is clamped in CSS, so a resize (a rotation) never pushes it off screen;
+      // the room left under it, minus the tab bar, is never below 10rem: a tall card scrolls inside.
+      style={
+        {
+          ...style,
+          "--bubble-top": `min(${Number(style.top ?? 0)}px, max(8px, calc(100dvh - 80px - 10rem)))`,
+          top: "var(--bubble-top)",
+          maxHeight: "calc(100dvh - var(--bubble-top) - 80px)",
+        } as CSSProperties
+      }
     >
       {children}
     </div>
