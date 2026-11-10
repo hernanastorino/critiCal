@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
-import { earliestStartOf, endOfWeek, progress } from "../planning.js";
+import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { useModal } from "./modal.js";
@@ -23,6 +23,7 @@ export function TaskDetail({
   const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
   const p = progress(data, now).find((x) => x.task.id === task.id);
+  const factor = checkInFactor(data, task.id) ?? 1;
   const [minutes, setMinutes] = useState("");
   const [topics, setTopics] = useState("");
   const [topicsDone, setTopicsDone] = useState("");
@@ -90,7 +91,16 @@ export function TaskDetail({
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
             placeholder="40"
+            aria-describedby="break-note"
           />
+          {factor > 1 && (
+            <span className="meta" id="break-note" style={{ margin: 0 }}>
+              Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
+              {hours(Math.round(240 / factor))} de estudio.
+              {task.units.length > 0 &&
+                " Marcá también las partes hechas: lo que falta se mide por ellas."}
+            </span>
+          )}
         </label>
         {task.units.length > 0 ? (
           <div className="field">
@@ -110,7 +120,7 @@ export function TaskDetail({
               </label>
             ))}
           </div>
-        ) : (
+        ) : task.kind === "habit" ? null : (
           <div className="grid2">
             <label className="field">
               <span>Temas en total</span>

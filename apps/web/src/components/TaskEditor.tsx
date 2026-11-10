@@ -8,6 +8,7 @@ import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
 import { useModal } from "./modal.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
+import { useToast } from "./Toast.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -35,6 +36,7 @@ export function TaskEditor({
   onSaved?: (task: AppTask) => void;
 }) {
   const { data, now, dispatch } = useStore();
+  const toast = useToast();
   const tz = data.settings.timezone;
   const [title, setTitle] = useState(task?.title ?? "");
   const [activityId, setActivityId] = useState(task?.activityId ?? data.activities[0]?.id ?? "new");
@@ -247,6 +249,12 @@ export function TaskEditor({
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
+            onKeyDown={(e) => {
+              // Enter saves, unless it only confirms an IME character.
+              if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+              e.preventDefault();
+              save();
+            }}
             placeholder="Parcial Física I"
           />
         </label>
@@ -341,10 +349,11 @@ export function TaskEditor({
                 />
               </label>
             </div>
-            <div className="field">
-              <span>
-                Partes (opcional: lo que falta se mide por partes hechas). Con peso, si no llegás se
-                pueden dejar afuera las que menos pesan.
+            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              <legend style={{ padding: 0 }}>Partes (opcional)</legend>
+              <span className="meta" style={{ margin: 0 }}>
+                Lo que falta se mide por partes hechas. Con peso, si no llegás se pueden dejar
+                afuera las que menos pesan.
               </span>
               {units.map((u) => (
                 <div key={u.id} className="check">
@@ -394,7 +403,7 @@ export function TaskEditor({
                   Agregar
                 </button>
               </div>
-            </div>
+            </fieldset>
           </>
         ) : (
           <div className="row">
@@ -444,6 +453,14 @@ export function TaskEditor({
               className="btn missed"
               onClick={() => {
                 dispatch({ type: "saveTask", task: { ...task, status: "dropped" } });
+                toast.show(`${task.title} archivada`, {
+                  undo: () =>
+                    dispatch({
+                      type: "unarchive",
+                      taskId: task.id,
+                      status: task.status === "done" ? "done" : "active",
+                    }),
+                });
                 onClose();
               }}
             >

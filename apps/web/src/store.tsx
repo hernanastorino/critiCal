@@ -102,6 +102,8 @@ export type Action =
     }
   | { type: "undoDecision"; id: string; now: number }
   | { type: "resetDetected"; taskId?: string; now: number }
+  /** Takes an archived task back (only its status: later edits to it stay). */
+  | { type: "unarchive"; taskId: string; status: "active" | "done"; now: number }
   | { type: "settings"; settings: Settings; now: number }
   | { type: "preferences"; preferences: Preferences; now: number }
   | { type: "saveActivity"; activity: Activity; now: number }
@@ -235,6 +237,18 @@ function apply(data: AppData, action: Action): AppData {
           : t,
       );
       return refresh({ ...data, tasks, checkIns: [...data.checkIns, checkIn] }, now);
+    }
+    case "unarchive": {
+      if (!data.tasks.some((t) => t.id === action.taskId && t.status === "dropped")) return data;
+      return refresh(
+        {
+          ...data,
+          tasks: data.tasks.map((t) =>
+            t.id === action.taskId ? { ...t, status: action.status } : t,
+          ),
+        },
+        now,
+      );
     }
     case "saveTask": {
       const exists = data.tasks.some((t) => t.id === action.task.id);
