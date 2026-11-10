@@ -149,7 +149,8 @@ export type Action =
   /** A flexible event is planned at `start`–`end` until the calendar shows it moved. */
   | { type: "moveEvent"; eventId: string; start: number; end: number; now: number }
   /** Back to the plan as it was before the last reorganization. */
-  | { type: "undoPlan"; now: number }
+  /** `only`: the version to take back; if another is on top now, nothing happens. */
+  | { type: "undoPlan"; only?: PlanVersion; now: number }
   /** A title from the class calendar: a new materia, or just an event (a talk…). */
   | { type: "classTitle"; title: string; as: "materia" | "event"; now: number }
   /** A class-calendar title that is another name of an existing materia. */
@@ -186,6 +187,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   override: "ajustar el día",
   acceptProposal: "aceptar un cambio propuesto",
   rejectProposal: "rechazar un cambio propuesto",
+  mealChoice: "mover o sacar una comida",
 };
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
@@ -817,7 +819,7 @@ function apply(data: AppData, action: Action): AppData {
     case "undoPlan": {
       const history = data.planHistory ?? [];
       const v = history.at(-1);
-      if (!v) return data;
+      if (!v || (action.only !== undefined && v !== action.only)) return data;
       // What already started stays; today's blocks ahead and the inputs come back.
       const kept = data.plan.filter((b) => b.start <= now);
       // A task deleted since then does not come back with its blocks.
@@ -829,6 +831,8 @@ function apply(data: AppData, action: Action): AppData {
           pins: v.pins.filter((b) => live.has(b.taskId)),
           overrides: v.overrides,
           proposals: v.proposals,
+          // Versions from before meals were kept do not say: the choices stay as they are.
+          ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
           freeTimeUntil: v.freeTimeUntil,
           relaxContextUntil: v.relaxContextUntil,
           tentativeHoldUntil: v.tentativeHoldUntil,
@@ -851,7 +855,10 @@ function apply(data: AppData, action: Action): AppData {
               {
                 date: action.date,
                 kind: action.kind,
-                ...(action.skip ? { skip: true } : { start }),
+                // Skipped, its moved time is kept: putting it back returns it there.
+                ...(action.skip
+                  ? { skip: true, ...(start !== undefined ? { start } : {}) }
+                  : { start }),
               },
             ]
           : [];
@@ -1239,6 +1246,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     ),
     overrides: data.overrides,
     proposals: data.proposals,
+    mealChoices: data.mealChoices ?? [],
     freeTimeUntil: data.freeTimeUntil,
     tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,

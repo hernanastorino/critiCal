@@ -20,7 +20,7 @@ import {
   weekdayShort,
 } from "../format.js";
 import { lanes } from "../lanes.js";
-import type { AppEvent, PlanVersion } from "../model.js";
+import type { AppData, AppEvent, PlanVersion } from "../model.js";
 import {
   isPinned,
   MEAL_NAMES,
@@ -87,6 +87,34 @@ interface Drag {
   target?: { date: string; minute: number } | null;
 }
 
+/**
+ * The day an undo will change on the calendar: the first pin or meal choice that differs
+ * between the plan now and the version it goes back to.
+ */
+function changedWeek(
+  v: PlanVersion | undefined,
+  now: { pins: PlanBlock[]; meals: NonNullable<AppData["mealChoices"]> },
+  tz: string,
+) {
+  if (!v) return null;
+  const ids = (l: PlanBlock[]) => new Set(l.map((p) => p.id));
+  const [was, is] = [ids(v.pins), ids(now.pins)];
+  const days = [
+    ...[...v.pins.filter((p) => !is.has(p.id)), ...now.pins.filter((p) => !was.has(p.id))].map(
+      (p) => localParts(tz, p.start).date,
+    ),
+  ];
+  // Meal choices: those only in one of the two lists (by what they say).
+  if (v.mealChoices) {
+    const key = (c: (typeof now.meals)[number]) =>
+      `${c.date}|${c.kind}|${c.skip ?? ""}|${c.start ?? ""}`;
+    const [a, b] = [new Set(v.mealChoices.map(key)), new Set(now.meals.map(key))];
+    for (const c of v.mealChoices) if (!b.has(key(c))) days.push(c.date);
+    for (const c of now.meals) if (!a.has(key(c))) days.push(c.date);
+  }
+  return days.sort()[0] ?? null;
+}
+
 /** Minute of day as the axis writes it: "14" on the hour, "14:30" otherwise. */
 const clock = (m: number) => {
   const h = Math.floor(m / 60) % 24;
@@ -104,16 +132,24 @@ export function Week({
 }) {
   const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;
-  // Opens on the week of `day` (weeks start on the same weekday as `weekDates`).
-  const [offset, setOffset] = useState(() =>
-    day
-      ? Math.round(
-          (zonedInstant(tz, weekDates(tz, zonedInstant(tz, day, 720))[0] as string, 720) -
-            zonedInstant(tz, weekDates(tz, now)[0] as string, 720)) /
-            (7 * DAY_MS),
-        )
-      : 0,
-  );
+  /** Weeks between this one and the week of `date` (weeks start as `weekDates` says). */
+  const weekOffset = (date: string) =>
+    Math.round(
+      (zonedInstant(tz, weekDates(tz, zonedInstant(tz, date, 720))[0] as string, 720) -
+        zonedInstant(tz, weekDates(tz, now)[0] as string, 720)) /
+        (7 * DAY_MS),
+    );
+  /** «2 – 8 nov» for the week of `date`. */
+  const weekLabel = (date: string) => {
+    const w = weekDates(tz, zonedInstant(tz, date, 720));
+    return dayRange(
+      tz,
+      zonedInstant(tz, w[0] as string, 720),
+      zonedInstant(tz, w[6] as string, 720),
+    );
+  };
+  // Opens on the week of `day`.
+  const [offset, setOffset] = useState(() => (day ? weekOffset(day) : 0));
   const [replanning, setReplanning] = useState(false);
   const [replanned, setReplanned] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -197,6 +233,26 @@ export function Week({
     const tag = toaster.current?.tag;
     if (tag && tag !== latest) toaster.clear(tag);
   }, [toaster, latest]);
+  /** What a meal change says once the store shows it: the toast carries its undo. */
+  const mealSaid = useRef<string | null>(null);
+  const sayMeal = (said: string) => {
+    mealSaid.current = said;
+  };
+  useEffect(() => {
+    const said = mealSaid.current;
+    if (!said) return;
+    mealSaid.current = null;
+    flash(
+      said,
+      () => {
+        toaster.clear();
+        // Only this change: if another one came after (this screen may be gone), nothing.
+        dispatch({ type: "undoPlan", only: latest });
+      },
+      latest,
+    );
+  });
+
   useEffect(() => {
     const w = watch.current;
     if (!w) return;
@@ -308,7 +364,13 @@ export function Week({
     const skips = (data.mealChoices ?? []).filter((c) => c.skip);
     if (skips.length === 0) return [];
     return mealTimes(
-      { ...data, mealChoices: (data.mealChoices ?? []).filter((c) => !c.skip) },
+      {
+        ...data,
+        // As if not skipped: where it would be, at the time it had been moved to.
+        mealChoices: (data.mealChoices ?? []).flatMap((c) =>
+          !c.skip ? [c] : c.start !== undefined ? [{ ...c, skip: undefined }] : [],
+        ),
+      },
       now,
       zonedInstant(tz, firstDay, 0),
       zonedInstant(tz, addDays(firstDay, 7), 0),
@@ -431,8 +493,25 @@ export function Week({
   /** Pins the block where it lands; returns the pinned block's new id. */
   const drop = (block: PlanBlock, d: Drag, x: number, y: number) => {
     const target = landing(x, y - d.grab, d.minutes, block.id);
-    if (!target) return null;
+    if (!target) {
+      const why = whyNotHere(x);
+      if (why) flash(why);
+      return null;
+    }
     return pinAt(block, zonedInstant(tz, target.date, target.minute));
+  };
+
+  /** Why a block cannot land on the day under `x`; nothing when it is not over a day. */
+  const whyNotHere = (x: number) => {
+    const col = [...document.querySelectorAll<HTMLElement>("[data-date]")].find((el) => {
+      const r = el.getBoundingClientRect();
+      return x >= r.left && x < r.right;
+    });
+    const date = col?.dataset.date;
+    if (!date) return null;
+    return date < today
+      ? "No se puede mover a un día que ya pasó"
+      : "No hay un hueco libre ahí: probá otra hora u otro día";
   };
 
   // While dragging: the plan's blocks under the landing spot, which it will move.
@@ -549,8 +628,17 @@ export function Week({
             onClick={() => {
               if (!lastChange) return;
               const last = (data.planHistory ?? []).length === 1;
+              // What the change touched, if it is in another week: go there, so the
+              // undo is seen and not blind.
+              const where = changedWeek(
+                data.planHistory?.at(-1),
+                { pins: data.pins ?? [], meals: data.mealChoices ?? [] },
+                tz,
+              );
+              const away = where && !dates.includes(where) ? where : null;
               dispatch({ type: "undoPlan" });
-              flash(`Deshecho: ${lastChange}`);
+              if (away) setOffset(weekOffset(away));
+              flash(`Deshecho: ${lastChange}${away ? ` · semana del ${weekLabel(away)}` : ""}`);
               setSpoken("");
               // The button hides with the last change: the keyboard goes to its neighbour.
               if (last) requestAnimationFrame(() => replanRef.current?.focus());
@@ -636,11 +724,13 @@ export function Week({
                       className="pill meal skipped"
                       style={style}
                       onClick={() => {
-                        dispatch({ type: "mealChoice", date: m.date, kind });
-                        toaster.show(`${mealName(m)} otra vez a su hora`, {
-                          undo: () =>
-                            dispatch({ type: "mealChoice", date: m.date, kind, skip: true }),
-                        });
+                        const had = data.mealChoices?.find(
+                          (c) => c.date === m.date && c.kind === kind,
+                        )?.start;
+                        dispatch({ type: "mealChoice", date: m.date, kind, start: had });
+                        sayMeal(
+                          `${mealName(m)} otra vez a ${had !== undefined ? "la hora que le habías puesto" : "su hora"}`,
+                        );
                       }}
                     />
                   );
@@ -916,7 +1006,8 @@ export function Week({
             }}
             onPin={(block) => {
               setBubble(null);
-              pinAt(block, block.start);
+              // The block gets a new id: focus goes to the pinned one, not to the page.
+              setFocusId(pinAt(block, block.start));
               flash("Fijado acá · el resto se acomoda alrededor");
             }}
           />
@@ -932,6 +1023,7 @@ export function Week({
           />
           <MealCard
             bubble={mealBubble}
+            onSaid={sayMeal}
             onClose={() => setMealBubble(null)}
             onSettings={() => {
               setMealBubble(null);
@@ -1206,13 +1298,15 @@ function MealCard({
   bubble,
   onClose,
   onSettings,
+  onSaid,
 }: {
   bubble: MealBubble;
   onClose: () => void;
   onSettings: () => void;
+  /** Tells what was done (the app offers its «Deshacer»). */
+  onSaid: (said: string) => void;
 }) {
   const { data, now, dispatch } = useStore();
-  const toaster = useToast();
   const tz = data.settings.timezone;
   const { meal } = bubble;
   const past = meal.at.end <= now;
@@ -1238,21 +1332,16 @@ function MealCard({
   const choose = (choice: { start?: number; skip?: boolean }, said: string) => {
     if (!kind) return;
     const before = data.mealChoices?.find((c) => c.date === meal.date && c.kind === kind);
-    dispatch({ type: "mealChoice", date: meal.date, kind, ...choice });
-    onClose();
-    toaster.show(said, {
-      undo: () =>
-        dispatch({
-          type: "mealChoice",
-          date: meal.date,
-          kind,
-          ...(before?.skip
-            ? { skip: true }
-            : before?.start !== undefined
-              ? { start: before.start }
-              : {}),
-        }),
+    // Skipping a meal that was moved keeps its time, to come back to it.
+    dispatch({
+      type: "mealChoice",
+      date: meal.date,
+      kind,
+      ...(choice.skip && before?.start !== undefined ? { start: before.start } : {}),
+      ...choice,
     });
+    onClose();
+    onSaid(said);
   };
   return (
     <BubbleDialog

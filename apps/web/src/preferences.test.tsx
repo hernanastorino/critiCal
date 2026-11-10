@@ -42,12 +42,22 @@ describe("fixed settings", () => {
     expect(screen.getByText("Mi semana guardada")).toBeTruthy();
   });
 
-  it("clamps a negative morning and shows the saved value", () => {
+  it("does not save a negative morning, and says which field it is", () => {
     const field = screen.getByLabelText("Arreglarse, traslado (min)") as HTMLInputElement;
+    const before = stored().settings.week[1].morningMinutes;
     fireEvent.change(field, { target: { value: "-60" } });
     fireEvent.click(screen.getByText(/^Guardar para/));
-    expect(stored().settings.week[1].morningMinutes).toBe(0);
-    expect(field.value).toBe("0");
+    expect(stored().settings.week[1].morningMinutes).toBe(before);
+    expect(screen.getByText(/«Arreglarse, traslado \(min\)».*0 y 240/)).toBeTruthy();
+    expect(field.value).toBe("-60");
+    expect(field.getAttribute("aria-invalid")).toBe("true");
+    expect(
+      document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent,
+    ).toMatch(/0 y 240/);
+    // 240,4 rounds to 240 but is out of range as typed.
+    fireEvent.change(field, { target: { value: "240,4" } });
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(screen.getByText(/«Arreglarse, traslado \(min\)».*0 y 240/)).toBeTruthy();
   });
 
   it("drops a meal whose duration is zero and keeps at least one day selected", () => {

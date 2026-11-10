@@ -4,6 +4,7 @@ import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { home } from "../places.js";
+import { mealsOf } from "../planning.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
 import { Account } from "./Account.js";
@@ -281,6 +282,22 @@ export function Settings({
         .join(" · ")
     : undefined;
   const weekDay = data.settings.week[localParts(tz, now).weekday];
+  // Every field «Mi semana» edits, not only wake and bed: meals and the rest count too.
+  // Normalized: a day without `morningMinutes` is the same as one with 0, and meals as the planner reads them.
+  // Field by field, in a fixed order (key order in the data must not matter).
+  const routineKey = (d: (typeof data.settings.week)[number]) =>
+    JSON.stringify([
+      d.wake,
+      d.morningMinutes ?? 0,
+      d.bed,
+      d.freeFrom,
+      [...mealsOf(d)]
+        .sort((a, b) => a.start - b.start || (a.kind ?? "").localeCompare(b.kind ?? ""))
+        .map((m) => [m.kind ?? "", m.start, m.end]),
+    ]);
+  const sameRoutine = data.settings.week.every(
+    (d) => routineKey(d) === routineKey(data.settings.week[0] as typeof d),
+  );
 
   const groups: { label: string; pages: (Page | false)[] }[] = [
     {
@@ -302,7 +319,12 @@ export function Settings({
           id: "week",
           title: "Mi semana",
           icon: I.clock,
-          value: weekDay ? `${minutesToHhmm(weekDay.wake)} – ${minutesToHhmm(weekDay.bed)}` : "",
+          // One schedule when the days agree; else it says they differ, not today's alone.
+          value: sameRoutine
+            ? weekDay
+              ? `${minutesToHhmm(weekDay.wake)} – ${minutesToHhmm(weekDay.bed)}`
+              : ""
+            : "Varía",
           content: <WeekSettings />,
         },
         {
