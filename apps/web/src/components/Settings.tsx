@@ -206,7 +206,11 @@ export function Settings({
   // possible (offline), say so before it is lost.
   const leave = async () => {
     if (!onSignOut) return;
-    if (sync && !(await sync.flush())) {
+    // Bounded: a stalled request must not keep the account from signing out.
+    const saved = sync
+      ? await Promise.race([sync.flush(), new Promise<boolean>((r) => setTimeout(r, 3000, false))])
+      : true;
+    if (!saved) {
       const ok = window.confirm(
         "Hay cambios que todavía no se guardaron (sin internet). Si salís ahora, se pierden. ¿Salir igual?",
       );
