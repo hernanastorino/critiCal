@@ -695,3 +695,15 @@ describe("claves viejas y direcciones", () => {
     expect(placeFor([gym, centro], "Gym Centro")?.id).toBe("g");
   });
 });
+
+describe("replace con claves viejas", () => {
+  it("migra los spots antes de planificar", async () => {
+    const { reducer } = await import("./store.js");
+    const old = {
+      ...emptyData(),
+      spots: [{ key: "casa", text: "🏠 Casa", minutes: 7, manual: true }],
+    } as AppData;
+    const r = reducer(emptyData(), { type: "replace", data: old, now: 0 } as never);
+    expect(r.spots?.[0]?.key).not.toBe("casa");
+  });
+});

@@ -214,7 +214,7 @@ function apply(data: AppData, action: Action): AppData {
     case "refresh":
       return refresh(data, now);
     case "replace":
-      return refresh(action.data, now);
+      return refresh(rekeySpots(action.data), now);
     case "checkIn": {
       const checkIn: CheckIn = {
         ...action.checkIn,
