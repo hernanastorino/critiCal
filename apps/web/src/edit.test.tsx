@@ -284,7 +284,7 @@ describe("edit mode", () => {
     expect(toggle.getAttribute("aria-pressed")).toBe("true");
     const capture = vi.fn();
     HTMLElement.prototype.setPointerCapture = capture;
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     // A cancelled gesture (system swipe, context menu) leaves nothing behind.
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 9 });
     fireEvent.pointerMove(pill, { clientX: 60, clientY: 300, pointerId: 9 });
@@ -301,7 +301,7 @@ describe("edit mode", () => {
     expect(document.querySelector(".pill.pinned")).toBeTruthy();
 
     // A tap (no movement) in edit mode opens the bubble instead.
-    const again = document.querySelector(".pill.movable") as HTMLElement;
+    const again = document.querySelector(".pill.planned.movable") as HTMLElement;
     fireEvent.pointerDown(again, { clientX: 10, clientY: 110, pointerId: 2 });
     fireEvent.pointerUp(again, { clientX: 11, clientY: 111, pointerId: 2 });
     expect(document.querySelector(".bubble")).toBeTruthy();
@@ -321,7 +321,7 @@ describe("edit mode", () => {
   it("moves a block with the arrow keys and keeps focus on it", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     pill.focus();
     fireEvent.keyDown(pill, { key: "ArrowDown" });
     const moved = document.querySelector(".pill.pinned") as HTMLElement;
@@ -361,7 +361,7 @@ describe("edit mode", () => {
     const startMin = Math.min(...week.map((d) => d.wake));
     const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
     const hot = () => [...document.querySelectorAll(".hours .hot")].map((e) => e.textContent);
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     // Grab 10px below the pill's top; aim its top at 12:00 exactly.
     const y = ((720 - startMin) / (endMin - startMin)) * 1000 + 10;
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 3 });
@@ -423,7 +423,7 @@ describe("edit mode", () => {
     const week = demoData(NOW).settings.week;
     const startMin = Math.min(...week.map((d) => d.wake));
     const endMin = Math.max(...week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const y = ((750 - startMin) / (endMin - startMin)) * 1000 + 10;
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: 160, clientY: y, pointerId: 4 });
@@ -447,7 +447,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const at = zonedInstant(tz, "2026-11-05", 750);
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
@@ -538,7 +538,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, gym] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });
@@ -564,7 +564,7 @@ describe("edit mode", () => {
     const initial = (n: number) => ({ ...demoData(n), events: [...demoData(n).events, trip] });
     render(<App fixedNow={NOW} initial={initial} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const pill = document.querySelector(".pill.movable") as HTMLElement;
+    const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
     const { x, y } = spot(initial(NOW), at);
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 4 });
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 4 });

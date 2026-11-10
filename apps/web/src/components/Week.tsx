@@ -73,7 +73,10 @@ const LONG_PRESS_MS = 400;
 const DONE_MS = 1500;
 
 interface Drag {
+  /** The block's id, or a meal's key (`meal:date:kind`). */
   id: string;
+  /** Set when a meal is being dragged: it only moves within its own day. */
+  meal?: MealBubble["meal"];
   x0: number;
   y0: number;
   x: number;
@@ -194,6 +197,10 @@ export function Week({
     setBubble({ item, x: e.clientX, y: e.clientY });
   };
   const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
+  const openMeal = (e: React.MouseEvent | React.PointerEvent, meal: MealBubble["meal"]) => {
+    setBubble(null);
+    setMealBubble({ meal, x: e.clientX, y: e.clientY });
+  };
   const [open, setOpen] = useState<Item | null>(null);
 
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
@@ -430,6 +437,8 @@ export function Week({
   const dragMarks =
     drag?.active && drag.target ? [drag.target.minute, drag.target.minute + drag.minutes] : [];
   const draggedBlock = drag ? data.plan.find((b) => b.id === drag.id) : undefined;
+  /** What the ghost and the loupe are drawn with: the block's color, or the meals'. */
+  const dragColor = draggedBlock ? colorOf(draggedBlock) : drag?.meal ? "var(--meal)" : undefined;
 
   /**
    * Snapped landing slot under the finger, moved off what is fixed: busy events that are
@@ -474,6 +483,119 @@ export function Week({
     return minute === null ? null : { date: spot.date, minute };
   };
 
+  /**
+   * The earliest and latest start for a meal of `minutes` on `date`, whole within that
+   * day's waking hours (as «Mover a…» asks) and, today, not before now.
+   */
+  const mealRange = (date: string, minutes: number) => {
+    const slot = data.settings.slotMinutes;
+    const { wake, bed } = wakingDay(data, now, date);
+    const sinceMidnight = (now - zonedInstant(tz, date, 0)) / MINUTE;
+    const earliest = Math.max(wake, date === today ? Math.ceil(sinceMidnight / slot) * slot : 0);
+    return { earliest, latest: bed - minutes };
+  };
+
+  /** The day column under `x`, if the finger is over one. */
+  const dayUnder = (x: number) =>
+    [...document.querySelectorAll<HTMLElement>("[data-date]")].find((el) => {
+      const r = el.getBoundingClientRect();
+      return x >= r.left && x < r.right;
+    })?.dataset.date;
+
+  /** Where a meal dragged by the finger lands: its own day only, snapped, within the waking hours. */
+  const mealLanding = (meal: MealBubble["meal"], x: number, y: number, grab: number) => {
+    const over = dayUnder(x);
+    if (over && over !== meal.date) return null;
+    const col = document.querySelector<HTMLElement>(`[data-date="${meal.date}"]`);
+    if (!col) return null;
+    const r = col.getBoundingClientRect();
+    const minutes = (meal.at.end - meal.at.start) / MINUTE;
+    const spot = dropTarget(
+      [{ date: meal.date, left: r.left, right: r.right, top: r.top, bottom: r.bottom }],
+      r.left + 1,
+      y - grab,
+      startMin,
+      endMin,
+      minutes,
+      data.settings.slotMinutes,
+    );
+    if (!spot) return null;
+    const { earliest, latest } = mealRange(meal.date, minutes);
+    if (latest < earliest) return null;
+    return { date: meal.date, minute: Math.min(latest, Math.max(earliest, spot.minute)) };
+  };
+
+  /** Where `d` would land with the finger at (`x`, `y`). */
+  const landingFor = (d: Drag, x: number, y: number) =>
+    d.meal ? mealLanding(d.meal, x, y, d.grab) : landing(x, y - d.grab, d.minutes, d.id);
+
+  /** Moves a meal to where it lands, that day only; its id when it moved. */
+  const dropMeal = (m: MealBubble["meal"], d: Drag, x: number, y: number) => {
+    if (!m.kind) return null;
+    const target = mealLanding(m, x, y, d.grab);
+    if (!target) {
+      const over = dayUnder(x);
+      if (over && over !== m.date) flash("Una comida se mueve solo dentro de su día");
+      return null;
+    }
+    const start = zonedInstant(tz, target.date, target.minute);
+    if (start === m.at.start) return null;
+    dispatch({ type: "mealChoice", date: m.date, kind: m.kind, start: target.minute });
+    sayMeal(`${mealName(m)} a las ${time(tz, start)}, solo ese día`);
+    return mealKey(m);
+  };
+
+  /** A press on a block or meal: it drags at once while editing, after a long press otherwise. */
+  const startPress = (
+    e: React.PointerEvent<HTMLElement>,
+    id: string,
+    minutes: number,
+    meal?: MealBubble["meal"],
+  ) => {
+    // A new press: an earlier drag's click is no longer coming.
+    dropped.current = { ids: [] };
+    const rect = e.currentTarget.getBoundingClientRect();
+    const press: Drag = {
+      id,
+      meal,
+      x0: e.clientX,
+      y0: e.clientY,
+      x: e.clientX,
+      y: e.clientY,
+      grab: e.clientY - rect.top,
+      minutes,
+      active: editing,
+    };
+    if (editing) e.currentTarget.setPointerCapture?.(e.pointerId);
+    else {
+      const el = e.currentTarget;
+      const pointer = e.pointerId;
+      clearTimeout(pressTimer.current);
+      pressTimer.current = setTimeout(() => {
+        const live = dragRef.current;
+        if (live?.id !== id) return;
+        el.setPointerCapture?.(pointer);
+        navigator.vibrate?.(10);
+        setDrag({ ...live, active: true });
+      }, LONG_PRESS_MS);
+    }
+    setDrag(press);
+  };
+
+  /** The finger moves: a scroll before the long press fires, a drag after it. */
+  const movePress = (e: React.PointerEvent<HTMLElement>, d: Drag) => {
+    const moved = Math.hypot(e.clientX - d.x0, e.clientY - d.y0);
+    if (!d.active) {
+      if (moved > 8) {
+        clearTimeout(pressTimer.current);
+        setDrag(null);
+      }
+      return;
+    }
+    const target = moved < 6 ? null : landingFor(d, e.clientX, e.clientY);
+    setDrag({ ...d, x: e.clientX, y: e.clientY, target });
+  };
+
   /** Pins the block where it lands; returns the pinned block's new id. */
   const drop = (block: PlanBlock, d: Drag, x: number, y: number) => {
     const target = landing(x, y - d.grab, d.minutes, block.id);
@@ -487,11 +609,7 @@ export function Week({
 
   /** Why a block cannot land on the day under `x`; nothing when it is not over a day. */
   const whyNotHere = (x: number) => {
-    const col = [...document.querySelectorAll<HTMLElement>("[data-date]")].find((el) => {
-      const r = el.getBoundingClientRect();
-      return x >= r.left && x < r.right;
-    });
-    const date = col?.dataset.date;
+    const date = dayUnder(x);
     if (!date) return null;
     return date < today
       ? "No se puede mover a un día que ya pasó"
@@ -642,7 +760,8 @@ export function Week({
         <div className="edit-banner">
           <span role="status">
             Arrastrá los bloques a donde quieras, o con el bloque enfocado usá las flechas del
-            teclado. Quedan fijados y el resto se reacomoda.
+            teclado. Quedan fijados y el resto se reacomoda. Las comidas se mueven igual, solo
+            dentro de su día.
           </span>
           <button type="button" className="btn small" onClick={() => setEditing(false)}>
             Listo
@@ -720,17 +839,82 @@ export function Week({
                   const style = position(d, m.at, lane.get(`m:${key}`));
                   if (!style) return null;
                   const moved = m.at.start !== m.preferred.start;
+                  // One that is over cannot be moved or skipped, nor dragged.
+                  const future = m.at.end > now && !!m.kind;
+                  const movable = editing && future;
+                  const dragged = drag?.id === key;
+                  const lifted = dragged && drag.active;
                   return (
                     <button
                       key={`${d}-${key}`}
                       data-at={m.at.start}
                       type="button"
                       aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)} a ${time(tz, m.at.end)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
-                      className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
+                      className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
                       style={style}
+                      onPointerDown={
+                        future
+                          ? (e) => startPress(e, key, (m.at.end - m.at.start) / MINUTE, m)
+                          : undefined
+                      }
+                      onPointerMove={dragged ? (e) => movePress(e, drag) : undefined}
+                      onPointerCancel={
+                        dragged
+                          ? () => {
+                              clearTimeout(pressTimer.current);
+                              setDrag(null);
+                            }
+                          : undefined
+                      }
+                      onPointerUp={
+                        dragged
+                          ? (e) => {
+                              clearTimeout(pressTimer.current);
+                              setDrag(null);
+                              if (!drag.active) return; // a plain tap: onClick opens it
+                              if (!editing) dropped.current = { ids: [key] };
+                              if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 6) {
+                                if (editing) openMeal(e, m);
+                                return;
+                              }
+                              dropMeal(m, drag, e.clientX, e.clientY);
+                            }
+                          : undefined
+                      }
+                      onKeyDown={
+                        movable
+                          ? (e) => {
+                              // Up and down move it by one slot, within its day.
+                              const step = { ArrowUp: -1, ArrowDown: 1 }[e.key];
+                              if (step === undefined || !m.kind) return;
+                              e.preventDefault();
+                              const slot = data.settings.slotMinutes;
+                              const length = (m.at.end - m.at.start) / MINUTE;
+                              const { earliest, latest } = mealRange(m.date, length);
+                              const minute =
+                                (m.at.start - zonedInstant(tz, m.date, 0)) / MINUTE + step * slot;
+                              if (minute < earliest || minute > latest) return;
+                              dispatch({
+                                type: "mealChoice",
+                                date: m.date,
+                                kind: m.kind,
+                                start: minute,
+                              });
+                              sayMeal(
+                                `${mealName(m)} a las ${time(tz, zonedInstant(tz, m.date, minute))}, solo ese día`,
+                              );
+                            }
+                          : undefined
+                      }
+                      onContextMenu={future ? (e) => e.preventDefault() : undefined}
                       onClick={(e) => {
-                        setBubble(null);
-                        setMealBubble({ meal: m, x: e.clientX, y: e.clientY });
+                        // The click that ends a long-press drag is not a tap.
+                        if (e.detail !== 0 && dropped.current.ids.includes(key)) {
+                          dropped.current = { ids: [] };
+                          return;
+                        }
+                        // Pointer taps on movable meals open from onPointerUp.
+                        if (!movable || e.detail === 0) openMeal(e, m);
                       }}
                     />
                   );
@@ -772,58 +956,9 @@ export function Week({
                       className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                       style={{ ...style, ["--c" as string]: colorOf(b) }}
                       onPointerDown={
-                        future
-                          ? (e) => {
-                              // A new press: an earlier drag's click is no longer coming.
-                              dropped.current = { ids: [] };
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              const press: Drag = {
-                                id: b.id,
-                                x0: e.clientX,
-                                y0: e.clientY,
-                                x: e.clientX,
-                                y: e.clientY,
-                                grab: e.clientY - rect.top,
-                                minutes: (b.end - b.start) / MINUTE,
-                                active: editing,
-                              };
-                              if (editing) e.currentTarget.setPointerCapture?.(e.pointerId);
-                              else {
-                                const el = e.currentTarget;
-                                const pointer = e.pointerId;
-                                clearTimeout(pressTimer.current);
-                                pressTimer.current = setTimeout(() => {
-                                  const live = dragRef.current;
-                                  if (live?.id !== b.id) return;
-                                  el.setPointerCapture?.(pointer);
-                                  navigator.vibrate?.(10);
-                                  setDrag({ ...live, active: true });
-                                }, LONG_PRESS_MS);
-                              }
-                              setDrag(press);
-                            }
-                          : undefined
+                        future ? (e) => startPress(e, b.id, (b.end - b.start) / MINUTE) : undefined
                       }
-                      onPointerMove={
-                        dragged
-                          ? (e) => {
-                              const moved = Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0);
-                              if (!drag.active) {
-                                // Moving before the long-press fires is a scroll, not a drag.
-                                if (moved > 8) {
-                                  clearTimeout(pressTimer.current);
-                                  setDrag(null);
-                                }
-                                return;
-                              }
-                              const target =
-                                moved < 6
-                                  ? null
-                                  : landing(e.clientX, e.clientY - drag.grab, drag.minutes, b.id);
-                              setDrag({ ...drag, x: e.clientX, y: e.clientY, target });
-                            }
-                          : undefined
-                      }
+                      onPointerMove={dragged ? (e) => movePress(e, drag) : undefined}
                       // Once, right after a keyboard move: kept, it would pull focus back on
                       // every render (the clock ticks each minute).
                       ref={
@@ -901,7 +1036,7 @@ export function Week({
               ])}
               {drag?.active &&
                 drag.target?.date === d &&
-                draggedBlock &&
+                dragColor &&
                 (() => {
                   const start = zonedInstant(tz, d, drag.target.minute);
                   const ghost = position(d, { start, end: start + drag.minutes * MINUTE });
@@ -910,7 +1045,7 @@ export function Week({
                       <div
                         className="pill planned ghost"
                         aria-hidden
-                        style={{ ...ghost, ["--c" as string]: colorOf(draggedBlock) }}
+                        style={{ ...ghost, ["--c" as string]: dragColor }}
                       />
                     )
                   );
@@ -936,16 +1071,16 @@ export function Week({
           </div>
         )}
       </div>
-      {drag?.active && drag.target && draggedBlock && (
+      {drag?.active && drag.target && dragColor && (
         <Loupe
           x={drag.x}
           y={drag.y}
           date={drag.target.date}
           minute={drag.target.minute}
           minutes={drag.minutes}
-          color={colorOf(draggedBlock)}
+          color={dragColor}
           items={items.filter((i) => i.id !== drag.id)}
-          meals={meals}
+          meals={meals.filter((m) => mealKey(m) !== drag.id)}
           colorOf={colorOf}
         />
       )}
