@@ -114,7 +114,7 @@ function Notices({ onOpen }: { onOpen: (id: PageId, from?: HTMLElement) => void 
         <div key={n.key} className={`notice ${n.key === "home" ? "warn" : "critical"}`}>
           {n.key !== "home" && (
             <div className="notice-mascot">
-              <Roy anim="desarmado" size={64} />
+              <Roy anim="desarmado" size={132} maxWidth={190} />
             </div>
           )}
           <div className="notice-title">

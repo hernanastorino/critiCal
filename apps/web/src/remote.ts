@@ -74,8 +74,17 @@ export interface TravelResult {
   error?: string;
 }
 
-/** Geocodes saved places and computes driving times between them (OpenRouteService). */
-export async function computeTravel(client: SupabaseClient): Promise<TravelResult> {
+/** At most this many trips per call (the server's limit). */
+export const PAIRS_PER_CALL = 60;
+
+/**
+ * Geocodes saved places and computes driving times between them (OpenRouteService).
+ * With `pairs`, only those trips (the ones the plan makes); without, every combination.
+ */
+export async function computeTravel(
+  client: SupabaseClient,
+  pairs?: { from: string; to: string }[],
+): Promise<TravelResult> {
   try {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
@@ -83,7 +92,7 @@ export async function computeTravel(client: SupabaseClient): Promise<TravelResul
     const res = await fetch("/api/travel", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: "{}",
+      body: JSON.stringify(pairs ? { pairs: pairs.slice(0, PAIRS_PER_CALL) } : {}),
     });
     const body = (await res.json().catch(() => null)) as TravelResult | { error?: string } | null;
     return body && "ok" in body ? body : { ok: false, error: body?.error ?? "travel_failed" };

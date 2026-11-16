@@ -562,7 +562,6 @@ textarea {
   background: var(--surface);
   border-radius: 18px;
   box-shadow: 0 10px 34px rgba(0, 0, 0, 0.2);
-  border-left: 5px solid var(--c);
   /* With large system text a tall card scrolls instead of leaving its buttons below the screen. */
   max-height: calc(100dvh - 16px);
   overflow-x: hidden;
@@ -600,8 +599,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 14px 10px;
-  border-top: 1px solid color-mix(in srgb, var(--ink) 10%, transparent);
+  padding: 4px 14px 12px;
   font-size: 0.8125rem;
   color: var(--ink-soft);
 }
@@ -609,6 +607,19 @@ textarea {
 .bubble h3 {
   margin: 0 0 2px;
   font-size: 0.9375rem;
+}
+
+/* Whose block or card it is: a dot of its colour before the title, not an edge. */
+.bubble-card[style*="--c"] .bubble h3::before,
+.card[style*="--c"] > .title:first-child::before {
+  content: "";
+  display: inline-block;
+  width: 0.625rem;
+  height: 0.625rem;
+  margin-right: 0.5rem;
+  border-radius: 50%;
+  background: var(--c);
+  vertical-align: 0.02em;
 }
 
 .bubble p {
@@ -650,33 +661,57 @@ textarea {
   overflow-y: auto;
   background: var(--surface);
   border-radius: 22px 22px 0 0;
-  padding: 10px 18px calc(18px + var(--safe-b));
+  padding: 0 18px calc(18px + var(--safe-b));
   animation: up 0.22s ease-out;
 }
 
+/* Stays at the top while the sheet scrolls, with the grabber: there is always a way out. */
 .sheet-close {
-  position: absolute;
-  top: 10px;
-  right: 12px;
+  position: sticky;
+  top: 8px;
+  z-index: 4;
+  /* Out of the flow: it sits over the grabber bar, at the right. */
+  margin: -38px -6px 6px auto;
   width: 32px;
   height: 32px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: var(--glass);
+  background: color-mix(in srgb, var(--ink) 12%, var(--surface));
   color: var(--ink-soft);
   font-size: 1.125rem;
   line-height: 1;
 }
 
+/* The grabber: a bar that stays on top (drag it down to close, see modal.ts). The pill
+   is drawn with gradients, so the bar under it can hide what scrolls behind. */
 .sheet::before {
   content: "";
   display: block;
-  width: 38px;
-  height: 5px;
-  border-radius: 3px;
-  background: var(--line);
-  margin: 0 auto 12px;
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 46px;
+  margin: 0 -18px;
+  border-radius: 22px 22px 0 0;
+  cursor: grab;
+  --grab: color-mix(in srgb, var(--ink) 24%, var(--surface));
+  background:
+    radial-gradient(circle, var(--grab) 2.5px, transparent 3px) calc(50% - 17px) 10px / 6px 6px
+    no-repeat,
+    radial-gradient(circle, var(--grab) 2.5px, transparent 3px) calc(50% + 17px) 10px / 6px 6px
+    no-repeat,
+    linear-gradient(var(--grab), var(--grab)) center 10.5px / 34px 5px no-repeat,
+    var(--surface);
+}
+
+.sheet.pulling {
+  transition: none;
+  animation: none;
+}
+
+.sheet.settling {
+  transition: transform 0.2s ease-out;
 }
 
 .sheet h2 {
@@ -786,14 +821,54 @@ textarea {
   display: flex;
   gap: 10px;
   align-items: center;
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 8px 0;
   font-size: 0.9375rem;
 }
 
-.check input {
-  width: 20px;
-  height: 20px;
+/* One clean box for every checkbox and radio: the system ones differ in each browser. */
+input[type="checkbox"],
+input[type="radio"] {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, var(--ink) 38%, transparent);
+  border-radius: 7px;
+  background: var(--surface) center / 14px 14px no-repeat;
+  cursor: pointer;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+
+input[type="radio"] {
+  border-radius: 50%;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--ink);
+  background-color: var(--ink);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.4l2.6 2.6L11 4.4'/%3E%3C/svg%3E");
+}
+
+input[type="radio"]:checked {
+  border-color: var(--ink);
+  background-image: radial-gradient(circle, var(--ink) 5px, transparent 5.5px);
+  background-size: 100% 100%;
+}
+
+input[type="checkbox"]:disabled,
+input[type="radio"]:disabled {
+  opacity: 0.45;
+}
+
+@media (prefers-color-scheme: dark) {
+  input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%2312141a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.4l2.6 2.6L11 4.4'/%3E%3C/svg%3E");
+  }
 }
 
 .tag {
@@ -948,7 +1023,6 @@ textarea {
   border-radius: 16px;
   padding: 12px 14px;
   margin-bottom: 8px;
-  border-left: 5px solid var(--c, var(--line));
 }
 
 .card .title {
@@ -956,8 +1030,35 @@ textarea {
 }
 
 .card .meta {
-  margin: 2px 0 10px;
+  margin: 2px 0 14px;
   font-size: 0.8125rem;
+}
+
+/* A section of Ajustes sits on the sheet itself: no box of its own, no edge. */
+.card.prefs {
+  padding: 0;
+  margin: 0;
+  background: none;
+  border-radius: 0;
+}
+
+/* A card inside a sheet (a form, a draft) has the sheet's colour: an outline tells it apart. */
+.sheet .card:not(.prefs) {
+  border: 1px solid var(--line);
+  margin-top: 8px;
+}
+
+/* A line of text right above its button never touches it (a .meta brings its own margin). */
+.roy-line + .btn,
+.roy-line + .row,
+.loading + .row,
+.loading + .btn {
+  margin-top: 14px;
+}
+
+.card > .meta:last-child,
+.card > .roy-line:last-child {
+  margin-bottom: 0;
 }
 
 .empty {
@@ -1349,8 +1450,11 @@ input[type="datetime-local"] {
 }
 
 .activity-row {
-  border-top: 1px solid var(--line);
-  padding: 10px 0;
+  padding: 6px 0;
+}
+
+.activity-head {
+  min-height: 44px;
 }
 
 .activity-head {
@@ -1690,6 +1794,8 @@ input[type="datetime-local"] {
 .week-bar .fill {
   width: 100%;
   background: var(--ok);
+  /* Rounded like the bar it fills, top and bottom. */
+  border-radius: 8px;
 }
 
 .week-bar .fill.critical {
@@ -1766,13 +1872,13 @@ input[type="datetime-local"] {
   padding: 10px 12px;
 }
 
-/* Google and iCloud inside the collapsible Calendarios card: sections, not cards. */
-.calendars .card {
-  padding: 10px 0;
-  margin: 0;
-  border-left: none;
+/* Google and iCloud inside Calendarios: sections told apart by space, not by lines. */
+.sheet .calendars .card {
+  padding: 0;
+  margin: 0 0 24px;
+  border: 0;
   border-radius: 0;
-  border-top: 1px solid var(--line);
+  background: none;
 }
 
 /* A tentative event: counted on, but it may fall through. */
@@ -1879,7 +1985,7 @@ textarea:focus-visible {
 .loading.inline {
   flex-direction: row;
   padding: 4px 0;
-  gap: 8px;
+  gap: 10px;
   text-align: left;
 }
 
@@ -1936,16 +2042,13 @@ textarea:focus-visible {
 }
 
 .notice {
-  display: grid;
   gap: 8px;
   padding: 12px 14px;
-  border-radius: 14px;
-  background: var(--surface);
-  border-left: 4px solid var(--warn);
 }
 
 .notice.error {
-  border-left-color: var(--critical);
+  border-color: color-mix(in srgb, var(--critical) 45%, transparent);
+  background: color-mix(in srgb, var(--critical) 9%, var(--surface));
 }
 
 .notice-mascot {
@@ -1992,11 +2095,13 @@ textarea:focus-visible {
 .roy-stage {
   position: absolute;
   left: 50%;
-  top: 46%;
+  top: 48%;
   width: 0;
   height: 0;
   transform-style: preserve-3d;
-  transform: scale(var(--roy-s, 0.35)) rotateX(-16deg) rotateY(-30deg);
+  /* The shape's own centre goes to the middle of the box (Roy.tsx, `fit`). */
+  transform: scale(var(--roy-s, 0.35)) rotateX(-16deg) rotateY(-30deg)
+    translate3d(var(--roy-x, 0), var(--roy-y, 0), 0);
 }
 
 .roy-blk {
@@ -2137,10 +2242,127 @@ textarea:focus-visible {
 .roy-line {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 12px;
+}
+
+.roy-line + * {
+  margin-top: 12px;
 }
 
 .roy-line .meta {
   margin: 0;
   min-width: 0;
+}
+
+/* ---------- Folded lists (Lugares): closed until asked for ---------- */
+
+.fold {
+  margin-top: 16px;
+}
+
+.fold > summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  background: var(--glass);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.fold > summary::-webkit-details-marker {
+  display: none;
+}
+
+.fold > summary .meta {
+  margin: 0;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A chevron that turns when it opens. */
+.fold > summary::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  margin-right: 4px;
+  border-right: 2px solid var(--ink-soft);
+  border-bottom: 2px solid var(--ink-soft);
+  border-radius: 1px;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 0.2s;
+}
+
+.fold[open] > summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.fold[open] > summary {
+  margin-bottom: 12px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fold > summary::after {
+    transition: none;
+  }
+}
+
+/* A saved place: its name, and under it the other names it goes by. */
+.place-row {
+  align-items: flex-start;
+}
+
+.place-row .btn {
+  min-height: 36px;
+}
+
+.place-aliases {
+  display: block;
+  margin: 2px 0 0;
+  font-size: 0.8125rem;
+}
+
+.add-trip {
+  border: 0;
+  padding: 0;
+  margin: 12px 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.add-trip legend {
+  padding: 0;
+  margin: 0 0 6px;
+}
+
+.add-trip select {
+  flex: 1 1 120px;
+  min-height: 44px;
+}
+
+/* Air around what follows a button, and above a section's sub-headings. */
+.btn + .meta,
+.row + .meta {
+  margin-top: 10px;
+}
+
+.btn + .check,
+.row + .check {
+  margin-top: 8px;
+}
+
+.prefs > .title {
+  margin-top: 24px;
+  margin-bottom: 4px;
+}
+
+.title + .roy-line {
+  margin-top: 8px;
 }

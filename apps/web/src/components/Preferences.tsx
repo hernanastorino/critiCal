@@ -5,7 +5,7 @@ import type { Activity, DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type AppTask, type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, MEAL_NAMES, mealsOf } from "../planning.js";
-import { useStore } from "../store.js";
+import { removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
@@ -514,6 +514,7 @@ export function ActivitySettings() {
 
 function ActivityRow({ activity }: { activity: Activity }) {
   const { data, now, dispatch } = useStore();
+  const toast = useToast();
   const key = `activity:${activity.id}`;
   const [startAfter, setStartAfter, startSaved, startDirty] = useDraft<
     Activity["startAfter"] | null
@@ -718,6 +719,26 @@ function ActivityRow({ activity }: { activity: Activity }) {
             }}
           >
             Guardar {form.name}
+          </button>
+          <button
+            type="button"
+            className="btn danger"
+            style={{ width: "100%" }}
+            onClick={() => {
+              const removed = removedWith(data, activity.id);
+              if (!removed) return;
+              // What was being typed for it goes too.
+              startSaved(activity.startAfter);
+              weeklySaved(studyHours);
+              dispatch({ type: "deleteActivity", activityId: activity.id });
+              const silos = removed.tasks.length;
+              toast.show(
+                `${activity.name} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
+                { undo: () => dispatch({ type: "restoreActivity", removed }) },
+              );
+            }}
+          >
+            Eliminar {activity.name}
           </button>
           {(problem || !hoursOk) && (
             <p className="meta" role="alert" style={{ color: "var(--critical)" }}>

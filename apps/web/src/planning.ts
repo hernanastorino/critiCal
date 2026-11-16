@@ -638,6 +638,56 @@ export function startAfterAt(tz: string, at: number | undefined, now: number): S
   return { date: localParts(tz, at).date };
 }
 
+/** Decisions shown in the inbox this long; older ones are archived (kept, not listed). */
+export const DECISIONS_SHOWN_MS = 7 * 86_400_000;
+
+/**
+ * Routines an older decision dropped for good come back: a decision about a routine
+ * holds for the week it was made in. One made this week becomes a skip until the week
+ * ends; one from an earlier week just comes back. A routine the user ended themself
+ * (`endedAt`) is left alone. Same data back when nothing changes.
+ */
+export function routinesBack(data: AppData, now: number): AppData {
+  const tz = data.settings.timezone;
+  const until = new Map<string, number>();
+  for (const d of data.applied ?? []) {
+    for (const id of d.dropped ?? []) {
+      // The latest decision about it is the one that counts.
+      until.set(id, Math.max(until.get(id) ?? 0, endOfWeek(tz, d.at)));
+    }
+  }
+  if (until.size === 0) return data;
+  let changed = false;
+  const tasks = data.tasks.map((t) => {
+    const end = until.get(t.id);
+    if (end === undefined || t.kind !== "habit" || t.status !== "dropped" || t.endedAt) return t;
+    changed = true;
+    return { ...t, status: "active" as const, ...(end > now ? { skipUntil: end } : {}) };
+  });
+  if (!changed) return data;
+  // Those records are settled: they no longer say the routine is dropped.
+  const applied = data.applied?.map((d) => {
+    const back = d.dropped?.filter((id) => {
+      const t = tasks.find((x) => x.id === id);
+      return t?.kind === "habit" && until.has(id);
+    });
+    if (!back?.length) return d;
+    const rest = d.dropped?.filter((id) => !back.includes(id)) ?? [];
+    const after = d.after && { ...d.after };
+    for (const id of back) if (after?.[id] === "dropped") after[id] = "active";
+    return {
+      ...d,
+      ...(after ? { after } : {}),
+      dropped: rest.length ? rest : undefined,
+      skipUntil: {
+        ...d.skipUntil,
+        ...Object.fromEntries(back.map((id) => [id, endOfWeek(tz, d.at)])),
+      },
+    };
+  });
+  return { ...data, tasks, applied };
+}
+
 /** Turns an engine option back into changes to the user's tasks. */
 export function applyOption(
   data: AppData,
@@ -663,6 +713,9 @@ export function applyOption(
     const old = before.get(task.id);
     if (!old) return task;
     const next = after.get(task.id);
+    // A routine is left out for this week only: next week the plan places it again.
+    if (!next && task.kind === "habit")
+      return { ...task, skipUntil: endOfWeek(data.settings.timezone, now) };
     if (!next) return { ...task, status: "dropped" as const };
     // The engine cuts block time; tasks keep study time (breaks are not work).
     const k =

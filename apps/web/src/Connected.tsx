@@ -16,9 +16,10 @@ import { SPOT_TEXT_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { errorMessage, isNetworkFailure, reportError } from "./monitoring.js";
 import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
-import { home } from "./places.js";
+import { home, missingPairs } from "./places.js";
 import {
   applyWrites,
+  computeTravel,
   connectFakeGoogle,
   diffData,
   isMissingParent,
@@ -322,6 +323,7 @@ export function Connected({
         owned={owned}
       >
         <AutoLocate client={client} flush={flush} />
+        <AutoTravel />
         {children}
       </SyncProvider>
     </StoreProvider>
@@ -589,5 +591,59 @@ function AutoLocate({ client, flush }: { client: SupabaseClient; flush: () => Pr
       }
     })();
   }, [unlocated, client, dispatch, flush, homeKey, round]);
+  return null;
+}
+
+/**
+ * Driving times on demand: when the plan makes a trip between two saved places whose
+ * time is not known, it is looked up in the background, that trip only. Nothing is
+ * worked out for combinations of places nobody travels. A trip that could not be timed
+ * is not asked again until its places change (or the app is opened again).
+ */
+function AutoTravel() {
+  const sync = useSync();
+  const { data, now } = useStore();
+  // The trips change with the data, and at most once an hour with the clock.
+  const hour = Math.floor(now / 3_600_000);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `hour` stands for `now`.
+  const missing = useMemo(() => missingPairs(data, now), [data, hour]);
+  const places = data.places;
+  const keyOf = useCallback(
+    (p: { from: string; to: string }) => {
+      const where = (id: string) => {
+        const place = places?.find((x) => x.id === id);
+        return `${id}|${place?.address ?? ""}|${place?.lat ?? ""},${place?.lon ?? ""}`;
+      };
+      return `${where(p.from)}>${where(p.to)}`;
+    },
+    [places],
+  );
+  const tried = useRef(new Set<string>());
+  const running = useRef(false);
+  const [round, setRound] = useState(0);
+  const offline = !!sync?.status.offline;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `round` only re-runs the effect.
+  useEffect(() => {
+    if (!sync || running.current || offline) return;
+    const batch = missing.filter((p) => !tried.current.has(keyOf(p)));
+    if (batch.length === 0) return;
+    const keys = batch.map(keyOf);
+    for (const k of keys) tried.current.add(k);
+    running.current = true;
+    void (async () => {
+      try {
+        // The server reads places from the database: one just saved must be there.
+        if (!(await sync.flush(true))) {
+          for (const k of keys) tried.current.delete(k);
+          return;
+        }
+        const r = await computeTravel(sync.client, batch);
+        if (r.ok && (r.pairs ?? 0) > 0) await sync.syncNow();
+      } finally {
+        running.current = false;
+        setRound((n) => n + 1);
+      }
+    })();
+  }, [missing, keyOf, sync, offline, round]);
   return null;
 }

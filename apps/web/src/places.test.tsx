@@ -520,7 +520,11 @@ describe("places screens", () => {
     const saved = JSON.parse(screen.getByTestId("places").textContent ?? "[]") as Place[];
     expect(saved.at(-1)).toMatchObject({ name: "Trabajo", aliases: ["Oficina", "WeWork"] });
 
-    const input = screen.getByLabelText("Minutos de Casa a Gym") as HTMLInputElement;
+    // Only the trips in use are listed: another one is typed by hand.
+    expect(screen.queryByLabelText("Minutos de Casa a Gym")).toBeNull();
+    fireEvent.change(screen.getByLabelText("Desde"), { target: { value: "casa" } });
+    fireEvent.change(screen.getByLabelText("Hasta"), { target: { value: "gym" } });
+    const input = screen.getByLabelText("Minutos nuevos de Casa a Gym") as HTMLInputElement;
     fireEvent.focus(input);
     fireEvent.change(input, { target: { value: "15" } });
     await act(async () => {

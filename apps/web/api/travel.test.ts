@@ -199,6 +199,60 @@ describe("travel", () => {
     ]);
   });
 
+  it("with a list of trips, times only those and looks up only their places", async () => {
+    places = [
+      { id: "casa", address: null, lat: -34.8, lon: -56.2 },
+      { id: "facu", address: null, lat: -34.9, lon: -56.1 },
+      { id: "gym", address: "Rivera 1", lat: null, lon: null },
+    ];
+    manual = [];
+    vi.stubGlobal("fetch", async (url: string, init?: RequestInit) => {
+      // The gym is in no trip asked for: its address is not looked up.
+      expect(String(url)).not.toContain("nominatim");
+      expect(JSON.parse(String(init?.body)).locations).toHaveLength(2);
+      return Response.json({
+        durations: [
+          [0, 600],
+          [null, 0],
+        ],
+      });
+    });
+    const res = await handle(req({ pairs: [{ from: "casa", to: "facu" }] }), env);
+    // facu → casa has no route, but nobody asked for it: it is not reported nor deleted.
+    expect(await res.json()).toEqual({
+      ok: true,
+      geocoded: 0,
+      pairs: 1,
+      unroutable: [],
+      ungeocoded: [],
+      noAddress: [],
+    });
+    expect(writes).toEqual([
+      {
+        table: "travel_times",
+        op: "upsert",
+        payload: [{ from_place: "casa", to_place: "facu", minutes: 10, manual: false }],
+      },
+    ]);
+  });
+
+  it("refuses a list of trips that is not one", async () => {
+    for (const pairs of [
+      [],
+      "casa>facu",
+      [{ from: "casa" }],
+      [{ from: "casa", to: "casa" }],
+      [{ from: "casa", to: 3 }],
+      [null],
+      [{ from: "x".repeat(81), to: "facu" }],
+      Array.from({ length: 61 }, (_, i) => ({ from: "casa", to: `p${i}` })),
+    ]) {
+      const res = await handle(req({ pairs }), env);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ ok: false, error: "bad_request" });
+    }
+  });
+
   it("never overwrites manual times when it cannot read them", async () => {
     places = [
       { id: "casa", address: null, lat: -34.8, lon: -56.2 },

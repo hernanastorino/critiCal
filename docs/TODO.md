@@ -63,6 +63,8 @@ Ninguna por ahora. (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 | PR #98 Roy (§18.1, escalera de Jacob toon 3D), sesión `roy`                                                 | Abierto; toca `styles.css` y `Loading`                     | CI, CodeRabbit sobre el último commit, atacante local, merge con las reglas de §2.                                                   |
 | PRs de Dependabot #94 (`supabase-js` 2.119.0) y #101 (`web-push` 4.0.0, versión mayor), sesión `dependabot` | Abiertos (#92, #95, #96, #99 y #100 ya mergeados)          | Validar cada uno y mergear con las reglas de §2.                                                                                     |
 
+| Arreglos visuales (SPEC §18.9), rama `claude/ui-issues-visual-fixes-d4b9e8`                                 | PR abierto, **sin Auto-fix** (pedido del usuario)          | El usuario avisa cómo quedó el CI; después CodeRabbit sobre el último commit y merge con las reglas de §2. Falta la prueba en el simulador de iPhone (se probó en el navegador a 375×812). |
+
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
 ## 2. Reglas de trabajo (decididas por el usuario)

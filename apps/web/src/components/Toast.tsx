@@ -109,7 +109,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }}
               onBlur={() => release(focus)}
             >
-              {current.roy && <Roy anim={current.roy} size={36} once />}
+              {current.roy && <Roy anim={current.roy} size={52} maxWidth={60} once />}
               <span>{current.message}</span>
               {current.undo && (
                 <button
