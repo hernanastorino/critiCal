@@ -44,6 +44,7 @@ import {
   decisions,
   endOfDay,
   endOfWeek,
+  isRunning,
   missedMeals,
   pendingConfirmations,
   pinBlock,
@@ -79,6 +80,8 @@ export type Action =
   | { type: "replace"; data: AppData; now: number }
   | { type: "checkIn"; checkIn: Omit<CheckIn, "id" | "createdAt">; now: number }
   | { type: "saveTask"; task: AppTask; activity?: Activity; now: number }
+  /** Takes one check-in back (and the parts it marked done), e.g. on «Deshacer». */
+  | { type: "undoCheckIn"; id?: string; blockId?: string; now: number }
   | { type: "override"; override: DayOverride; now: number }
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
@@ -224,6 +227,17 @@ export function removedWith(data: AppData, id: string): RemovedActivity | undefi
   };
 }
 
+/** A silo the plan can still put blocks for: running and not past its deadline. */
+const isPlannable = (t: AppTask, now: number) =>
+  isRunning(t, now) && (t.deadline === undefined || t.deadline > now);
+
+/** When a silo is closed, dropped or overdue, its future blocks (and pins) leave the plan. */
+function withoutFutureBlocks(data: AppData, task: AppTask, now: number): AppData {
+  if (isPlannable(task, now)) return data;
+  const stays = (b: { taskId: string; start: number }) => b.taskId !== task.id || b.start <= now;
+  return { ...data, plan: data.plan.filter(stays), pins: (data.pins ?? []).filter(stays) };
+}
+
 /** Applies `action` and records a plan version for the ones that can be undone. */
 export function reducer(data: AppData, action: Action): AppData {
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
@@ -269,6 +283,27 @@ function apply(data: AppData, action: Action): AppData {
       );
       return refresh({ ...data, tasks, checkIns: [...data.checkIns, checkIn] }, now);
     }
+    case "undoCheckIn": {
+      const gone = data.checkIns.find(
+        (c) =>
+          (action.id !== undefined && c.id === action.id) ||
+          (action.blockId !== undefined && c.blockId === action.blockId),
+      );
+      if (!gone) return data;
+      const reopen = new Set(gone.unitIds);
+      const tasks = data.tasks.map((t) =>
+        t.id === gone.taskId && reopen.size > 0
+          ? {
+              ...t,
+              units: t.units.map((u) => (reopen.has(u.id) ? { ...u, doneAt: undefined } : u)),
+            }
+          : t,
+      );
+      return refresh(
+        { ...data, tasks, checkIns: data.checkIns.filter((c) => c.id !== gone.id) },
+        now,
+      );
+    }
     case "unarchive": {
       if (!data.tasks.some((t) => t.id === action.taskId && t.status === "dropped")) return data;
       return refresh(
@@ -287,7 +322,7 @@ function apply(data: AppData, action: Action): AppData {
         ? data.tasks.map((t) => (t.id === action.task.id ? action.task : t))
         : [...data.tasks, action.task];
       const activities = action.activity ? [...data.activities, action.activity] : data.activities;
-      return refresh({ ...data, tasks, activities }, now);
+      return refresh(withoutFutureBlocks({ ...data, tasks, activities }, action.task, now), now);
     }
     case "override": {
       const overrides = [
@@ -928,7 +963,8 @@ function apply(data: AppData, action: Action): AppData {
       // What already started stays; today's blocks ahead and the inputs come back.
       const kept = data.plan.filter((b) => b.start <= now);
       // A task deleted since then does not come back with its blocks.
-      const live = new Set(data.tasks.map((t) => t.id));
+      // Nor does one that is closed, dropped or past its deadline.
+      const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
       return refresh(
         {
           ...data,

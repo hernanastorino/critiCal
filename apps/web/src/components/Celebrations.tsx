@@ -20,9 +20,10 @@ export function justClosed(
  * screen did it. Habits start over every week, so they do not count. Nothing at start-up.
  */
 export function Celebrations() {
-  const { data } = useStore();
+  const { data, dispatch } = useStore();
   const toast = useToast();
   const left = useRef<Map<string, number> | null>(null);
+  const seenCheckIns = useRef<Set<string> | null>(null);
   useEffect(() => {
     const now = new Map<string, { title: string; left: number }>();
     for (const p of progress(data, Date.now())) {
@@ -30,10 +31,19 @@ export function Celebrations() {
       now.set(p.task.id, { title: p.task.title, left: p.remainingMinutes });
     }
     const before = left.current;
+    const seen = seenCheckIns.current;
+    seenCheckIns.current = new Set(data.checkIns.map((c) => c.id));
     left.current = new Map([...now].map(([id, v]) => [id, v.left]));
     if (!before) return;
     const [first] = justClosed(before, now);
-    if (first) toast.show(`${first}: entrega cerrada. Bien ahí.`, { roy: "festejo" });
-  }, [data, toast]);
+    if (!first) return;
+    // Undo takes back the check-in that closed it, only if one just came in for it.
+    const taskId = [...now].find(([, v]) => v.title === first)?.[0];
+    const fresh = data.checkIns.filter((c) => c.taskId === taskId && !seen?.has(c.id)).at(-1);
+    toast.show(`${first}: entrega cerrada. Bien ahí.`, {
+      roy: "festejo",
+      ...(fresh ? { undo: () => dispatch({ type: "undoCheckIn", id: fresh.id }) } : {}),
+    });
+  }, [data, toast, dispatch]);
   return null;
 }
