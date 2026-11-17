@@ -11,6 +11,58 @@ import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { UNDO_MS, useToast } from "./Toast.js";
 
+/** What the materia form holds, as typed. */
+interface ActivityForm {
+  name: string;
+  academic: boolean;
+  study: string;
+  rest: string;
+  from: string;
+  to: string;
+}
+
+/** The materia as saved from its form (colour and «puedo empezar» are set by the caller). */
+function savedActivity(
+  activity: Activity,
+  form: ActivityForm,
+  maxSession: number,
+  minBlock: number,
+): Activity {
+  return {
+    ...activity,
+    name: form.name.trim() || activity.name,
+    academic: form.academic,
+    maxSessionMinutes: maxSession,
+    minBlockMinutes: minBlock,
+    // Breaks live inside the block: a 50 + 10 hour plans 50 minutes of study.
+    studyMinutes: clampMinutes(form.study, 5, 240) ?? activity.studyMinutes,
+    breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
+    preferred:
+      form.from && form.to
+        ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
+        : undefined,
+  };
+}
+
+/**
+ * The form as it reads after saving: what was really stored (20 and 25 minutes become
+ * 30 and 30, 999 of study 240).
+ */
+function savedForm<F extends ActivityForm>(
+  activity: Activity,
+  form: F,
+  maxSession: number,
+  minBlock: number,
+): F {
+  return {
+    ...form,
+    max: String(maxSession),
+    min: String(minBlock),
+    study: String(clampMinutes(form.study, 5, 240) ?? activity.studyMinutes ?? form.study),
+    rest: String(clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes ?? form.rest),
+  };
+}
+
 /** Per-subject colour and study rules. */
 export function ActivitySettings() {
   const { data, dispatch } = useStore();
@@ -222,22 +274,11 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               dispatch({
                 type: "saveActivity",
                 activity: {
-                  ...activity,
-                  name: form.name.trim() || activity.name,
+                  ...savedActivity(activity, form, maxSession, minBlock),
                   // Another form may have taken this colour meanwhile.
                   color: taken.has(form.color.toLowerCase())
                     ? nextColor(data.activities.filter((a) => a.id !== activity.id))
                     : form.color,
-                  academic: form.academic,
-                  maxSessionMinutes: maxSession,
-                  minBlockMinutes: minBlock,
-                  // Breaks live inside the block: a 50 + 10 hour plans 50 minutes of study.
-                  studyMinutes: clampMinutes(form.study, 5, 240) ?? activity.studyMinutes,
-                  breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
-                  preferred:
-                    form.from && form.to
-                      ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
-                      : undefined,
                   startAfter: activity.kind === "rutina" ? undefined : (startAfter ?? undefined),
                 },
               });
@@ -247,18 +288,10 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
                   activityId: activity.id,
                   minutes: Math.round(hours * 60),
                 });
-              // Reopened, it shows what was saved (20 and 25 minutes become 30 and 30, 999 of study 240).
+              // Reopened, it shows what was saved.
               startSaved(startAfter ?? undefined);
               weeklySaved(weekly);
-              formSaved({
-                ...form,
-                max: String(maxSession),
-                min: String(minBlock),
-                study: String(
-                  clampMinutes(form.study, 5, 240) ?? activity.studyMinutes ?? form.study,
-                ),
-                rest: String(clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes ?? form.rest),
-              });
+              formSaved(savedForm(activity, form, maxSession, minBlock));
               setOpen(false);
             }}
           >
