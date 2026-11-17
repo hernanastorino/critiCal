@@ -1,6 +1,6 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { isTentative, visibleEvents } from "../calendars.js";
-import { dropTarget, nearestFree } from "../drag.js";
+import { dropTarget, keyboardLanding, nearestFree } from "../drag.js";
 import {
   addDays,
   localParts,
@@ -482,7 +482,15 @@ export function Week({
       slot,
     );
     if (!spot) return null;
-    const midnight = zonedInstant(tz, spot.date, 0);
+    const { busy, earliest } = landingLimits(spot.date, blockId);
+    const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, endMin);
+    return minute === null ? null : { date: spot.date, minute };
+  };
+
+  /** What is fixed on `date` (minutes of that day) and the earliest start a block may take. */
+  const landingLimits = (date: string, blockId: string) => {
+    const slot = data.settings.slotMinutes;
+    const midnight = zonedInstant(tz, date, 0);
     const toMinute = (t: number) => (t - midnight) / MINUTE;
     const busy = items
       .filter((i) =>
@@ -495,8 +503,35 @@ export function Week({
       Math.ceil(startMin / slot) * slot,
       Math.floor(toMinute(now) / slot) * slot + slot,
     );
-    const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, endMin);
-    return minute === null ? null : { date: spot.date, minute };
+    return { busy, earliest };
+  };
+
+  /** Pins `b` where an arrow key takes it, keeping what a drop respects; says why when it cannot. */
+  const keyMove = (b: PlanBlock, step: number) => {
+    const start = b.start + step;
+    const day = localParts(tz, start).date;
+    if (day < today) return flash("Ese día ya pasó");
+    if (start <= now) return flash("Ese horario ya pasó");
+    const minutes = (b.end - b.start) / MINUTE;
+    const { busy, earliest } = landingLimits(day, b.id);
+    const minute = keyboardLanding(
+      (start - zonedInstant(tz, day, 0)) / MINUTE,
+      minutes,
+      busy,
+      data.settings.slotMinutes,
+      earliest,
+      endMin,
+      day === localParts(tz, b.start).date,
+    );
+    if (minute === null) return flash("Ahí hay algo fijo y no queda un hueco libre ese día");
+    const at = zonedInstant(tz, day, minute);
+    const pin = pinAt(b, at);
+    setFocusId(pin);
+    setMoveSaid({
+      id: pin,
+      start: at,
+      text: `${titleOf(b)} movido a ${weekdayShort(tz, at)} ${time(tz, at)}`,
+    });
   };
 
   /**
@@ -1010,15 +1045,7 @@ export function Week({
                               }[e.key];
                               if (step === undefined) return;
                               e.preventDefault();
-                              const start = b.start + step;
-                              if (start <= now) return;
-                              const pin = pinAt(b, start);
-                              setFocusId(pin);
-                              setMoveSaid({
-                                id: pin,
-                                start,
-                                text: `${titleOf(b)} movido a ${weekdayShort(tz, start)} ${time(tz, start)}`,
-                              });
+                              keyMove(b, step);
                             }
                           : undefined
                       }
