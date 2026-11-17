@@ -32,6 +32,7 @@ export function Field({
   value,
   onChange,
   invalid,
+  errorId = "week-error",
 }: {
   label: string;
   /** What a screen reader says when several fields share the same visible label. */
@@ -41,6 +42,8 @@ export function Field({
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** The field the error shown below is about. */
   invalid?: boolean;
+  /** The id of the error text shown for it. */
+  errorId?: string;
 }) {
   return (
     <label className="field">
@@ -52,7 +55,7 @@ export function Field({
         value={value}
         onChange={onChange}
         aria-invalid={invalid ? true : undefined}
-        aria-describedby={invalid ? "week-error" : undefined}
+        aria-describedby={invalid ? errorId : undefined}
       />
     </label>
   );

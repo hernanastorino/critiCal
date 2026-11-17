@@ -35,15 +35,21 @@ export function WeekSettings() {
   };
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
-    setError(null);
-    setBadField(null);
   };
 
-  const [error, setError] = useState<string | null>(null);
-  /** The field a minutes error is about, so its input says it is invalid. */
-  const [badField, setBadField] = useState<string | null>(null);
+  const [failure, setFailure] = useState<{
+    message: string | null;
+    /** The field a minutes error is about, so its input says it is invalid. */
+    field: string | null;
+    /** The form it was found in: any change to the form (or the days) clears it. */
+    form: typeof form;
+  } | null>(null);
+  const setError = (message: string | null) =>
+    setFailure(message ? { message, field: null, form } : null);
+  const current = failure?.form === form ? failure : null;
+  const error = current?.message ?? null;
+  const badField = current?.field ?? null;
   const save = () => {
-    setBadField(null);
     const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
       kind,
       start: hhmmToMinutes(at),
@@ -67,8 +73,11 @@ export function WeekSettings() {
       return !Number.isFinite(n) || n < 0 || n > 240;
     });
     if (badMinutes) {
-      setBadField(badMinutes[0]);
-      setError(`«${badMinutes[0]}» tiene que ser un número de minutos entre 0 y 240.`);
+      setFailure({
+        message: `«${badMinutes[0]}» tiene que ser un número de minutos entre 0 y 240.`,
+        field: badMinutes[0],
+        form,
+      });
       return;
     }
     const wake = hhmmToMinutes(form.wake);

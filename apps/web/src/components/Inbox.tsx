@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -17,6 +17,7 @@ import { DECISIONS_SHOWN_MS, endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
+import { useKeepFocus } from "./inboxFocus.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
 import { RoyLine } from "./Roy.js";
@@ -89,6 +90,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const lookTotal = looking === 0 ? 0 : Math.max(seen, looking);
   if (lookTotal !== seen) setSeen(lookTotal);
 
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const keepFocus = useKeepFocus(listRef, titleRef);
+
   const quick = (b: PlanBlock, status: "done" | "missed") => {
     dispatch({
       type: "checkIn",
@@ -106,9 +111,11 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   return (
     <div className="screen">
       <div className="header">
-        <h1>Bandeja</h1>
+        <h1 ref={titleRef} tabIndex={-1}>
+          Bandeja
+        </h1>
       </div>
-      <div className="scroll">
+      <div className="scroll" ref={listRef} onClickCapture={keepFocus}>
         {empty && <p className="empty">Todo al día ✓</p>}
 
         {moves.length > 0 && <div className="section-title">Para mover en tu calendario</div>}
