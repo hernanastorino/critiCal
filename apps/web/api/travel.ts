@@ -27,17 +27,21 @@ export const config = { maxDuration };
 /** Trips timed per call when the app names them. */
 export const MAX_PAIRS = 60;
 
+/** A place id as the app sends it: some text, not too long. */
+const isPlaceId = (v: unknown): v is string =>
+  typeof v === "string" && v.length > 0 && v.length <= 80;
+
+/** The "from>to" key of one trip asked for, or null when it is not a trip. */
+function pairKey(p: unknown): string | null {
+  const { from, to } = (p ?? {}) as { from?: unknown; to?: unknown };
+  return isPlaceId(from) && isPlaceId(to) && from !== to ? `${from}>${to}` : null;
+}
+
 /** The trips asked for, as "from>to" keys; null when the list is not a valid one. */
 function wantedPairs(pairs: unknown): Set<string> | null {
   if (!Array.isArray(pairs) || pairs.length === 0 || pairs.length > MAX_PAIRS) return null;
-  const keys = new Set<string>();
-  for (const p of pairs) {
-    const { from, to } = (p ?? {}) as { from?: unknown; to?: unknown };
-    if (typeof from !== "string" || typeof to !== "string") return null;
-    if (!from || !to || from === to || from.length > 80 || to.length > 80) return null;
-    keys.add(`${from}>${to}`);
-  }
-  return keys;
+  const keys = pairs.map(pairKey);
+  return keys.every((k) => k !== null) ? new Set(keys as string[]) : null;
 }
 
 /** One-off addresses timed per call: Nominatim allows one lookup per second. */
