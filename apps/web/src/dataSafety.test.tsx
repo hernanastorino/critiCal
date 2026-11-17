@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
+import { WeekSettings } from "./components/Preferences.js";
 import { TaskDetail } from "./components/TaskDetail.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -159,6 +160,28 @@ describe("Ajustes keeps its notices", () => {
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     openSettings();
     expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
+  });
+});
+
+describe("Mi semana: changing days keeps what was typed", () => {
+  afterEach(cleanup);
+
+  it("does not drop an unsaved edit when the selection of days changes", () => {
+    render(
+      <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
+        <WeekSettings />
+      </StoreProvider>,
+    );
+    const wake = () => (screen.getByLabelText("Me levanto") as HTMLInputElement).value;
+    fireEvent.change(screen.getByLabelText("Me levanto"), { target: { value: "09:15" } });
+    // Leaving a day, adding another one and coming back: the edit is still there.
+    fireEvent.click(screen.getByRole("button", { name: "viernes" }));
+    expect(wake()).toBe("09:15");
+    fireEvent.click(screen.getByRole("button", { name: "sábado" }));
+    expect(wake()).toBe("09:15");
+    fireEvent.click(screen.getByRole("button", { name: "viernes" }));
+    expect(wake()).toBe("09:15");
+    expect(screen.getByText("Cambios sin guardar")).toBeTruthy();
   });
 });
 

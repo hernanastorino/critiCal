@@ -53,24 +53,46 @@ describe("Reglas", () => {
     expect(isFigure(" 2 ")).toBe(true);
   });
 
-  it("caps huge values and shows what was saved, which a backup can still restore", () => {
+  it("refuses values out of range or not whole, beside their field, and saves nothing", () => {
+    renderWith(<RuleSettings />);
+    const before = latest?.settings;
+    const cases = [
+      ["Máximo de materias por día", "99"],
+      ["Máximo de materias por día", "0,5"],
+      ["Máximo de materias por día", "2.5"],
+      ["Margen antes de cada evento (min)", "99999999999"],
+      ["Margen antes de cada evento (min)", "15,5"],
+      ["Margen antes de cada evento (min)", "1e2"],
+      ["Avisar cuando el margen baja de (h)", "9999"],
+    ] as const;
+    for (const [label, bad] of cases) {
+      const input = screen.getByLabelText(label);
+      fireEvent.change(input, { target: { value: bad } });
+      fireEvent.click(screen.getByRole("button", { name: "Guardar reglas" }));
+      expect(screen.getByRole("alert")).toBeTruthy();
+      expect(input.getAttribute("aria-invalid")).toBe("true");
+      expect(latest?.settings).toBe(before);
+      expect(screen.queryByText("Reglas guardadas")).toBeNull();
+      // Back to a good value so the next case is judged on its own field.
+      fireEvent.change(input, { target: { value: label.startsWith("Avisar") ? "2" : "3" } });
+    }
+  });
+
+  it("saves in-range values and shows them as stored, which a backup can still restore", () => {
     renderWith(<RuleSettings />);
     fireEvent.change(screen.getByLabelText("Máximo de materias por día"), {
-      target: { value: "99" },
+      target: { value: "10" },
     });
     fireEvent.change(screen.getByLabelText("Margen antes de cada evento (min)"), {
-      target: { value: "99999999999" },
+      target: { value: "240" },
     });
     fireEvent.change(screen.getByLabelText("Avisar cuando el margen baja de (h)"), {
-      target: { value: "9999" },
+      target: { value: "168" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar reglas" }));
     expect(latest?.settings.maxActivitiesPerDay).toBe(10);
     expect(latest?.settings.travelMarginMinutes).toBe(240);
     expect(latest?.settings.warnSlackMinutes).toBe(168 * 60);
-    expect(
-      (screen.getByLabelText("Margen antes de cada evento (min)") as HTMLInputElement).value,
-    ).toBe("240");
     roundTrips();
   });
 });
@@ -320,13 +342,13 @@ describe("second round of the attacker", () => {
     roundTrips();
   });
 
-  it("reads a decimal comma instead of dropping it, and refuses hexadecimal", () => {
+  it("reads a decimal comma in hours, and refuses hexadecimal", () => {
     renderWith(<RuleSettings />);
-    fireEvent.change(screen.getByLabelText("Margen antes de cada evento (min)"), {
-      target: { value: "15,5" },
+    fireEvent.change(screen.getByLabelText("Avisar cuando el margen baja de (h)"), {
+      target: { value: "1,5" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Guardar reglas" }));
-    expect(latest?.settings.travelMarginMinutes).toBe(16);
+    expect(latest?.settings.warnSlackMinutes).toBe(90);
     expect(isFigure("0x10")).toBe(false);
   });
 
