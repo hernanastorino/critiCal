@@ -113,7 +113,7 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 - Playwright E2E contra la preview, con emulación iPhone (WebKit) y desktop.
 - Merge a `main` → deploy a staging + migraciones → E2E → deploy a prod automático si staging y su E2E pasan (GitHub Environment `production`, limitado a `main`).
 - Migraciones versionadas (Supabase CLI), Dependabot, CodeQL, rollback a un clic en Vercel.
-- Revisor IA: CodeRabbit en cada PR (check requerido por la regla de la rama `main`). Además, por práctica del equipo —no lo verifica GitHub—, se mergea recién con sus comentarios resueltos. (La prueba contra Macroscope se descartó.)
+- Análisis estático: Codacy en cada PR (el check «Codacy Static Code Analysis» es requerido por la regla «Require Codacy» de la rama `main`). Si marca algo nuevo, se arregla en el mismo PR. Reemplazó a CodeRabbit en noviembre de 2026, al terminar su prueba gratis. (La prueba contra Macroscope se descartó.)
 - Sentry en cliente y funciones. En el cliente, los cortes de red reconocidos («Load failed», «Failed to fetch», etc.) no se reportan como errores.
 
 ## 11. Seguridad
@@ -248,7 +248,7 @@ Orden:
 1. **Local**: Claude abre la app del PR en el simulador de iPhone (dev server y Supabase local en Docker) y prueba **todas** las funciones, con los caminos felices y los de error, en modo demo y con la cuenta de prueba local. Anota lo que falle.
 2. **Agente atacante**: un agente sin contexto técnico de la app usa la interfaz de iPhone con un solo objetivo: encontrar todas las vulnerabilidades que pueda y romper todas las funciones posibles, y reportarlas. Ataca primero el entorno **local** y después repite en la **preview del PR** (con el Supabase de staging) solo las pruebas que no rompen datos. Nunca ataca producción. La preview la despliega `preview.yml` en cada push a un PR y comenta la URL; no corre las migraciones del PR, así que un PR con migraciones nuevas se prueba con ellas solo en local.
 3. Todo lo reportado se arregla en el mismo PR y se vuelve al paso 1.
-4. Con una vuelta limpia, el CI en verde y CodeRabbit sin pendientes, se mergea. Staging se despliega solo y, si su E2E pasa, producción también (no hay aprobación manual: por eso se valida antes de mergear).
+4. Con una vuelta limpia, el CI en verde y Codacy sin hallazgos nuevos, se mergea. Staging se despliega solo y, si su E2E pasa, producción también (no hay aprobación manual: por eso se valida antes de mergear).
 5. **Producción**: Sentry sin errores nuevos ni problemas de seguridad abiertos después del deploy, más una prueba rápida de la app desplegada en el simulador (modo demo). Si algo falla, se abre un PR con el arreglo y vuelve al paso 1.
 
 El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
