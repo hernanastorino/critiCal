@@ -47,7 +47,9 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-Ninguna por ahora. (Mascota: elegida, es Roy, ver §5.4 punto 1.)
+1. **Comidas cuando me levanto muy tarde** (agente atacante sobre `main`, 2026-11-17). Ajustes → Hoy → «Me levanté a las 22:00» → Reacomodar hoy: el desayuno queda a las 22:00 «corrido de las 07:30» (14 h 30 más tarde, aunque §5.1 dice que se corre hasta 1 h 30) y el almuerzo de las 13:00 sigue en el día. Hoy la SPEC §5.1 dice que la comida que no entra «aparece justo después de la anterior, aunque pase la hora de dormir». ¿Se mantiene, o la que cae mientras dormís (o pasada la hora de dormir) se omite ese día y el desayuno se saltea si te levantás a la hora del almuerzo o después? Hay un arreglo listo para la segunda opción (commit `90daf71`, rama `claude/atacante-main-semana` antes del rebase); no se mergeó porque cambia una decisión tuya.
+
+(Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
 
