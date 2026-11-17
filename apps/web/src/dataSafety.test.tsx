@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
 import { WeekSettings } from "./components/Preferences.js";
 import { TaskDetail } from "./components/TaskDetail.js";
+import { TaskEditor } from "./components/TaskEditor.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
@@ -182,6 +183,75 @@ describe("Mi semana: changing days keeps what was typed", () => {
     fireEvent.click(screen.getByRole("button", { name: "viernes" }));
     expect(wake()).toBe("09:15");
     expect(screen.getByText("Cambios sin guardar")).toBeTruthy();
+  });
+});
+
+describe("the silo form says what is wrong, beside the field", () => {
+  afterEach(cleanup);
+
+  function renderEditor() {
+    render(
+      <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
+        <TaskEditor onClose={() => {}} />
+        <Probe />
+      </StoreProvider>,
+    );
+    return {
+      name: screen.getByLabelText("Nombre"),
+      estimate: screen.getByLabelText("Horas estimadas"),
+      minimum: screen.getByLabelText("Mínimo (horas)"),
+      save: screen.getByRole("button", { name: "Guardar" }) as HTMLButtonElement,
+    };
+  }
+  const type = (el: HTMLElement, value: string) => fireEvent.change(el, { target: { value } });
+
+  it("asks for a name instead of saving «Sin título»", () => {
+    const { save } = renderEditor();
+    const tasks = (latest as AppData | null)?.tasks.length;
+    fireEvent.click(save);
+    expect(screen.getByRole("alert").textContent).toBe("Poné un nombre");
+    expect((latest as AppData | null)?.tasks.length).toBe(tasks);
+  });
+
+  it("refuses a minimum above the estimate, and hours that are negative or not figures", () => {
+    const { name, estimate, minimum, save } = renderEditor();
+    type(name, "Parcial");
+    type(estimate, "2");
+    type(minimum, "3");
+    expect(save.disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toMatch(/mínimo no puede ser mayor/);
+    expect(minimum.getAttribute("aria-invalid")).toBe("true");
+    type(minimum, "1");
+    expect(save.disabled).toBe(false);
+    for (const bad of ["-2", "1e2", "abc"]) {
+      type(estimate, bad);
+      expect(save.disabled).toBe(true);
+      expect(estimate.getAttribute("aria-invalid")).toBe("true");
+      expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
+    }
+  });
+
+  it("warns, without blocking, about a deadline in the past", () => {
+    const { name, save } = renderEditor();
+    type(name, "Parcial");
+    type(screen.getByLabelText("Fecha límite"), "2026-10-01T10:00");
+    expect(screen.getByRole("status").textContent).toMatch(/ya pasó/);
+    expect(save.disabled).toBe(false);
+  });
+
+  it("refuses a new part whose minutes are negative or not a number", () => {
+    renderEditor();
+    const part = screen.getByLabelText("Nueva parte: nombre y minutos entre paréntesis");
+    for (const bad of ["Práctico (-30)", "Práctico (abc)", "Práctico (0)", "Práctico (2000)"]) {
+      type(part, bad);
+      fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+      expect(screen.getByRole("alert").textContent).toMatch(/entre paréntesis/);
+    }
+    type(part, "Práctico (45)");
+    fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.getByText("Práctico")).toBeTruthy();
+    expect(screen.getByText("45 min")).toBeTruthy();
   });
 });
 
