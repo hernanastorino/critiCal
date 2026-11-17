@@ -1964,6 +1964,43 @@ textarea:focus-visible {
   inset: -3px -3px;
 }
 
+/* Touch targets (SPEC §14): controls drawn smaller than 44pt get an invisible ::before
+   that grows the tappable area to 44 px, centred, without moving or resizing what is
+   drawn. (.sheet-close is sticky, so it is already a positioning context.) */
+.btn.small,
+.chip,
+.swatch.big,
+.check > button {
+  position: relative;
+}
+
+.btn.small::before,
+.chip::before,
+.swatch.big::before,
+.check > button::before,
+.sheet-close::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: max(100%, 44px);
+  height: max(100%, 44px);
+  transform: translate(-50%, -50%);
+}
+
+/* The ✕ of a row sits next to its inputs: they win where the areas meet. */
+.check > input {
+  position: relative;
+  z-index: 1;
+}
+
+/* A whole row that is a label (a part, a day's calendar) is tappable at 44: the extra
+   padding is taken back with the negative margin, so the rows do not move. */
+label.check {
+  padding: 11px 0;
+  margin: -3px 0;
+}
+
 @media (forced-colors: active) {
   :focus-visible {
     outline-color: Highlight;

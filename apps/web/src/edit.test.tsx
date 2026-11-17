@@ -333,6 +333,69 @@ describe("edit mode", () => {
     expect(saved.pins).toHaveLength(1);
   });
 
+  describe("keyboard moves respect fixed events", () => {
+    const blockAndEvent = (clearWholeDay: boolean) => {
+      const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
+      const tz = d.settings.timezone;
+      const block = d.plan
+        .filter((b) => b.start > NOW)
+        .sort((a, b) => a.start - b.start)[0] as AppData["plan"][number];
+      const next = block.start + 24 * 60 * 60_000;
+      const day = localParts(tz, next).date;
+      const event = {
+        id: "fixed",
+        title: "Cálculo II (clase)",
+        start: clearWholeDay ? zonedInstant(tz, day, 0) : next,
+        end: clearWholeDay ? zonedInstant(tz, day, 1440 - 1) : next + 2 * 60 * 60_000,
+        busy: true,
+        source: "demo" as const,
+      };
+      const data = { ...d, events: [...d.events, event] };
+      const label = `${d.tasks.find((t) => t.id === block.taskId)?.title}, ${weekdayShort(tz, block.start)} ${time(tz, block.start)}`;
+      return { data, block, event, label };
+    };
+    const focused = (label: string) => {
+      fireEvent.click(screen.getByLabelText("Modo edición"));
+      const pill = [...document.querySelectorAll<HTMLElement>(".pill.planned.movable")].find((p) =>
+        (p.getAttribute("aria-label") ?? "").startsWith(label),
+      ) as HTMLElement;
+      pill.focus();
+      return pill;
+    };
+
+    it("moves to the first free gap when the next day's slot is a fixed class", () => {
+      const { data, block, event, label } = blockAndEvent(false);
+      render(<App fixedNow={NOW} initial={() => data} />);
+      fireEvent.keyDown(focused(label), { key: "ArrowRight" });
+      const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+      expect(saved.pins).toHaveLength(1);
+      const pin = saved.pins?.[0] as AppData["plan"][number];
+      expect(pin.start >= event.end || pin.end <= event.start).toBe(true);
+      expect(localParts(data.settings.timezone, pin.start).date).toBe(
+        localParts(data.settings.timezone, block.start + 24 * 60 * 60_000).date,
+      );
+    });
+
+    it("does not move and says so when the day has no free gap", () => {
+      const { data, label } = blockAndEvent(true);
+      render(<App fixedNow={NOW} initial={() => data} />);
+      fireEvent.keyDown(focused(label), { key: "ArrowRight" });
+      const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+      expect(saved.pins ?? []).toHaveLength(0);
+      expect(screen.getByText(/Ahí hay algo fijo/)).toBeTruthy();
+    });
+
+    it("says a past day is gone when ArrowLeft would go there", () => {
+      const { data, label } = blockAndEvent(false);
+      render(<App fixedNow={NOW} initial={() => data} />);
+      const pill = focused(label);
+      // The first upcoming block is today or tomorrow: stepping back lands on a past day.
+      fireEvent.keyDown(pill, { key: "ArrowLeft" });
+      fireEvent.keyDown(pill, { key: "ArrowLeft" });
+      expect(screen.getAllByText("Ese día ya pasó").length).toBeGreaterThan(0);
+    });
+  });
+
   it("shows clashing pins in the inbox and lets them go", () => {
     const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
     const block = d.plan.find((b) => b.start > NOW) as AppData["plan"][number];

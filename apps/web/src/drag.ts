@@ -58,3 +58,25 @@ export function nearestFree(
   }
   return null;
 }
+
+/**
+ * Where a block moved with the keyboard lands. Within its day an arrow step lands exactly
+ * one slot over or not at all (a fixed event is in the way); on another day it moves to the
+ * closest free start, as a drop with the finger does. `null` means there is no room.
+ */
+export function keyboardLanding(
+  minute: number,
+  duration: number,
+  busy: readonly { start: number; end: number }[],
+  slot: number,
+  min: number,
+  max: number,
+  sameDay: boolean,
+): number | null {
+  if (!sameDay) return nearestFree(minute, duration, busy, slot, min, max);
+  const free =
+    minute >= min &&
+    minute + duration <= max &&
+    busy.every((b) => minute + duration <= b.start || minute >= b.end);
+  return free ? minute : null;
+}

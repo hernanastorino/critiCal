@@ -209,7 +209,7 @@ describe("Rutinas", () => {
     fireEvent.change(screen.getByLabelText("Nombre de la materia"), {
       target: { value: "Pileta" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar Pileta" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar Natación" }));
     expect(latest?.tasks.find((t) => t.kind === "habit" && t.title === "Pileta")).toBeTruthy();
   });
 });

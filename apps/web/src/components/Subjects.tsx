@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
@@ -72,9 +72,23 @@ export function ActivitySettings() {
    * so none is lost because the next notice replaced its own.
    */
   const recent = useRef<{ removed: RemovedActivity; at: number }[]>([]);
+  /** Where focus goes once a row is gone: the next (or previous) row, else the empty note. */
+  const [focusId, setFocusId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!focusId) return;
+    const target =
+      focusId === "empty"
+        ? document.getElementById("subjects-empty")
+        : document.querySelector<HTMLElement>(`[data-activity-head="${focusId}"]`);
+    target?.focus();
+    setFocusId(null);
+  }, [focusId]);
   const remove = (activity: Activity) => {
     const removed = removedWith(data, activity.id);
     if (!removed) return;
+    const at0 = data.activities.findIndex((a) => a.id === activity.id);
+    const near = data.activities[at0 + 1] ?? data.activities[at0 - 1];
+    setFocusId(near ? near.id : "empty");
     const at = Date.now();
     recent.current = [...recent.current.filter((r) => at - r.at < UNDO_MS), { removed, at }];
     dispatch({ type: "deleteActivity", activityId: activity.id });
@@ -97,7 +111,7 @@ export function ActivitySettings() {
     <Section>
       <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
       {data.activities.length === 0 && (
-        <p className="meta">
+        <p className="meta" id="subjects-empty" tabIndex={-1}>
           No tenés materias ni rutinas. Las materias se crean en «Inicio de cuatrimestre» y las
           rutinas en «Rutinas».
         </p>
@@ -146,19 +160,24 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
   const maxSession = clampMinutes(form.max, 30, 480) ?? activity.maxSessionMinutes;
   const minBlock = clampMinutes(form.min, 30, 480) ?? activity.minBlockMinutes;
   // A minimum block longer than a session could never be planned, nor a window that ends
-  // before it starts.
-  const problem = repeated
-    ? "Ya hay una materia o rutina con ese nombre."
-    : minBlock > maxSession
-      ? "El bloque mínimo no puede ser más largo que la sesión máxima."
-      : form.from && form.to && hhmmToMinutes(form.from) >= hhmmToMinutes(form.to)
-        ? "«Prefiero desde» tiene que ser antes de «hasta»."
-        : null;
+  // before it starts. Each message sits right under the fields it is about.
+  const blockProblem =
+    minBlock > maxSession ? "El bloque mínimo no puede ser más largo que la sesión máxima." : null;
+  const windowProblem =
+    form.from && form.to && hhmmToMinutes(form.from) >= hhmmToMinutes(form.to)
+      ? "«Prefiero desde» tiene que ser antes de «hasta»."
+      : null;
+  const nameProblem = repeated ? "Ya hay una materia o rutina con ese nombre." : null;
+  const problem = nameProblem ?? blockProblem ?? windowProblem;
+  const saved = activity.name;
+  // A long name would wrap the button onto two lines.
+  const named = saved.length > 24 ? "" : ` ${saved}`;
   return (
     <div className="activity-row">
       <button
         type="button"
         className="activity-head"
+        data-activity-head={activity.id}
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
@@ -170,7 +189,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             · {activity.kind}
           </span>
         )}
-        <span className="meta" style={{ margin: 0, marginLeft: "auto" }}>
+        <span className="meta" aria-hidden="true" style={{ margin: 0, marginLeft: "auto" }}>
           {open ? "▲" : "▼"}
         </span>
       </button>
@@ -182,9 +201,12 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               aria-label="Nombre de la materia"
               maxLength={60}
               value={form.name}
+              aria-invalid={nameProblem ? true : undefined}
+              aria-describedby={nameProblem ? `${key}-name-error` : undefined}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </label>
+          <Problem id={`${key}-name-error`} text={nameProblem} />
           <fieldset className="swatches" aria-label="Color">
             {PALETTE.map((c) => (
               <button
@@ -203,11 +225,15 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           <div className="grid2">
             <Field
               label="Sesión máxima (min)"
+              invalid={!!blockProblem}
+              errorId={`${key}-block-error`}
               value={form.max}
               onChange={(e) => setForm({ ...form, max: e.target.value })}
             />
             <Field
               label="Bloque mínimo (min)"
+              invalid={!!blockProblem}
+              errorId={`${key}-block-error`}
               value={form.min}
               onChange={(e) => setForm({ ...form, min: e.target.value })}
             />
@@ -224,23 +250,35 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             <Field
               label="Prefiero desde"
               type="time"
+              invalid={!!windowProblem}
+              errorId={`${key}-window-error`}
               value={form.from}
               onChange={(e) => setForm({ ...form, from: e.target.value })}
             />
             <Field
               label="hasta"
               type="time"
+              invalid={!!windowProblem}
+              errorId={`${key}-window-error`}
               value={form.to}
               onChange={(e) => setForm({ ...form, to: e.target.value })}
             />
           </div>
+          <Problem id={`${key}-block-error`} text={blockProblem} />
+          <Problem id={`${key}-window-error`} text={windowProblem} />
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
+              invalid={!hoursOk}
+              errorId={`${key}-hours-error`}
               value={weekly}
               onChange={(e) => setWeekly(e.target.value)}
             />
           )}
+          <Problem
+            id={`${key}-hours-error`}
+            text={hoursOk ? null : "El estudio semanal va de 0 a 168 h."}
+          />
           {activity.kind !== "rutina" && (
             <>
               <StartAfterField
@@ -295,7 +333,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               setOpen(false);
             }}
           >
-            Guardar {form.name}
+            Guardar{named}
           </button>
           <button
             type="button"
@@ -308,15 +346,19 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               onRemove();
             }}
           >
-            Eliminar {activity.name}
+            Eliminar{named}
           </button>
-          {(problem || !hoursOk) && (
-            <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
-              {problem ?? "El estudio semanal va de 0 a 168 h."}
-            </p>
-          )}
         </div>
       )}
     </div>
   );
+}
+
+/** A form error, right under its fields; empty when there is none. */
+function Problem({ id, text }: { id: string; text: string | null }) {
+  return text ? (
+    <p id={id} className="meta" role="alert" style={{ color: "var(--critical)" }}>
+      {text}
+    </p>
+  ) : null;
 }
