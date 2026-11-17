@@ -12,7 +12,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 1. **Leé en este orden**: este archivo entero → `SPEC.md` §14–§18 → `OPERATIONS.md`.
 2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Sentry (org `hernanastorino`, proyecto `critical`: `is:unresolved`, sin límite de tiempo; un issue nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
-3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé sus hilos de CodeRabbit y seguí el ciclo de §2.
+3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
 ### Cómo quiere trabajar el usuario (decidido por él; vale para cualquier cuenta)
@@ -21,7 +21,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 - **Preguntar antes de tocar código**: todas las dudas juntas al principio (decisiones de producto que la SPEC no resuelve son preguntas, no supuestos). Si el usuario no está, anotarlas en §1.1 y seguir con lo que no dependa de ellas.
 - **Todo pedido nuevo se anota primero en la SPEC**, así la idea no se pierde.
 - **Un PR por tema**, rama `claude/<tema>`, worktree propio. **Auto-fix prendido en cada PR.**
-- **Mergear vos mismo** (squash) solo cuando: CI en verde, el check «CodeRabbit» del **último** commit terminado (puede tardar 5–20 min; mergear antes le cancela la revisión), **cero hilos abiertos** y vuelta limpia del agente atacante. Cada hilo de CodeRabbit se responde en una línea con la firma «_🤖 Addressed by [Claude Code](https://claude.com/claude-code)_» y se resuelve. No recortar la config de CodeRabbit (revisión completa siempre).
+- **Mergear vos mismo** (squash) solo cuando: CI en verde, el check «Codacy Static Code Analysis» del **último** commit en verde (lo exige la regla «Require Codacy» de `main`; sus hallazgos están en la página del PR en Codacy, `https://app.codacy.com/gh/hernanastorino/critiCal/pull-requests/N`), **cero hilos abiertos** y vuelta limpia del agente atacante. Cada hilo de revisión se responde en una línea con la firma «_🤖 Addressed by [Claude Code](https://claude.com/claude-code)_» y se resuelve. CodeRabbit ya no se usa (se terminó su prueba gratis): su check aparece como «skipping» y no cuenta.
 - **Tareas separadas → sesiones hijas** (pedido del 2026-11-07, para gastar menos tokens): una sesión por tarea con Sonnet 5.5, esfuerzo medio y permisos Auto, en su worktree, con un brief autosuficiente (qué, sección de la SPEC, plan, metodología de §2, criterios de aceptación intermedios y finales, reglas). Las hijas no tocan este archivo; la sesión principal revisa, mergea de a uno y lo mantiene. El límite semanal es compartido: 2–3 hijas a la vez como mucho.
 - **Lo que no se toca sin pedido**: la barra de pestañas de abajo queda pegada al borde inferior (la app corre como PWA instalada); el PR #68 (buscador de Ajustes) no se mergea hasta que el usuario lo pida.
 - **Datos y cuentas**: nunca contraseñas ni cuentas reales de Google o iCloud; solo la cuenta de prueba local y datos inventados. El agente atacante nunca ataca producción.
@@ -39,7 +39,7 @@ En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada 
    - **Ruido** ajeno (extensiones, cortes de red reconocidos): se resuelve en Sentry con el motivo, sin tocar código.
 3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado). Si el PR ya está mergeado pero el Deploy de `main` falló, recuperar ese deploy (un Deploy nuevo sobre el `main` actual) antes de crear otro PR.
 4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `npx biome check .`, `npx tsc -b`, `npx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
-5. Mergear con las reglas de §2 (CodeRabbit terminado sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
+5. Mergear con las reglas de §2 (Codacy en verde sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
 6. Confirmar el deploy de `main` y marcar el issue como resuelto en Sentry, con el link al PR.
 7. Informe de 2 a 4 líneas. Si un problema de seguridad no quedó resuelto, decirlo arriba de todo.
 
@@ -51,18 +51,17 @@ Ninguna por ahora. (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
 
-1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, CodeRabbit, merge) antes de abrir otro, salvo los pausados a pedido del usuario (como el #68), que no frenan nada y siguen sin mergearse.
+1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, Codacy, merge) antes de abrir otro, salvo los pausados a pedido del usuario (como el #68), que no frenan nada y siguen sin mergearse.
 2. **Una sola corrida a la vez.** Las corridas automáticas de la cuenta original comparten el estado en `~/.claude/projects/-Users-hamsmac-IdeaProjects-critiCal/memory/production-ready-handoff.md` (línea `heartbeat:`): con un heartbeat de menos de 30 min, otra corrida trabaja y no se toca nada. **Desde otra cuenta** ese archivo no se ve: antes de seguir, pedile al usuario que frene en la cuenta anterior sus sesiones y tareas programadas (`critical-production-ready-relay-*` y `critical-sentry-watch`, en «Scheduled» de la app) y que confirme que no queda nada corriendo; recién ahí continuá. Mientras tanto, un commit o PR nuevo de otra cuenta en `gh pr list` / `git log origin/main` es señal de que sigue activa.
 3. **Respondé en español rioplatense**, corto (respuesta primero, frases cortas).
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                                         | Estado                                                     | Qué falta                                                                                                                                                                  |
-| ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                    | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69) | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR).                                       |
-| PR #98 Roy (§18.1, escalera de Jacob toon 3D), sesión `roy`                                                 | Abierto; toca `styles.css` y `Loading`                     | CI, CodeRabbit sobre el último commit, atacante local, merge con las reglas de §2.                                                                                         |
-| PRs de Dependabot #94 (`supabase-js` 2.119.0) y #101 (`web-push` 4.0.0, versión mayor), sesión `dependabot` | Abiertos (#92, #95, #96, #99 y #100 ya mergeados)          | Validar cada uno y mergear con las reglas de §2.                                                                                                                           |
-| Arreglos visuales (SPEC §18.9), rama `claude/ui-issues-visual-fixes-d4b9e8`                                 | PR abierto, **sin Auto-fix** (pedido del usuario)          | CI en verde; Codacy marcó 2 avisos de complejidad, arreglados. Merge con las reglas de §2. Falta la prueba en el simulador de iPhone (se probó en el navegador a 375×812). |
+| Qué                                                                      | Estado                                                       | Qué falta                                                                                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)   | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
+| PR #112 CI: preview sin Dependabot y revisión con Codacy                 | Abierto                                                      | CI y Codacy en verde, merge. Después `@dependabot rebase` en #109 y #110.                                                            |
+| PRs de Dependabot #109 (grupo dev) y #110 (`@sentry/browser` 11.12.0)    | Validados contra sus notas de versión, sin cambios de código | Rebase después de #112, CI y Codacy en verde, merge.                                                                                 |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -74,7 +73,7 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
   2. Probar en el **simulador de iPhone** (`mcp__Claude_Code_iOS_Simulator__control`, Safari contra el dev server), modo demo y cuenta de prueba local, como pide la SPEC §17. En corridas programadas el simulador no está disponible: ahí se usa el navegador integrado con viewport de iPhone (375×812) y se anota en el PR que la prueba en el simulador queda pendiente.
   3. **Agente atacante**: un subagente sin contexto técnico (solo la URL) intenta romper todo y encontrar vulnerabilidades. Primero en local (destructivo), después en la preview del PR (solo modo demo, sin cambiar datos). Nunca en producción.
   4. Arreglar todo lo reportado en el mismo PR, con tests, y repetir hasta una vuelta limpia. **Freno** (§17): si la misma falla vuelve 3 veces, o hay 5 vueltas seguidas con fallas nuevas, parar y avisar al usuario con el detalle.
-- **Merge**: solo con el CI en verde, CodeRabbit terminado sobre el **último** commit (la revisión con `commit_id` igual al head) y **sin hilos abiertos**. Squash. Responder cada hilo y resolverlo.
+- **Merge**: solo con el CI en verde, Codacy en verde sobre el **último** commit y **sin hilos abiertos**. Squash. Responder cada hilo y resolverlo.
 - **Después del merge**: esperar el workflow Deploy de `main`, revisar Sentry (sin issues nuevos) y una prueba rápida en https://critical-cal.vercel.app en modo demo.
 - **Preguntas que son del usuario** y la SPEC no resuelve: anotarlas en §1.1 de este archivo (y, si existe, en la memoria local `pending-questions.md`) y seguir con otra cosa.
 - **Nunca** contraseñas ni cuentas reales de Google o iCloud. Datos de prueba siempre inventados.
@@ -166,6 +165,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
+- #111 Arreglos visuales (SPEC §18.9): mergeado el 2026-11-17. Falta la prueba en el simulador de iPhone (se probó en el navegador a 375×812), la prueba en producción en modo demo y revisar Sentry.
 - #84 Accesibilidad (§14, hallazgos de §5.3): falta la prueba en producción en modo demo (tamaño de letra, foco con teclado, ventanita de un bloque) y revisar Sentry.
 - #89 Mensajes y esperas: la vuelta del atacante en la **preview** no se hizo (Vercel la protege con login, el enlace compartible da 403; decisión del usuario). Falta la prueba en producción en modo demo (carga, sin conexión, Reintentar) y revisar Sentry.
 - #90 Refuerzos de Ajustes (borradores, «atrás» del sistema, nombre repetido, validación de `settings.data`): falta la prueba en producción y revisar Sentry.

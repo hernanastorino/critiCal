@@ -17,7 +17,7 @@ En la Mac: Safari → Archivo → **Agregar al Dock**.
 | Staging    | preview de Vercel (protegida)         | `critical-staging`               | cada merge a `main`               |
 | Producción | https://critical-cal.vercel.app       | `critical-prod`                  | automático si staging + E2E pasan |
 
-Pipeline: PR → preview protegida contra staging (`preview.yml`: URL comentada en el PR, E2E; no corre las migraciones del PR) y CI (Biome, tsc, Vitest con cobertura, E2E iPhone/Safari, gitleaks, pgTAP/RLS, CodeQL, CodeRabbit) → merge → staging (migraciones + build en Vercel + E2E contra el deploy) → producción.
+Pipeline: PR → preview protegida contra staging (`preview.yml`: URL comentada en el PR, E2E; no corre las migraciones del PR) y CI (Biome, tsc, Vitest con cobertura, E2E iPhone/Safari, gitleaks, pgTAP/RLS, CodeQL, Codacy) → merge → staging (migraciones + build en Vercel + E2E contra el deploy) → producción.
 
 ## Secretos
 

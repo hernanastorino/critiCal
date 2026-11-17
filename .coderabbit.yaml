@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
-# Full reviews: every file, every analysis tool (Biome and Gitleaks included, even
-# though CI runs them too) and every summary section CodeRabbit offers by default.
-reviews:
-  auto_review:
-    # Every push is reviewed: never pause on long review rounds.
-    auto_pause_after_reviewed_commits: 0
