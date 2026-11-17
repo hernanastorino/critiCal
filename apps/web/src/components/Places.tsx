@@ -3,7 +3,14 @@ import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
-import { keepableEvents, keptTravel, minutesBetween, nameTaken } from "../places.js";
+import {
+  keepableEvents,
+  keptTravel,
+  minutesBetween,
+  nameTaken,
+  type PlacePair,
+  tripPairs,
+} from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Loading } from "./Loading.js";
@@ -14,7 +21,7 @@ const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 
 /** Saved places and the driving times between them. */
 export function Places() {
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
   const sync = useSync();
   const places = data.places ?? [];
   const [editing, setEditing] = useDraft<Place | null>("places:editing", () => null);
@@ -28,6 +35,24 @@ export function Places() {
     return minutes === undefined ? [] : [{ event, minutes }];
   });
 
+  // Only the trips that exist: the ones with a time (computed when the plan needed them,
+  // or typed) and the ones the plan makes that still lack one. Never every combination.
+  const trips: PlacePair[] = [];
+  {
+    const known = new Set(places.map((p) => p.id));
+    const seen = new Set<string>();
+    const add = (t: PlacePair) => {
+      const key = `${t.from}>${t.to}`;
+      if (seen.has(key) || !known.has(t.from) || !known.has(t.to)) return;
+      seen.add(key);
+      trips.push({ from: t.from, to: t.to });
+    };
+    for (const t of data.travelTimes ?? []) add(t);
+    for (const t of tripPairs(data, now)) add(t);
+  }
+  const placeName = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+  const eventSpots = (data.spots ?? []).length + kept.length;
+
   const compute = async () => {
     if (!sync) return;
     setBusy(true);
@@ -40,7 +65,8 @@ export function Places() {
       setNote("Hay cambios sin guardar (¿sin conexión?). Reintentá cuando se sincronicen.");
       return;
     }
-    const r = await computeTravel(sync.client);
+    // The trips listed here, not every pair of places.
+    const r = await computeTravel(sync.client, trips);
     setBusy(false);
     if (!r.ok) {
       setRetry(r.error !== "server_not_configured" && r.error !== "unauthorized");
@@ -59,7 +85,7 @@ export function Places() {
     const known = (from: string, to: string) =>
       (data.travelTimes ?? []).some((t) => t.manual && t.from === from && t.to === to);
     const incomplete = (id: string) =>
-      places.some((q) => q.id !== id && (!known(id, q.id) || !known(q.id, id)));
+      trips.some((t) => (t.from === id || t.to === id) && !known(t.from, t.to));
     const missing = (r.unroutable ?? [])
       .filter((u) => !known(u.from, u.to))
       .map((u) => `${name(u.from)} → ${name(u.to)}`);
@@ -82,24 +108,55 @@ export function Places() {
         Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
         evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
       </p>
-      {places.map((p) => (
-        <div key={p.id} className="check">
-          <span style={{ flex: 1 }}>
-            {p.isHome ? "🏠 " : ""}
-            {p.name}
-            {p.aliases.length > 0 && (
-              <span className="meta" style={{ margin: 0 }}>
-                {" "}
-                · {p.aliases.join(", ")}
-              </span>
-            )}
-          </span>
-          <button type="button" className="btn" onClick={() => setEditing(p)}>
-            Editar
-          </button>
-        </div>
-      ))}
-      {editing ? (
+      {places.map((p) =>
+        editing?.id === p.id ? (
+          // The form opens where its place is, not at the end of the list.
+          <PlaceForm
+            key={p.id}
+            place={editing}
+            onCancel={() => setEditing(null)}
+            onSave={(place) => {
+              dispatch({ type: "savePlace", place });
+              setEditing(null);
+            }}
+            onDelete={() => {
+              const times = (data.travelTimes ?? []).filter(
+                (t) => t.from === p.id || t.to === p.id,
+              );
+              dispatch({ type: "deletePlace", placeId: p.id });
+              setEditing(null);
+              toast.show(`${short(p.name)} borrado`, {
+                undo: () => {
+                  dispatch({ type: "savePlace", place: p });
+                  // Its times typed by hand come back; computed ones are worked out again.
+                  for (const t of times.filter((x) => x.manual))
+                    dispatch({ type: "travelTime", from: t.from, to: t.to, minutes: t.minutes });
+                },
+              });
+              refocus("places-intro");
+            }}
+          />
+        ) : (
+          <div key={p.id} className="check place-row">
+            <span style={{ flex: 1, minWidth: 0 }}>
+              {p.isHome ? "🏠 " : ""}
+              {p.name}
+              {p.aliases.length > 0 && (
+                <span className="meta place-aliases">{p.aliases.join(", ")}</span>
+              )}
+            </span>
+            <button
+              type="button"
+              className="btn small"
+              aria-label={`Editar ${p.name}`}
+              onClick={() => setEditing(p)}
+            >
+              Editar
+            </button>
+          </div>
+        ),
+      )}
+      {editing && !places.some((p) => p.id === editing.id) ? (
         <PlaceForm
           key={editing.id}
           place={editing}
@@ -108,132 +165,125 @@ export function Places() {
             dispatch({ type: "savePlace", place });
             setEditing(null);
           }}
-          onDelete={
-            places.some((p) => p.id === editing.id)
-              ? () => {
-                  dispatch({ type: "deletePlace", placeId: editing.id });
-                  setEditing(null);
-                }
-              : undefined
-          }
         />
       ) : (
         <button
           type="button"
           className="btn"
-          style={{ width: "100%" }}
+          style={{ width: "100%", marginTop: 8 }}
           onClick={() => setEditing(blank())}
         >
           Agregar lugar
         </button>
       )}
 
-      {(data.spots ?? []).length > 0 && (
-        <>
-          <div className="title" style={{ marginTop: 12 }} id="spots" tabIndex={-1}>
-            Direcciones de eventos
-          </div>
-          <p className="meta">
-            Se usan para el traslado sin guardarse como lugar. Guardá las que vayas a repetir.
-          </p>
-          {(data.spots ?? []).map((spot) => (
-            <SpotRow key={spot.key} spot={spot} />
-          ))}
-        </>
-      )}
-
-      {kept.length > 0 && (
-        <>
-          <div className="title" style={{ marginTop: 12 }} id="kept-travel" tabIndex={-1}>
-            Traslados de eventos sin dirección
-          </div>
-          <p className="meta">
-            Minutos que quedaron al eliminar una dirección. El plan los sigue contando.
-          </p>
-          {kept.map(({ event, minutes }) => (
-            <div key={event.id} className="check" style={{ flexWrap: "wrap" }}>
-              <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
-                {event.title}
-                <span className="meta" style={{ margin: 0 }}>
-                  {" "}
-                  · {dayDate(data.settings.timezone, event.start)}
-                </span>
-              </span>
-              <MinutesInput
-                label={`Minutos desde casa para ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
-                value={minutes}
-                onCommit={(m) =>
-                  dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
-                }
-              />
-              <button
-                type="button"
-                className="btn small"
-                aria-label={`Olvidar el traslado de ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
-                onClick={() => {
-                  const before = data.eventTravel?.[event.id];
-                  dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null });
-                  toast.show(`Traslado de ${short(event.title)} olvidado`, {
-                    undo: () =>
-                      before &&
-                      dispatch({
-                        type: "eventTravelMinutes",
-                        eventId: event.id,
-                        minutes: before.minutes,
-                      }),
-                  });
-                }}
-              >
-                Olvidar
-              </button>
-            </div>
-          ))}
-        </>
+      {eventSpots > 0 && (
+        // Closed unless asked for: an address that already has its minutes needs nothing.
+        <details className="fold">
+          <summary>
+            Direcciones de eventos <span className="meta">{eventSpots}</span>
+          </summary>
+          {(data.spots ?? []).length > 0 && (
+            <>
+              <p className="meta" id="spots" tabIndex={-1}>
+                Se usan para el traslado sin guardarse como lugar. No hace falta hacer nada con
+                ellas; guardá solo las que vayas a repetir.
+              </p>
+              {(data.spots ?? []).map((spot) => (
+                <SpotRow key={spot.key} spot={spot} />
+              ))}
+            </>
+          )}
+          {kept.length > 0 && (
+            <>
+              <div className="title" style={{ marginTop: 12 }} id="kept-travel" tabIndex={-1}>
+                Traslados de eventos sin dirección
+              </div>
+              <p className="meta">
+                Minutos que quedaron al eliminar una dirección. El plan los sigue contando.
+              </p>
+              {kept.map(({ event, minutes }) => (
+                <div key={event.id} className="check" style={{ flexWrap: "wrap" }}>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
+                    {event.title}
+                    <span className="meta" style={{ margin: 0, whiteSpace: "nowrap" }}>
+                      {" "}
+                      · {dayDate(data.settings.timezone, event.start)}
+                    </span>
+                  </span>
+                  <MinutesInput
+                    label={`Minutos desde casa para ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
+                    value={minutes}
+                    onCommit={(m) =>
+                      dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="btn small"
+                    aria-label={`Olvidar el traslado de ${short(event.title)}, ${dayDate(data.settings.timezone, event.start)}`}
+                    onClick={() => {
+                      const before = data.eventTravel?.[event.id];
+                      dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null });
+                      toast.show(`Traslado de ${short(event.title)} olvidado`, {
+                        undo: () =>
+                          before &&
+                          dispatch({
+                            type: "eventTravelMinutes",
+                            eventId: event.id,
+                            minutes: before.minutes,
+                          }),
+                      });
+                    }}
+                  >
+                    Olvidar
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </details>
       )}
 
       {places.length > 1 && (
-        <>
-          <div className="title" style={{ marginTop: 12 }}>
-            Minutos en auto
-          </div>
-          {places.flatMap((from) =>
-            places
-              .filter((to) => to.id !== from.id)
-              .map((to) => {
-                const auto = (data.travelTimes ?? []).find(
-                  (t) => t.from === from.id && t.to === to.id,
-                );
-                return (
-                  <div key={`${from.id}>${to.id}`} className="check">
-                    <span style={{ flex: 1 }}>
-                      {from.name} → {to.name}
-                      {auto && !auto.manual && (
-                        <span className="meta" style={{ margin: 0 }}>
-                          {" "}
-                          · calculado
-                        </span>
-                      )}
-                    </span>
-                    <MinutesInput
-                      label={`Minutos de ${from.name} a ${to.name}`}
-                      value={minutesBetween(data, from.id, to.id)}
-                      onCommit={(minutes) =>
-                        dispatch({ type: "travelTime", from: from.id, to: to.id, minutes })
-                      }
-                    />
-                  </div>
-                );
-              }),
-          )}
-          {sync && (
+        <details className="fold">
+          <summary>
+            Minutos en auto <span className="meta">{trips.length}</span>
+          </summary>
+          <p className="meta">
+            Se calculan solos cuando el plan necesita un viaje entre dos lugares. Acá están solo los
+            que usás; corregí a mano el que esté mal.
+          </p>
+          {trips.map(({ from, to }) => {
+            const auto = (data.travelTimes ?? []).find((t) => t.from === from && t.to === to);
+            return (
+              <div key={`${from}>${to}`} className="check" style={{ flexWrap: "wrap" }}>
+                <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
+                  {placeName(from)} → {placeName(to)}
+                  {auto && !auto.manual && <span className="meta place-aliases">calculado</span>}
+                </span>
+                <MinutesInput
+                  label={`Minutos de ${placeName(from)} a ${placeName(to)}`}
+                  value={minutesBetween(data, from, to)}
+                  onCommit={(minutes) => dispatch({ type: "travelTime", from, to, minutes })}
+                />
+              </div>
+            );
+          })}
+          {trips.length === 0 && <p className="meta">Todavía no hay ningún viaje entre lugares.</p>}
+          <AddTrip
+            places={places}
+            onAdd={(from, to, minutes) => dispatch({ type: "travelTime", from, to, minutes })}
+          />
+          {sync && trips.length > 0 && (
             <button
               type="button"
               className="btn"
-              style={{ width: "100%" }}
+              style={{ width: "100%", marginTop: 8 }}
               disabled={busy}
               onClick={() => void compute()}
             >
-              {busy ? "Calculando…" : retry ? "Reintentar" : "Calcular con las direcciones"}
+              {busy ? "Calculando…" : retry ? "Reintentar" : "Calcular de nuevo"}
             </button>
           )}
           {busy && <Loading kind="travel" label="Calculando traslados entre tus lugares" inline />}
@@ -242,9 +292,58 @@ export function Places() {
               {note}
             </p>
           )}
-        </>
+        </details>
       )}
     </Section>
+  );
+}
+
+/** A driving time typed by hand for a trip that is not on the list yet. */
+function AddTrip({
+  places,
+  onAdd,
+}: {
+  places: Place[];
+  onAdd: (from: string, to: string, minutes: number) => void;
+}) {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+  const ready = !!from && !!to && from !== to;
+  return (
+    <fieldset className="add-trip">
+      <legend className="meta">Cargar un tiempo a mano</legend>
+      <select aria-label="Desde" value={from} onChange={(e) => setFrom(e.target.value)}>
+        <option value="">Desde…</option>
+        {places.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name}
+          </option>
+        ))}
+      </select>
+      <select aria-label="Hasta" value={to} onChange={(e) => setTo(e.target.value)}>
+        <option value="">Hasta…</option>
+        {places
+          .filter((p) => p.id !== from)
+          .map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
+      </select>
+      {ready && (
+        <MinutesInput
+          key={`${from}>${to}`}
+          label={`Minutos nuevos de ${name(from)} a ${name(to)}`}
+          value={undefined}
+          onCommit={(minutes) => {
+            onAdd(from, to, minutes);
+            setFrom("");
+            setTo("");
+          }}
+        />
+      )}
+    </fieldset>
   );
 }
 
@@ -305,7 +404,8 @@ function MinutesInput({
           className="meta"
           id={errorId}
           role="alert"
-          style={{ color: "var(--critical)", margin: 0 }}
+          // On a line of its own: next to the field it squeezed the row's name.
+          style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
         >
           Minutos de 0 a 1440, solo cifras.
         </span>
@@ -383,11 +483,10 @@ function PlaceForm({
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>
       </label>
-      {dirty && (
-        <p className="meta" style={{ margin: "6px 0 0" }}>
-          Cambios sin guardar
-        </p>
-      )}
+      {/* Always there (empty until something changes), so the fields do not jump while typing. */}
+      <p className="meta" style={{ margin: "6px 0 10px", minHeight: "1.2em" }}>
+        {dirty ? "Cambios sin guardar" : ""}
+      </p>
       <div className="row">
         <button
           type="button"
@@ -427,12 +526,12 @@ function PlaceForm({
         >
           Cancelar
         </button>
-        {onDelete && (
-          <button type="button" className="btn" onClick={onDelete}>
-            Borrar
-          </button>
-        )}
       </div>
+      {onDelete && (
+        <button type="button" className="btn danger" style={{ width: "100%" }} onClick={onDelete}>
+          Borrar lugar
+        </button>
+      )}
     </div>
   );
 }

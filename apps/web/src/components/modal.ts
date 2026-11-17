@@ -79,6 +79,64 @@ function onKey(e: KeyboardEvent) {
   top.escape();
 }
 
+/** Height of the grabber bar at the top of a sheet (styles.css, `.sheet::before`). */
+const GRAB_PX = 34;
+/** Dragged down this far, letting go closes the sheet; less, it springs back. */
+const PULL_CLOSE_PX = 70;
+
+/**
+ * The grabber at the top of a sheet: dragging it down closes the sheet (the same as ✕
+ * and Escape, which stay as its buttons). Returns how to remove the listeners.
+ */
+function pullToClose(el: HTMLElement, close: () => void): () => void {
+  let from: number | null = null;
+  let dy = 0;
+  const down = (e: PointerEvent) => {
+    // The bar is the sheet's own ::before: a press on it has the sheet as its target.
+    if (e.target !== el || e.clientY - el.getBoundingClientRect().top > GRAB_PX) return;
+    from = e.clientY;
+    dy = 0;
+    el.classList.remove("settling");
+    el.classList.add("pulling");
+    el.setPointerCapture?.(e.pointerId);
+  };
+  const move = (e: PointerEvent) => {
+    if (from === null) return;
+    dy = Math.max(0, e.clientY - from);
+    el.style.transform = `translateY(${dy}px)`;
+  };
+  const up = () => {
+    if (from === null) return;
+    from = null;
+    el.classList.remove("pulling");
+    if (dy >= PULL_CLOSE_PX) {
+      close();
+      // A sheet that stays (Ajustes going back to its list) is put back where it was.
+      if (!el.isConnected) return;
+    }
+    el.classList.add("settling");
+    el.style.transform = "";
+  };
+  // While pulling, the page must not scroll under the finger (it would cancel the drag).
+  const touch = (e: TouchEvent) => {
+    if (from !== null && e.cancelable) e.preventDefault();
+  };
+  el.addEventListener("pointerdown", down);
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerup", up);
+  el.addEventListener("pointercancel", up);
+  el.addEventListener("touchmove", touch, { passive: false });
+  return () => {
+    el.removeEventListener("pointerdown", down);
+    el.removeEventListener("pointermove", move);
+    el.removeEventListener("pointerup", up);
+    el.removeEventListener("pointercancel", up);
+    el.removeEventListener("touchmove", touch);
+    el.classList.remove("pulling", "settling");
+    el.style.transform = "";
+  };
+}
+
 /**
  * Makes a sheet a real modal: everything else is inert while it is the top one (even
  * what mounts later, like a tab a notification switches to), focus moves into it (to its
@@ -129,7 +187,9 @@ export function useModal(
       if (first && first.tagName === "H2" && !first.hasAttribute("tabindex")) first.tabIndex = -1;
       first?.focus({ preventScroll: true });
     }
+    const release = el.classList.contains("sheet") ? pullToClose(el, () => onEsc.current()) : null;
     return () => {
+      release?.();
       observer.disconnect();
       const wasTop = stack[stack.length - 1] === me;
       stack.splice(stack.indexOf(me), 1);

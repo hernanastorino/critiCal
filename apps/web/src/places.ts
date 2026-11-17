@@ -270,3 +270,66 @@ export function searchPlaces(data: AppData, query: string, limit = 6): Place[] {
     .slice(0, limit)
     .map((x) => x.p);
 }
+
+/** How far ahead trips are looked at when working out which driving times are needed. */
+const TRIPS_AHEAD_DAYS = 14;
+
+/** A trip between two saved places, by their ids. */
+export interface PlacePair {
+  from: string;
+  to: string;
+}
+
+/** The saved place an event is held at: its address first, else what its title names. */
+function placeOfEvent(data: AppData, e: AppEvent): Place | undefined {
+  const places = data.places ?? [];
+  const location = addressOf(e);
+  if (skipped(data, location ?? e.title)) return undefined;
+  return location ? placeFor(places, location) : placeFor(places, e.title);
+}
+
+/**
+ * The trips the plan really makes in the next two weeks: home to each event's place and
+ * back, and straight from one event's place to the next when there is no time to go
+ * home in between. Driving times are worked out for these only, never for every
+ * combination of saved places.
+ */
+export function tripPairs(data: AppData, now: number): PlacePair[] {
+  const start = home(data);
+  if (!start) return [];
+  const held = data.events
+    .filter((e) => e.busy && !e.allDay && e.end > now && e.start <= now + TRIPS_AHEAD_DAYS * DAY)
+    .flatMap((e) => {
+      const place = placeOfEvent(data, e);
+      return place ? [{ e, place }] : [];
+    })
+    .sort((a, b) => a.e.start - b.e.start);
+  const seen = new Set<string>();
+  const pairs: PlacePair[] = [];
+  const add = (from: string, to: string) => {
+    const key = `${from}>${to}`;
+    if (from === to || seen.has(key)) return;
+    seen.add(key);
+    pairs.push({ from, to });
+  };
+  held.forEach(({ e, place }, i) => {
+    add(start.id, place.id);
+    add(place.id, start.id);
+    const previous = held[i - 1];
+    if (previous && e.start - previous.e.end < STAY_OUT_MINUTES * 60_000)
+      add(previous.place.id, place.id);
+  });
+  return pairs;
+}
+
+/** Trips the plan makes whose driving time is not known yet and can be looked up. */
+export function missingPairs(data: AppData, now: number): PlacePair[] {
+  const places = new Map((data.places ?? []).map((p) => [p.id, p]));
+  const locatable = (id: string) => {
+    const p = places.get(id);
+    return !!p && ((p.lat != null && p.lon != null) || !!p.address?.trim());
+  };
+  return tripPairs(data, now).filter(
+    (t) => minutesBetween(data, t.from, t.to) === undefined && locatable(t.from) && locatable(t.to),
+  );
+}

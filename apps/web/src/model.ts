@@ -287,6 +287,11 @@ export interface AppliedDecision {
   movedEventId?: string;
   /** The move of that event this decision replaced, if any: undoing restores it. */
   previousMove?: NonNullable<AppData["movedEvents"]>[number];
+  /**
+   * Routines this decision took out, and until when (the end of its week): a decision
+   * about a routine is for that week only, the next one plans it again.
+   */
+  skipUntil?: Record<string, number>;
   /** «Puedo empezar» this decision set, by task: undo restores `before` while it still stands. */
   startAfter?: Record<string, StartAfter>;
   /** The move this decision made: undo touches the event only while it still stands. */

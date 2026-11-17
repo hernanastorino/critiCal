@@ -93,9 +93,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           {current && (
             // Holding it (pointer or keyboard on it) keeps it from going away: §14.
             // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
+            // biome-ignore lint/a11y/useKeyWithClickEvents: a tap only puts it away early; it goes by itself.
             <div
               ref={box}
               className={`snack${current.undo ? " short" : ""}`}
+              // It can sit over a button: tapping it (not its «Deshacer») puts it away.
+              onClick={(e) => {
+                if (!(e.target instanceof Element && e.target.closest("button"))) setCurrent(null);
+              }}
               onPointerEnter={() => {
                 hover.current = true;
               }}
@@ -109,7 +114,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               }}
               onBlur={() => release(focus)}
             >
-              {current.roy && <Roy anim={current.roy} size={36} once />}
+              {current.roy && <Roy anim={current.roy} size={56} maxWidth={72} once />}
               <span>{current.message}</span>
               {current.undo && (
                 <button

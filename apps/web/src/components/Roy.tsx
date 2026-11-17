@@ -30,6 +30,8 @@ const V: Pose[] = [...Array(N)].map((_, i) => ({ x: 0, y: (i - 2.5) * P, r: 0 })
 /** The six boards lying side by side, `dy` px from the middle. */
 const flat = (dy = 52): Pose[] =>
   [...Array(N)].map((_, i) => ({ x: (i - 2.5) * 60, y: dy, r: 90 }));
+/** The ladder lying on its side, for a line of text: a row of boards that flip in turn. */
+const H: Pose[] = [...Array(N)].map((_, i) => ({ x: (i - 2.5) * 58, y: 0, r: 0 }));
 const F1: Pose[] = [
   { x: 0, y: -74, r: 0 },
   { x: -42, y: -60, r: -42 },
@@ -102,8 +104,6 @@ const wave = (k: number): Pose[] =>
   );
 
 interface Def {
-  /** Scale for shapes wider than the standing ladder. */
-  k?: number;
   /** The cascade: the top board turns and the knock goes down (and back, with `bounce`). */
   cascade?: { bounce: boolean };
   seq?: Step[];
@@ -122,7 +122,6 @@ export const ROY: Record<RoyAnim, Def> = {
     still: Z,
   },
   oruga: {
-    k: 0.66,
     seq: [...Array(N)].map((_, k): Step => [wave(k), 230, 0, 0]).concat([[flat(46), 260, 300, 0]]),
     still: wave(2),
   },
@@ -155,7 +154,6 @@ export const ROY: Record<RoyAnim, Def> = {
     still: HEAP,
   },
   puente: {
-    k: 0.665,
     seq: [
       [BR, 500, 300, 0],
       [BR2, 420, 250, 0],
@@ -166,7 +164,6 @@ export const ROY: Record<RoyAnim, Def> = {
     still: BR2,
   },
   reposo: {
-    k: 0.665,
     seq: [
       [REST, 700, 1400, 0],
       [REST2, 500, 500, 0],
@@ -175,6 +172,49 @@ export const ROY: Record<RoyAnim, Def> = {
     still: REST,
   },
 };
+
+/** A board, in the model's px (styles.css, `.roy-blk`). */
+const BOARD = { w: 44, h: 58 };
+/** Room left around the shape for its depth and its bounce. */
+const FILL = 0.84;
+/** Distance of the eye, in the model's px. */
+const EYE = 1800;
+
+/** The box every pose of a shape fits in: its centre and size, in the model's px. */
+export function bounds(poses: Pose[][]) {
+  let x0 = Number.POSITIVE_INFINITY;
+  let x1 = Number.NEGATIVE_INFINITY;
+  let y0 = Number.POSITIVE_INFINITY;
+  let y1 = Number.NEGATIVE_INFINITY;
+  for (const b of poses.flat()) {
+    const a = (b.r * Math.PI) / 180;
+    const hw = (Math.abs(Math.cos(a)) * BOARD.w + Math.abs(Math.sin(a)) * BOARD.h) / 2;
+    const hh = (Math.abs(Math.sin(a)) * BOARD.w + Math.abs(Math.cos(a)) * BOARD.h) / 2;
+    x0 = Math.min(x0, b.x - hw);
+    x1 = Math.max(x1, b.x + hw);
+    y0 = Math.min(y0, b.y - hh);
+    y1 = Math.max(y1, b.y + hh);
+  }
+  return { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, w: x1 - x0, h: y1 - y0 };
+}
+
+/**
+ * How big a shape is drawn: as large as fits in `size` px of height and `maxWidth` of
+ * width, whatever its proportions (a standing ladder is tall, a bridge is wide), and
+ * the box that takes. Before, every shape was scaled as if it were the tall ladder, so
+ * the wide ones came out tiny.
+ */
+export function fit(poses: Pose[][], size: number, maxWidth: number) {
+  const b = bounds(poses);
+  const scale = Math.min(size / b.h, maxWidth / b.w) * FILL;
+  return {
+    scale,
+    cx: b.cx,
+    cy: b.cy,
+    width: Math.ceil((b.w * scale) / FILL),
+    height: Math.ceil((b.h * scale) / FILL),
+  };
+}
 
 const EASE = "cubic-bezier(.55,0,.25,1.3)";
 const PERIOD = 2400;
@@ -207,17 +247,24 @@ const FACES = ["fr", "bk", "rt", "lf", "tp", "bt"] as const;
 export function Roy({
   anim,
   size = 120,
+  maxWidth = size * 1.4,
   once = false,
+  flat: lying = false,
 }: {
   anim: RoyAnim;
-  /** Height in px of the box he is drawn in. */
+  /** Most height in px he may take; the box is as tall as the shape needs. */
   size?: number;
+  /** Most width in px he may take. */
+  maxWidth?: number;
+  /** The ladder on its side (next to a line of text); only the cascades have it. */
+  flat?: boolean;
   /** Plays the shape once and stays still (a notice at the bottom), instead of in a loop. */
   once?: boolean;
 }) {
   const reduce = useReducedMotion();
   const stage = useRef<HTMLDivElement>(null);
   const def = ROY[anim];
+  const ladder = lying ? H : V;
 
   useEffect(() => {
     const el = stage.current;
@@ -233,7 +280,7 @@ export function Roy({
     const anims: Animation[] = [];
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (def.cascade) {
-      set(V, 0, 0);
+      set(ladder, 0, 0);
       const bounce = def.cascade.bounce;
       if (!reduce && !once) {
         blks.forEach((b, i) => {
@@ -281,13 +328,17 @@ export function Roy({
       clearTimeout(timer);
       for (const a of anims) a.cancel();
     };
-  }, [def, reduce, once]);
+  }, [def, reduce, once, ladder]);
 
+  const poses = def.cascade ? [ladder] : [def.still, ...(def.seq ?? []).map((s) => s[0])];
+  const box = fit(poses, size, maxWidth);
   const style = {
-    "--roy-s": (size / 420) * (def.k ?? 1),
-    "--roy-d": `${size * 4.3}px`,
-    height: size,
-    width: size * 1.3,
+    "--roy-s": box.scale,
+    "--roy-x": `${-box.cx}px`,
+    "--roy-y": `${-box.cy}px`,
+    "--roy-d": `${EYE * box.scale}px`,
+    height: box.height,
+    width: box.width,
   };
   return (
     <div className="roy" data-anim={anim} aria-hidden="true" style={style as CSSProperties}>
@@ -312,7 +363,7 @@ export function Roy({
 export function RoyLine({
   anim,
   children,
-  size = 60,
+  size = 84,
 }: {
   anim: RoyAnim;
   children: ReactNode;
@@ -320,7 +371,7 @@ export function RoyLine({
 }) {
   return (
     <div className="roy-line">
-      <Roy anim={anim} size={size} />
+      <Roy anim={anim} size={size} maxWidth={112} />
       <p className="meta">{children}</p>
     </div>
   );

@@ -13,7 +13,7 @@ import {
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
-import { endOfDay } from "../planning.js";
+import { DECISIONS_SHOWN_MS, endOfDay } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -56,10 +56,15 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
   const unsorted = unsortedActivities(data);
-  // Only decisions something can still be undone in (free-time ones never had tasks).
-  const applied = (data.applied ?? []).filter(
-    (d) => d.before.length === 0 || undoable(data, d).length > 0,
-  );
+  // Only decisions something can still be undone in (free-time ones never had tasks),
+  // from the last week: older ones are archived. One about a routine holds for its week
+  // only, so it goes when that week ends.
+  const applied = (data.applied ?? []).filter((d) => {
+    if (d.at <= now - DECISIONS_SHOWN_MS) return false;
+    const weeks = Object.values(d.skipUntil ?? {});
+    if (weeks.length > 0 && weeks.every((until) => until <= now)) return false;
+    return d.before.length === 0 || undoable(data, d).length > 0;
+  });
   const empty =
     unlocated.length +
       pending.length +

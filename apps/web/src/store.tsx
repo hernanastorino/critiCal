@@ -50,6 +50,7 @@ import {
   pinClashes,
   pinShortfall,
   refreshPlan,
+  routinesBack,
   weekStart,
 } from "./planning.js";
 import { refresh } from "./refresh.js";
@@ -107,6 +108,10 @@ export type Action =
   | { type: "settings"; settings: Settings; now: number }
   | { type: "preferences"; preferences: Preferences; now: number }
   | { type: "saveActivity"; activity: Activity; now: number }
+  /** A materia (or routine) goes away with everything of it: silos, check-ins, blocks. */
+  | { type: "deleteActivity"; activityId: string; now: number }
+  /** Takes back a `deleteActivity`: what it removed, as it was. */
+  | { type: "restoreActivity"; removed: RemovedActivity; now: number }
   | { type: "savePlace"; place: Place; now: number }
   | { type: "deletePlace"; placeId: string; now: number }
   | { type: "travelTime"; from: string; to: string; minutes: number; now: number }
@@ -194,16 +199,42 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
 
+/** What `deleteActivity` takes out, kept by the notice that offers «Deshacer». */
+export interface RemovedActivity {
+  activity: Activity;
+  /** Where it was in the list, to go back to the same place. */
+  index: number;
+  tasks: AppTask[];
+  checkIns: AppData["checkIns"];
+  pins: NonNullable<AppData["pins"]>;
+}
+
+/** Everything that goes when the activity `id` is deleted (to put it back on undo). */
+export function removedWith(data: AppData, id: string): RemovedActivity | undefined {
+  const activity = data.activities.find((a) => a.id === id);
+  if (!activity) return undefined;
+  const tasks = data.tasks.filter((t) => t.activityId === id);
+  const ids = new Set(tasks.map((t) => t.id));
+  return {
+    activity,
+    index: data.activities.indexOf(activity),
+    tasks,
+    checkIns: data.checkIns.filter((c) => ids.has(c.taskId)),
+    pins: (data.pins ?? []).filter((b) => ids.has(b.taskId)),
+  };
+}
+
 /** Applies `action` and records a plan version for the ones that can be undone. */
 export function reducer(data: AppData, action: Action): AppData {
-  // Old keys are fixed before planning, so the plan sees the saved minutes.
-  const base = rekeySpots(data);
+  // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
+  // decision took out for a week comes back when that week is over.
+  const base = routinesBack(rekeySpots(data), action.now);
   const next = rekeySpots(versioned(base, action, apply(base, action)));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
   const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
   if (exempt || !next.applied?.length) return next;
-  const before = new Map(data.tasks.map((t) => [t.id, t.status]));
+  const before = new Map(base.tasks.map((t) => [t.id, t.status]));
   const moved = new Set(
     next.tasks.filter((t) => before.has(t.id) && before.get(t.id) !== t.status).map((t) => t.id),
   );
@@ -300,6 +331,7 @@ function apply(data: AppData, action: Action): AppData {
           (n.minMinutes !== t.minMinutes ||
             n.estimateMinutes !== t.estimateMinutes ||
             n.status !== t.status ||
+            n.skipUntil !== t.skipUntil ||
             JSON.stringify(n.startAfter) !== JSON.stringify(t.startAfter) ||
             n.units.some((u, i) => !!u.skipped !== !!t.units[i]?.skipped))
         );
@@ -334,6 +366,14 @@ function apply(data: AppData, action: Action): AppData {
           }),
         ),
         freeTimeUntil: data.freeTimeUntil,
+        ...(() => {
+          // Routines this decision took out, and until when: undo brings them back.
+          const skipped = changed.flatMap((t) => {
+            const until = next.tasks.find((x) => x.id === t.id)?.skipUntil;
+            return until !== undefined && until !== t.skipUntil ? [[t.id, until] as const] : [];
+          });
+          return skipped.length ? { skipUntil: Object.fromEntries(skipped) } : {};
+        })(),
         ...(option.kind === "start-earlier" && option.taskId
           ? (() => {
               const set = next.tasks.find((x) => x.id === option.taskId)?.startAfter;
@@ -377,6 +417,10 @@ function apply(data: AppData, action: Action): AppData {
                   : { minMinutes: old.minMinutes, estimateMinutes: old.estimateMinutes };
               })(),
               status: old.status,
+              // A routine taken out for the week comes back, unless it was skipped again since.
+              ...(record.skipUntil?.[t.id] !== undefined && t.skipUntil === record.skipUntil[t.id]
+                ? { skipUntil: old.skipUntil }
+                : {}),
               // An earlier start comes back unless the rule was changed since.
               ...(record.startAfter?.[t.id] &&
               JSON.stringify(t.startAfter) === JSON.stringify(record.startAfter[t.id])
@@ -574,6 +618,51 @@ function apply(data: AppData, action: Action): AppData {
         return t;
       });
       return refresh({ ...data, activities, tasks }, now);
+    }
+    case "deleteActivity": {
+      const removed = removedWith(data, action.activityId);
+      if (!removed) return data;
+      const gone = new Set(removed.tasks.map((t) => t.id));
+      return refresh(
+        {
+          ...data,
+          activities: data.activities.filter((a) => a.id !== action.activityId),
+          tasks: data.tasks.filter((t) => !gone.has(t.id)),
+          checkIns: data.checkIns.filter((c) => !gone.has(c.taskId)),
+          plan: data.plan.filter((b) => !gone.has(b.taskId)),
+          pins: (data.pins ?? []).filter((b) => !gone.has(b.taskId)),
+          // Nothing of it survives, not even in the undo history.
+          applied: pruneApplied(data.applied, (t) => gone.has(t)),
+        },
+        now,
+      );
+    }
+    case "restoreActivity": {
+      const { activity, index, tasks, checkIns, pins } = action.removed;
+      // Back only once, and never over something made since with the same id.
+      if (data.activities.some((a) => a.id === activity.id)) return data;
+      const have = new Set(data.tasks.map((t) => t.id));
+      const back = tasks.filter((t) => !have.has(t.id));
+      const ids = new Set(back.map((t) => t.id));
+      const checked = new Set(data.checkIns.map((c) => c.blockId));
+      return refresh(
+        {
+          ...data,
+          activities: [
+            ...data.activities.slice(0, index),
+            activity,
+            ...data.activities.slice(index),
+          ],
+          tasks: [...data.tasks, ...back],
+          checkIns: [
+            ...data.checkIns,
+            ...checkIns.filter((c) => ids.has(c.taskId) && !checked.has(c.blockId)),
+          ],
+          // A pinned block that is still ahead goes back to where it was pinned.
+          pins: [...(data.pins ?? []), ...pins.filter((b) => ids.has(b.taskId) && b.start > now)],
+        },
+        now,
+      );
     }
     case "savePlace": {
       const old = (data.places ?? []).find((p) => p.id === action.place.id);

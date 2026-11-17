@@ -7,9 +7,13 @@
     <style>
       body { font-family: system-ui, sans-serif; max-width: 680px; margin: 0 auto; padding: 32px 16px; line-height: 1.6; color: #1d1d1f; background: #f5f5f7; }
       h1 { font-size: 1.6rem; }
+      /* Always on top: installed as an app there is no browser bar to go back with. */
+      .back { position: sticky; top: 0; margin: -32px -16px 8px; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px; background: #f5f5f7; }
+      .back a { display: inline-flex; align-items: center; min-height: 44px; color: #c0171f; font-weight: 600; text-decoration: none; }
     </style>
   </head>
   <body>
+    <nav class="back"><a href="/">‹ Volver a critiCal</a></nav>
     <h1>Política de privacidad de critiCal</h1>
     <p>critiCal es una aplicación de uso personal de un único usuario, su autor. No está abierta al público.</p>
     <h2>Datos a los que accede</h2>

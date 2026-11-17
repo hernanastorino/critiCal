@@ -2,6 +2,8 @@
 // 1. geocodes places that have an address but no coordinates (Nominatim, once each),
 // 2. asks OpenRouteService for the driving-time matrix between all located places,
 // 3. stores the times, never touching pairs the user set by hand.
+// With `{ pairs: [{ from, to }] }` only those trips are timed (the app asks for the ones
+// the plan really makes), and only their places are geocoded.
 // With `{ spots: [...] }` it instead times one-off event addresses from home, storing
 // nothing: the app keeps those minutes without turning the address into a place.
 import { SPOT_TEXT_MAX } from "../src/limits.js";
@@ -21,6 +23,26 @@ const AGENT = "critiCal/1.0 (+https://critical-cal.vercel.app)";
 export const maxDuration = 60;
 /** How Vercel reads it for a plain Node function in `/api`. */
 export const config = { maxDuration };
+
+/** Trips timed per call when the app names them. */
+export const MAX_PAIRS = 60;
+
+/** A place id as the app sends it: some text, not too long. */
+const isPlaceId = (v: unknown): v is string =>
+  typeof v === "string" && v.length > 0 && v.length <= 80;
+
+/** The "from>to" key of one trip asked for, or null when it is not a trip. */
+function pairKey(p: unknown): string | null {
+  const { from, to } = (p ?? {}) as { from?: unknown; to?: unknown };
+  return isPlaceId(from) && isPlaceId(to) && from !== to ? `${from}>${to}` : null;
+}
+
+/** The trips asked for, as "from>to" keys; null when the list is not a valid one. */
+function wantedPairs(pairs: unknown): Set<string> | null {
+  if (!Array.isArray(pairs) || pairs.length === 0 || pairs.length > MAX_PAIRS) return null;
+  const keys = pairs.map(pairKey);
+  return keys.every((k) => k !== null) ? new Set(keys as string[]) : null;
+}
 
 /** One-off addresses timed per call: Nominatim allows one lookup per second. */
 export const MAX_SPOTS = 4;
@@ -102,7 +124,14 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
   const caller = await authenticate(req, env, ["orsKey"]);
   if (caller instanceof Response) return caller;
   const { user } = caller;
-  const body = (await req.json().catch(() => null)) as { spots?: unknown } | null;
+  const body = (await req.json().catch(() => null)) as {
+    spots?: unknown;
+    pairs?: unknown;
+  } | null;
+  // Asked for some trips only: the rest of the places are left alone.
+  const wanted = body && body.pairs !== undefined ? wantedPairs(body.pairs) : undefined;
+  if (wanted === null) return json({ ok: false, error: "bad_request" }, 400);
+  const asked = (from: string, to: string) => !wanted || wanted.has(`${from}>${to}`);
   if (body && body.spots !== undefined) {
     const spots = body.spots;
     if (
@@ -117,7 +146,8 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
   try {
     const { data, error } = await user.from("places").select("id, address, lat, lon");
     if (error) throw error;
-    const places = (data ?? []) as PlaceRow[];
+    const involved = wanted && new Set([...wanted].flatMap((k) => k.split(">")));
+    const places = ((data ?? []) as PlaceRow[]).filter((p) => !involved || involved.has(p.id));
     let geocoded = 0;
     /** Places with an address OpenStreetMap could not find: their times go by hand. */
     const ungeocoded: string[] = [];
@@ -154,6 +184,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       located.flatMap((to, j) => {
         const minutes = matrix[i]?.[j];
         if (i === j || minutes == null || manual.has(`${from.id}>${to.id}`)) return [];
+        if (!asked(from.id, to.id)) return [];
         return [{ from_place: from.id, to_place: to.id, minutes, manual: false }];
       }),
     );
@@ -163,6 +194,7 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
     for (const [i, from] of located.entries()) {
       for (const [j, to] of located.entries()) {
         if (i === j || matrix[i]?.[j] != null || manual.has(`${from.id}>${to.id}`)) continue;
+        if (!asked(from.id, to.id)) continue;
         unroutable.push({ from: from.id, to: to.id });
         const { error: deleteError } = await user
           .from("travel_times")

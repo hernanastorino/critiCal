@@ -113,9 +113,14 @@ describe("Loading draws Roy", () => {
     }
   });
 
-  it("is small when inline", () => {
-    const { container } = render(<Loading inline />);
-    expect((container.querySelector(".roy") as HTMLElement).style.height).toBe("24px");
+  it("is small when inline, lying on its side instead of a sliver", () => {
+    const px = (c: HTMLElement, side: "height" | "width") =>
+      Number.parseFloat((c.querySelector(".roy") as HTMLElement).style[side]);
+    const inline = render(<Loading inline />).container;
+    expect(px(inline, "height")).toBeLessThanOrEqual(30);
+    expect(px(inline, "width")).toBeGreaterThan(px(inline, "height") * 3);
+    const block = render(<Loading />).container;
+    expect(px(block, "height")).toBeGreaterThan(100);
   });
 });
 

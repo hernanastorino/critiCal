@@ -55,7 +55,19 @@ export function Loading({
   const text = loadingText(kind, label, progress);
   return (
     <div className={`loading${inline ? " inline" : ""}`} data-kind={kind} role="status">
-      {mascot ?? <Roy anim={LOADING_ANIM[kind]} size={inline ? 24 : 72} />}
+      {mascot ??
+        (inline ? (
+          // Next to a line of text only wide shapes read: the ladder goes on its side, and
+          // the accordion (tall and thin) gives way to it.
+          <Roy
+            anim={kind === "ai" ? "cascada" : LOADING_ANIM[kind]}
+            size={30}
+            maxWidth={104}
+            flat
+          />
+        ) : (
+          <Roy anim={LOADING_ANIM[kind]} size={168} maxWidth={240} />
+        ))}
       <span className="loading-text">{text}</span>
       {progress && progress.total > 0 && (
         <progress
