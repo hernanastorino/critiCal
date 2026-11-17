@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
@@ -63,15 +63,17 @@ function savedForm<F extends ActivityForm>(
   };
 }
 
+/**
+ * What was deleted while the notice is up: several in a row share one «Deshacer», so none
+ * is lost because the next notice replaced its own. Kept outside the component: closing
+ * and reopening Ajustes in between must not forget them.
+ */
+const recent: { current: { removed: RemovedActivity; at: number }[] } = { current: [] };
+
 /** Per-subject colour and study rules. */
 export function ActivitySettings() {
   const { data, dispatch } = useStore();
   const toast = useToast();
-  /**
-   * What was deleted while the notice is up: several in a row share one «Deshacer»,
-   * so none is lost because the next notice replaced its own.
-   */
-  const recent = useRef<{ removed: RemovedActivity; at: number }[]>([]);
   /** Where focus goes once a row is gone: the next (or previous) row, else the empty note. */
   const [focusId, setFocusId] = useState<string | null>(null);
   useEffect(() => {
@@ -90,7 +92,10 @@ export function ActivitySettings() {
     const near = data.activities[at0 + 1] ?? data.activities[at0 - 1];
     setFocusId(near ? near.id : "empty");
     const at = Date.now();
-    recent.current = [...recent.current.filter((r) => at - r.at < UNDO_MS), { removed, at }];
+    // Only the ones still gone: a different demo or one already back is not part of this.
+    const stillGone = (r: { removed: RemovedActivity; at: number }) =>
+      at - r.at < UNDO_MS && !data.activities.some((a) => a.id === r.removed.activity.id);
+    recent.current = [...recent.current.filter(stillGone), { removed, at }];
     dispatch({ type: "deleteActivity", activityId: activity.id });
     const all = recent.current.map((r) => r.removed);
     const silos = removed.tasks.length;
