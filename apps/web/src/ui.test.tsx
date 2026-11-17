@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -87,7 +87,11 @@ describe("app", () => {
     const done = screen.getAllByLabelText(/^Hecho:/);
     expect(done).toHaveLength(2);
     fireEvent.click(done[0] as HTMLElement);
+    // A second tap right after the first is ignored (the list moves under the finger).
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
+    vi.setSystemTime(Date.now() + 1000);
     fireEvent.click(screen.getByLabelText(/^No hecho:/));
+    vi.useRealTimers();
     // Nothing left to confirm (the demo may still have decisions to take).
     expect(screen.queryAllByLabelText(/^(No )?[Hh]echo:/)).toEqual([]);
   });

@@ -6,6 +6,7 @@ import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
+import { hoursProblem, minimumProblem, parseUnit, typedHours } from "../taskForm.js";
 import { useModal } from "./modal.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
@@ -22,6 +23,15 @@ const fromLocalInput = (tz: string, v: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
   return zonedInstant(tz, date, h * 60 + m);
 };
+
+/** What is wrong with a field, read with it (nothing when it is fine). */
+function FieldError({ id, text }: { id: string; text: string | null }) {
+  return text ? (
+    <p className="meta" id={id} role="alert" style={{ color: "var(--critical)" }}>
+      {text}
+    </p>
+  ) : null;
+}
 
 const AFTER_DUE = "Tiene que ser antes de la entrega: con esa fecha el plan no le da tiempo.";
 
@@ -54,19 +64,20 @@ export function TaskEditor({
   const [isExam, setIsExam] = useState(!!task?.exam);
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
+  const [unitError, setUnitError] = useState<string | null>(null);
   const addUnit = () => {
-    const m = unitTitle.match(/^(.*?)\s*\((\d+)\)\s*$/);
-    if (!unitTitle.trim()) return;
-    setUnits([
-      ...units,
-      {
-        id: newId(),
-        title: (m?.[1] ?? unitTitle).trim(),
-        estimateMinutes: Number(m?.[2] ?? 60),
-      },
-    ]);
+    const parsed = parseUnit(unitTitle);
+    if (!parsed) return;
+    if ("error" in parsed) {
+      setUnitError(parsed.error);
+      return;
+    }
+    setUnits([...units, { id: newId(), title: parsed.title, estimateMinutes: parsed.minutes }]);
     setUnitTitle("");
+    setUnitError(null);
   };
+  /** Saving was tried: an empty name is said now (not before the first try). */
+  const [tried, setTried] = useState(false);
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
@@ -132,8 +143,23 @@ export function TaskEditor({
   const startBlocked =
     kind === "deliverable" && (startAfter === null || startWarning === AFTER_DUE);
 
+  // Hours that are not figures, or a minimum above the estimate, are said, never fixed.
+  const deliverable = kind === "deliverable";
+  const estimateError = deliverable ? hoursProblem(estimate) : null;
+  const partsHours = units.reduce((n, u) => n + u.estimateMinutes, 0) / 60;
+  const minimumError = deliverable
+    ? minimumProblem(minimum, Math.max(typedHours(estimate) || 0, partsHours))
+    : null;
+  const hoursBlocked = !!(estimateError || minimumError);
+  const dueNow = deliverable ? fromLocalInput(tz, deadline) : Number.NaN;
+  const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
+
   const save = () => {
-    if (startBlocked) return;
+    if (startBlocked || hoursBlocked) return;
+    if (!title.trim()) {
+      setTried(true);
+      return;
+    }
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     if (due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now))) {
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
@@ -178,7 +204,7 @@ export function TaskEditor({
       ...task,
       id: task?.id ?? newId(),
       activityId: actId,
-      title: title.trim() || "Sin título",
+      title: title.trim(),
       kind,
       deadline: due,
       estimateMinutes:
@@ -248,6 +274,8 @@ export function TaskEditor({
           <span>Nombre</span>
           <input
             value={title}
+            aria-invalid={tried && !title.trim() ? true : undefined}
+            aria-describedby={tried && !title.trim() ? "title-error" : undefined}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               // Enter saves, unless it only confirms an IME character.
@@ -257,6 +285,16 @@ export function TaskEditor({
             }}
             placeholder="Parcial Física I"
           />
+          {tried && !title.trim() && (
+            <span
+              className="meta"
+              id="title-error"
+              role="alert"
+              style={{ margin: 0, color: "var(--critical)" }}
+            >
+              Poné un nombre
+            </span>
+          )}
         </label>
         <label className="field">
           <span>Materia o actividad</span>
@@ -301,6 +339,12 @@ export function TaskEditor({
                 {deadlineError}
               </p>
             )}
+            {deadlinePast && !deadlineError && (
+              <p className="meta" role="status">
+                Esa fecha ya pasó: la entrega queda vencida y el plan no le reserva tiempo. Se puede
+                guardar igual.
+              </p>
+            )}
             <StartAfterField
               value={startAfter}
               onChange={setStartAfter}
@@ -337,6 +381,8 @@ export function TaskEditor({
                 <input
                   inputMode="decimal"
                   value={estimate}
+                  aria-invalid={estimateError ? true : undefined}
+                  aria-describedby={estimateError ? "estimate-error" : undefined}
                   onChange={(e) => setEstimate(e.target.value)}
                 />
               </label>
@@ -345,10 +391,14 @@ export function TaskEditor({
                 <input
                   inputMode="decimal"
                   value={minimum}
+                  aria-invalid={minimumError ? true : undefined}
+                  aria-describedby={minimumError ? "minimum-error" : undefined}
                   onChange={(e) => setMinimum(e.target.value)}
                 />
               </label>
             </div>
+            <FieldError id="estimate-error" text={estimateError} />
+            <FieldError id="minimum-error" text={minimumError} />
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <legend style={{ padding: 0 }}>Partes (opcional)</legend>
               <span className="meta" style={{ margin: 0 }}>
@@ -390,7 +440,12 @@ export function TaskEditor({
                 <input
                   aria-label="Nueva parte: nombre y minutos entre paréntesis"
                   value={unitTitle}
-                  onChange={(e) => setUnitTitle(e.target.value)}
+                  aria-invalid={unitError ? true : undefined}
+                  aria-describedby={unitError ? "unit-error" : undefined}
+                  onChange={(e) => {
+                    setUnitTitle(e.target.value);
+                    setUnitError(null);
+                  }}
                   onKeyDown={(e) => {
                     // Enter that confirms an IME character is not «add».
                     if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
@@ -403,6 +458,16 @@ export function TaskEditor({
                   Agregar
                 </button>
               </div>
+              {unitError && (
+                <p
+                  className="meta"
+                  id="unit-error"
+                  role="alert"
+                  style={{ color: "var(--critical)" }}
+                >
+                  {unitError}
+                </p>
+              )}
             </fieldset>
           </>
         ) : (
@@ -467,7 +532,12 @@ export function TaskEditor({
               Archivar
             </button>
           )}
-          <button type="button" className="btn primary" disabled={startBlocked} onClick={save}>
+          <button
+            type="button"
+            className="btn primary"
+            disabled={startBlocked || hoursBlocked}
+            onClick={save}
+          >
             Guardar
           </button>
         </div>

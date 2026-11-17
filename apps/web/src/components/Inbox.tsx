@@ -32,6 +32,9 @@ const EAT: Record<MealKind, string> = {
   cena: "cenar",
 };
 
+/** Taps on «Hecho» / «No hecho» this soon after an answer are ignored (the list moved). */
+export const ANSWER_GUARD_MS = 600;
+
 /** What a plan B leaves for today: Roy rests when there is nothing left (SPEC §18.1). */
 function ProposalToday({ text }: { text: string }) {
   return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
@@ -94,7 +97,11 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const keepFocus = useKeepFocus(listRef, titleRef);
 
+  // The list reflows after each answer: a second tap right after lands on the next item.
+  const lastAnswer = useRef(0);
   const quick = (b: PlanBlock, status: "done" | "missed") => {
+    if (Date.now() - lastAnswer.current < ANSWER_GUARD_MS) return;
+    lastAnswer.current = Date.now();
     dispatch({
       type: "checkIn",
       checkIn: {
@@ -105,7 +112,9 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
-    if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros" });
+    const undo = () => dispatch({ type: "undoCheckIn", blockId: b.id });
+    if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros", undo });
+    else toast.show("Anotado como hecho.", { undo });
   };
 
   return (

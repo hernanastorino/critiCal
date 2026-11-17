@@ -4,10 +4,21 @@ import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
+import { isFigure } from "./fields.js";
 import { useModal } from "./modal.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 const MAX_TOPICS = 200;
+
+/** The most minutes one record can hold: a whole day. */
+const MAX_LOG_MINUTES = 1440;
+
+/** What is wrong with the minutes typed in the log, if anything (empty is fine: 0). */
+export function minutesError(text: string): string | null {
+  if (text.trim() === "") return null;
+  const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
+  return ok ? null : "Poné minutos de 0 a 1440, solo cifras.";
+}
 
 /** Silo detail: what is left and a quick "this is how far I got" log. */
 export function TaskDetail({
@@ -42,6 +53,7 @@ export function TaskDetail({
       : null;
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
+  const badMinutes = minutesError(minutes);
   const pending = task.units.filter((u) => !u.doneAt);
   const done = task.units.length - pending.length;
 
@@ -91,8 +103,19 @@ export function TaskDetail({
             value={minutes}
             onChange={(e) => setMinutes(e.target.value)}
             placeholder="40"
-            aria-describedby="break-note"
+            aria-invalid={badMinutes ? true : undefined}
+            aria-describedby={badMinutes ? "minutes-error" : "break-note"}
           />
+          {badMinutes && (
+            <span
+              className="meta"
+              id="minutes-error"
+              role="alert"
+              style={{ margin: 0, color: "var(--critical)" }}
+            >
+              {badMinutes}
+            </span>
+          )}
           {factor > 1 && (
             <span className="meta" id="break-note" style={{ margin: 0 }}>
               Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
@@ -149,12 +172,14 @@ export function TaskDetail({
           <button
             type="button"
             className="btn primary"
+            disabled={!!badMinutes}
             onClick={() => {
+              if (badMinutes) return;
               const total = Math.min(MAX_TOPICS, Math.max(0, Math.round(Number(topics) || 0)));
               dispatch({
                 type: "logProgress",
                 taskId: task.id,
-                minutes: Number(minutes) || 0,
+                minutes: Number(minutes.replace(",", ".")) || 0,
                 unitIds: units,
                 topics: total || undefined,
                 topicsDone: Math.min(total, Math.max(0, Math.round(Number(topicsDone) || 0))),

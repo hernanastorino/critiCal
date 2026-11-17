@@ -43,6 +43,7 @@ describe("deadline range", () => {
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const sheet = screen.getByRole("dialog", { name: "Nueva actividad" });
+    fireEvent.change(within(sheet).getByLabelText("Nombre"), { target: { value: "Entrega" } });
     fireEvent.change(within(sheet).getByLabelText("Fecha límite"), { target: { value: deadline } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Guardar" }));
     return sheet;

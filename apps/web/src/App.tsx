@@ -6,7 +6,7 @@ import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
-import { ToastProvider } from "./components/Toast.js";
+import { ToastProvider, useToast } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { localDev } from "./devAuth.js";
@@ -29,8 +29,30 @@ function tabFrom(search: string): Tab | null {
 
 const wantsWeeklyPlan = (search: string) => new URLSearchParams(search).get("plan") === "week";
 
-export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?: () => void }) {
-  const { inboxCount } = useStore();
+/** Says the demo was reset, and offers to bring back what it had (shown once, on mount). */
+function ResetNotice({ undo }: { undo: () => void }) {
+  const toast = useToast();
+  const said = useRef(false);
+  useEffect(() => {
+    if (said.current) return;
+    said.current = true;
+    toast.show("Demo reiniciada", { undo });
+  }, [toast, undo]);
+  return null;
+}
+
+export function Shell({
+  onReset,
+  onSignOut,
+  resetUndo,
+}: {
+  /** Gets the data as it was, so the reset can be taken back. */
+  onReset?: (before: AppData) => void;
+  onSignOut?: () => void;
+  /** Right after a reset: takes it back. */
+  resetUndo?: () => void;
+}) {
+  const { inboxCount, data } = useStore();
   const [tab, setTab] = useState<Tab>(() => tabFrom(globalThis.location?.search ?? "") ?? "week");
   const [weekly, setWeekly] = useState(() => wantsWeeklyPlan(globalThis.location?.search ?? ""));
   useEffect(() => {
@@ -59,6 +81,7 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
     // The one notice area of the app, above the tab bar.
     <ToastProvider>
       <Celebrations />
+      {resetUndo && <ResetNotice undo={resetUndo} />}
       <div className="app">
         {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
         {tab === "silos" && <Silos />}
@@ -96,7 +119,7 @@ export function Shell({ onReset, onSignOut }: { onReset?: () => void; onSignOut?
           <Settings
             initialPage={settings === true ? undefined : settings}
             onClose={() => setSettings(false)}
-            onReset={onReset}
+            onReset={onReset && (() => onReset(data))}
             onSignOut={onSignOut}
             onWeeklyPlan={() => {
               setSettings(false);
@@ -300,6 +323,9 @@ export function App({
     }
   });
   const [key, setKey] = useState(0);
+  /** The demo as it was before «Reiniciar demo», while that can still be undone. */
+  const [restored, setRestored] = useState<AppData | null>(null);
+  const [before, setBefore] = useState<AppData | null>(null);
   const client = initial ? null : supabase;
   const session = useSession(client);
   // Whatever way a session ends, the next account does not see what the last one typed.
@@ -360,13 +386,30 @@ export function App({
     );
   }
   return (
-    <StoreProvider key={key} initial={initial ?? loadDemo} fixedNow={fixedNow}>
+    <StoreProvider
+      key={key}
+      // After undoing a reset the demo starts from the data it had.
+      initial={restored ? () => restored : (initial ?? loadDemo)}
+      fixedNow={fixedNow}
+    >
       <Shell
-        onReset={() => {
+        onReset={(was) => {
           resetDemo();
           clearDrafts();
+          setBefore(was);
+          setRestored(null);
           setKey(key + 1);
         }}
+        resetUndo={
+          before
+            ? () => {
+                clearDrafts();
+                setRestored(before);
+                setBefore(null);
+                setKey(key + 1);
+              }
+            : undefined
+        }
         onSignOut={() => {
           clearDrafts();
           remember("login");

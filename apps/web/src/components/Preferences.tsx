@@ -21,17 +21,19 @@ const ORDER = [1, 2, 3, 4, 5, 6, 0];
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
   const { data, dispatch } = useStore();
-  const [{ days, form }, setDraft, saved, dirty] = useDraft("week", () => ({
+  const [{ days, form, held }, setDraft, saved, dirty] = useDraft("week", () => ({
     days: [1, 2, 3, 4, 5],
     form: formOf(data.settings.week[1] as DaySettings),
+    // What was typed for days no longer selected, kept until saved.
+    held: {} as Record<number, ReturnType<typeof formOf>>,
   }));
-  const setForm = (f: typeof form) => setDraft({ days, form: f });
+  const setForm = (f: typeof form) => setDraft({ days, form: f, held });
   const toast = useToast();
 
   const pick = (d: number) => {
     const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
     if (next.length === 0) return;
-    setDraft({ days: next, form: formOf(data.settings.week[next[0] as number] as DaySettings) });
+    setDraft(switchDays({ days, form, held }, next, data.settings.week));
   };
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
@@ -127,6 +129,8 @@ export function WeekSettings() {
     const shown = (m?: Meal) => (m ? String(m.end - m.start) : "0");
     saved({
       days,
+      // The days just saved no longer wait for anything.
+      held: Object.fromEntries(Object.entries(held).filter(([d]) => !days.includes(Number(d)))),
       form: {
         ...form,
         morning: String(day.morningMinutes),
@@ -242,6 +246,31 @@ export function WeekSettings() {
   );
 }
 
+type WeekForm = ReturnType<typeof formOf>;
+interface WeekDraft {
+  days: number[];
+  form: WeekForm;
+  held: Record<number, WeekForm>;
+}
+
+/**
+ * Moves to another selection of days without losing what was typed: the form of a day
+ * left behind is held (only if it differs from what is saved) and comes back with it. The
+ * days that stay selected keep sharing the form.
+ */
+export function switchDays(draft: WeekDraft, next: number[], week: DaySettings[]): WeekDraft {
+  const held = { ...draft.held };
+  for (const d of draft.days.filter((x) => !next.includes(x))) {
+    if (JSON.stringify(draft.form) === JSON.stringify(formOf(week[d] as DaySettings)))
+      delete held[d];
+    else held[d] = draft.form;
+  }
+  const first = next[0] as number;
+  const stays = next.some((d) => draft.days.includes(d));
+  const form = stays ? draft.form : (held[first] ?? formOf(week[first] as DaySettings));
+  return { days: next, held, form };
+}
+
 function formOf(d: DaySettings) {
   const meals = mealsOf(d);
   const [breakfast, lunch, snack, dinner] = (
@@ -263,6 +292,29 @@ function formOf(d: DaySettings) {
   };
 }
 
+/** The rule fields as typed, and the first one that is not a valid value (nothing is fixed silently). */
+function ruleProblem(form: {
+  maxActivities: string;
+  margin: string;
+  warn: string;
+}): { field: keyof typeof form; message: string } | null {
+  const whole = (v: string, min: number, max: number) =>
+    /^\s*\d+\s*$/.test(v) && Number(v) >= min && Number(v) <= max;
+  if (!whole(form.maxActivities, 1, 10))
+    return {
+      field: "maxActivities",
+      message: "Las materias por día son un número entero de 1 a 10.",
+    };
+  if (!whole(form.margin, 0, 240))
+    return { field: "margin", message: "El margen son minutos enteros, de 0 a 240." };
+  if (!isFigure(form.warn) || Number(form.warn.replace(",", ".")) > 168)
+    return {
+      field: "warn",
+      message: "El aviso va de 0 a 168 horas, solo cifras (se aceptan decimales).",
+    };
+  return null;
+}
+
 export function RuleSettings() {
   const { data, dispatch } = useStore();
   const s = data.settings;
@@ -272,20 +324,19 @@ export function RuleSettings() {
     warn: toHours(s.warnSlackMinutes),
   }));
   const toast = useToast();
-  const [error, setError] = useState<string | null>(null);
+  const [problem, setProblem] = useState<ReturnType<typeof ruleProblem>>(null);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
-    setError(null);
+    setProblem(null);
   };
   const save = () => {
-    // Plain figures only: «-5abc» or «1e308» are refused, not guessed.
-    if (![form.maxActivities, form.margin, form.warn].every(isFigure)) {
-      setError("Revisá los números: solo cifras, sin letras ni signos.");
-      return;
-    }
-    const max = clampMinutes(form.maxActivities, 1, 10) ?? 1;
-    const margin = clampMinutes(form.margin, 0, 240) ?? 0;
-    const warn = Math.min(168 * 60, fromHours(form.warn));
+    // Plain figures in range only: «2.5», «1e2» or «0,5» are refused, not guessed.
+    const bad = ruleProblem(form);
+    setProblem(bad);
+    if (bad) return;
+    const max = Number(form.maxActivities);
+    const margin = Number(form.margin);
+    const warn = fromHours(form.warn);
     dispatch({
       type: "settings",
       settings: {
@@ -295,29 +346,30 @@ export function RuleSettings() {
         warnSlackMinutes: warn,
       },
     });
-    // Show what was saved: «0» becomes 1, «999» becomes 10.
     saved({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
     toast.show("Reglas guardadas");
   };
+  const field = (k: keyof typeof form, label: string) => (
+    <Field
+      label={label}
+      value={form[k]}
+      onChange={set(k)}
+      invalid={problem?.field === k}
+      errorId="rules-error"
+    />
+  );
   return (
     <Section>
       <div className="grid2">
-        <Field
-          label="Máximo de materias por día"
-          value={form.maxActivities}
-          onChange={set("maxActivities")}
-        />
-        <Field
-          label="Margen antes de cada evento (min)"
-          value={form.margin}
-          onChange={set("margin")}
-        />
-        <Field
-          label="Avisar cuando el margen baja de (h)"
-          value={form.warn}
-          onChange={set("warn")}
-        />
+        {field("maxActivities", "Máximo de materias por día")}
+        {field("margin", "Margen antes de cada evento (min)")}
+        {field("warn", "Avisar cuando el margen baja de (h)")}
       </div>
+      {problem && (
+        <p id="rules-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
+          {problem.message}
+        </p>
+      )}
       {dirty && <Unsaved />}
       <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
         Guardar reglas
@@ -325,11 +377,6 @@ export function RuleSettings() {
       <p className="meta">
         De 1 a 10 materias por día, margen de hasta 240 min y aviso de hasta 168 h.
       </p>
-      {error && (
-        <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
-          {error}
-        </p>
-      )}
     </Section>
   );
 }
