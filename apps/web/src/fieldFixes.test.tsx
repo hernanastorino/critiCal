@@ -106,8 +106,11 @@ describe("Mi semana", () => {
     fireEvent.change(screen.getByLabelText("Me levanto"), { target: { value: "23:00" } });
     fireEvent.click(screen.getByText(/^Guardar para/));
     expect(screen.getByRole("alert").textContent).toMatch(/cae, o termina, cuando estás dormido/);
-    // Picking other days replaces the form without going through a field.
+    // Changing days keeps what was typed (it is still a problem), so the error stays…
     fireEvent.click(screen.getByLabelText("sábado"));
+    expect(screen.getByRole("alert").textContent).toMatch(/cuando estás dormido/);
+    // …and it goes as soon as the form no longer has it.
+    fireEvent.change(screen.getByLabelText("Me levanto"), { target: { value: "07:00" } });
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
