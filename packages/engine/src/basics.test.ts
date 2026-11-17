@@ -303,6 +303,32 @@ describe("buildSlots", () => {
     ]);
   });
 
+  it("omits the meals that fall while asleep on a day woken very late", () => {
+    const meals = [
+      { kind: "desayuno" as const, start: 7 * 60 + 30, end: 8 * 60 },
+      { kind: "almuerzo" as const, start: 13 * 60, end: 14 * 60 },
+      { kind: "cena" as const, start: 21 * 60, end: 21 * 60 + 30 },
+    ];
+    const odd = { ...settings, week: settings.week.map((d) => ({ ...d, meals })) };
+    const woke = [{ date: "2026-11-02", wake: 23 * 60 }];
+    const kinds = (o: typeof woke) =>
+      placeMeals(odd, o, from, at("2026-11-03", "00:00"), [])
+        .filter((m) => m.date === "2026-11-02")
+        .map((m) => m.kind);
+    // Up at 23:00: nothing fits inside the waking hours, so no meal that day.
+    expect(kinds(woke)).toEqual([]);
+    // Up at 22:00: only dinner, shifted within its 1 h 30 margin (not breakfast or lunch).
+    expect(kinds([{ date: "2026-11-02", wake: 22 * 60 }])).toEqual(["cena"]);
+    // Up at 10:00: breakfast still follows waking, and lunch and dinner stay.
+    expect(kinds([{ date: "2026-11-02", wake: 10 * 60 }])).toEqual([
+      "desayuno",
+      "almuerzo",
+      "cena",
+    ]);
+    // Up at 20:30: dinner is within its 1 h 30 margin and stays; the rest are omitted.
+    expect(kinds([{ date: "2026-11-02", wake: 20 * 60 + 30 }])).toEqual(["cena"]);
+  });
+
   it("frees the preferred meal slot when the meal moves", () => {
     const busy = [{ start: at("2026-11-02", "11:30"), end: at("2026-11-02", "13:20") }];
     const slots = buildSlots(settings, [], from, to, busy);
