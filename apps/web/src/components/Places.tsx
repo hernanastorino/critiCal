@@ -120,8 +120,20 @@ export function Places() {
               setEditing(null);
             }}
             onDelete={() => {
+              const times = (data.travelTimes ?? []).filter(
+                (t) => t.from === p.id || t.to === p.id,
+              );
               dispatch({ type: "deletePlace", placeId: p.id });
               setEditing(null);
+              toast.show(`${short(p.name)} borrado`, {
+                undo: () => {
+                  dispatch({ type: "savePlace", place: p });
+                  // Its times typed by hand come back; computed ones are worked out again.
+                  for (const t of times.filter((x) => x.manual))
+                    dispatch({ type: "travelTime", from: t.from, to: t.to, minutes: t.minutes });
+                },
+              });
+              refocus("places-intro");
             }}
           />
         ) : (
@@ -245,8 +257,8 @@ export function Places() {
           {trips.map(({ from, to }) => {
             const auto = (data.travelTimes ?? []).find((t) => t.from === from && t.to === to);
             return (
-              <div key={`${from}>${to}`} className="check">
-                <span style={{ flex: 1, minWidth: 0 }}>
+              <div key={`${from}>${to}`} className="check" style={{ flexWrap: "wrap" }}>
+                <span style={{ flex: 1, minWidth: 0, overflowWrap: "anywhere" }}>
                   {placeName(from)} → {placeName(to)}
                   {auto && !auto.manual && <span className="meta place-aliases">calculado</span>}
                 </span>
@@ -392,7 +404,8 @@ function MinutesInput({
           className="meta"
           id={errorId}
           role="alert"
-          style={{ color: "var(--critical)", margin: 0 }}
+          // On a line of its own: next to the field it squeezed the row's name.
+          style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
         >
           Minutos de 0 a 1440, solo cifras.
         </span>
@@ -470,11 +483,10 @@ function PlaceForm({
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>
       </label>
-      {dirty && (
-        <p className="meta" style={{ margin: "6px 0 0" }}>
-          Cambios sin guardar
-        </p>
-      )}
+      {/* Always there (empty until something changes), so the fields do not jump while typing. */}
+      <p className="meta" style={{ margin: "6px 0 10px", minHeight: "1.2em" }}>
+        {dirty ? "Cambios sin guardar" : ""}
+      </p>
       <div className="row">
         <button
           type="button"

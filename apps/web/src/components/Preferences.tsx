@@ -1,17 +1,17 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import type { Activity, DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { type AppTask, type DetectedKind, type Effort, nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES, MEAL_NAMES, mealsOf } from "../planning.js";
-import { removedWith, useStore } from "../store.js";
+import { type RemovedActivity, removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf, validRoutine } from "../subjects.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
-import { useToast } from "./Toast.js";
+import { UNDO_MS, useToast } from "./Toast.js";
 
 /** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
 function Unsaved() {
@@ -501,20 +501,52 @@ export function DetectedDefaults() {
 
 /** Per-subject colour and study rules. */
 export function ActivitySettings() {
-  const { data } = useStore();
+  const { data, dispatch } = useStore();
+  const toast = useToast();
+  /**
+   * What was deleted while the notice is up: several in a row share one «Deshacer»,
+   * so none is lost because the next notice replaced its own.
+   */
+  const recent = useRef<{ removed: RemovedActivity; at: number }[]>([]);
+  const remove = (activity: Activity) => {
+    const removed = removedWith(data, activity.id);
+    if (!removed) return;
+    const at = Date.now();
+    recent.current = [...recent.current.filter((r) => at - r.at < UNDO_MS), { removed, at }];
+    dispatch({ type: "deleteActivity", activityId: activity.id });
+    const all = recent.current.map((r) => r.removed);
+    const silos = removed.tasks.length;
+    toast.show(
+      all.length > 1
+        ? `${all.length} eliminadas: ${all.map((r) => r.activity.name).join(", ")}`
+        : `${activity.name} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
+      {
+        undo: () => {
+          recent.current = [];
+          // The last deleted goes back first, so each lands where it was.
+          for (const r of [...all].reverse()) dispatch({ type: "restoreActivity", removed: r });
+        },
+      },
+    );
+  };
   return (
     <Section>
       <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
+      {data.activities.length === 0 && (
+        <p className="meta">
+          No tenés materias ni rutinas. Las materias se crean en «Inicio de cuatrimestre» y las
+          rutinas en «Rutinas».
+        </p>
+      )}
       {data.activities.map((a) => (
-        <ActivityRow key={a.id} activity={a} />
+        <ActivityRow key={a.id} activity={a} onRemove={() => remove(a)} />
       ))}
     </Section>
   );
 }
 
-function ActivityRow({ activity }: { activity: Activity }) {
+function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () => void }) {
   const { data, now, dispatch } = useStore();
-  const toast = useToast();
   const key = `activity:${activity.id}`;
   const [startAfter, setStartAfter, startSaved, startDirty] = useDraft<
     Activity["startAfter"] | null
@@ -725,17 +757,10 @@ function ActivityRow({ activity }: { activity: Activity }) {
             className="btn danger"
             style={{ width: "100%" }}
             onClick={() => {
-              const removed = removedWith(data, activity.id);
-              if (!removed) return;
               // What was being typed for it goes too.
               startSaved(activity.startAfter);
               weeklySaved(studyHours);
-              dispatch({ type: "deleteActivity", activityId: activity.id });
-              const silos = removed.tasks.length;
-              toast.show(
-                `${activity.name} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
-                { undo: () => dispatch({ type: "restoreActivity", removed }) },
-              );
+              onRemove();
             }}
           >
             Eliminar {activity.name}

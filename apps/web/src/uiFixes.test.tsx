@@ -165,6 +165,9 @@ describe("driving times on demand", () => {
     ]);
     fireEvent.click(screen.getByText("Borrar lugar"));
     expect(screen.getByTestId("names").textContent).toBe("Casa,Gym,Abuela");
+    // Deleted at once, with a way back.
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByTestId("names").textContent).toBe("Casa,Gym,Abuela,Facultad");
   });
 });
 
@@ -419,9 +422,44 @@ describe("deleting a materia", () => {
     expect(screen.getByTestId("names").textContent).not.toContain("Física I");
     expect(screen.getByText(/Física I eliminada/)).toBeTruthy();
     fireEvent.click(screen.getByText("Deshacer"));
-    expect(screen.getByTestId("names").textContent?.split(",").sort()).toEqual(
-      all.split(",").sort(),
+    // Back where it was in the list.
+    expect(screen.getByTestId("names").textContent).toBe(all);
+  });
+
+  it("several deleted in a row come back with one Deshacer, and none left says so", () => {
+    render(
+      <StoreProvider initial={() => demoData(NOW)} persist={false} fixedNow={NOW}>
+        <ToastProvider>
+          <ActivitySettings />
+          <ActivityNames />
+        </ToastProvider>
+      </StoreProvider>,
     );
+    const all = screen.getByTestId("names").textContent as string;
+    for (const name of all.split(",")) {
+      // The first row left is always this one.
+      fireEvent.click(document.querySelector(".activity-head") as HTMLElement);
+      fireEvent.click(screen.getByText(`Eliminar ${name}`));
+    }
+    expect(screen.getByTestId("names").textContent).toBe("");
+    expect(screen.getByText(/No tenés materias ni rutinas/)).toBeTruthy();
+    expect(screen.getByText(new RegExp(`^${all.split(",").length} eliminadas:`))).toBeTruthy();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByTestId("names").textContent).toBe(all);
+  });
+
+  it("a notice goes away when tapped, in case it sits over a button", () => {
+    render(
+      <StoreProvider initial={() => demoData(NOW)} persist={false} fixedNow={NOW}>
+        <ToastProvider>
+          <ActivitySettings />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    fireEvent.click(screen.getByText("Física I"));
+    fireEvent.click(screen.getByText("Eliminar Física I"));
+    fireEvent.click(screen.getByText(/Física I eliminada/));
+    expect(screen.queryByText(/Física I eliminada/)).toBeNull();
   });
 });
 

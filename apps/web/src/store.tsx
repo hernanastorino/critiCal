@@ -202,6 +202,8 @@ export const PLAN_HISTORY = 20;
 /** What `deleteActivity` takes out, kept by the notice that offers «Deshacer». */
 export interface RemovedActivity {
   activity: Activity;
+  /** Where it was in the list, to go back to the same place. */
+  index: number;
   tasks: AppTask[];
   checkIns: AppData["checkIns"];
   pins: NonNullable<AppData["pins"]>;
@@ -215,6 +217,7 @@ export function removedWith(data: AppData, id: string): RemovedActivity | undefi
   const ids = new Set(tasks.map((t) => t.id));
   return {
     activity,
+    index: data.activities.indexOf(activity),
     tasks,
     checkIns: data.checkIns.filter((c) => ids.has(c.taskId)),
     pins: (data.pins ?? []).filter((b) => ids.has(b.taskId)),
@@ -635,7 +638,7 @@ function apply(data: AppData, action: Action): AppData {
       );
     }
     case "restoreActivity": {
-      const { activity, tasks, checkIns, pins } = action.removed;
+      const { activity, index, tasks, checkIns, pins } = action.removed;
       // Back only once, and never over something made since with the same id.
       if (data.activities.some((a) => a.id === activity.id)) return data;
       const have = new Set(data.tasks.map((t) => t.id));
@@ -645,7 +648,11 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(
         {
           ...data,
-          activities: [...data.activities, activity],
+          activities: [
+            ...data.activities.slice(0, index),
+            activity,
+            ...data.activities.slice(index),
+          ],
           tasks: [...data.tasks, ...back],
           checkIns: [
             ...data.checkIns,
