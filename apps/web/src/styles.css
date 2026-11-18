@@ -2320,6 +2320,17 @@ label.check {
   gap: 12px;
 }
 
+/* Roy at twice the size (SPEC §18.10): on top, so the text keeps its whole width. */
+.roy-line.big {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.loading.inline.large {
+  flex-direction: column;
+  align-items: flex-start;
+}
+
 .roy-line + * {
   margin-top: 12px;
 }

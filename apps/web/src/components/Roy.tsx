@@ -364,14 +364,17 @@ export function RoyLine({
   anim,
   children,
   size = 84,
+  big,
 }: {
   anim: RoyAnim;
   children: ReactNode;
   size?: number;
+  /** Twice as big, above the text instead of taking its width. */
+  big?: boolean;
 }) {
   return (
-    <div className="roy-line">
-      <Roy anim={anim} size={size} maxWidth={112} />
+    <div className={`roy-line${big ? " big" : ""}`}>
+      <Roy anim={anim} size={big ? size * 2 : size} maxWidth={big ? 224 : 112} />
       <p className="meta">{children}</p>
     </div>
   );

@@ -92,7 +92,7 @@ export function Calendars() {
         <p className="meta" data-testid="google-status">
           {describe(status.google, tz, status.google?.at)}
         </p>
-        {status.busy && <Loading kind="sync" inline />}
+        {status.busy && <Loading kind="sync" inline large />}
         <div className="row">
           <button
             type="button"
