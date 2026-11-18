@@ -3,6 +3,7 @@
 // stored here: the user confirms in the app.
 
 import { clean, prompt, SCHEMA } from "../src/syllabus.js";
+import { limiter } from "./_lib/rate.js";
 import { report } from "./_lib/report.js";
 import { authenticate, type Caller, type Env, json, readBody, readEnv } from "./_lib/server.js";
 
@@ -11,6 +12,9 @@ const API = "https://generativelanguage.googleapis.com/v1beta/models";
 const MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"];
 /** Vercel accepts request bodies up to 4.5 MB; base64 adds a third. */
 export const MAX_PDF_BYTES = 3_000_000;
+
+/** Readings per user: every one spends the shared Gemini quota (and costs time). */
+export const reads = limiter(5, 40);
 
 export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
@@ -101,6 +105,11 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
   const pdf = typeof body.pdf === "string" ? body.pdf : "";
   if (!pdf) return json({ ok: false, error: "missing_pdf" }, 400);
   if ((pdf.length * 3) / 4 > MAX_PDF_BYTES) return json({ ok: false, error: "too_large" }, 413);
+  if (!reads.take(caller.uid, now)) {
+    const res = json({ ok: false, error: "rate_limited" }, 429);
+    res.headers.set("Retry-After", "60");
+    return res;
+  }
   const year = new Date(now).getUTCFullYear();
   const request = JSON.stringify({
     contents: [

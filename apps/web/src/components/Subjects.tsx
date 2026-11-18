@@ -1,12 +1,21 @@
 import { useEffect, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
-import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { hhmmToMinutes, isHhmm, minutesToHhmm } from "../format.js";
+import { isBlank, NAME_MAX } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf } from "../subjects.js";
-import { clampMinutes, Field, focusFirstInvalid, Problem, toHours, Unsaved } from "./fields.js";
+import {
+  clampMinutes,
+  Field,
+  focusFirstInvalid,
+  isFigure,
+  Problem,
+  toHours,
+  Unsaved,
+} from "./fields.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { UNDO_MS, useToast } from "./Toast.js";
@@ -19,6 +28,22 @@ interface ActivityForm {
   rest: string;
   from: string;
   to: string;
+}
+
+/** Why minutes typed in the form are not valid (a figure within the range), or null. */
+function minutesProblem(v: string, lo: number, hi: number, what: string): string | null {
+  const n = isFigure(v) ? Math.round(Number(v.replace(",", "."))) : Number.NaN;
+  return n >= lo && n <= hi ? null : `${what} va de ${lo} a ${hi} min.`;
+}
+
+/** What is wrong with each number of the materia form (nothing is fixed behind the back). */
+function numberProblems(form: { max: string; min: string; study: string; rest: string }) {
+  return {
+    max: minutesProblem(form.max, 30, 480, "La sesión máxima"),
+    min: minutesProblem(form.min, 30, 480, "El bloque mínimo"),
+    study: minutesProblem(form.study, 5, 240, "El estudio antes del descanso"),
+    rest: minutesProblem(form.rest, 0, 120, "El descanso"),
+  };
 }
 
 /** The materia as saved from its form (colour and «puedo empezar» are set by the caller). */
@@ -69,6 +94,20 @@ function savedForm<F extends ActivityForm>(
  * and reopening Ajustes in between must not forget them.
  */
 const recent: { current: { removed: RemovedActivity; at: number }[] } = { current: [] };
+
+/** The «Prefiero desde / hasta» window is two real times, the first before the second. */
+function windowError(from: string, to: string): string | null {
+  if ((from && !isHhmm(from)) || (to && !isHhmm(to))) return "Hora inválida.";
+  return from && to && hhmmToMinutes(from) >= hhmmToMinutes(to)
+    ? "«Prefiero desde» tiene que ser antes de «hasta»."
+    : null;
+}
+
+/** A name that says something, and that no other materia or rutina has. */
+function nameError(name: string, repeated: boolean): string | null {
+  if (isBlank(name)) return "Poné un nombre.";
+  return repeated ? "Ya hay una materia o rutina con ese nombre." : null;
+}
 
 /** Per-subject colour and study rules. */
 export function ActivitySettings() {
@@ -159,21 +198,22 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
   const hours = Number(weekly.replace(",", "."));
   // Blank means none; at most a whole week.
   const hoursOk =
-    !studies || weekly.trim() === "" || (Number.isFinite(hours) && hours >= 0 && hours <= 168);
+    !studies || weekly.trim() === "" || (isFigure(weekly) && hours >= 0 && hours <= 168);
   // Two «Nadar» would be told apart by nothing (adding one is refused the same way).
   const repeated = data.activities.some((a) => a.id !== activity.id && sameName(a.name, form.name));
   const maxSession = clampMinutes(form.max, 30, 480) ?? activity.maxSessionMinutes;
   const minBlock = clampMinutes(form.min, 30, 480) ?? activity.minBlockMinutes;
   // A minimum block longer than a session could never be planned, nor a window that ends
   // before it starts. Each message sits right under the fields it is about.
+  const numbers = numberProblems(form);
   const blockProblem =
-    minBlock > maxSession ? "El bloque mínimo no puede ser más largo que la sesión máxima." : null;
-  const windowProblem =
-    form.from && form.to && hhmmToMinutes(form.from) >= hhmmToMinutes(form.to)
-      ? "«Prefiero desde» tiene que ser antes de «hasta»."
+    !numbers.max && !numbers.min && minBlock > maxSession
+      ? "El bloque mínimo no puede ser más largo que la sesión máxima."
       : null;
-  const nameProblem = repeated ? "Ya hay una materia o rutina con ese nombre." : null;
-  const problem = nameProblem ?? blockProblem ?? windowProblem;
+  const windowProblem = windowError(form.from, form.to);
+  const nameProblem = nameError(form.name, repeated);
+  const numberProblem = numbers.max ?? numbers.min ?? numbers.study ?? numbers.rest;
+  const problem = nameProblem ?? numberProblem ?? blockProblem ?? windowProblem;
   const saved = activity.name;
   // A long name would wrap the button onto two lines.
   const named = saved.length > 24 ? "" : ` ${saved}`;
@@ -204,7 +244,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             <span>Nombre</span>
             <input
               aria-label="Nombre de la materia"
-              maxLength={60}
+              maxLength={NAME_MAX}
               value={form.name}
               aria-invalid={nameProblem ? true : undefined}
               aria-describedby={nameProblem ? `${key}-name-error` : undefined}
@@ -230,25 +270,29 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           <div className="grid2">
             <Field
               label="Sesión máxima (min)"
-              invalid={!!blockProblem}
-              errorId={`${key}-block-error`}
+              invalid={!!(numbers.max || blockProblem)}
+              errorId={numbers.max ? `${key}-max-error` : `${key}-block-error`}
               value={form.max}
               onChange={(e) => setForm({ ...form, max: e.target.value })}
             />
             <Field
               label="Bloque mínimo (min)"
-              invalid={!!blockProblem}
-              errorId={`${key}-block-error`}
+              invalid={!!(numbers.min || blockProblem)}
+              errorId={numbers.min ? `${key}-min-error` : `${key}-block-error`}
               value={form.min}
               onChange={(e) => setForm({ ...form, min: e.target.value })}
             />
             <Field
               label="Estudio antes del descanso (min)"
+              invalid={!!numbers.study}
+              errorId={`${key}-study-error`}
               value={form.study}
               onChange={(e) => setForm({ ...form, study: e.target.value })}
             />
             <Field
               label="Descanso (min, 0 = sin)"
+              invalid={!!numbers.rest}
+              errorId={`${key}-rest-error`}
               value={form.rest}
               onChange={(e) => setForm({ ...form, rest: e.target.value })}
             />
@@ -269,6 +313,10 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               onChange={(e) => setForm({ ...form, to: e.target.value })}
             />
           </div>
+          <Problem id={`${key}-max-error`} text={numbers.max} />
+          <Problem id={`${key}-min-error`} text={numbers.min} />
+          <Problem id={`${key}-study-error`} text={numbers.study} />
+          <Problem id={`${key}-rest-error`} text={numbers.rest} />
           <Problem id={`${key}-block-error`} text={blockProblem} />
           <Problem id={`${key}-window-error`} text={windowProblem} />
           {studies && (

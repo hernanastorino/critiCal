@@ -44,7 +44,7 @@ vi.mock("@supabase/supabase-js", () => ({
   }),
 }));
 
-const { config, handle, resetGeocoder } = await import("./travel.js");
+const { calls, config, handle, resetGeocoder } = await import("./travel.js");
 const { SPOTS_TIMEOUT_MS } = await import("../src/remote.js");
 const env = { url: "u", publishable: "p", secret: "s", orsKey: "ors" };
 const req = (body?: unknown) =>
@@ -58,6 +58,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   writes.length = 0;
   resetGeocoder();
+  calls.reset();
 });
 
 describe("event addresses", () => {
@@ -141,6 +142,21 @@ describe("event addresses", () => {
     expect(await (await handle(req({ spots: ["x"] }), env)).json()).toMatchObject({
       error: "home_not_located",
     });
+  });
+});
+
+describe("budget", () => {
+  it("limits how often one person can ask, and bad requests cost nothing", async () => {
+    places = [{ id: "casa", address: null, lat: null, lon: null, is_home: true }];
+    for (let i = 0; i < 10; i++)
+      expect((await handle(req({ spots: ["x"] }), env)).status).not.toBe(429);
+    const res = await handle(req({ spots: ["x"] }), env);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
+    expect(await res.json()).toMatchObject({ ok: false, error: "rate_limited" });
+    calls.reset();
+    for (let i = 0; i < 20; i++) await handle(req({ spots: [] }), env);
+    expect((await handle(req({ spots: ["x"] }), env)).status).not.toBe(429);
   });
 });
 

@@ -1,9 +1,10 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import { localParts, zonedInstant } from "../engine.js";
 import { dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
+import { dateError, deadlineMaxYear, isBlank, TITLE_MAX } from "../limits.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, sameName, subjectsOf } from "../subjects.js";
@@ -43,7 +44,14 @@ export function Semester() {
     ? typedExam
     : { ...typedExam, activityId: "" };
   // Both dates are needed: an empty start would mean "from year 0".
-  const holidays = start && end && end >= start ? holidaysBetween(start, end) : [];
+  /** A date the browser holds but cannot read (31/02): its value is empty, though typed. */
+  const [unreal, setUnreal] = useState({ start: false, end: false });
+  const noDate = "Esa fecha no existe.";
+  const startProblem = unreal.start ? noDate : dateError(start, now);
+  const endProblem = unreal.end ? noDate : dateError(end, now);
+  const examProblem = dateError(exam.date, now);
+  const holidays =
+    start && end && end >= start && !startProblem && !endProblem ? holidaysBetween(start, end) : [];
 
   const prefs = (patch: Partial<NonNullable<typeof data.preferences>>) =>
     dispatch({ type: "preferences", preferences: { ...data.preferences, ...patch } });
@@ -60,7 +68,7 @@ export function Semester() {
       focusFirstInvalid(e.currentTarget.parentElement);
       return;
     }
-    if (!name || repeated) return;
+    if (isBlank(name) || repeated) return;
     const activity = {
       id: newId(),
       name,
@@ -99,7 +107,7 @@ export function Semester() {
   };
 
   const addExam = () => {
-    if (!exam.activityId || !exam.date) return;
+    if (!exam.activityId || !exam.date || examProblem) return;
     const d = DEFAULTS.parcial;
     const task: AppTask = {
       id: newId(),
@@ -127,19 +135,43 @@ export function Semester() {
           <div className="row fields">
             <label className="field" style={{ flex: 1 }}>
               <span>Empieza</span>
-              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+              <input
+                type="date"
+                value={start}
+                min="2000-01-01"
+                max={`${deadlineMaxYear(now)}-12-31`}
+                aria-invalid={startProblem ? true : undefined}
+                aria-describedby={startProblem ? "semester-start-error" : undefined}
+                onChange={(e) => {
+                  setStart(e.target.value);
+                  setUnreal((u) => ({ ...u, start: e.target.validity.badInput }));
+                }}
+              />
             </label>
             <label className="field" style={{ flex: 1 }}>
               <span>Termina</span>
               <input
                 type="date"
                 value={end}
-                aria-invalid={backwards ? true : undefined}
-                aria-describedby={backwards ? "semester-end-error" : undefined}
-                onChange={(e) => setEnd(e.target.value)}
+                min="2000-01-01"
+                max={`${deadlineMaxYear(now)}-12-31`}
+                aria-invalid={backwards || endProblem ? true : undefined}
+                aria-describedby={
+                  endProblem
+                    ? "semester-end-date-error"
+                    : backwards
+                      ? "semester-end-error"
+                      : undefined
+                }
+                onChange={(e) => {
+                  setEnd(e.target.value);
+                  setUnreal((u) => ({ ...u, end: e.target.validity.badInput }));
+                }}
               />
             </label>
           </div>
+          <Problem id="semester-start-error" text={startProblem} />
+          <Problem id="semester-end-date-error" text={endProblem} />
           <Problem
             id="semester-end-error"
             text={backwards ? "«Termina» no puede ser anterior a «Empieza»." : null}
@@ -149,9 +181,9 @@ export function Semester() {
             className="btn"
             style={{ width: "100%" }}
             disabled={!start || !end}
-            aria-disabled={backwards ? true : undefined}
+            aria-disabled={backwards || startProblem || endProblem ? true : undefined}
             onClick={(e) => {
-              if (backwards) {
+              if (backwards || startProblem || endProblem) {
                 focusFirstInvalid(e.currentTarget.parentElement);
                 return;
               }
@@ -220,15 +252,16 @@ export function Semester() {
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            disabled={!subject.trim() || repeated}
+            disabled={isBlank(subject) || repeated}
             aria-disabled={hoursOk ? undefined : true}
             onClick={addSubject}
           >
             Agregar materia
           </button>
-          {repeated && subject.trim() && (
-            <p className="meta">Ya hay una materia o rutina con ese nombre.</p>
-          )}
+          <Problem
+            id="semester-name-error"
+            text={repeated && subject.trim() ? "Ya hay una materia o rutina con ese nombre." : null}
+          />
           {unsaved && (
             <p className="meta" style={{ margin: "6px 0 0" }}>
               Cambios sin guardar
@@ -259,6 +292,7 @@ export function Semester() {
                   <span>Qué</span>
                   <input
                     value={exam.title}
+                    maxLength={TITLE_MAX}
                     onChange={(e) => setExam({ ...exam, title: e.target.value })}
                   />
                 </label>
@@ -267,15 +301,20 @@ export function Semester() {
                   <input
                     type="date"
                     value={exam.date}
+                    min="2000-01-01"
+                    max={`${deadlineMaxYear(now)}-12-31`}
+                    aria-invalid={examProblem ? true : undefined}
+                    aria-describedby={examProblem ? "semester-exam-error" : undefined}
                     onChange={(e) => setExam({ ...exam, date: e.target.value })}
                   />
                 </label>
               </div>
+              <Problem id="semester-exam-error" text={examProblem} />
               <button
                 type="button"
                 className="btn"
                 style={{ width: "100%" }}
-                disabled={!exam.activityId || !exam.date}
+                disabled={!exam.activityId || !exam.date || !!examProblem}
                 onClick={addExam}
               >
                 Agregar

@@ -7,6 +7,7 @@
 // With `{ spots: [...] }` it instead times one-off event addresses from home, storing
 // nothing: the app keeps those minutes without turning the address into a place.
 import { SPOT_TEXT_MAX } from "../src/limits.js";
+import { limiter } from "./_lib/rate.js";
 import { report } from "./_lib/report.js";
 import { authenticate, type Caller, type Env, json, readEnv } from "./_lib/server.js";
 
@@ -23,6 +24,9 @@ const AGENT = "critiCal/1.0 (+https://critical-cal.vercel.app)";
 export const maxDuration = 60;
 /** How Vercel reads it for a plain Node function in `/api`. */
 export const config = { maxDuration };
+
+/** Calls per user: each one can hit Nominatim and the shared OpenRouteService quota. */
+export const calls = limiter(10, 150);
 
 /** Trips timed per call when the app names them. */
 export const MAX_PAIRS = 60;
@@ -132,15 +136,24 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
   const wanted = body && body.pairs !== undefined ? wantedPairs(body.pairs) : undefined;
   if (wanted === null) return json({ ok: false, error: "bad_request" }, 400);
   const asked = (from: string, to: string) => !wanted || wanted.has(`${from}>${to}`);
-  if (body && body.spots !== undefined) {
-    const spots = body.spots;
-    if (
-      !Array.isArray(spots) ||
+  const spots = body?.spots;
+  if (
+    spots !== undefined &&
+    (!Array.isArray(spots) ||
       spots.length === 0 ||
       spots.length > MAX_SPOTS ||
-      !spots.every((t) => typeof t === "string" && t.trim().length > 0 && t.length <= SPOT_TEXT_MAX)
-    )
-      return json({ ok: false, error: "bad_request" }, 400);
+      !spots.every(
+        (t) => typeof t === "string" && t.trim().length > 0 && t.length <= SPOT_TEXT_MAX,
+      ))
+  )
+    return json({ ok: false, error: "bad_request" }, 400);
+  // Only well-formed requests count: a bad one costs nothing.
+  if (!calls.take(caller.uid)) {
+    const res = json({ ok: false, error: "rate_limited" }, 429);
+    res.headers.set("Retry-After", "60");
+    return res;
+  }
+  if (spots !== undefined) {
     return timeSpots(env, user, spots as string[], pause);
   }
   try {

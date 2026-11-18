@@ -54,6 +54,9 @@ export function hours(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
 }
 
+/** A time of day as a time field writes it: «07:30», never «25:99» or «abc». */
+export const isHhmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+
 export function hhmmToMinutes(v: string): number {
   const [h, m] = v.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);

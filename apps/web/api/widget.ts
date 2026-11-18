@@ -56,6 +56,10 @@ export async function manage(req: Request, env: Env): Promise<Response> {
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
   const body = await readBody(req);
+  // A misspelled action must not rotate the token (and break the widget).
+  if (body.action !== "create" && body.action !== "revoke") {
+    return json({ ok: false, error: "bad_request" }, 400);
+  }
   if (body.action === "revoke") {
     const { error } = await caller.admin.rpc("revoke_widget_token", { p_user: caller.uid });
     if (error) return json({ ok: false, error: "widget_failed" }, 500);

@@ -667,9 +667,10 @@ export function Routines() {
       >
         Agregar rutina
       </button>
-      {repeated && name.trim() && (
-        <p className="meta">Ya hay una materia o rutina con ese nombre.</p>
-      )}
+      <Problem
+        id="routine-name-error"
+        text={repeated && name.trim() ? "Ya hay una materia o rutina con ese nombre." : null}
+      />
     </Section>
   );
 }
