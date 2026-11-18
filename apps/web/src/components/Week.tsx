@@ -45,6 +45,7 @@ import {
 } from "./icons.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
+import { useEditEscape } from "./useEditEscape.js";
 
 export type Item =
   | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
@@ -156,6 +157,7 @@ export function Week({
   const [replanning, setReplanning] = useState(false);
   const [replanned, setReplanned] = useState(false);
   const [editing, setEditing] = useState(false);
+  useEditEscape(editing, () => setEditing(false));
   const [focusId, setFocusId] = useState<string | null>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);

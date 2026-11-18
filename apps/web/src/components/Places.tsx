@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
@@ -118,6 +118,7 @@ export function Places() {
             onSave={(place) => {
               dispatch({ type: "savePlace", place });
               setEditing(null);
+              refocusPlace(place.id);
             }}
             onDelete={() => {
               const times = (data.travelTimes ?? []).filter(
@@ -137,7 +138,7 @@ export function Places() {
             }}
           />
         ) : (
-          <div key={p.id} className="check place-row">
+          <div key={p.id} id={`place-${p.id}`} tabIndex={-1} className="check place-row">
             <span style={{ flex: 1, minWidth: 0 }}>
               {p.isHome ? "🏠 " : ""}
               {p.name}
@@ -164,11 +165,13 @@ export function Places() {
           onSave={(place) => {
             dispatch({ type: "savePlace", place });
             setEditing(null);
+            refocusPlace(place.id);
           }}
         />
       ) : (
         <button
           type="button"
+          id="add-place"
           className="btn"
           style={{ width: "100%", marginTop: 8 }}
           onClick={() => setEditing(blank())}
@@ -441,26 +444,39 @@ function PlaceForm({
   const finish = () => saved(fresh());
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
+  // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
+  const [tried, setTried] = useState(false);
+  const empty = !name.trim();
+  const problem = taken
+    ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
+    : empty && tried
+      ? "Poné un nombre para el lugar."
+      : null;
+  const nameField = useRef<HTMLInputElement>(null);
+  // Opened from «Agregar lugar» or «Editar»: the keyboard lands on the first field.
+  useEffect(() => nameField.current?.focus(), []);
   return (
     <div className="card">
       <label className="field">
         <span>Nombre</span>
         <input
+          ref={nameField}
           value={name}
+          maxLength={60}
           onChange={(e) => setName(e.target.value)}
           placeholder="Facu"
-          aria-invalid={taken ? true : undefined}
-          aria-describedby={taken ? `taken-${place.id}` : undefined}
+          aria-invalid={problem ? true : undefined}
+          aria-describedby={problem ? `taken-${place.id}` : undefined}
         />
       </label>
-      {taken && (
+      {problem && (
         <p
           className="meta"
           id={`taken-${place.id}`}
           role="alert"
           style={{ color: "var(--critical)" }}
         >
-          Ya tenés un lugar con ese nombre: elegí otro o editá ese.
+          {problem}
         </p>
       )}
       <label className="field">
@@ -491,8 +507,13 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          disabled={!name.trim() || taken}
+          aria-disabled={empty || taken ? true : undefined}
           onClick={() => {
+            if (empty || taken) {
+              setTried(true);
+              nameField.current?.focus();
+              return;
+            }
             finish();
             onSave({
               ...place,
@@ -538,6 +559,12 @@ function PlaceForm({
 
 /** A label-sized piece of a long address or title (a 3000-character one is still read whole). */
 const short = (s: string, max = 40) => (s.length > max ? `${s.slice(0, max)}…` : s);
+
+/** After saving a place the keyboard goes to its row, or to «Agregar lugar». */
+const refocusPlace = (id: string) =>
+  requestAnimationFrame(() =>
+    (document.getElementById(`place-${id}`) ?? document.getElementById("add-place"))?.focus(),
+  );
 
 /** After a row goes away, the keyboard stays nearby: on the section heading. */
 const refocus = (id: string) =>

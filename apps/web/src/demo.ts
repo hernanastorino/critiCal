@@ -123,6 +123,7 @@ export function demoData(now: number): AppData {
         name: "Gym",
         color: PALETTE[2],
         academic: false,
+        kind: "rutina",
         maxSessionMinutes: 90,
         minBlockMinutes: 90,
         preferred: { start: 17 * 60, end: 21 * 60 },

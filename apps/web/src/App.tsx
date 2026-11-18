@@ -70,6 +70,8 @@ export function Shell({
   }, []);
   /** Ajustes open, on its list (`true`) or on one screen. */
   const [settings, setSettings] = useState<boolean | "week">(false);
+  /** Planificación semanal was opened from the Ajustes list: closing it goes back there. */
+  const [weeklyFromSettings, setWeeklyFromSettings] = useState(false);
   /** A day to open the week on, picked from the inbox. */
   const [day, setDay] = useState<string>();
   const tabs: { id: Tab; label: string; icon: ReactNode }[] = [
@@ -124,14 +126,20 @@ export function Shell({
             onWeeklyPlan={() => {
               setSettings(false);
               setWeekly(true);
+              setWeeklyFromSettings(true);
             }}
           />
         )}
         {weekly && (
           <WeeklyPlan
-            onClose={() => setWeekly(false)}
+            onClose={() => {
+              setWeekly(false);
+              if (weeklyFromSettings) setSettings(true);
+              setWeeklyFromSettings(false);
+            }}
             onInbox={() => {
               setWeekly(false);
+              setWeeklyFromSettings(false);
               setTab("inbox");
             }}
           />
