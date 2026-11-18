@@ -1,8 +1,8 @@
 // Numbers for the weekly planning and for "planned vs done". Pure.
-import { addDays, localParts, MINUTE, zonedInstant } from "./engine.js";
+import { addDays, localParts, MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
 import { holidaysBetween } from "./holidays.js";
 import type { AppData } from "./model.js";
-import { weekStart } from "./planning.js";
+import { blockFactor, studyMinutes, weekStart } from "./planning.js";
 
 const DAY = 1440 * MINUTE;
 
@@ -41,8 +41,12 @@ export interface PlannedDone {
   taskId: string;
   title: string;
   color?: string;
-  /** Minutes planned in blocks that already ended this week. */
+  /**
+   * Study minutes planned in blocks that already ended this week, plus work logged this
+   * week outside them (the plan made room for it by taking it off later blocks).
+   */
   planned: number;
+  /** Study minutes really done, like the silos (breaks are not work). */
   done: number;
 }
 
@@ -66,11 +70,25 @@ export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
     }
     return r;
   };
-  for (const b of data.plan) {
-    if (b.start >= since && b.end <= now) row(b.taskId).planned += (b.end - b.start) / MINUTE;
-  }
+  const ended = data.plan.filter((b) => b.start >= since && b.end <= now);
+  for (const b of ended) row(b.taskId).planned += (b.end - b.start) / MINUTE / factorOf(data, b);
+  const counted = new Set(ended.map((b) => b.id));
   for (const c of data.checkIns) {
-    if (c.createdAt >= since && c.createdAt <= now) row(c.taskId).done += c.minutesDone;
+    if (c.createdAt < since || c.createdAt > now) continue;
+    const r = row(c.taskId);
+    r.done += studyMinutes(c);
+    if (!counted.has(c.blockId)) r.planned += studyMinutes(c);
+  }
+  for (const r of rows.values()) {
+    r.planned = Math.round(r.planned);
+    r.done = Math.round(r.done);
   }
   return [...rows.values()].sort((a, b) => b.planned - a.planned);
+}
+
+/** Block time per study minute of a block's task (weekly silos count block time). */
+function factorOf(data: AppData, b: PlanBlock): number {
+  const task = data.tasks.find((t) => t.id === b.taskId);
+  if (task?.kind === "habit") return 1;
+  return blockFactor(data.activities.find((a) => a.id === (task?.activityId ?? b.activityId)));
 }
