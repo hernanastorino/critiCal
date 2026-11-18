@@ -7,6 +7,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
 import { decisions, refreshPlan } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
+import { runningSince } from "./testing.js";
 import { plannedVsDone } from "./week-review.js";
 
 afterEach(cleanup);
@@ -16,13 +17,16 @@ const NOW = zonedInstant("America/Montevideo", "2026-11-18", 21);
 const demo = () => reducer(demoData(NOW), { type: "refresh", now: NOW });
 
 const withRoutine = (d: AppData) =>
-  reducer(d, {
-    type: "saveRoutine",
-    name: "Leer",
-    sessionsPerWeek: 14,
-    sessionMinutes: 60,
-    now: NOW,
-  });
+  runningSince(
+    reducer(d, {
+      type: "saveRoutine",
+      name: "Leer",
+      sessionsPerWeek: 14,
+      sessionMinutes: 60,
+      now: NOW,
+    }),
+    NOW,
+  );
 
 const withFormulas = (d: AppData) =>
   reducer(d, {

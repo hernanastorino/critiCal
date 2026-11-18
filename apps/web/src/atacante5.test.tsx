@@ -8,6 +8,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { decisions, refreshPlan } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
+import { runningSince } from "./testing.js";
 
 afterEach(cleanup);
 
@@ -95,13 +96,16 @@ describe("«Usar tiempo libre para llegar al objetivo»", () => {
   const NOW18 = zonedInstant("America/Montevideo", "2026-11-18", 21);
   it("takes out the blocks it added when it is undone", { timeout: 30_000 }, () => {
     const d0 = reducer(demoData(NOW18), { type: "refresh", now: NOW18 });
-    const withLeer = reducer(d0, {
-      type: "saveRoutine",
-      name: "Leer",
-      sessionsPerWeek: 14,
-      sessionMinutes: 60,
-      now: NOW18,
-    });
+    const withLeer = runningSince(
+      reducer(d0, {
+        type: "saveRoutine",
+        name: "Leer",
+        sessionsPerWeek: 14,
+        sessionMinutes: 60,
+        now: NOW18,
+      }),
+      NOW18,
+    );
     const leer = withLeer.tasks.find((t) => t.title === "Leer");
     // An objective beyond the minimum that only free time can reach.
     const tight = reducer(withLeer, {

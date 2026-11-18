@@ -1,4 +1,6 @@
 import { vi } from "vitest";
+import type { AppData } from "./model.js";
+import { reducer } from "./store.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: test mocks of any shape
 type Invoke = (name: string, opts: any) => Promise<{ data: unknown; error: unknown }>;
@@ -16,3 +18,12 @@ export function stubApi(invoke: Invoke): void {
 }
 
 export const session = { getSession: async () => ({ data: { session: { access_token: "tok" } } }) };
+
+/**
+ * The habits of `data` as if they had been running since earlier weeks (they ask the whole
+ * week, not the share of the days left since they were made), planned again at `now`.
+ */
+export function runningSince(data: AppData, now: number): AppData {
+  const tasks = data.tasks.map((t) => (t.kind === "habit" ? { ...t, createdAt: undefined } : t));
+  return reducer({ ...data, tasks }, { type: "refresh", now });
+}

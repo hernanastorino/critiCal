@@ -7,6 +7,7 @@ import { MINUTE, zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
 import { decisions, maxPerDay, refreshPlan } from "./planning.js";
 import { reducer, StoreProvider } from "./store.js";
+import { runningSince } from "./testing.js";
 
 afterEach(cleanup);
 
@@ -34,13 +35,16 @@ function testerWeek(now: number): AppData {
     now,
   });
   d = reducer(d, { type: "deleteActivity", activityId: "quimica", now });
-  d = reducer(d, {
-    type: "saveRoutine",
-    name: "Correr",
-    sessionsPerWeek: 8,
-    sessionMinutes: 30,
+  d = runningSince(
+    reducer(d, {
+      type: "saveRoutine",
+      name: "Correr",
+      sessionsPerWeek: 8,
+      sessionMinutes: 30,
+      now,
+    }),
     now,
-  });
+  );
   return reducer(d, {
     type: "savePlace",
     place: { id: "casa", name: "Casa", aliases: [], isHome: true },
@@ -126,13 +130,16 @@ describe("a routine that does not fit even alone", () => {
         },
       ],
     };
-    return reducer(base, {
-      type: "saveRoutine",
-      name: "Correr",
-      sessionsPerWeek: 7,
-      sessionMinutes: 30,
-      now: SAT,
-    });
+    return runningSince(
+      reducer(base, {
+        type: "saveRoutine",
+        name: "Correr",
+        sessionsPerWeek: 7,
+        sessionMinutes: 30,
+        now: SAT,
+      }),
+      SAT,
+    );
   };
 
   it("is named as the cause, and options that fix the rest say so", () => {

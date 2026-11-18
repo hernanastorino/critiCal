@@ -104,6 +104,7 @@ export function rowsToData(r: {
         endedAt: t.ended_at ? ms(t.ended_at as string) : undefined,
         autoDroppedAt: t.auto_dropped_at ? ms(t.auto_dropped_at as string) : undefined,
         startAfter: (t.start_after as AppTask["startAfter"] | null) ?? undefined,
+        createdAt: t.created_at ? ms(t.created_at as string) : undefined,
         deadlineSyncedFrom: t.deadline_synced_from
           ? ms(t.deadline_synced_from as string)
           : undefined,
@@ -447,6 +448,8 @@ export function diffData(prev: AppData, next: AppData): Writes {
         ended_at: t.endedAt ? iso(t.endedAt) : null,
         auto_dropped_at: t.autoDroppedAt ? iso(t.autoDroppedAt) : null,
         start_after: t.startAfter ?? null,
+        // Only a date the app knows: the database sets its own for a row it has not seen.
+        ...(t.createdAt !== undefined && { created_at: iso(t.createdAt) }),
         deadline_synced_from: t.deadlineSyncedFrom ? iso(t.deadlineSyncedFrom) : null,
       })),
     });

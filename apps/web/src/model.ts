@@ -46,6 +46,11 @@ export interface AppTask {
   minMinutes: number;
   /** Habits: sessions per week of `sessionMinutes`. */
   sessionsPerWeek?: number;
+  /**
+   * When a habit was made: the week it was made in asks only the share of the days left
+   * (SPEC §18 punto 11). Unset for the ones from before: they ask the whole week.
+   */
+  createdAt?: number;
   sessionMinutes?: number;
   maxPerDayMinutes?: number;
   priority: number;
