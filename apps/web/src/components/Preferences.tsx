@@ -7,6 +7,7 @@ import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { isBlank } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
+import { describeHours, emptyHoursForm, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
 import { detectedProblem, detectedToReset } from "../taskForm.js";
@@ -23,6 +24,7 @@ import {
   Unsaved,
   useFocusInvalid,
 } from "./fields.js";
+import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { Section } from "./Section.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
@@ -643,11 +645,13 @@ export function Routines() {
     name: "",
     times: "3",
     minutes: "60",
+    hours: emptyHoursForm(),
   }));
-  const { name, times, minutes } = draft;
+  const { name, times, minutes, hours } = draft;
   const setName = (v: string) => setDraft({ ...draft, name: v });
   const setTimes = (v: string) => setDraft({ ...draft, times: v });
   const setMinutes = (v: string) => setDraft({ ...draft, minutes: v });
+  const setHours = (v: HoursForm) => setDraft({ ...draft, hours: v });
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
   const [detail, setDetail] = useState<AppTask | null>(null);
@@ -655,7 +659,9 @@ export function Routines() {
   const repeated = data.activities.some((a) => sameName(a.name, name));
   const [editing, setEditing] = useState<AppTask | null>(null);
   const problem = routineProblems(times, minutes);
-  const bad = !!(problem.times || problem.minutes);
+  // A franja shorter than the session is said once the session is a valid figure.
+  const read = readHours(hours, problem.minutes ? undefined : Number(minutes));
+  const bad = !!(problem.times || problem.minutes || read.problems.length);
   const nameField = useRef<HTMLInputElement>(null);
   // Nothing readable in the name (spaces, zero-width characters): said when typed or tried.
   const [nameTried, setNameTried] = useState(false);
@@ -678,9 +684,10 @@ export function Routines() {
       name,
       sessionsPerWeek: Math.round(Number(times)),
       sessionMinutes: Math.round(Number(minutes)),
+      validHours: read.hours,
     });
     // Back to the defaults: the next routine does not inherit this one's figures.
-    drafted({ name: "", times: "3", minutes: "60" });
+    drafted({ name: "", times: "3", minutes: "60", hours: emptyHoursForm() });
     // The button goes grey with the name cleared: the keyboard goes back to the name.
     nameField.current?.focus();
   };
@@ -712,6 +719,7 @@ export function Routines() {
             <span className="meta" style={{ margin: 0 }}>
               {h.paused ? "pausada · " : ""}
               {h.sessionsPerWeek}× {h.sessionMinutes} min
+              {r.validHours ? ` · ${describeHours(r.validHours)}` : ""}
             </span>
           </button>
         );
@@ -767,6 +775,14 @@ export function Routines() {
           />
         </label>
       </div>
+      <RoutineHours
+        form={hours}
+        onChange={setHours}
+        problems={read.problems}
+        errorId="routine-hours-error"
+        onEnter={onEnter}
+      />
+      <Problem id="routine-hours-error" text={hoursSummary(read.problems)} />
       <Problem id="routine-blank-error" text={blank ? "Poné un nombre." : null} />
       <Problem id="routine-times-error" text={problem.times} />
       <Problem id="routine-minutes-error" text={problem.minutes} />

@@ -1,5 +1,5 @@
 import { buildSlots, placeMeals, type Slot } from "./availability.js";
-import { addDays, localParts } from "./time.js";
+import { addDays, localParts, weekdayOf } from "./time.js";
 import { type TravelOptions, travelBuffers } from "./travel.js";
 import {
   type Activity,
@@ -170,6 +170,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     slot.start >= Math.max(now, p.task.earliestStart ?? now) &&
     slot.end <= p.task.deadline &&
     !(p.task.avoid ?? []).some((a) => slot.start < a.end && slot.end > a.start) &&
+    insideHours(p.task, slot, slotMinutes) &&
     (!slot.soft || !p.activity.academic || (!strict && !!input.allowFreeTime));
 
   const placed = new Map<string, number>(prepared.map((p) => [p.task.id, 0]));
@@ -186,7 +187,7 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     if (pending.length === 0) return true;
     // Without avoided times eligibility is nested by deadline, so the cumulative check
     // over deadline prefixes is already exact (and much cheaper than the flow).
-    if (!pending.some((x) => x.p.task.avoid?.length)) {
+    if (!pending.some((x) => x.p.task.avoid?.length || x.p.task.validHours)) {
       let demand = 0;
       for (const x of pending) {
         demand += x.need;
@@ -373,6 +374,14 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     unresolvedLocations: travel.unresolved,
     meals: placeMeals(settings, input.overrides ?? [], now, input.horizonEnd, busy, input.events),
   };
+}
+
+/** Whether a slot is inside the task's valid hours of its day (always, with none set). */
+function insideHours(task: Task, slot: Slot, slotMinutes: number): boolean {
+  const hours = task.validHours;
+  if (!hours) return true;
+  const range = hours.days?.[weekdayOf(slot.date)] ?? hours.all;
+  return !range || (slot.minuteOfDay >= range.start && slot.minuteOfDay + slotMinutes <= range.end);
 }
 
 /** The wake-up date an instant belongs to (after-midnight time counts for the day before). */

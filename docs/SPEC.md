@@ -35,7 +35,7 @@ El plan es **dato derivado**: se puede recalcular entero en cualquier momento de
 
 - **Entrega**: materia, fecha límite, unidades (cada una con estimación) u horas totales, mínimo total, prioridad, flexibilidad. Un parcial es un objetivo propio, distinto del mínimo semanal de la materia.
 - **Materia / Actividad**: color, mínimo semanal opcional, duración máxima de sesión, descanso tras sesión (por defecto 50/10), franja preferida (ej. Mate a la mañana).
-- **Hábito**: gym, etc. Frecuencia semanal, duración, franja preferida, mínimo.
+- **Hábito**: gym, etc. Frecuencia semanal, duración, franja preferida, mínimo. Una **rutina** (la actividad de un hábito) puede tener además un **horario válido**: una franja de inicio y fin para todos los días y, opcionalmente, una franja propia para cada día de la semana (`Activity.validHours`, §5.4).
 - **Evento fijo**: viene del calendario (clases, cumpleaños, juntadas, familia).
 - **Evento tentativo**: reserva el lugar; el motor mantiene un plan B.
 - **Comidas**: desayuno, almuerzo y cena de cada día de la rutina, cada una con hora preferida y duración (0 = sin esa comida). Rutinas guardadas antes del desayuno (solo almuerzo y cena) toman un desayuno de 30 min al levantarse. Un evento cuyo título dice que es una comida («Almuerzo con la abuela») es esa comida ese día.
@@ -65,6 +65,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
    - bloque mínimo por materia (ej. 60 min seguidos) y máximo de materias distintas por día (ej. 2), como reglas blandas;
    - duración máxima por materia con descansos implícitos (no se muestran en el calendario);
    - franja preferida por materia;
+   - **horario válido de una rutina** (firme, no una preferencia): el plan pone sus sesiones solo dentro de la franja de ese día (el tiempo de la sesión entero adentro). Cada día usa su propia franja si la tiene y, si no, la de todos los días; sin franja, a cualquier hora. Ejemplo: correr a más tardar a las 19:00 entre semana y a las 20:00 los sábados. Si en esa franja no entra, la rutina queda corta y se avisa como cualquier otra que no entra. Se guarda como `{ all, days }` en minutos (columna `activities.valid_hours`) y viaja en el respaldo. En Ajustes → Rutinas (al agregar) y en el editor de su hábito: «Desde» y «Hasta» (por ejemplo «7» o «19:30»; «Desde» vacío es desde el principio del día y «Hasta» vacío hasta el final) y «Distinto según el día», donde un día vacío usa el horario de todos. Errores en su campo, con un solo anuncio si hay varios: «Desde» no antes de «Hasta», hora que no es una hora, franja más corta que una sesión.
    - repaso espaciado antes de parciales, con opción de dedicar el día previo solo a esa materia.
 5. **Recomendaciones**: compara el plan que respeta las reglas blandas con uno que las rompe; si romperlas ahorra algo (ej. no invadir la franja libre), lo sugiere con su costo ("salvo que quieras estudiar a las 20, hoy conviene 30 min de Mate y 30 de Física").
 6. **Infactibilidad → opciones** (cada una con vista previa de la semana):
@@ -328,8 +329,8 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 
 **11. Decisiones del 2026-11-18** (respuestas del usuario a las preguntas pendientes):
 
+- ✅ **Horarios válidos por rutina** (pedido nuevo; implementado, ver §5.4): cada rutina (gym, correr…) tiene una franja válida de inicio y fin, que puede cambiar según el día de la semana. Ejemplo: correr a más tardar a las 19:00 entre semana y a las 20:00 los sábados. El plan pone esa rutina solo dentro de su franja de ese día.
 - ✅ **Comidas cuando te levantás muy tarde**: la comida que cae mientras dormís (o pasada la hora de dormir) se omite ese día; si te levantás a la hora del almuerzo o después, se saltea el desayuno. Reemplaza lo que decía §5.1 («aparece justo después de la anterior»); hecho en `availability.ts`.
-- **Horarios válidos por rutina** (pedido nuevo): cada rutina (gym, correr…) tiene una franja válida de inicio y fin, que puede cambiar según el día de la semana. Ejemplo: correr a más tardar a las 19:00 entre semana y a las 20:00 los sábados. El plan pone esa rutina solo dentro de su franja de ese día.
 - **Rutina creada a mitad de semana**: la primera semana pide solo la parte proporcional a los días que quedan.
 - **Críticos por una tarea que no entra ni sola**: esa tarea se avisa sola y no marca como críticos los bloques de las demás entregas.
 - **«Quedarme con el mínimo» en una entrega con partes**: si no puede cumplir lo que dice, no se ofrece (como hoy).

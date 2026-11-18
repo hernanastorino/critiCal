@@ -89,6 +89,15 @@ export interface MealChoice {
  */
 export type StartAfter = { date: string } | { daysBefore: number } | { now: true };
 
+/**
+ * The hours a routine may be placed in: `all` every day, and `days` (0 = Sunday … 6 =
+ * Saturday) replace it on a weekday. A day with neither has no limit.
+ */
+export interface ValidHours {
+  all?: MinuteRange;
+  days?: Partial<Record<number, MinuteRange>>;
+}
+
 export interface Activity {
   id: string;
   name: string;
@@ -98,6 +107,8 @@ export interface Activity {
   maxSessionMinutes: number;
   minBlockMinutes: number;
   preferred?: MinuteRange;
+  /** A routine's valid hours: its sessions fall only inside them (SPEC §5). */
+  validHours?: ValidHours;
   /**
    * What it is for the app (the planner ignores it): a subject taken this semester, or
    * a routine like the gym. Unset for activities from before the distinction.
@@ -145,6 +156,8 @@ export interface Task {
    * cut. Options lower only their minimum, and a target short of time is no decision.
    */
   fixedTarget?: boolean;
+  /** Its sessions fall only inside these hours of each weekday (a routine's). */
+  validHours?: ValidHours;
 }
 
 export interface CalendarEvent {

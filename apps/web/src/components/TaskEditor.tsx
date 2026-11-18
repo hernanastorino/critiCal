@@ -12,6 +12,7 @@ import {
 } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
+import { formOfHours, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
 import {
   awakeWeekMinutes,
@@ -25,6 +26,7 @@ import {
 } from "../taskForm.js";
 import { focusFirstInvalid } from "./fields.js";
 import { useModal } from "./modal.js";
+import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
 import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
@@ -212,6 +214,17 @@ export function TaskEditor({
     kind === "habit"
       ? habitProblems(sessions, sessionMin, awakeWeekMinutes(data.settings.week), routineAct)
       : { times: null, minutes: null };
+  // A routine's valid hours are edited with its habit (not for a new one: Rutinas has them).
+  const ownRoutine = data.activities.find(
+    (a) => a.id === task?.activityId && a.kind === "rutina" && a.id === activityId,
+  );
+  const [hoursForm, setHoursForm] = useState<HoursForm>(() =>
+    formOfHours(data.activities.find((a) => a.id === task?.activityId)?.validHours),
+  );
+  const hoursRead =
+    ownRoutine && kind === "habit"
+      ? readHours(hoursForm, habit.minutes ? undefined : Number(sessionMin))
+      : { hours: undefined, problems: [] };
   const nameMissing = activityId === "new" && isBlank(newActivity);
   // One error is announced by its own text; several, by one summary (not one alert each).
   const shown = [
@@ -223,6 +236,7 @@ export function TaskEditor({
     !!unitError,
     !!habit.times,
     !!habit.minutes,
+    hoursRead.problems.length > 0,
     deliverable && startAfter === null,
     startWarning === AFTER_DUE,
   ].filter(Boolean).length;
@@ -261,6 +275,7 @@ export function TaskEditor({
       startBlocked,
       hoursBlocked,
       !!(habit.times || habit.minutes),
+      hoursRead.problems.length > 0,
       isBlank(title),
       nameMissing,
       rangeBad,
@@ -283,6 +298,9 @@ export function TaskEditor({
         maxSessionMinutes: 120,
         minBlockMinutes: 60,
       };
+    }
+    if (ownRoutine && kind === "habit") {
+      activity = { ...ownRoutine, validHours: hoursRead.hours };
     }
     const h = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
     const next: AppTask = {
@@ -609,6 +627,17 @@ export function TaskEditor({
           <>
             <FieldError id="times-error" text={habit.times} role={alertRole} />
             <FieldError id="session-error" text={habit.minutes} role={alertRole} />
+          </>
+        )}
+        {ownRoutine && kind === "habit" && (
+          <>
+            <RoutineHours
+              form={hoursForm}
+              onChange={setHoursForm}
+              problems={hoursRead.problems}
+              errorId="hours-error"
+            />
+            <FieldError id="hours-error" text={hoursSummary(hoursRead.problems)} role={alertRole} />
           </>
         )}
         <label className="field">
