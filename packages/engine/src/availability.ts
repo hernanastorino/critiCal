@@ -120,6 +120,26 @@ export function placeMeal(
 export type MealEvent = Interval & { meal?: MealKind };
 
 /**
+ * Breakfast follows a late wake-up only while it is before the day's next meal: waking at
+ * or after lunchtime, it is no longer breakfast time and that day has none. (SPEC 5.1;
+ * a breakfast put somewhere by hand stays.)
+ */
+function skipsBreakfast(window: DayWindow, m: DayWindow["meals"][number]): boolean {
+  if (m.kind !== "desayuno" || m.chosen) return false;
+  const next = Math.min(...window.meals.filter((x) => x.kind !== "desayuno").map((x) => x.start));
+  return window.wakeAt >= next;
+}
+
+/** A meal with no room, at its time (not before `wake`) but never on another meal: then right after it. */
+function forcedMeal(preferred: Interval, placed: readonly Interval[], wake: number): Interval {
+  const length = preferred.end - preferred.start;
+  let start = Math.max(preferred.start, wake);
+  for (const m of [...placed].sort((a, b) => a.start - b.start))
+    if (m.start < start + length && start < m.end) start = m.end;
+  return { start, end: start + length };
+}
+
+/**
  * The day's meals placed one after the other, each around the fixed events and the
  * meals already placed (so two meals never overlap). A meal that an event of that
  * day already is (`meal` of the same kind) is left out.
@@ -132,15 +152,7 @@ function placeDayMeals(
   // An event that is the meal, anywhere in the day (waking to bedtime), replaces it.
   const out = (kind?: MealKind) =>
     !!kind && eaten.some((e) => e.meal === kind && e.start < window.bedAt && window.wakeAt < e.end);
-  // Breakfast follows a late wake-up only while it is before the day's next meal: waking
-  // at or after lunchtime, it is no longer breakfast time and that day has none. (SPEC
-  // §5.1 does not say; the conservative choice is to omit it, as with any meal asleep.)
-  const nextMeal = Math.min(
-    ...window.meals.filter((m) => m.kind !== "desayuno").map((m) => m.start),
-  );
-  const meals = window.meals.filter(
-    (m) => !out(m.kind) && (m.kind !== "desayuno" || m.chosen || window.wakeAt < nextMeal),
-  );
+  const meals = window.meals.filter((m) => !out(m.kind) && !skipsBreakfast(window, m));
   // Meals put somewhere by hand go first and stay there (over anything fixed); of two
   // that overlap each other, the later one moves to right after the earlier. (The
   // window is built for this call, so adjusting its meals is safe.)
@@ -165,11 +177,7 @@ function placeDayMeals(
     }
     // No room near its time: it stays anyway, at its (wake-adjusted) time on top of
     // what is fixed there, but never on another meal (then right after it).
-    const length = preferred.end - preferred.start;
-    let start = onWaking ? Math.max(preferred.start, window.wakeAt) : preferred.start;
-    for (const m of [...placed].sort((a, b) => a.start - b.start))
-      if (m.start < start + length && start < m.end) start = m.end;
-    const forced = { start, end: start + length };
+    const forced = forcedMeal(preferred, placed, onWaking ? window.wakeAt : 0);
     // Out of the waking hours (asleep, or past bedtime): that day has no such meal. SPEC
     // §5.1 would put it right after the previous one even past bedtime; omitting it is the
     // conservative choice (nobody is woken to eat), and it can still be added by hand.
