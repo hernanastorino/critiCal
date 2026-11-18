@@ -356,7 +356,14 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     return false;
   };
   for (const b of blocks) b.level = blockLevel(b, prepared, statusById, settings, couldUse);
-  for (const b of frozen) blocks.push({ ...b, frozen: true });
+  // Frozen blocks keep their time, not the level they had when planned: a decision
+  // since (a lower minimum) may have taken them out of danger.
+  for (const b of frozen) {
+    const level = statusById.has(b.taskId)
+      ? blockLevel({ ...b }, prepared, statusById, settings, couldUse)
+      : b.level;
+    blocks.push({ ...b, frozen: true, level });
+  }
   blocks.sort((a, b) => a.start - b.start);
 
   return {

@@ -302,6 +302,8 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       reviewDates:
         p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
+      // A weekly silo's target is its sessions: options can lower only its minimum.
+      fixedTarget: p.task.kind === "habit" || undefined,
     }));
 }
 
@@ -637,10 +639,13 @@ export interface Decisions {
 }
 
 export function decisions(input: ScheduleInput, result: ScheduleResult): Decisions {
+  const impossible = result.feasible ? [] : selfShort(input, result);
   return {
-    options: result.feasible ? targetOptions(input, result) : infeasibilityOptions(input, result),
+    options: result.feasible
+      ? targetOptions(input, result)
+      : infeasibilityOptions(input, result, impossible),
     recommendations: recommendations(input, result),
-    impossible: result.feasible ? [] : selfShort(input, result),
+    impossible,
   };
 }
 

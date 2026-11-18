@@ -52,6 +52,8 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 2. **Rutinas hasta la hora de dormir** (agente atacante sobre `main`, 2026-11-18). Las rutinas no son «estudio», así que no respetan «Nada de estudio desde», y el plan puede ponerlas hasta la hora de acostarse (por ejemplo, correr de 23:30 a 00:00). ¿Las rutinas (gym, correr) deberían respetar también «Nada de estudio desde» o dejar un margen antes de acostarte, o está bien así?
 3. **Rutina creada a mitad de semana** (mismo origen). Hoy pide todas sus veces semanales en los días que quedan: gym 3× creado el sábado sale como imposible. ¿Debería pedir todas, o solo la parte proporcional a los días que quedan?
 
+4. **Críticos por una tarea que no entra ni sola** (agente atacante sobre `main`, 2026-11-18). Cuando una tarea no entra ni sola (por ejemplo un hábito «Repasar fórmulas» de 14 × 24 h), ¿querés que igual marque como críticos los bloques de las demás entregas? Hoy sí los marca, porque esa tarea podría usar su tiempo.
+
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo

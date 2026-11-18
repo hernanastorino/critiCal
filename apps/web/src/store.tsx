@@ -1292,7 +1292,8 @@ export function StoreProvider({
         meals.length +
         pending.length +
         data.proposals.length +
-        d.options.length +
+        // «No llegás a todo» is one decision, whatever its options.
+        (d.options.length > 0 ? 1 : 0) +
         d.recommendations.length +
         data.tasks.filter((t) => t.needsReview && t.status === "active").length,
     };

@@ -543,6 +543,68 @@ describe("options", () => {
     expect(targetOptions(base(), schedule(base()))).toEqual([]);
   });
 
+  it("names what settling for the minimum is about, and skips fixed targets", () => {
+    const short = (id: string, fixedTarget?: boolean) =>
+      task(id, "mate", at("2026-11-02", "13:00"), {
+        remainingMinutes: 600,
+        minRemainingMinutes: 60,
+        fixedTarget,
+      });
+    const input = base({ tasks: [short("m")] });
+    expect(targetOptions(input, schedule(input)).map((o) => o.label)).toEqual([
+      "Quedarme con el mínimo de m",
+      "Usar tiempo libre para llegar al objetivo de m",
+    ]);
+    // A routine's target is its sessions: nothing to settle.
+    const routine = base({ tasks: [short("r", true)] });
+    expect(targetOptions(routine, schedule(routine))).toEqual([]);
+  });
+
+  it("forces no cuts on the others for a task that does not fit even alone", () => {
+    const input = base({
+      tasks: [
+        task("m", "mate", at("2026-11-02", "13:00"), {
+          remainingMinutes: 120,
+          minRemainingMinutes: 120,
+        }),
+        task("f", "fisica", at("2026-11-02", "13:00"), {
+          remainingMinutes: 6000,
+          minRemainingMinutes: 6000,
+          fixedTarget: true,
+        }),
+      ],
+    });
+    const r = schedule(input);
+    expect(selfShort(input, r)).toEqual(["f"]);
+    const opts = infeasibilityOptions(input, r);
+    // Only options about «f»: none cuts «m» or splits a bit of everything.
+    expect(opts.every((o) => o.taskId === undefined || o.taskId === "f")).toBe(true);
+    expect(opts.some((o) => o.kind === "proportional")).toBe(false);
+    const lower = opts.find((o) => o.id === "lower-minimum:f");
+    // Its fixed target stays; the minimum is what fits.
+    expect(lower?.input.tasks[1]?.remainingMinutes).toBe(6000);
+    expect(lower?.result.feasible).toBe(true);
+  });
+
+  it("re-rates frozen blocks with the current plan", () => {
+    const due = at("2026-11-02", "13:00");
+    const frozen: PlanBlock = {
+      id: "m@1",
+      taskId: "m",
+      activityId: "mate",
+      start: at("2026-11-02", "09:00"),
+      end: at("2026-11-02", "10:00"),
+      level: "critical",
+    };
+    const r = schedule(
+      base({
+        tasks: [task("m", "mate", due, { remainingMinutes: 60, minRemainingMinutes: 0 })],
+        frozen: [frozen],
+      }),
+    );
+    expect(r.blocks.find((b) => b.id === "m@1")).toMatchObject({ frozen: true, level: "ok" });
+  });
+
   it("recommends mixing subjects when the daily cap blocks a minimum", () => {
     const input = base({
       settings: { ...settings, maxActivitiesPerDay: 1 },

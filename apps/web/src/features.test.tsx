@@ -65,7 +65,12 @@ describe("decisions and defaults", () => {
 
   it("undoes an applied decision", () => {
     const start = reducer(tight(), { type: "refresh", now: NOW });
-    const after = reducer(start, { type: "applyOption", optionId: "proportional", now: NOW });
+    // The parcial does not fit even alone: its own options, no cuts to the others.
+    const after = reducer(start, {
+      type: "applyOption",
+      optionId: "lower-minimum:parcial-calc",
+      now: NOW,
+    });
     expect(after.applied).toHaveLength(1);
     expect(after.tasks.find((t) => t.id === "parcial-calc")?.minMinutes).toBeLessThan(1500);
     const undone = reducer(after, {

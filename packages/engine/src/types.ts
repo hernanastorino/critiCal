@@ -140,6 +140,11 @@ export interface Task {
   mvpMinutes?: number;
   /** Exams: the units still to study and their weight in the exam. */
   units?: { id: string; title: string; minutes: number; weight: number }[];
+  /**
+   * Weekly silos (routines): their target is their sessions, which an option cannot
+   * cut. Options lower only their minimum, and a target short of time is no decision.
+   */
+  fixedTarget?: boolean;
 }
 
 export interface CalendarEvent {

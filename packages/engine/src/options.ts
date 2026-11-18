@@ -59,34 +59,83 @@ export function selfShort(input: ScheduleInput, result: ScheduleResult): string[
     });
 }
 
+const option = (
+  id: string,
+  kind: OptionKind,
+  label: string,
+  input: ScheduleInput,
+  taskId?: string,
+): PlanOption => ({ id, kind, taskId, label, input, result: schedule(input) });
+
+/** The task with a new minimum and target; a fixed target (a routine's) stays. */
+function cut(t: Task, minimum: number, target: number): Task {
+  return {
+    ...t,
+    minRemainingMinutes: minimum,
+    remainingMinutes: t.fixedTarget ? t.remainingMinutes : target,
+  };
+}
+
+const withTask = (input: ScheduleInput, id: string, change: (t: Task) => Task) =>
+  withTasks(
+    input,
+    input.tasks.map((t) => (t.id === id ? change(t) : t)),
+  );
+
+const lastDeadline = (input: ScheduleInput, short: { taskId: string }[]) => {
+  const taskById = new Map(input.tasks.map((t) => [t.id, t]));
+  return Math.max(...short.map((s) => (taskById.get(s.taskId) as Task).deadline));
+};
+
 /**
  * Deterministic ways out when the minimums do not fit, each previewed with its
  * own schedule. Feasible options come first; within them, least invasive first.
+ * Tasks that do not fit even alone (`impossible`) are told apart: they force no cut on
+ * the others, only options about themselves.
  */
-export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResult): PlanOption[] {
+export function infeasibilityOptions(
+  input: ScheduleInput,
+  result: ScheduleResult,
+  impossible: readonly string[] = selfShort(input, result),
+): PlanOption[] {
   if (result.feasible) return [];
-  const taskById = new Map(input.tasks.map((t) => [t.id, t]));
   const short = result.status.filter((s) => s.minDeficit > 0);
-  const deadlineLimit = Math.max(...short.map((s) => (taskById.get(s.taskId) as Task).deadline));
-  const involved = input.tasks.filter(
-    (t) => t.deadline <= deadlineLimit && t.minRemainingMinutes > 0,
+  const fixable = short.filter((s) => !impossible.includes(s.taskId));
+  const limit = lastDeadline(input, short);
+  const pending = input.tasks.filter((t) => t.deadline <= limit && t.minRemainingMinutes > 0);
+  const options = [
+    ...freeTimeOptions(input),
+    ...moveEventOptions(input, limit),
+    ...startEarlierOptions(input, pending),
+    ...ownOptions(
+      input,
+      short.filter((s) => impossible.includes(s.taskId)),
+    ),
+    ...(fixable.length > 0 ? cutOptions(input, fixable, impossible) : []),
+  ];
+  return options.sort(
+    (a, b) => Number(b.result.feasible) - Number(a.result.feasible) || rank(a.kind) - rank(b.kind),
   );
-  const options: PlanOption[] = [];
-  const add = (id: string, kind: OptionKind, label: string, next: ScheduleInput, taskId?: string) =>
-    options.push({ id, kind, taskId, label, input: next, result: schedule(next) });
+}
 
-  if (!input.allowFreeTime) {
-    add("use-free-time", "use-free-time", "Usar tiempo libre para llegar", {
+function freeTimeOptions(input: ScheduleInput): PlanOption[] {
+  if (input.allowFreeTime) return [];
+  return [
+    option("use-free-time", "use-free-time", "Usar tiempo libre para llegar", {
       ...input,
       allowFreeTime: true,
-    });
-  }
+    }),
+  ];
+}
 
-  // A flexible event before the last deadline in trouble, moved to the free time
-  // closest to it within a week.
+/**
+ * A flexible event before the last deadline in trouble, moved to the free time
+ * closest to it within a week.
+ */
+function moveEventOptions(input: ScheduleInput, limit: number): PlanOption[] {
+  const options: PlanOption[] = [];
   for (const e of input.events) {
-    if (!e.flexible || !e.busy || e.allDay || e.start <= input.now || e.start >= deadlineLimit)
-      continue;
+    if (!e.flexible || !e.busy || e.allDay || e.start <= input.now || e.start >= limit) continue;
     const to = moveSpot(input, e);
     if (!to) continue;
     const next = {
@@ -94,159 +143,189 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
       events: [...input.events.filter((x) => x.id !== e.id), { ...e, ...to }],
     };
     options.push({
-      id: `move-event:${e.id}`,
-      kind: "move-event",
+      ...option(
+        `move-event:${e.id}`,
+        "move-event",
+        `Mover «${e.title}» al ${when(input.settings.timezone, to.start)}`,
+        next,
+      ),
       eventId: e.id,
       moveTo: to,
-      label: `Mover «${e.title}» al ${when(input.settings.timezone, to.start)}`,
-      input: next,
-      result: schedule(next),
     });
   }
+  return options;
+}
 
-  // A task that cannot start yet (§18.7): start it on the latest day that still fits
-  // everything, or right away if no later day does.
-  for (const t of involved) {
+/**
+ * A task that cannot start yet (§18.7): start it on the latest day that still fits
+ * everything, or right away if no later day does.
+ */
+function startEarlierOptions(input: ScheduleInput, pending: Task[]): PlanOption[] {
+  const tz = input.settings.timezone;
+  return pending.flatMap((t) => {
     const from = t.earliestStart;
-    if (from === undefined || from <= input.now) continue;
-    const feasibleAt = (at: number) => {
-      const next = withTasks(
-        input,
-        input.tasks.map((x) => (x.id === t.id ? { ...x, earliestStart: at } : x)),
-      );
-      return { next, result: schedule(next) };
-    };
-    // Latest day first: the first that fits is the least change (feasibility need not
-    // grow monotonically going back, so every day is tried). Right away is the last try.
-    let at: number | undefined;
-    // Candidates are starts of local days, as a saved date is.
-    const tz = input.settings.timezone;
-    const fromDay = localParts(tz, from).date;
-    // Counted in local dates (not 24 h periods), from the start's own day if earlier.
-    for (let back = 0; at === undefined; back++) {
-      const candidate = zonedInstant(tz, addDays(fromDay, -back), 0);
-      if (candidate <= input.now) break;
-      if (candidate >= from) continue;
-      if (feasibleAt(candidate).result.feasible) at = candidate;
-    }
-    if (at === undefined && feasibleAt(input.now).result.feasible) at = input.now;
-    if (at === undefined) continue;
-    const { next, result: r } = feasibleAt(at);
-    options.push({
-      id: `start-earlier:${t.id}`,
-      kind: "start-earlier",
-      taskId: t.id,
-      startAt: at,
-      label:
-        at <= input.now
-          ? `Empezar ${t.title} ya, sin esperar a la fecha de inicio`
-          : `Empezar ${t.title} antes: desde el ${when(input.settings.timezone, at).replace(/ \d\d:\d\d$/, "")}`,
-      input: next,
-      result: r,
-    });
-  }
-
-  const deficit = short.reduce((sum, s) => sum + s.minDeficit, 0);
-
-  // Exams: leave out the units that weigh least until the time fits.
-  for (const t of involved) {
-    const units = [...(t.units ?? [])].sort((a, b) => a.weight - b.weight);
-    const out: typeof units = [];
-    let freed = 0;
-    // Always keep the heaviest unit.
-    for (const u of units.slice(0, -1)) {
-      if (freed >= deficit) break;
-      out.push(u);
-      freed += u.minutes;
-    }
-    if (out.length === 0) continue;
-    const next = withTasks(
-      input,
-      input.tasks.map((x) =>
-        x.id === t.id
-          ? {
-              ...x,
-              minRemainingMinutes: Math.max(0, x.minRemainingMinutes - freed),
-              remainingMinutes: Math.max(0, x.remainingMinutes - freed),
-            }
-          : x,
-      ),
-    );
-    options.push({
-      id: `prioritize:${t.id}`,
-      kind: "prioritize",
-      taskId: t.id,
-      unitIds: out.map((u) => u.id),
-      label: `Priorizar los temas de ${t.title}: dejar afuera ${out.map((u) => `«${u.title}»`).join(", ")}`,
-      input: next,
-      result: schedule(next),
-    });
-  }
-
-  // Entregas: hand in the smallest version still worth it.
-  for (const t of involved) {
-    if (t.mvpMinutes === undefined || t.mvpMinutes >= t.minRemainingMinutes) continue;
-    add(
-      `minimum-viable:${t.id}`,
-      "minimum-viable",
-      `Entregar una versión mínima de ${t.title} (${duration(t.mvpMinutes)})`,
-      withTasks(
-        input,
-        input.tasks.map((x) =>
-          x.id === t.id
-            ? {
-                ...x,
-                minRemainingMinutes: t.mvpMinutes as number,
-                remainingMinutes: Math.min(x.remainingMinutes, t.mvpMinutes as number),
-              }
-            : x,
+    if (from === undefined || from <= input.now) return [];
+    const at = earlierStart(input, t, from);
+    if (at === undefined) return [];
+    return [
+      {
+        ...option(
+          `start-earlier:${t.id}`,
+          "start-earlier",
+          at <= input.now
+            ? `Empezar ${t.title} ya, sin esperar a la fecha de inicio`
+            : `Empezar ${t.title} antes: desde el ${when(tz, at).replace(/ \d\d:\d\d$/, "")}`,
+          withTask(input, t.id, (x) => ({ ...x, earliestStart: at })),
+          t.id,
         ),
-      ),
-      t.id,
-    );
+        startAt: at,
+      },
+    ];
+  });
+}
+
+/** The latest start of a local day before `from` that fits everything, else now if it does. */
+function earlierStart(input: ScheduleInput, t: Task, from: number): number | undefined {
+  const fits = (at: number) =>
+    schedule(withTask(input, t.id, (x) => ({ ...x, earliestStart: at }))).feasible;
+  const tz = input.settings.timezone;
+  const fromDay = localParts(tz, from).date;
+  // Latest day first: the first that fits is the least change (feasibility need not
+  // grow monotonically going back, so every day is tried). Counted in local dates, from
+  // the start's own day if earlier. Right away is the last try.
+  for (let back = 0; ; back++) {
+    const candidate = zonedInstant(tz, addDays(fromDay, -back), 0);
+    if (candidate <= input.now) break;
+    if (candidate < from && fits(candidate)) return candidate;
   }
+  return fits(input.now) ? input.now : undefined;
+}
+
+/**
+ * A task that does not fit even alone: less of it (what it is short now: its lightest
+ * units, a smaller version, a lower minimum) or none of it. Cutting the others would
+ * not make it fit, so they are left alone.
+ */
+function ownOptions(
+  input: ScheduleInput,
+  short: { taskId: string; minDeficit: number }[],
+): PlanOption[] {
+  return short.flatMap((s) => {
+    const t = input.tasks.find((x) => x.id === s.taskId) as Task;
+    const lowered = Math.max(0, t.minRemainingMinutes - s.minDeficit);
+    return [
+      ...prioritizeOption(input, t, s.minDeficit),
+      ...minimumViableOption(input, t),
+      ...(lowered > 0 ? [lowerOption(input, t, lowered, s.minDeficit)] : []),
+      dropOption(input, t),
+    ];
+  });
+}
+
+function lowerOption(input: ScheduleInput, t: Task, lowered: number, deficit: number) {
+  return option(
+    `lower-minimum:${t.id}`,
+    "lower-minimum",
+    `Dedicarle menos a ${t.title} (mínimo ${duration(lowered)})`,
+    withTask(input, t.id, (x) =>
+      cut(
+        x,
+        lowered,
+        Math.min(x.remainingMinutes, Math.max(lowered, x.remainingMinutes - deficit)),
+      ),
+    ),
+    t.id,
+  );
+}
+
+const dropOption = (input: ScheduleInput, t: Task) =>
+  option(
+    `drop:${t.id}`,
+    "drop",
+    `No hacer ${t.title}`,
+    withTasks(
+      input,
+      input.tasks.filter((x) => x.id !== t.id),
+    ),
+    t.id,
+  );
+
+/** Cuts to the tasks due by the last deadline in trouble, to make room for the short ones. */
+function cutOptions(
+  input: ScheduleInput,
+  short: { taskId: string; minDeficit: number }[],
+  impossible: readonly string[],
+): PlanOption[] {
+  const limit = lastDeadline(input, short);
+  const involved = input.tasks.filter(
+    (t) => t.deadline <= limit && t.minRemainingMinutes > 0 && !impossible.includes(t.id),
+  );
+  const deficit = short.reduce((sum, s) => sum + s.minDeficit, 0);
+  const options = [
+    ...involved.flatMap((t) => prioritizeOption(input, t, deficit)),
+    ...involved.flatMap((t) => minimumViableOption(input, t)),
+  ];
   for (const t of [...involved].sort((a, b) => a.priority - b.priority)) {
     const lowered = Math.max(0, t.minRemainingMinutes - deficit);
-    // Lowering to zero is just "No hacer", which is offered below.
-    if (lowered > 0)
-      add(
-        `lower-minimum:${t.id}`,
-        "lower-minimum",
-        `Dedicarle menos a ${t.title} (mínimo ${duration(lowered)})`,
-        withTasks(
-          input,
-          input.tasks.map((x) =>
-            x.id === t.id
-              ? {
-                  ...x,
-                  minRemainingMinutes: lowered,
-                  remainingMinutes: Math.min(
-                    x.remainingMinutes,
-                    Math.max(lowered, x.remainingMinutes - deficit),
-                  ),
-                }
-              : x,
-          ),
-        ),
-        t.id,
-      );
-    add(
-      `drop:${t.id}`,
-      "drop",
-      `No hacer ${t.title}`,
-      withTasks(
-        input,
-        input.tasks.filter((x) => x.id !== t.id),
-      ),
-      t.id,
-    );
+    // Lowering to zero is just "No hacer", which is offered too.
+    if (lowered > 0) options.push(lowerOption(input, t, lowered, deficit));
+    options.push(dropOption(input, t));
   }
+  return [...options, ...proportionalOption(input, involved, deficit)];
+}
 
+/** Exams: leave out the units that weigh least until the time fits. */
+function prioritizeOption(input: ScheduleInput, t: Task, deficit: number): PlanOption[] {
+  const units = [...(t.units ?? [])].sort((a, b) => a.weight - b.weight);
+  const out: typeof units = [];
+  let freed = 0;
+  // Always keep the heaviest unit.
+  for (const u of units.slice(0, -1)) {
+    if (freed >= deficit) break;
+    out.push(u);
+    freed += u.minutes;
+  }
+  if (out.length === 0) return [];
+  const next = withTask(input, t.id, (x) =>
+    cut(x, Math.max(0, x.minRemainingMinutes - freed), Math.max(0, x.remainingMinutes - freed)),
+  );
+  return [
+    {
+      ...option(
+        `prioritize:${t.id}`,
+        "prioritize",
+        `Priorizar los temas de ${t.title}: dejar afuera ${out.map((u) => `«${u.title}»`).join(", ")}`,
+        next,
+        t.id,
+      ),
+      unitIds: out.map((u) => u.id),
+    },
+  ];
+}
+
+/** Entregas: hand in the smallest version still worth it. */
+function minimumViableOption(input: ScheduleInput, t: Task): PlanOption[] {
+  const mvp = t.mvpMinutes;
+  if (mvp === undefined || mvp >= t.minRemainingMinutes) return [];
+  return [
+    option(
+      `minimum-viable:${t.id}`,
+      "minimum-viable",
+      `Entregar una versión mínima de ${t.title} (${duration(mvp)})`,
+      withTask(input, t.id, (x) => cut(x, mvp, Math.min(x.remainingMinutes, mvp))),
+      t.id,
+    ),
+  ];
+}
+
+/** "Un poco de todo": the same share of every involved minimum. */
+function proportionalOption(input: ScheduleInput, involved: Task[], deficit: number) {
   const demand = involved.reduce((sum, t) => sum + t.minRemainingMinutes, 0);
   const factor = demand > 0 ? (demand - deficit) / demand : 0;
-  if (factor > 0) {
-    const ids = new Set(involved.map((t) => t.id));
-    add(
+  if (factor <= 0) return [];
+  const ids = new Set(involved.map((t) => t.id));
+  return [
+    option(
       "proportional",
       "proportional",
       `Un poco de todo (${Math.round(factor * 100)} % de cada mínimo)`,
@@ -254,20 +333,16 @@ export function infeasibilityOptions(input: ScheduleInput, result: ScheduleResul
         input,
         input.tasks.map((t) =>
           ids.has(t.id)
-            ? {
-                ...t,
-                minRemainingMinutes: Math.floor(t.minRemainingMinutes * factor),
-                remainingMinutes: Math.floor(t.remainingMinutes * factor),
-              }
+            ? cut(
+                t,
+                Math.floor(t.minRemainingMinutes * factor),
+                Math.floor(t.remainingMinutes * factor),
+              )
             : t,
         ),
       ),
-    );
-  }
-
-  return options.sort(
-    (a, b) => Number(b.result.feasible) - Number(a.result.feasible) || rank(a.kind) - rank(b.kind),
-  );
+    ),
+  ];
 }
 
 function duration(minutes: number): string {
@@ -373,33 +448,43 @@ function freeSpot(
 }
 const rank = (k: OptionKind) => ORDER.indexOf(k);
 
-/** When minimums fit but targets do not: settle for the minimum. */
+/** «Leer», «Leer y Gym», «Leer, Gym y TP». */
+function names(tasks: Task[]): string {
+  const titles = tasks.map((t) => t.title);
+  const last = titles.pop() as string;
+  return titles.length > 0 ? `${titles.join(", ")} y ${last}` : last;
+}
+
+/**
+ * When minimums fit but targets do not: settle for the minimum. A fixed target (a
+ * routine's sessions) is no decision: the plan places what fits of it beyond the minimum.
+ */
 export function targetOptions(input: ScheduleInput, result: ScheduleResult): PlanOption[] {
-  const short = result.status.filter((s) => s.minDeficit === 0 && s.targetDeficit > 0);
+  const ids = new Set(
+    result.status.filter((s) => s.minDeficit === 0 && s.targetDeficit > 0).map((s) => s.taskId),
+  );
+  const short = input.tasks.filter((t) => ids.has(t.id) && !t.fixedTarget);
   if (short.length === 0) return [];
-  const ids = new Set(short.map((s) => s.taskId));
+  const cutIds = new Set(short.map((t) => t.id));
   const next = withTasks(
     input,
-    input.tasks.map((t) => (ids.has(t.id) ? { ...t, remainingMinutes: t.minRemainingMinutes } : t)),
+    input.tasks.map((t) =>
+      cutIds.has(t.id) ? { ...t, remainingMinutes: t.minRemainingMinutes } : t,
+    ),
   );
-  const options: PlanOption[] = [
-    {
-      id: "minimum-only",
-      kind: "minimum-only",
-      label: "Quedarme con el mínimo",
-      input: next,
-      result: schedule(next),
-    },
+  const options = [
+    option("minimum-only", "minimum-only", `Quedarme con el mínimo de ${names(short)}`, next),
   ];
+  // Only materias wait for free time: routines may use it already.
   if (!input.allowFreeTime) {
-    const free = { ...input, allowFreeTime: true };
-    options.push({
-      id: "use-free-time",
-      kind: "use-free-time",
-      label: "Usar tiempo libre para llegar al objetivo",
-      input: free,
-      result: schedule(free),
-    });
+    options.push(
+      option(
+        "use-free-time",
+        "use-free-time",
+        `Usar tiempo libre para llegar al objetivo de ${names(short)}`,
+        { ...input, allowFreeTime: true },
+      ),
+    );
   }
   return options;
 }
