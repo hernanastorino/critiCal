@@ -128,9 +128,8 @@ describe("fechas del cuatrimestre", () => {
     expect(alert.textContent).toMatch(/Ya hay una materia o rutina/);
     expect(alert.getAttribute("style")).toContain("--critical");
     set("Materia", "​​");
-    expect(
-      (screen.getByRole("button", { name: "Agregar materia" }) as HTMLButtonElement).disabled,
-    ).toBe(true);
+    // Said in its field (and refused on «Agregar materia»), not just a grey button.
+    expect(screen.getByRole("alert").textContent).toBe("Poné un nombre.");
   });
 });
 

@@ -1,4 +1,6 @@
 // Export and import of everything as one JSON file (also a manual backup).
+import { awakeProblem } from "./dayLength.js";
+import { minutesToHhmm } from "./format.js";
 import { BACKUP_TEXT_MAX, isRealDate } from "./limits.js";
 import type { AppData } from "./model.js";
 import { markLegacyStudy, validRoutine } from "./subjects.js";
@@ -124,6 +126,14 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     minute(r.start, 2880) &&
     minute(r.end, 2880) &&
     (r.end as number) > (r.start as number);
+  // The day «Mi semana» and «Hoy» would take: awake 4 to 22 h, and no free time asleep.
+  const sensibleDay = (w: Rec) => {
+    const [wake, bed, free] = [w.wake, w.bed, w.freeFrom] as number[];
+    if (awakeProblem(minutesToHhmm(wake as number), minutesToHhmm(bed as number))) return false;
+    return (bed as number) < (wake as number)
+      ? (free as number) >= (wake as number) || (free as number) <= (bed as number)
+      : (free as number) >= (wake as number);
+  };
   const validDay = (w: unknown) =>
     isObject(w) &&
     minute(w.wake) &&
@@ -131,7 +141,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     minute(w.freeFrom, 2880) &&
     (w.morningMinutes === undefined || minute(w.morningMinutes)) &&
     Array.isArray(w.meals) &&
-    w.meals.every(range);
+    w.meals.every(range) &&
+    sensibleDay(w);
   const realDate = isRealDate;
   const validOverride = (o: unknown) =>
     isObject(o) &&
@@ -222,6 +233,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     isObject(e) &&
     str(e.id) &&
     typeof e.title === "string" &&
+    e.title.length <= BACKUP_TEXT_MAX &&
     // Without it the planner would silently treat busy time as free.
     typeof e.busy === "boolean" &&
     instant(e.start) &&
@@ -237,9 +249,9 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const place = (p: unknown) =>
     isObject(p) &&
     str(p.id) &&
-    str(p.name) &&
+    bounded(p.name) &&
     Array.isArray(p.aliases) &&
-    p.aliases.every((a) => typeof a === "string") &&
+    p.aliases.every((a) => typeof a === "string" && a.length <= BACKUP_TEXT_MAX) &&
     (p.lat === undefined || between(p.lat, -90, 90)) &&
     (p.lon === undefined || between(p.lon, -180, 180));
   const travel = (t: unknown) =>

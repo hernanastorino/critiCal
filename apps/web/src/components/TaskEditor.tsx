@@ -20,6 +20,7 @@ import {
   minimumProblem,
   parseUnit,
   partsProblem,
+  partsSummary,
   typedHours,
 } from "../taskForm.js";
 import { focusFirstInvalid } from "./fields.js";
@@ -203,6 +204,22 @@ export function TaskEditor({
 
   const save = () => {
     setTried(true);
+    // A part typed but not added is not lost: it is added now, or its error is said.
+    const pending = parseUnit(unitTitle);
+    const pendingError = pending && "error" in pending ? pending.error : null;
+    if (pendingError) setUnitError(pendingError);
+    const extra: Unit | undefined =
+      pending && !("error" in pending)
+        ? { id: newId(), title: pending.title, estimateMinutes: pending.minutes }
+        : undefined;
+    const allUnits = extra ? [...units, extra] : units;
+    const allMinutes = allUnits.reduce((n, u) => n + u.estimateMinutes, 0);
+    // With it the parts may add up to more than the hours typed: shown in the list.
+    const extraBad = !!extra && kind === "deliverable" && !!partsProblem(estimate, allMinutes);
+    if (extraBad && extra) {
+      setUnits(allUnits);
+      setUnitTitle("");
+    }
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     const rangeBad =
       due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now));
@@ -221,6 +238,8 @@ export function TaskEditor({
       isBlank(title),
       nameMissing,
       rangeBad,
+      !!pendingError,
+      extraBad,
     ];
     if (blockers.some(Boolean)) {
       setFocusTick((n) => n + 1);
@@ -251,16 +270,13 @@ export function TaskEditor({
       estimateMinutes:
         kind === "habit"
           ? Number(sessions) * Number(sessionMin)
-          : Math.max(
-              h(estimate),
-              units.reduce((s, u) => s + u.estimateMinutes, 0),
-            ),
+          : Math.max(h(estimate), allMinutes),
       minMinutes: kind === "habit" ? Number(sessions) * Number(sessionMin) : h(minimum),
       sessionsPerWeek: kind === "habit" ? Number(sessions) : undefined,
       sessionMinutes: kind === "habit" ? Number(sessionMin) : undefined,
       priority,
       status: task?.status ?? "active",
-      units,
+      units: allUnits,
       exam: (kind === "deliverable" && isExam) || undefined,
       startAfter: kind === "deliverable" ? (startAfter ?? undefined) : undefined,
       dayBeforeOnly: (kind === "deliverable" && isExam && dayBefore) || undefined,
@@ -507,6 +523,11 @@ export function TaskEditor({
                   Agregar
                 </button>
               </div>
+              {partsSummary(estimate, partsMinutes) && (
+                <p className="meta" id="parts-sum" role="status" style={{ margin: "8px 0 0" }}>
+                  {partsSummary(estimate, partsMinutes)}
+                </p>
+              )}
               {unitError && (
                 <p
                   className="meta"

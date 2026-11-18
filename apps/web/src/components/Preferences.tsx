@@ -2,7 +2,8 @@ import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
-import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
+import { isBlank } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
@@ -14,6 +15,7 @@ import {
   focusFirstInvalid,
   fromHours,
   isFigure,
+  isWhole,
   Problem,
   toHours,
   Unsaved,
@@ -94,12 +96,31 @@ export function WeekSettings() {
       });
       return;
     }
+    // A time that is not one (a blank or impossible hour) would be read as midnight.
+    const badTime = (
+      [
+        ["Me levanto", form.wake, "1"],
+        ["Me acuesto", form.bed, "1"],
+        ["Nada de estudio desde", form.freeFrom, "1"],
+        ["Desayuno", form.breakfast, form.breakfastMin],
+        ["Almuerzo", form.lunch, form.lunchMin],
+        ["Merienda", form.snack, form.snackMin],
+        ["Cena", form.dinner, form.dinnerMin],
+      ] as const
+    ).find(([, v, minutes]) => Number(minutes) > 0 && parseClock(v) === null);
+    if (badTime) {
+      setFailure({ message: "Hora inválida.", field: badTime[0], form });
+      return;
+    }
     const wake = hhmmToMinutes(form.wake);
     const bed = hhmmToMinutes(form.bed);
     if (wake === bed) {
       setError("Me levanto y me acuesto no pueden ser a la misma hora.");
       return;
     }
+    // Going to bed after midnight: what comes after midnight belongs to the same day
+    // (dinner at 00:45 is 24:45, not this morning).
+    const late = (m: number) => (bed < wake && m < wake ? m + 1440 : m);
     const meals = [
       meal("desayuno", form.breakfast, form.breakfastMin),
       meal("almuerzo", form.lunch, form.lunchMin),
@@ -120,10 +141,36 @@ export function WeekSettings() {
       );
       return;
     }
+    // Between waking up and going to bed (after midnight, the gap is the hours of sleep).
+    const free = hhmmToMinutes(form.freeFrom);
+    if (bed < wake ? free > bed && free < wake : free < wake) {
+      setFailure({
+        message: `«Nada de estudio desde» (${form.freeFrom}) cae antes de que te levantes (${form.wake}).`,
+        field: "Nada de estudio desde",
+        form,
+      });
+      return;
+    }
+    // Breakfast, lunch, snack and dinner in that order (the later one never before).
+    const inOrder = meals.map((m) => ({ ...m, at: m.start < wake ? m.start + 1440 : m.start }));
+    const early = inOrder.find((m, i) => i > 0 && m.at < (inOrder[i - 1] as { at: number }).at);
+    if (early?.kind) {
+      const before = inOrder[inOrder.indexOf(early) - 1];
+      setFailure({
+        message: `${MEAL_NAMES[early.kind]} (${minutesToHhmm(early.start)}) no puede ir antes que ${before?.kind ? MEAL_NAMES[before.kind].toLowerCase() : "la comida anterior"} (${minutesToHhmm(before?.start ?? 0)}): las comidas van en orden, de desayuno a cena.`,
+        field: (
+          {
+            desayuno: "Desayuno",
+            almuerzo: "Almuerzo",
+            merienda: "Merienda",
+            cena: "Cena",
+          } as const
+        )[early.kind],
+        form,
+      });
+      return;
+    }
     setError(null);
-    // Going to bed after midnight: what comes after midnight belongs to the same day
-    // (dinner at 00:45 is 24:45, not this morning).
-    const late = (m: number) => (bed < wake && m < wake ? m + 1440 : m);
     const day: DaySettings = {
       wake,
       morningMinutes: clampMinutes(form.morning, 0, 240) ?? 0,
@@ -175,14 +222,26 @@ export function WeekSettings() {
         ))}
       </div>
       <div className="grid2">
-        <Field label="Me levanto" type="time" value={form.wake} onChange={set("wake")} />
+        <Field
+          label="Me levanto"
+          type="time"
+          value={form.wake}
+          onChange={set("wake")}
+          invalid={badField === "Me levanto"}
+        />
         <Field
           label="Arreglarse, traslado (min)"
           value={form.morning}
           onChange={set("morning")}
           invalid={badField === "Arreglarse, traslado (min)"}
         />
-        <Field label="Desayuno" type="time" value={form.breakfast} onChange={set("breakfast")} />
+        <Field
+          label="Desayuno"
+          type="time"
+          value={form.breakfast}
+          onChange={set("breakfast")}
+          invalid={badField === "Desayuno"}
+        />
         <Field
           label="Dura (min)"
           name="Dura (min), desayuno"
@@ -190,7 +249,13 @@ export function WeekSettings() {
           onChange={set("breakfastMin")}
           invalid={badField === "Dura (min), desayuno"}
         />
-        <Field label="Almuerzo" type="time" value={form.lunch} onChange={set("lunch")} />
+        <Field
+          label="Almuerzo"
+          type="time"
+          value={form.lunch}
+          onChange={set("lunch")}
+          invalid={badField === "Almuerzo"}
+        />
         <Field
           label="Dura (min)"
           name="Dura (min), almuerzo"
@@ -198,7 +263,13 @@ export function WeekSettings() {
           onChange={set("lunchMin")}
           invalid={badField === "Dura (min), almuerzo"}
         />
-        <Field label="Merienda" type="time" value={form.snack} onChange={set("snack")} />
+        <Field
+          label="Merienda"
+          type="time"
+          value={form.snack}
+          onChange={set("snack")}
+          invalid={badField === "Merienda"}
+        />
         <Field
           label="Dura (min)"
           name="Dura (min), merienda"
@@ -206,7 +277,13 @@ export function WeekSettings() {
           onChange={set("snackMin")}
           invalid={badField === "Dura (min), merienda"}
         />
-        <Field label="Cena" type="time" value={form.dinner} onChange={set("dinner")} />
+        <Field
+          label="Cena"
+          type="time"
+          value={form.dinner}
+          onChange={set("dinner")}
+          invalid={badField === "Cena"}
+        />
         <Field
           label="Dura (min)"
           name="Dura (min), cena"
@@ -219,8 +296,15 @@ export function WeekSettings() {
           type="time"
           value={form.freeFrom}
           onChange={set("freeFrom")}
+          invalid={badField === "Nada de estudio desde"}
         />
-        <Field label="Me acuesto" type="time" value={form.bed} onChange={set("bed")} />
+        <Field
+          label="Me acuesto"
+          type="time"
+          value={form.bed}
+          onChange={set("bed")}
+          invalid={badField === "Me acuesto"}
+        />
       </div>
       <p className="meta">
         No se planifica nada antes de{" "}
@@ -522,17 +606,25 @@ export function DetectedDefaults() {
 
 /** What is wrong with the times a week and the minutes of a routine, each in its own field. */
 function routineProblems(times: string, minutes: string) {
-  const t = Math.round(Number(times));
-  const m = Math.round(Number(minutes));
+  // «3.5» is not rounded to 4 behind the back: whole numbers only.
+  const t = isWhole(times) ? Number(times) : Number.NaN;
+  const m = isWhole(minutes) ? Number(minutes) : Number.NaN;
   const timesBad = !Number.isFinite(t) || t < 1 || t > 14;
   const minutesBad = !Number.isFinite(m) || m < 1 || m > 360;
+  const decimals = (v: string) => isFigure(v) && !isWhole(v);
   return {
-    times: timesBad
-      ? "Las veces por semana van de 1 a 14."
-      : !minutesBad && !validRoutine(t, m)
-        ? "Eso suma más de 40 h por semana."
+    times: decimals(times)
+      ? "Las veces por semana: solo números enteros, de 1 a 14."
+      : timesBad
+        ? "Las veces por semana van de 1 a 14."
+        : !minutesBad && !validRoutine(t, m)
+          ? "Eso suma más de 40 h por semana."
+          : null,
+    minutes: decimals(minutes)
+      ? "Los minutos por sesión: solo números enteros, de 1 a 360."
+      : minutesBad
+        ? "Los minutos por sesión van de 1 a 360."
         : null,
-    minutes: minutesBad ? "Los minutos por sesión van de 1 a 360." : null,
   };
 }
 
@@ -558,9 +650,18 @@ export function Routines() {
   const problem = routineProblems(times, minutes);
   const bad = !!(problem.times || problem.minutes);
   const nameField = useRef<HTMLInputElement>(null);
+  // Nothing readable in the name (spaces, zero-width characters): said when typed or tried.
+  const [nameTried, setNameTried] = useState(false);
+  const blank = isBlank(name) && (name !== "" || nameTried);
+  const askFocus = useFocusInvalid();
   // The button and Enter in any field do the same: a wrong field is said, not added.
   const add = (form: Element | null) => {
-    if (!name.trim() || repeated) return;
+    if (isBlank(name)) {
+      setNameTried(true);
+      askFocus(form?.querySelector(".fields") ?? null);
+      return;
+    }
+    if (repeated) return;
     if (bad) {
       focusFirstInvalid(form);
       return;
@@ -626,7 +727,12 @@ export function Routines() {
             ref={nameField}
             value={name}
             maxLength={60}
-            onChange={(e) => setName(e.target.value)}
+            aria-invalid={blank ? true : undefined}
+            aria-describedby={blank ? "routine-blank-error" : undefined}
+            onChange={(e) => {
+              setName(e.target.value);
+              setNameTried(false);
+            }}
             onKeyDown={onEnter}
             placeholder="Gimnasio"
           />
@@ -654,6 +760,7 @@ export function Routines() {
           />
         </label>
       </div>
+      <Problem id="routine-blank-error" text={blank ? "Poné un nombre." : null} />
       <Problem id="routine-times-error" text={problem.times} />
       <Problem id="routine-minutes-error" text={problem.minutes} />
       {dirty && <Unsaved />}
@@ -661,7 +768,7 @@ export function Routines() {
         type="button"
         className="btn"
         style={{ width: "100%" }}
-        disabled={!name.trim() || repeated}
+        disabled={repeated}
         aria-disabled={bad ? true : undefined}
         onClick={(e) => add(e.currentTarget.parentElement)}
       >

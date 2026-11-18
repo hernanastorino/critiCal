@@ -50,6 +50,8 @@ beforeEach(() => {
   loadData.mockReset();
   release.mockClear();
   syllabus.reads.reset();
+  syllabus.keySets.reset();
+  syllabus.keyCalls.reset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -487,5 +489,90 @@ describe("own Gemini key", () => {
     const cleared = await syllabus.handle(bearer("jwt", { action: "clear_key" }), env);
     expect(await cleared.json()).toEqual({ ok: true, own: false, fallback: true });
     expect(rpc).toHaveBeenCalledWith("delete_oauth_token", { p_user: "u1", p_provider: "gemini" });
+  });
+});
+
+describe("presupuesto de la clave de Gemini", () => {
+  beforeEach(() => rpc.mockResolvedValue({ data: null, error: null }));
+
+  it("set_key, which calls Google, is limited per user", async () => {
+    let calls = 0;
+    vi.stubGlobal("fetch", async () => {
+      calls++;
+      return new Response("bad", { status: 400 });
+    });
+    const set = () =>
+      syllabus.handle(
+        bearer("jwt", { action: "set_key", key: "fake-gemini-key-0000001" }),
+        env,
+        NOW,
+      );
+    for (let i = 0; i < 5; i++) expect((await set()).status).toBe(400);
+    const sixth = await set();
+    expect(sixth.status).toBe(429);
+    expect(sixth.headers.get("Retry-After")).toBe("60");
+    expect(await sixth.json()).toEqual({ ok: false, error: "rate_limited" });
+    expect(calls).toBe(5);
+    // A minute later there is room again.
+    expect(
+      (
+        await syllabus.handle(
+          bearer("jwt", { action: "set_key", key: "fake-gemini-key-0000001" }),
+          env,
+          NOW + 61_000,
+        )
+      ).status,
+    ).toBe(400);
+  });
+
+  it("has a daily cap too", async () => {
+    vi.stubGlobal("fetch", async () => new Response("bad", { status: 400 }));
+    let refused = 0;
+    for (let i = 0; i < 25; i++) {
+      const res = await syllabus.handle(
+        bearer("jwt", { action: "set_key", key: "fake-gemini-key-0000001" }),
+        env,
+        NOW + i * 61_000,
+      );
+      if (res.status === 429) refused++;
+    }
+    expect(refused).toBe(5);
+  });
+
+  it("key_status and clear_key spend a budget too", async () => {
+    for (const action of ["key_status", "clear_key"]) {
+      syllabus.keyCalls.reset();
+      let last = 200;
+      for (let i = 0; i < 40; i++) {
+        last = (await syllabus.handle(bearer("jwt", { action }), env, NOW)).status;
+        if (last === 429) break;
+      }
+      expect(last).toBe(429);
+    }
+  });
+
+  it("every call to Google has a timeout", async () => {
+    const signals: (AbortSignal | null | undefined)[] = [];
+    vi.stubGlobal("fetch", async (_url: string, init: RequestInit) => {
+      signals.push(init.signal);
+      return new Response("busy", { status: 503 });
+    });
+    await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW);
+    await syllabus.handle(
+      bearer("jwt", { action: "set_key", key: "fake-gemini-key-0000001" }),
+      env,
+      NOW,
+    );
+    expect(signals.length).toBeGreaterThanOrEqual(3);
+    expect(signals.every((s) => s instanceof AbortSignal)).toBe(true);
+  });
+
+  it("a Gemini that never answers is busy, not a crash", async () => {
+    vi.stubGlobal("fetch", async () => {
+      throw new DOMException("timed out", "TimeoutError");
+    });
+    const res = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({ ok: false, error: "gemini_busy" });
   });
 });

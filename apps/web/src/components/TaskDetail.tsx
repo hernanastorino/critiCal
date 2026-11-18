@@ -4,12 +4,12 @@ import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
-import { focusFirstInvalid, isFigure } from "./fields.js";
+import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
-const MAX_TOPICS = 200;
+export const MAX_TOPICS = 500;
 
 /** The most minutes one record can hold: a whole day. */
 const MAX_LOG_MINUTES = 1440;
@@ -18,7 +18,25 @@ const MAX_LOG_MINUTES = 1440;
 export function minutesError(text: string): string | null {
   if (text.trim() === "") return null;
   const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
-  return ok ? null : "Poné minutos de 0 a 1440, solo cifras.";
+  if (!ok) return "Poné minutos de 0 a 1440, solo cifras.";
+  return isWhole(text) ? null : "Poné solo minutos enteros, sin decimales.";
+}
+
+/** What is wrong with the topics in total typed in the log, if anything (empty is fine). */
+export function topicsError(text: string): string | null {
+  if (text.trim() === "") return null;
+  const n = Number(text);
+  return isWhole(text) && n >= 1 && n <= MAX_TOPICS
+    ? null
+    : `Poné de 1 a ${MAX_TOPICS} temas, en cifras enteras.`;
+}
+
+/** What is wrong with the topics done typed in the log, given the total typed. */
+export function topicsDoneError(done: string, total: string): string | null {
+  if (done.trim() === "") return null;
+  if (!isWhole(done)) return "Poné los temas hechos en cifras enteras, de 0 hasta el total.";
+  if (total.trim() === "" || topicsError(total)) return "Poné primero los temas en total.";
+  return Number(done) > Number(total) ? "No pueden ser más que los temas en total." : null;
 }
 
 /** Silo detail: what is left and a quick "this is how far I got" log. */
@@ -58,6 +76,12 @@ export function TaskDetail({
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const badMinutes = minutesError(minutes);
+  const badTopics = topicsError(topics);
+  const badDone = topicsDoneError(topicsDone, topics);
+  const invalid = !!(badMinutes || badTopics || badDone);
+  // Saved with nothing written: said, and it stays open (until something changes).
+  const form = JSON.stringify([minutes, topics, topicsDone, units, reopen]);
+  const [emptyAt, setEmptyAt] = useState<string | null>(null);
   const parts = live.units;
   const isDone = (u: AppTask["units"][number]) =>
     u.doneAt ? !reopen.includes(u.id) : units.includes(u.id);
@@ -164,26 +188,34 @@ export function TaskDetail({
             ))}
           </div>
         ) : task.kind === "habit" ? null : (
-          <div className="grid2">
-            <label className="field">
-              <span>Temas en total</span>
-              <input
-                inputMode="numeric"
-                value={topics}
-                onChange={(e) => setTopics(e.target.value)}
-                placeholder="10"
-              />
-            </label>
-            <label className="field">
-              <span>Llevo hechos</span>
-              <input
-                inputMode="numeric"
-                value={topicsDone}
-                onChange={(e) => setTopicsDone(e.target.value)}
-                placeholder="6"
-              />
-            </label>
-          </div>
+          <>
+            <div className="grid2">
+              <label className="field">
+                <span>Temas en total</span>
+                <input
+                  inputMode="numeric"
+                  value={topics}
+                  onChange={(e) => setTopics(e.target.value)}
+                  placeholder="10"
+                  aria-invalid={badTopics ? true : undefined}
+                  aria-describedby={badTopics ? "topics-error" : undefined}
+                />
+              </label>
+              <label className="field">
+                <span>Llevo hechos</span>
+                <input
+                  inputMode="numeric"
+                  value={topicsDone}
+                  onChange={(e) => setTopicsDone(e.target.value)}
+                  placeholder="6"
+                  aria-invalid={badDone ? true : undefined}
+                  aria-describedby={badDone ? "done-error" : undefined}
+                />
+              </label>
+            </div>
+            <Problem id="topics-error" text={badTopics} />
+            <Problem id="done-error" text={badDone} />
+          </>
         )}
         <div className="row">
           <button type="button" className="btn" onClick={onEdit}>
@@ -192,14 +224,18 @@ export function TaskDetail({
           <button
             type="button"
             className="btn primary"
-            aria-disabled={badMinutes ? true : undefined}
+            aria-disabled={invalid ? true : undefined}
             onClick={() => {
-              if (badMinutes) {
+              if (invalid) {
                 focusFirstInvalid(sheet.current);
                 return;
               }
-              const total = Math.min(MAX_TOPICS, Math.max(0, Math.round(Number(topics) || 0)));
+              const total = topics.trim() === "" ? 0 : Number(topics);
               const logged = Number(minutes.replace(",", ".")) || 0;
+              if (logged <= 0 && total === 0 && units.length === 0 && reopen.length === 0) {
+                setEmptyAt(form);
+                return;
+              }
               dispatch({
                 type: "logProgress",
                 taskId: task.id,
@@ -207,21 +243,23 @@ export function TaskDetail({
                 unitIds: units,
                 reopenUnitIds: reopen,
                 topics: total || undefined,
-                topicsDone: Math.min(total, Math.max(0, Math.round(Number(topicsDone) || 0))),
+                topicsDone: Number(topicsDone) || 0,
               });
-              const changed = logged > 0 || units.length > 0 || reopen.length > 0;
-              if (changed)
-                toast.show(
-                  logged > 0
-                    ? `Avance guardado: ${hours(logged)} en ${task.title}`
-                    : `Avance guardado en ${task.title}`,
-                );
+              toast.show(
+                logged > 0
+                  ? `Avance guardado: ${hours(logged)} en ${task.title}`
+                  : `Avance guardado en ${task.title}`,
+              );
               onClose();
             }}
           >
             Guardar avance
           </button>
         </div>
+        <Problem
+          id="no-progress"
+          text={emptyAt === form ? "No anotaste avance: poné minutos, temas o marcá partes." : null}
+        />
 
         {(task.kind === "habit" || offState) && (
           <div className="repeat">

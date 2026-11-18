@@ -12,6 +12,7 @@ import {
   Field,
   focusFirstInvalid,
   isFigure,
+  isWhole,
   Problem,
   toHours,
   Unsaved,
@@ -32,7 +33,9 @@ interface ActivityForm {
 
 /** Why minutes typed in the form are not valid (a figure within the range), or null. */
 function minutesProblem(v: string, lo: number, hi: number, what: string): string | null {
-  const n = isFigure(v) ? Math.round(Number(v.replace(",", "."))) : Number.NaN;
+  // «60,5» is not rounded to 61 behind the back: whole minutes only.
+  if (isFigure(v) && !isWhole(v)) return `${what}: solo números enteros, de ${lo} a ${hi} min.`;
+  const n = isWhole(v) ? Number(v) : Number.NaN;
   return n >= lo && n <= hi ? null : `${what} va de ${lo} a ${hi} min.`;
 }
 

@@ -255,12 +255,16 @@ describe("weekly silo controls", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(screen.getByText("Silos"));
     fireEvent.click(screen.getByLabelText(/^Entrega TP Programación/));
+    // Past the cap (a typo like 1e9) is refused in its field, never clamped behind the back.
     fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "1e9" } });
     fireEvent.change(screen.getByLabelText("Llevo hechos"), { target: { value: "1" } });
     fireEvent.click(screen.getByText("Guardar avance"));
+    expect(screen.getByLabelText("Temas en total").getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "500" } });
+    fireEvent.click(screen.getByText("Guardar avance"));
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     const tp = saved.tasks.find((t) => t.title === "Entrega TP Programación");
-    expect(tp?.units.length).toBe(200);
+    expect(tp?.units.length).toBe(500);
   });
 
   it("deletes everything", () => {
