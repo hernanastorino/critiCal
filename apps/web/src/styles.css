@@ -2463,3 +2463,10 @@ label.check {
     flex: 1 1 0;
   }
 }
+
+/* Blocks drawn as one pill: each one's details, apart in the sheet. */
+.sheet .run-block {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line, rgba(128, 128, 128, 0.3));
+}

@@ -31,6 +31,7 @@ import {
   wakingDay,
   weekDates,
 } from "../planning.js";
+import { blockRuns } from "../runs.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
@@ -48,8 +49,42 @@ import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 import { useEditEscape } from "./useEditEscape.js";
 
+/**
+ * The plan's blocks as the week draws them: those of one activity that touch are one pill,
+ * except while editing, where each is its own to move. A run does not mix levels, pins or
+ * what is already past, so the pill never hides one of those.
+ */
+function planItems(plan: PlanBlock[], editing: boolean, now: number): Item[] {
+  const runs = editing
+    ? plan.map((b) => [b])
+    : blockRuns(
+        plan,
+        (a, b) =>
+          a.level === b.level && isPinned(a) === isPinned(b) && a.end <= now === b.end <= now,
+      );
+  return runs.map((run) => {
+    const first = run[0] as PlanBlock;
+    return {
+      kind: "block" as const,
+      id: first.id,
+      start: first.start,
+      end: (run[run.length - 1] as PlanBlock).end,
+      block: first,
+      ...(run.length > 1 ? { run } : {}),
+    };
+  });
+}
+
 export type Item =
-  | { kind: "block"; id: string; start: number; end: number; block: PlanBlock }
+  | {
+      kind: "block";
+      id: string;
+      start: number;
+      end: number;
+      block: PlanBlock;
+      /** Blocks of one activity that touch, drawn as one pill (the first is `block`). */
+      run?: PlanBlock[];
+    }
   | { kind: "event"; id: string; start: number; end: number; event: AppEvent };
 
 interface Bubble {
@@ -347,16 +382,10 @@ export function Week({
       ...visibleEvents(data)
         .filter((e) => !e.allDay)
         .map((e) => ({ kind: "event" as const, id: e.id, start: e.start, end: e.end, event: e })),
-      ...data.plan.map((b) => ({
-        kind: "block" as const,
-        id: b.id,
-        start: b.start,
-        end: b.end,
-        block: b,
-      })),
+      ...planItems(data.plan, editing, now),
     ];
     return all;
-  }, [data]);
+  }, [data, editing, now]);
 
   // Meals of the week shown, placed around fixed events and pins as the planner does.
   const firstDay = dates[0] as string;
@@ -1042,11 +1071,14 @@ export function Week({
                       data-at={item.start}
                       type="button"
                       data-level={b.level}
-                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${isPinned(b) ? ", fijado" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
-                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
+                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                       style={{ ...style, ["--c" as string]: colorOf(b) }}
                       onPointerDown={
-                        future ? (e) => startPress(e, b.id, (b.end - b.start) / MINUTE) : undefined
+                        // A run of blocks is not dragged: editing shows each one apart.
+                        future && !item.run
+                          ? (e) => startPress(e, b.id, (b.end - b.start) / MINUTE)
+                          : undefined
                       }
                       onPointerMove={dragged ? (e) => movePress(e, drag) : undefined}
                       // Once, right after a keyboard move: kept, it would pull focus back on
@@ -1389,11 +1421,13 @@ function BubbleCard({
       style={{ left, top, ["--c" as string]: activity?.color }}
     >
       <button type="button" className="bubble" onClick={onOpen}>
-        <h3>{task?.title}</h3>
+        <h3>{item.run ? activity?.name : task?.title}</h3>
         <p>
-          {activity?.name} · {dayAndTime(tz, item.start)} – {time(tz, item.end)}
+          {!item.run && `${activity?.name} · `}
+          {dayAndTime(tz, item.start)} – {time(tz, item.end)}
+          {item.run && ` · ${item.run.length} bloques seguidos`}
         </p>
-        {p && (
+        {p && !item.run && (
           <p>
             Faltan {hours(p.remainingMinutes)} de {hours(p.totalMinutes)}
             {b.level === "critical" && (
@@ -1413,7 +1447,7 @@ function BubbleCard({
         {isPinned(b) && item.start <= now && <p>📌 Fijado por vos</p>}
         <p className="more">{item.end <= now ? "Marcar cómo te fue ›" : "Ver detalle ›"}</p>
       </button>
-      {isPinned(b) && item.start > now && (
+      {isPinned(b) && item.start > now && !item.run && (
         <div className="bubble-pin">
           <span>📌 Fijado por vos</span>
           <button type="button" className="btn small" onClick={() => onRelease(b.id)}>
@@ -1421,7 +1455,7 @@ function BubbleCard({
           </button>
         </div>
       )}
-      {!isPinned(b) && item.start > now && (
+      {!isPinned(b) && item.start > now && !item.run && (
         <div className="bubble-pin">
           <span>Lo puso el plan</span>
           <button type="button" className="btn small" onClick={() => onPin(b)}>

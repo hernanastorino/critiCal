@@ -37,10 +37,30 @@ export function BlockSheet({
         </button>
         {item.kind === "event" ? (
           <EventDetail item={item} />
+        ) : item.run ? (
+          <BlockRun run={item.run} onDone={onClose} />
         ) : (
           <CheckInForm block={item.block} onDone={onClose} />
         )}
       </div>
+    </>
+  );
+}
+
+/** Blocks drawn as one pill: each with its own details and actions. */
+function BlockRun({ run, onDone }: { run: PlanBlock[]; onDone: () => void }) {
+  return (
+    <>
+      <p className="meta">{run.length} bloques seguidos</p>
+      {run.map((b, i) => (
+        <section
+          key={b.id}
+          className={i > 0 ? "run-block" : undefined}
+          aria-label={`Bloque ${i + 1}`}
+        >
+          <CheckInForm block={b} onDone={onDone} />
+        </section>
+      ))}
     </>
   );
 }
