@@ -6,6 +6,7 @@ import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { focusFirstInvalid, isFigure } from "./fields.js";
 import { useModal } from "./modal.js";
+import { useToast } from "./Toast.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 const MAX_TOPICS = 200;
@@ -31,6 +32,7 @@ export function TaskDetail({
   onClose: () => void;
 }) {
   const { data, now, dispatch } = useStore();
+  const toast = useToast();
   const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
   const p = progress(data, now).find((x) => x.task.id === task.id);
@@ -83,6 +85,12 @@ export function TaskDetail({
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
+        {task.units.length > 0 && p && (
+          <p className="meta">
+            «Faltan» se mide por las partes: marcá las que hiciste para bajarlo (los minutos solos
+            no lo mueven).
+          </p>
+        )}
         {startsAt !== undefined &&
           startsAt > now &&
           (task.deadline !== undefined && startsAt >= task.deadline ? (
@@ -191,15 +199,23 @@ export function TaskDetail({
                 return;
               }
               const total = Math.min(MAX_TOPICS, Math.max(0, Math.round(Number(topics) || 0)));
+              const logged = Number(minutes.replace(",", ".")) || 0;
               dispatch({
                 type: "logProgress",
                 taskId: task.id,
-                minutes: Number(minutes.replace(",", ".")) || 0,
+                minutes: logged,
                 unitIds: units,
                 reopenUnitIds: reopen,
                 topics: total || undefined,
                 topicsDone: Math.min(total, Math.max(0, Math.round(Number(topicsDone) || 0))),
               });
+              const changed = logged > 0 || units.length > 0 || reopen.length > 0;
+              if (changed)
+                toast.show(
+                  logged > 0
+                    ? `Avance guardado: ${hours(logged)} en ${task.title}`
+                    : `Avance guardado en ${task.title}`,
+                );
               onClose();
             }}
           >

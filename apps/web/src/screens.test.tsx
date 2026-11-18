@@ -415,12 +415,13 @@ describe("backup", () => {
     });
   });
 
-  it("imports a file after confirming, and exports one", async () => {
+  it("imports a file without asking, offers to undo it, and exports one", async () => {
     const now = at("2026-11-04", 600);
     const full = demoData(now);
     const backup = { ...full, tasks: full.tasks.slice(1) };
     const kept = full.tasks[1]?.id as string;
-    vi.stubGlobal("confirm", () => true);
+    const confirmed = vi.fn(() => true);
+    vi.stubGlobal("confirm", confirmed);
     const created = vi.fn(() => "blob:x");
     vi.stubGlobal(
       "URL",
@@ -465,6 +466,11 @@ describe("backup", () => {
     expect(state().tasks.length).toBe(full.tasks.length - 1);
     expect(state().checkIns).toEqual(["later"]);
     expect(state().doneUnits).toEqual(["new-unit"]);
+    // §14: only deleting the account asks first; the import can be taken back.
+    expect(confirmed).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(state().tasks.length).toBe(full.tasks.length);
+    expect(state().checkIns).toEqual(["later"]);
 
     const bad = new File(["{}"], "x.json");
     await act(async () => {

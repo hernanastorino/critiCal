@@ -6,6 +6,7 @@ import {
   progress,
   refreshPlan,
   semesterLabel,
+  shownTotal,
   splitPastSilos,
   type TaskProgress,
 } from "../planning.js";
@@ -55,7 +56,8 @@ export function Silos() {
 
   const silo = (p: TaskProgress) => {
     const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
-    const ratio = p.totalMinutes > 0 ? Math.min(1, p.remainingMinutes / p.totalMinutes) : 0;
+    const total = shownTotal(p);
+    const ratio = total > 0 ? Math.min(1, p.remainingMinutes / total) : 0;
     const level = levels.get(p.task.id) ?? "ok";
     const due = p.task.kind === "habit" ? "esta semana" : dueDate(tz, p.deadline, now);
     const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
@@ -69,7 +71,7 @@ export function Silos() {
         onClick={() => setDetail(p.task)}
       >
         <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
-          <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>{hours(p.totalMinutes)}</span>
+          <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>{hours(total)}</span>
           <div className="fill" style={{ height: `${ratio * 100}%` }} />
           {p.remainingMinutes > 0 && <span className="left">{hours(p.remainingMinutes)}</span>}
         </div>
