@@ -187,4 +187,30 @@ describe("6. El dueño del respaldo pasa a ser la cuenta actual", () => {
     await screen.findByText("Datos importados");
     expect(screen.getByLabelText("dueño").textContent).toBe("yo");
   });
+
+  it("imports the rest of a file with a malformed extra and names what was left out", async () => {
+    vi.useRealTimers();
+    render(
+      <ToastProvider>
+        <StoreProvider
+          initial={() => ({ ...demoData(NOW), owner: "yo" })}
+          persist={false}
+          fixedNow={NOW}
+        >
+          <Backup />
+          <Probe />
+        </StoreProvider>
+      </ToastProvider>,
+    );
+    const broken = { ...demoData(NOW), calendars: [{ id: 1 }], noTravel: ["zoom"] };
+    const file = new File([exportJson(broken as unknown as AppData, NOW)], "respaldo.json", {
+      type: "application/json",
+    });
+    await act(() => {
+      fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
+      return Promise.resolve();
+    });
+    await screen.findByText(/Datos importados\. Quedó afuera: calendarios \(1\)/);
+    expect(screen.getByLabelText("dueño").textContent).toBe("yo");
+  });
 });

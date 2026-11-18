@@ -27,8 +27,8 @@ export function Backup() {
   const download = () => downloadJson(data, now);
 
   const restore = async (f: File) => {
-    // With an account the ids go to a database that stores uuids.
-    const parsed = parseBackup(await f.text(), { strictIds: data.owner !== undefined });
+    // With an account a file from elsewhere (another account, the demo) gets new ids.
+    const parsed = parseBackup(await f.text(), { account: data.owner });
     if ("error" in parsed) {
       setMessage({ text: parsed.error, error: true });
       return;
@@ -90,7 +90,8 @@ export function Backup() {
     const before = data;
     dispatch({ type: "replace", data: restored });
     setMessage(null);
-    toast.show("Datos importados", {
+    const left = parsed.dropped?.length ? `. Quedó afuera: ${parsed.dropped.join(", ")}` : "";
+    toast.show(`Datos importados${left}`, {
       undo: () => dispatch({ type: "replace", data: before }),
     });
   };

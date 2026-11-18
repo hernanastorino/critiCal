@@ -5,7 +5,6 @@ import {
   BACKUP_MINUTES_MAX,
   BACKUP_TEXT_MAX,
   isRealDate,
-  isUuid,
   SESSIONS_PER_WEEK_MAX,
 } from "./limits.js";
 
@@ -14,7 +13,7 @@ export type Ok = (v: unknown, x?: Rec) => boolean;
 /** `[key, valid, what is wrong when it is not]` */
 export type Test = [key: string, ok: Ok, ...say: string[]];
 export type Rule = [key: string, ok: Ok, say: string];
-type Check = (d: Rec, strict: boolean) => string | null;
+type Check = (d: Rec) => string | null;
 
 export const isRec = (x: unknown): x is Rec => !!x && typeof x === "object" && !Array.isArray(x);
 export const list = (x: unknown): Rec[] => (Array.isArray(x) ? x.filter(isRec) : []);
@@ -45,9 +44,6 @@ export const shortStrings: Ok = (v) =>
   Array.isArray(v) && v.every((s) => typeof s === "string" && s.length <= BACKUP_TEXT_MAX);
 const MEALS = ["desayuno", "almuerzo", "merienda", "cena"];
 const STATUSES = ["done", "missed", "partial"];
-
-/** The id rule: a uuid where the database stores a uuid, any text otherwise (the demo). */
-const id = (strict: boolean): Ok => (strict ? (v) => isUuid(v) : str);
 
 function broken(who: string, x: Rec, rules: Rule[]): string | null {
   const bad = rules.find(([key, ok]) => !ok(Reflect.get(x, key), x));
@@ -94,8 +90,8 @@ function oneOf15(v: unknown) {
   return v === 15 || v === 30 || v === 60;
 }
 
-const activityRules = (strict: boolean): Rule[] => [
-  ["id", id(strict), "tiene un identificador que no sirve para tu cuenta"],
+const activityRules = (): Rule[] => [
+  ["id", str, "tiene un identificador que no es texto"],
   ["name", name, `tiene un nombre vacío o de más de ${BACKUP_TEXT_MAX} caracteres`],
   ["kind", opt(oneOf("materia", "rutina")), "tiene un tipo que no es materia ni rutina"],
   [
@@ -132,15 +128,15 @@ const activityRules = (strict: boolean): Rule[] => [
   ],
 ];
 
-const activitiesProblem: Check = (d, strict) =>
+const activitiesProblem: Check = (d) =>
   firstBroken(
     list(d.activities),
     (a) => `La materia ${called(a, "name", "sin nombre")}`,
-    activityRules(strict),
+    activityRules(),
   );
 
-const unitRules = (strict: boolean): Rule[] => [
-  ["id", id(strict), "tiene una parte con un identificador que no sirve para tu cuenta"],
+const unitRules = (): Rule[] => [
+  ["id", str, "tiene una parte con un identificador que no es texto"],
   [
     "estimateMinutes",
     (v) => Number.isInteger(v),
@@ -150,9 +146,9 @@ const unitRules = (strict: boolean): Rule[] => [
   ["doneAt", opt(instant), "tiene una parte con una fecha de hecho que no es válida"],
 ];
 
-const taskRules = (strict: boolean): Rule[] => [
-  ["id", id(strict), "tiene un identificador que no sirve para tu cuenta"],
-  ["activityId", id(strict), "tiene una materia con un identificador que no sirve para tu cuenta"],
+const taskRules = (): Rule[] => [
+  ["id", str, "tiene un identificador que no es texto"],
+  ["activityId", str, "tiene una materia con un identificador que no es texto"],
   ["title", name, `tiene el título vacío o de más de ${BACKUP_TEXT_MAX} caracteres`],
   ["kind", oneOf("deliverable", "habit"), "tiene un tipo que no es entrega ni hábito"],
   [
@@ -194,50 +190,46 @@ const taskRules = (strict: boolean): Rule[] => [
   ["units", (v) => Array.isArray(v), "no tiene la lista de partes"],
 ];
 
-const taskIssue = (t: Rec, strict: boolean): string | null =>
-  broken(`La tarea ${called(t, "title", "sin título")}`, t, taskRules(strict)) ??
-  firstBroken(
-    list(t.units),
-    () => `La tarea ${called(t, "title", "sin título")}`,
-    unitRules(strict),
-  );
+const taskIssue = (t: Rec): string | null =>
+  broken(`La tarea ${called(t, "title", "sin título")}`, t, taskRules()) ??
+  firstBroken(list(t.units), () => `La tarea ${called(t, "title", "sin título")}`, unitRules());
 
-const tasksProblem: Check = (d, strict) => {
+const tasksProblem: Check = (d) => {
   for (const t of list(d.tasks)) {
-    const found = taskIssue(t, strict);
+    const found = taskIssue(t);
     if (found) return found;
   }
   return null;
 };
 
-const checkInRules = (strict: boolean): Rule[] => [
-  ["id", id(strict), "tiene un identificador que no sirve para tu cuenta"],
+const checkInRules = (): Rule[] => [
+  ["id", str, "tiene un identificador que no es texto"],
   ["blockId", str, "no dice de qué bloque es"],
-  ["taskId", id(strict), "tiene una tarea con un identificador que no sirve para tu cuenta"],
+  ["taskId", str, "tiene una tarea con un identificador que no es texto"],
   ["status", oneOf(...STATUSES), "tiene un estado que no es hecho, perdido ni parcial"],
   ["minutesDone", int(0, 100_000_000), "tiene minutos que no son un entero desde 0"],
   [
     "unitIds",
-    (v) => Array.isArray(v) && v.every((u) => id(strict)(u, {})),
-    "tiene partes con identificadores que no sirven para tu cuenta",
+    (v) => Array.isArray(v) && v.every((u) => str(u)),
+    "tiene partes con identificadores que no son texto",
   ],
   ["createdAt", instant, "tiene una fecha que no es válida"],
 ];
 
-const checkInsProblem: Check = (d, strict) =>
-  firstBroken(list(d.checkIns), () => "Un registro de tareas", checkInRules(strict));
+const checkInsProblem: Check = (d) =>
+  firstBroken(list(d.checkIns), () => "Un registro de tareas", checkInRules());
 
-const blockRules = (strict: boolean): Rule[] => [
-  ["taskId", id(strict), "tiene una tarea con un identificador que no sirve para tu cuenta"],
+const blockRules = (): Rule[] => [
+  ["taskId", str, "tiene una tarea con un identificador que no es texto"],
   ["level", opt(oneOf("ok", "warn", "critical")), "tiene un nivel que no es ok, warn ni critical"],
   ["soft", opt(bool), "tiene un dato de «libre» que no es sí o no"],
 ];
 
-const planProblem: Check = (d, strict) =>
-  firstBroken(list(d.plan), () => "Un bloque del plan", blockRules(strict));
+const planProblem: Check = (d) =>
+  firstBroken(list(d.plan), () => "Un bloque del plan", blockRules());
 
-const placeRules = (strict: boolean): Rule[] => [
-  ["id", id(strict), "tiene un identificador que no sirve para tu cuenta"],
+const placeRules = (): Rule[] => [
+  ["id", str, "tiene un identificador que no es texto"],
   ["name", name, `tiene un nombre vacío o de más de ${BACKUP_TEXT_MAX} caracteres`],
   ["aliases", shortStrings, `tiene alias que no son texto de hasta ${BACKUP_TEXT_MAX} caracteres`],
   ["address", opt(text), "tiene una dirección que no es texto"],
@@ -261,12 +253,12 @@ export const shape =
 export const listOf = (tests: Test[]): Ok => arrayOf(shape(tests));
 export const dupes = (xs: unknown[]) => new Set(xs).size !== xs.length;
 
-const placesProblem: Check = (d, strict) => {
+const placesProblem: Check = (d) => {
   const places = list(d.places);
   const found = firstBroken(
     places,
     (p) => `El lugar ${called(p, "name", "sin nombre")}`,
-    placeRules(strict),
+    placeRules(),
   );
   if (found) return found;
   if (dupes(places.map((p) => p.id))) return "El respaldo tiene lugares repetidos.";
@@ -336,7 +328,7 @@ const calendarTests: Test[] = [
 ];
 
 /** A task of the undo history: what the screens read of it when it is put back. */
-const oldTask: Ok = (t) => isRec(t) && taskIssue(t, false) === null;
+const oldTask: Ok = (t) => isRec(t) && taskIssue(t) === null;
 
 const decisionTests: Test[] = [
   ["id", str],
@@ -380,39 +372,63 @@ const travelMinutesTests: Test[] = [
   ["key", text],
 ];
 
-/** Optional top-level keys: `[key, valid, message]`. */
-const extras: Rule[] = [
-  ["calendars", opt(listOf(calendarTests)), "Los calendarios del respaldo no son válidos"],
-  [
-    "applied",
-    opt(listOf(decisionTests)),
-    "Las decisiones que se pueden deshacer del respaldo no son válidas",
-  ],
-  ["planHistory", opt(listOf(versionTests)), "El historial del plan del respaldo no es válido"],
-  [
-    "eventTravel",
-    opt(recordOf(shape(travelMinutesTests))),
-    "Los traslados guardados de eventos del respaldo no son válidos",
-  ],
-  ["mealChoices", opt(listOf(mealDayTests)), "Las comidas cambiadas del respaldo no son válidas"],
-  ["movedEvents", opt(listOf(movedTests)), "Los eventos movidos del respaldo no son válidos"],
-  [
-    "tentativeSeen",
-    opt(listOf(tentativeTests)),
-    "Los eventos tentativos del respaldo no son válidos",
-  ],
-  ["noTravel", opt(strings), "La lista de lugares sin traslado del respaldo no es válida"],
-  ["notSubjects", opt(strings), "La lista de clases que no son materia del respaldo no es válida"],
-  ["removedSubjects", opt(strings), "La lista de materias eliminadas del respaldo no es válida"],
-  ["freeTimeUntil", opt(instant), "El tiempo libre permitido del respaldo no es válido"],
-  ["relaxContextUntil", opt(instant), "El permiso de cambiar de materia del respaldo no es válido"],
-  ["tentativeHoldUntil", opt(instant), "La espera por un plan B del respaldo no es válida"],
+/** How an optional top-level key is read: a list or object of entries, a list of texts, or one value. */
+type Kind = "list" | "record" | "strings" | "value";
+/** Optional top-level keys: `[key, kind, valid entry, what it is, for the notice]`. */
+type Extra = [key: string, kind: Kind, ok: Ok, label: string];
+
+const extras: Extra[] = [
+  ["calendars", "list", shape(calendarTests), "calendarios"],
+  ["applied", "list", shape(decisionTests), "decisiones que se pueden deshacer"],
+  ["planHistory", "list", shape(versionTests), "versiones del historial del plan"],
+  ["eventTravel", "record", shape(travelMinutesTests), "traslados guardados de eventos"],
+  ["mealChoices", "list", shape(mealDayTests), "comidas cambiadas"],
+  ["movedEvents", "list", shape(movedTests), "eventos movidos"],
+  ["tentativeSeen", "list", shape(tentativeTests), "eventos tentativos"],
+  ["noTravel", "strings", text, "lugares sin traslado"],
+  ["notSubjects", "strings", text, "clases que no son materia"],
+  ["removedSubjects", "strings", text, "materias eliminadas"],
+  ["freeTimeUntil", "value", instant, "tiempo libre permitido"],
+  ["relaxContextUntil", "value", instant, "permiso de cambiar de materia"],
+  ["tentativeHoldUntil", "value", instant, "espera por un plan B"],
 ];
 
-const extrasProblem: Check = (d) => {
-  const bad = extras.find(([key, ok]) => !ok(Reflect.get(d, key), d));
-  return bad ? `${bad[2]}.` : null;
-};
+/**
+ * The file without the optional data the screens could not read, and what was left out
+ * (for the notice). Only the bad entry goes: the rest of the list stays, and a key of the
+ * wrong kind altogether goes whole. Nothing here rejects the file.
+ */
+export function dropBadExtras(d: Rec): { data: Rec; dropped: string[] } {
+  const data: Rec = { ...d };
+  const dropped: string[] = [];
+  for (const [key, kind, ok, label] of extras) {
+    const v = Reflect.get(data, key);
+    if (v === undefined) continue;
+    if (kind === "value") {
+      if (ok(v, data)) continue;
+      Reflect.deleteProperty(data, key);
+      dropped.push(label);
+      continue;
+    }
+    const entries: unknown[] | null =
+      kind === "record" ? (isRec(v) ? Object.entries(v) : null) : Array.isArray(v) ? v : null;
+    if (!entries) {
+      Reflect.deleteProperty(data, key);
+      dropped.push(label);
+      continue;
+    }
+    const valid = (e: unknown) => ok(kind === "record" ? (e as [string, unknown])[1] : e, data);
+    const kept = entries.filter(valid);
+    if (kept.length === entries.length) continue;
+    Reflect.set(
+      data,
+      key,
+      kind === "record" ? Object.fromEntries(kept as [string, unknown][]) : kept,
+    );
+    dropped.push(`${label} (${entries.length - kept.length})`);
+  }
+  return { data, dropped };
+}
 
 const eventRules: Rule[] = [
   ["location", opt(text), "tiene una ubicación que no es texto"],
@@ -436,16 +452,12 @@ const CHECKS: Check[] = [
   placesProblem,
   overridesProblem,
   eventsProblem,
-  extrasProblem,
 ];
 
-/**
- * The first thing in the file the database or the screens could not take, said for the
- * user, or null. `strict`: the ids go to a database that stores them as uuids.
- */
-export function backupProblem(d: Rec, strict: boolean): string | null {
+/** The first thing in the file the database or the screens could not take, said for the user, or null. */
+export function backupProblem(d: Rec): string | null {
   for (const check of CHECKS) {
-    const found = check(d, strict);
+    const found = check(d);
     if (found) return found;
   }
   return null;
