@@ -6,6 +6,12 @@ import { startMonitoring } from "./monitoring.js";
 import "./styles.css";
 import { watchUpdates } from "./updates.js";
 
+// iOS ignores user-scalable=no for pinch gestures; block them so the app never
+// zooms away from its content.
+for (const type of ["gesturestart", "gesturechange"]) {
+  document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
+}
+
 void startMonitoring();
 // A start that failed offline tries again when the connection is back.
 window.addEventListener("online", () => void startMonitoring());
