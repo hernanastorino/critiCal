@@ -325,6 +325,8 @@ describe("buildSlots", () => {
       "almuerzo",
       "cena",
     ]);
+    // Up at 13:30 (lunchtime or later): no breakfast; lunch stays.
+    expect(kinds([{ date: "2026-11-02", wake: 13 * 60 + 30 }])).toEqual(["almuerzo", "cena"]);
     // Up at 20:30: dinner is within its 1 h 30 margin and stays; the rest are omitted.
     expect(kinds([{ date: "2026-11-02", wake: 20 * 60 + 30 }])).toEqual(["cena"]);
   });

@@ -328,7 +328,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 
 **11. Decisiones del 2026-11-18** (respuestas del usuario a las preguntas pendientes):
 
-- **Comidas cuando te levantás muy tarde**: la comida que cae mientras dormís (o pasada la hora de dormir) se omite ese día; si te levantás a la hora del almuerzo o después, se saltea el desayuno. Cambia lo que decía §5.1 («aparece justo después de la anterior»). Hay un arreglo listo en la rama `claude/atacante-main-90daf71` (commit `90daf71`).
+- ✅ **Comidas cuando te levantás muy tarde**: la comida que cae mientras dormís (o pasada la hora de dormir) se omite ese día; si te levantás a la hora del almuerzo o después, se saltea el desayuno. Reemplaza lo que decía §5.1 («aparece justo después de la anterior»); hecho en `availability.ts`.
 - **Horarios válidos por rutina** (pedido nuevo): cada rutina (gym, correr…) tiene una franja válida de inicio y fin, que puede cambiar según el día de la semana. Ejemplo: correr a más tardar a las 19:00 entre semana y a las 20:00 los sábados. El plan pone esa rutina solo dentro de su franja de ese día.
 - **Rutina creada a mitad de semana**: la primera semana pide solo la parte proporcional a los días que quedan.
 - **Críticos por una tarea que no entra ni sola**: esa tarea se avisa sola y no marca como críticos los bloques de las demás entregas.
