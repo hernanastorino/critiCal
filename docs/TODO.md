@@ -54,6 +54,8 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 4. **Críticos por una tarea que no entra ni sola** (agente atacante sobre `main`, 2026-11-18). Cuando una tarea no entra ni sola (por ejemplo un hábito «Repasar fórmulas» de 14 × 24 h), ¿querés que igual marque como críticos los bloques de las demás entregas? Hoy sí los marca, porque esa tarea podría usar su tiempo.
 
+5. **Seguir después del freno** (2026-11-18). Elegiste pasar a los arreglos de las capturas (hechos, #123–#128) y después se arreglaron los hallazgos de la 5.ª vuelta (#130, #131). La 6.ª vuelta volvió a encontrar fallas nuevas: una Alta (el «Deshacer» de los avisos no se podía tocar con una hoja abierta, regresión de #127, ya arreglada) y varias Media/Baja (§5.3). ¿Se arreglan esas y se corre la 7.ª, o se cambia el criterio del freno (por ejemplo, frenar solo con Altas)? Además: ¿el ratio aprendido real/estimado (§5.8) sigue por materia o pasa a ser por entrega?
+
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
@@ -64,10 +66,10 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                                                                                      | Qué falta                                                                     |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                                  | **No mergear** hasta que el usuario lo pida.                                  |
-| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17) tras 5 vueltas con fallas nuevas. El usuario eligió (2026-11-18) pasar a los arreglos del §18.10 (hechos: #123–#128) | Arreglar los hallazgos de la 5.ª vuelta (§5.3) y volver a correr el atacante. |
+| Qué                                                                      | Estado                                                                                                                    | Qué falta                                                                                  |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                | **No mergear** hasta que el usuario lo pida.                                               |
+| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17). 6.ª vuelta (2026-11-18, tras #130/#131): 1 Alta (arreglada en este PR) y varias Media/Baja (§5.3) | Que el usuario diga si se arreglan las de la 6.ª vuelta y se corre la 7.ª (§1.1, punto 5). |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -127,6 +129,19 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor, rutas habituales guardadas y selector auto/ómnibus por lugar y por traslado. Es grande: conviene partirlo en datos y servidor primero, UI después.
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
+
+- **6.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #131). La Alta («Deshacer» de los avisos inerte con una hoja abierta) se arregló; el resto sin arreglar, por el freno:
+  - Media: «Importar JSON» reemplaza todos los datos tras un `window.confirm` y sin «Deshacer» (§14: solo borrar la cuenta confirma).
+  - Media: «Guardar avance» en una entrega con partes no da aviso y «Faltan» no se mueve (solo el mínimo); el silo del Parcial muestra 13 h arriba y 10 h abajo (horas estimadas distintas de la suma de partes).
+  - Media: no hay cabeceras de seguridad en el repo (CSP, `frame-ancestors`/`X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`). Confirmar si están en el panel de Vercel.
+  - Baja: fecha límite imposible (`2026-02-30`, `24:00`) se reinterpreta sin avisar; fechas del cuatrimestre sin tope (`0001`/`9999`, congela ~4 s) y sin mensaje con «Empieza» imposible.
+  - Baja: nombre de entrega sin tope y texto que se sale de la tarjeta en la Bandeja (falta `overflow-wrap:anywhere`); `parseBackup` no limita nombres ni IDs duplicados.
+  - Baja: el formulario de una materia corrige en silencio valores raros (0, negativos, 9999) y acepta un nombre invisible (U+200B).
+  - Baja: «Ya hay una materia o rutina con ese nombre» sin `role="alert"`; Hoy con «25:99» dice «NaN h»; hora imposible en «Prefiero desde» da un mensaje equivocado.
+  - Baja: marcar otro lugar como «Es mi casa» le saca el 🏠 al anterior sin avisar.
+  - Baja: `viewport` con `maximum-scale=1, user-scalable=no` impide el zoom (WCAG 1.4.4).
+  - Baja: `POST /api/widget` rota el token con cualquier cuerpo (una acción mal escrita rompe el widget) en vez de dar 400.
+  - Baja: presupuesto de peticiones por usuario solo en `/api/transit`; faltan en `/api/travel` y `/api/syllabus`.
 
 - **5.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #121). Sin arreglar, por el freno:
   - **Alta**: el avance registrado en una entrega descuenta también a otras entregas de la misma materia (una entrega nueva con una parte de 60 min muestra «faltan 44m» sin avance propio).

@@ -27,7 +27,7 @@ function cover() {
       if (!(c instanceof HTMLElement) || c === n) continue;
       if (c.classList.contains("scrim") && c.nextElementSibling === top) continue;
       // The app's notices stay readable and tappable over a sheet (its «Deshacer»).
-      if (c.classList.contains("snacks")) continue;
+      if (c.classList.contains("snacks") || c.classList.contains("toasts")) continue;
       want.add(c);
     }
   }
