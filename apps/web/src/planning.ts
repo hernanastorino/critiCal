@@ -190,6 +190,19 @@ export function progress(data: AppData, now: number): TaskProgress[] {
 }
 
 /**
+ * The total a silo shows next to what is left. With parts, «faltan» is the parts still
+ * unmarked (capped by the estimate), so the total is all the parts (same cap): an estimate
+ * above their sum would read as hours missing that no part holds.
+ */
+export function shownTotal(p: TaskProgress): number {
+  if (p.task.kind === "habit" || p.task.units.length === 0) return p.totalMinutes;
+  const parts = p.task.units
+    .filter((u) => !u.skipped)
+    .reduce((sum, u) => sum + u.estimateMinutes, 0);
+  return Math.max(p.remainingMinutes, Math.min(p.totalMinutes, parts));
+}
+
+/**
  * Weighed units still to study, in planner minutes. They are scaled so together with
  * the rest they never exceed what is left of the task (capped by its estimate), so
  * leaving some out never takes the time of the ones kept.

@@ -81,10 +81,13 @@ export function Backup() {
       });
       return;
     }
-    if (!window.confirm("Esto reemplaza todos tus datos por los del archivo. ¿Seguir?")) return;
+    // No question (§14): the data before the import is kept, and «Deshacer» puts it back.
+    const before = data;
     dispatch({ type: "replace", data: restored });
     setMessage(null);
-    toast.show("Datos importados");
+    toast.show("Datos importados", {
+      undo: () => dispatch({ type: "replace", data: before }),
+    });
   };
 
   return (
