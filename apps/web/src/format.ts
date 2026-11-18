@@ -57,6 +57,18 @@ export function hours(minutes: number): string {
 /** A time of day as a time field writes it: «07:30», never «25:99» or «abc». */
 export const isHhmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 
+/**
+ * A time of day as typed, in minutes since midnight, or null when it is not one: «7»,
+ * «7:5» and «07:30» are read the same everywhere; «25:99», «» and «abc» are not times.
+ */
+export function parseClock(v: string): number | null {
+  const m = /^\s*(\d{1,2})(?::(\d{1,2}))?\s*$/.exec(v);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  return h <= 23 && min <= 59 ? h * 60 + min : null;
+}
+
 export function hhmmToMinutes(v: string): number {
   const [h, m] = v.split(":").map(Number);
   return (h ?? 0) * 60 + (m ?? 0);

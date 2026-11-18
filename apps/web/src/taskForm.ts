@@ -50,6 +50,23 @@ export function hoursProblem(v: string): string | null {
   return `Poné horas de 0 a ${MAX_HOURS}, solo cifras (1,5 sirve; negativos no).`;
 }
 
+/** Minutes as «2 h», «1 h 30 min» or «45 min». */
+export function durationLabel(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
+}
+
+/**
+ * What the parts add up to beside the estimate, so a silo showing less than the estimate
+ * (what is left is measured by the parts) is understood. Null without parts or figures.
+ */
+export function partsSummary(estimate: string, partsMinutes: number): string | null {
+  const n = typedHours(estimate);
+  if (!Number.isFinite(n) || partsMinutes <= 0) return null;
+  return `Partes: ${durationLabel(partsMinutes)} de ${durationLabel(Math.round(n * 60))} estimadas.`;
+}
+
 /**
  * Hours typed below what the parts add up to: said, not raised on its own (the parts are
  * the work; a 0 next to 10 h of parts would save 10 h behind the figure shown).
@@ -57,10 +74,7 @@ export function hoursProblem(v: string): string | null {
 export function partsProblem(v: string, partsMinutes: number): string | null {
   const n = typedHours(v);
   if (!Number.isFinite(n) || partsMinutes <= 0 || Math.round(n * 60) >= partsMinutes) return null;
-  const h = Math.floor(partsMinutes / 60);
-  const m = partsMinutes % 60;
-  const total = m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
-  return `Las partes suman ${total}: poné esas horas o más, o quitá partes.`;
+  return `Las partes suman ${durationLabel(partsMinutes)}: poné esas horas o más, o quitá partes.`;
 }
 
 /**

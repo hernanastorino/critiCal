@@ -15,6 +15,14 @@ export const MAX_PDF_BYTES = 3_000_000;
 
 /** Readings per user: every one spends the shared Gemini quota (and costs time). */
 export const reads = limiter(5, 40);
+/** Saving a key calls Google to check it: few tries per user. */
+export const keySets = limiter(5, 20);
+/** Looking at or removing the key: cheap, but still bounded. */
+export const keyCalls = limiter(30, 300);
+/** The budget a key action spends: saving calls Google, the rest does not. */
+const keyBudget = (action: unknown) => (action === "set_key" ? keySets : keyCalls);
+/** The longest a call to Gemini may take before it is given up as busy. */
+const GEMINI_TIMEOUT_MS = 25_000;
 
 export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
@@ -51,7 +59,8 @@ async function keyFor(caller: Caller, env: Env): Promise<{ key?: string; own: bo
 }
 
 /** Saves, removes or describes the user's own Gemini key. */
-async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>) {
+async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>, now: number) {
+  if (!keyBudget(body.action).take(caller.uid, now)) return tooMany();
   if (body.action === "key_status") {
     const { own } = await keyFor(caller, env);
     return json({ ok: true, own, fallback: !!env.geminiKey });
@@ -81,13 +90,19 @@ async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>
     : json({ ok: true, own: true, fallback: !!env.geminiKey });
 }
 
+const tooMany = () => {
+  const res = json({ ok: false, error: "rate_limited" }, 429);
+  res.headers.set("Retry-After", "60");
+  return res;
+};
+
 export async function handle(req: Request, env: Env, now = Date.now()): Promise<Response> {
   const caller = await authenticate(req, env, []);
   if (caller instanceof Response) return caller;
   const body = await readBody(req);
   if (body.action === "set_key" || body.action === "clear_key" || body.action === "key_status") {
     try {
-      return await manageKey(caller, env, body);
+      return await manageKey(caller, env, body, now);
     } catch (e) {
       await report(env, e, "gemini-key");
       return json({ ok: false, error: "key_failed" }, 500);
@@ -105,11 +120,7 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
   const pdf = typeof body.pdf === "string" ? body.pdf : "";
   if (!pdf) return json({ ok: false, error: "missing_pdf" }, 400);
   if ((pdf.length * 3) / 4 > MAX_PDF_BYTES) return json({ ok: false, error: "too_large" }, 413);
-  if (!reads.take(caller.uid, now)) {
-    const res = json({ ok: false, error: "rate_limited" }, 429);
-    res.headers.set("Retry-After", "60");
-    return res;
-  }
+  if (!reads.take(caller.uid, now)) return tooMany();
   const year = new Date(now).getUTCFullYear();
   const request = JSON.stringify({
     contents: [
@@ -134,6 +145,7 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
         method: "POST",
         headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
         body: request,
+        signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
       });
       // Retired model, quota or overload: try the next one.
       // A forced model that does not exist will not start working by retrying.
@@ -158,6 +170,10 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
     }
     return json({ ok: false, error: "gemini_busy" }, 503);
   } catch (e) {
+    // Gemini that does not answer in time is busy, not a failure of ours.
+    if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      return json({ ok: false, error: "gemini_busy" }, 503);
+    }
     console.error(e);
     await report(env, e, "syllabus");
     return json({ ok: false, error: "syllabus_failed" }, 500);

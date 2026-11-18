@@ -18,7 +18,22 @@ describe("vercel.json: cabeceras de seguridad", () => {
     expect(value("X-Content-Type-Options")).toBe("nosniff");
     expect(value("Referrer-Policy")).toBe("strict-origin-when-cross-origin");
     expect(value("X-Frame-Options")).toBe("DENY");
-    expect(value("Content-Security-Policy")).toBe("frame-ancestors 'none'");
+  });
+
+  it("la CSP prohíbe frames, plugins y <base> ajenos, sin tocar script-src ni connect-src", () => {
+    const csp = value("Content-Security-Policy") ?? "";
+    expect(csp).toContain("frame-ancestors 'none'");
+    expect(csp).toContain("object-src 'none'");
+    expect(csp).toContain("base-uri 'self'");
+    // Supabase, Sentry, Google y el service worker: lo que no se pueda probar, no se restringe.
+    expect(csp).not.toMatch(/script-src|connect-src|default-src/);
+  });
+
+  it("Permissions-Policy cierra lo que la app no usa", () => {
+    const policy = value("Permissions-Policy") ?? "";
+    for (const feature of ["camera", "microphone", "geolocation", "payment", "usb"]) {
+      expect(policy).toContain(`${feature}=()`);
+    }
   });
 
   it("no toca las rutas: sin rewrites que tapen api/*", () => {

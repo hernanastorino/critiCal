@@ -42,6 +42,9 @@ export function useFocusInvalid(): (from: Element | null) => void {
 /** A plain non-negative figure as typed in a form («2», «1,5»): no letters, signs or exponents. */
 export const isFigure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
 
+/** A whole number as typed («3»): no decimals, signs, letters or exponents. */
+export const isWhole = (v: string) => /^\s*\d+\s*$/.test(v);
+
 // «3,5» reads as 3.5; «0x10» or «1e2» are not figures.
 export const clampMinutes = (v: string, min: number, max: number) => {
   if (!isFigure(v)) return undefined;
