@@ -32,8 +32,8 @@ function accountData(owner: string): AppData {
   const [t1, t2] = [newId(), newId()];
   const [u1, u2] = [newId(), newId()];
   const [p1, p2] = [newId(), newId()];
-  const template = base.tasks[0];
-  const act = base.activities[0];
+  const template = base.tasks.at(0);
+  const act = base.activities.at(0);
   if (!template || !act) throw new Error("the demo has no data");
   const task = (id: string, activityId: string, units: AppData["tasks"][number]["units"]) => ({
     ...template,
@@ -137,10 +137,12 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
     expect(b.owner).toBe(MINE);
     const [before, after] = [idsOf(a), idsOf(b)];
     expect(after).toHaveLength(before.length);
-    for (const [i, old] of before.entries()) expect(after[i]).not.toBe(old);
     // Same file, with every old id swapped for the new one at the same position.
     let text = JSON.stringify(a);
-    for (const [i, old] of before.entries()) text = text.split(old).join(after[i] as string);
+    for (const [old, now] of before.map((x, i) => [x, after.at(i) ?? ""] as const)) {
+      expect(now).not.toBe(old);
+      text = text.split(old).join(now);
+    }
     expect(b).toEqual({ ...JSON.parse(text), owner: MINE });
   });
 
@@ -151,7 +153,7 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
       expect(b.tasks.some((t) => t.id === x.taskId)).toBe(true);
       expect(b.activities.some((t) => t.id === x.activityId)).toBe(true);
     }
-    const c = b.checkIns[0];
+    const c = b.checkIns.at(0);
     expect(b.plan.some((x) => x.id === c?.blockId)).toBe(true);
   });
 
@@ -184,14 +186,12 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
   it("la misma cuenta pero con ids que no son uuid: se renuevan", () => {
     const a = { ...demoData(NOW), owner: MINE };
     const r = parse(a, MINE).data;
-    expect(r.tasks[0]?.id).not.toBe(a.tasks[0]?.id);
+    expect(r.tasks.at(0)?.id).not.toBe(a.tasks.at(0)?.id);
   });
 
   it("sin cuenta (demo) los ids se respetan", () => {
     const a = accountData(OTHER);
-    const { owner: _o, ...rest } = a;
     expect(parse(a).data).toEqual(JSON.parse(JSON.stringify(a)));
-    expect(rest).toBeDefined();
   });
 
   it("con cuenta ya no se rechaza un id que no es uuid", () => {

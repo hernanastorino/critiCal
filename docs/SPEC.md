@@ -326,7 +326,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - ✅ **Lugares**: el botón «Editar» de un lugar sin alias ni dirección (por ejemplo «Abuela») queda desalineado del nombre. Se alinea con la primera línea, igual que en los demás.
 - ✅ **Bloques seguidos de la misma actividad, en una sola píldora**: en la semana, los bloques de una misma actividad pegados uno al otro, sin tiempo entre medio, se dibujan como una sola píldora en vez de varias juntas. Al tocarla se ven sus bloques. Solo presentación (`runs.ts`): no mezcla niveles, fijados ni pasado/futuro; en el modo edición cada bloque vuelve a ir aparte (para moverlo), y la píldora junta no se arrastra. La hoja lista cada bloque con sus acciones.
 
-11. **Decisiones del 2026-11-18** (respuestas del usuario a las preguntas pendientes):
+**11. Decisiones del 2026-11-18** (respuestas del usuario a las preguntas pendientes):
 
 - **Comidas cuando te levantás muy tarde**: la comida que cae mientras dormís (o pasada la hora de dormir) se omite ese día; si te levantás a la hora del almuerzo o después, se saltea el desayuno. Cambia lo que decía §5.1 («aparece justo después de la anterior»). Hay un arreglo listo en la rama `claude/atacante-main-90daf71` (commit `90daf71`).
 - **Horarios válidos por rutina** (pedido nuevo): cada rutina (gym, correr…) tiene una franja válida de inicio y fin, que puede cambiar según el día de la semana. Ejemplo: correr a más tardar a las 19:00 entre semana y a las 20:00 los sábados. El plan pone esa rutina solo dentro de su franja de ese día.

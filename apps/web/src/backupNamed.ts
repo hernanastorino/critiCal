@@ -372,8 +372,8 @@ const travelMinutesTests: Test[] = [
   ["key", text],
 ];
 
-/** How an optional top-level key is read: a list or object of entries, a list of texts, or one value. */
-type Kind = "list" | "record" | "strings" | "value";
+/** How an optional top-level key is read: a list or an object of entries, or one value. */
+type Kind = "list" | "record" | "value";
 /** Optional top-level keys: `[key, kind, valid entry, what it is, for the notice]`. */
 type Extra = [key: string, kind: Kind, ok: Ok, label: string];
 
@@ -385,13 +385,26 @@ const extras: Extra[] = [
   ["mealChoices", "list", shape(mealDayTests), "comidas cambiadas"],
   ["movedEvents", "list", shape(movedTests), "eventos movidos"],
   ["tentativeSeen", "list", shape(tentativeTests), "eventos tentativos"],
-  ["noTravel", "strings", text, "lugares sin traslado"],
-  ["notSubjects", "strings", text, "clases que no son materia"],
-  ["removedSubjects", "strings", text, "materias eliminadas"],
+  ["noTravel", "list", text, "lugares sin traslado"],
+  ["notSubjects", "list", text, "clases que no son materia"],
+  ["removedSubjects", "list", text, "materias eliminadas"],
   ["freeTimeUntil", "value", instant, "tiempo libre permitido"],
   ["relaxContextUntil", "value", instant, "permiso de cambiar de materia"],
   ["tentativeHoldUntil", "value", instant, "espera por un plan B"],
 ];
+
+/** What stays of an optional value, and how many entries went (`null`: all of it, it had the wrong kind). */
+function trimmed(kind: Kind, v: unknown, ok: Ok, d: Rec): { value?: unknown; lost: number | null } {
+  if (kind === "value") return ok(v, d) ? { value: v, lost: 0 } : { lost: null };
+  if (kind === "record") {
+    if (!isRec(v)) return { lost: null };
+    const kept = Object.entries(v).filter(([, e]) => ok(e, d));
+    return { value: Object.fromEntries(kept), lost: Object.keys(v).length - kept.length };
+  }
+  if (!Array.isArray(v)) return { lost: null };
+  const kept = v.filter((e) => ok(e, d));
+  return { value: kept, lost: v.length - kept.length };
+}
 
 /**
  * The file without the optional data the screens could not read, and what was left out
@@ -404,28 +417,11 @@ export function dropBadExtras(d: Rec): { data: Rec; dropped: string[] } {
   for (const [key, kind, ok, label] of extras) {
     const v = Reflect.get(data, key);
     if (v === undefined) continue;
-    if (kind === "value") {
-      if (ok(v, data)) continue;
-      Reflect.deleteProperty(data, key);
-      dropped.push(label);
-      continue;
-    }
-    const entries: unknown[] | null =
-      kind === "record" ? (isRec(v) ? Object.entries(v) : null) : Array.isArray(v) ? v : null;
-    if (!entries) {
-      Reflect.deleteProperty(data, key);
-      dropped.push(label);
-      continue;
-    }
-    const valid = (e: unknown) => ok(kind === "record" ? (e as [string, unknown])[1] : e, data);
-    const kept = entries.filter(valid);
-    if (kept.length === entries.length) continue;
-    Reflect.set(
-      data,
-      key,
-      kind === "record" ? Object.fromEntries(kept as [string, unknown][]) : kept,
-    );
-    dropped.push(`${label} (${entries.length - kept.length})`);
+    const { value, lost } = trimmed(kind, v, ok, data);
+    if (lost === 0) continue;
+    if (lost === null) Reflect.deleteProperty(data, key);
+    else Reflect.set(data, key, value);
+    dropped.push(lost === null ? label : `${label} (${lost})`);
   }
   return { data, dropped };
 }
