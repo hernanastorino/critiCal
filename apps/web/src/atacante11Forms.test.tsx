@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DetectedDefaults } from "./components/Preferences.js";
 import { TaskEditor } from "./components/TaskEditor.js";
 import { ToastProvider } from "./components/Toast.js";
@@ -11,7 +11,7 @@ import { detectedProblem, estimateProblem } from "./taskForm.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
-const inside = (ui: React.ReactNode) =>
+function inside(ui: React.ReactNode) {
   render(
     <ToastProvider>
       <StoreProvider initial={demoData} persist={false} fixedNow={NOW}>
@@ -19,12 +19,15 @@ const inside = (ui: React.ReactNode) =>
       </StoreProvider>
     </ToastProvider>,
   );
-const click = (name: string | RegExp) =>
+}
+function click(name: string | RegExp) {
   act(() => {
     fireEvent.click(screen.getByRole("button", { name }));
   });
-const set = (label: string | RegExp, value: string) =>
+}
+function set(label: string | RegExp, value: string) {
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
+}
 const alerts = () => screen.queryAllByRole("alert").map((a) => a.textContent ?? "");
 
 beforeEach(() => localStorage.clear());
@@ -34,11 +37,15 @@ afterEach(() => {
 });
 
 describe("2. Nueva entrega: un solo resumen de errores", () => {
-  const pickStart = (mode: string) => set("Puedo empezar", mode);
-  const lateDate = () => set("Desde el día", "2027-01-10");
+  const pickStart = (mode: string) => {
+    set("Puedo empezar", mode);
+  };
+  const lateDate = () => {
+    set("Desde el día", "2027-01-10");
+  };
 
   it("«Puedo empezar» typed badly counts in the summary, not as its own alert", () => {
-    inside(<TaskEditor onClose={() => {}} />);
+    inside(<TaskEditor onClose={vi.fn()} />);
     pickStart("in");
     set("Dentro de cuántos días", "x");
     click("Guardar");
@@ -47,7 +54,7 @@ describe("2. Nueva entrega: un solo resumen de errores", () => {
   });
 
   it("a start after the deadline is said in its field, which takes the focus", () => {
-    inside(<TaskEditor onClose={() => {}} />);
+    inside(<TaskEditor onClose={vi.fn()} />);
     set("Nombre", "Entrega");
     pickStart("date");
     lateDate();
@@ -59,7 +66,7 @@ describe("2. Nueva entrega: un solo resumen de errores", () => {
   });
 
   it("with another error too, the start error joins the summary", () => {
-    inside(<TaskEditor onClose={() => {}} />);
+    inside(<TaskEditor onClose={vi.fn()} />);
     pickStart("date");
     lateDate();
     click("Guardar");

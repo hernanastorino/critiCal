@@ -1,4 +1,5 @@
-import type { AppData, AppTask } from "../model.js";
+import type { Activity } from "../engine.js";
+import type { AppData, AppTask, Proposal } from "../model.js";
 import { snapshotOf, useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
@@ -40,5 +41,42 @@ export function useUndoable(onBack?: (key: string) => void) {
         if (opts.key) onBack?.(opts.key);
       },
     });
+  };
+}
+
+/** The answers of the Bandeja that are taken at the tap and can be undone. */
+export function useInboxAnswers(onBack: (key: string) => void) {
+  const answer = useUndoable(onBack);
+  return {
+    classAs: (c: { key: string; title: string }, as: "materia" | "event") =>
+      answer(
+        `«${c.title}» es ${as === "materia" ? "una materia" : "un evento suelto"}`,
+        { type: "classTitle", title: c.title, as },
+        SORT_KEYS,
+        { key: c.key },
+      ),
+    sort: (a: Activity, as: "materia" | "rutina") =>
+      answer(
+        `«${a.name}» es ${as === "materia" ? "una materia" : "una rutina"}`,
+        { type: "sortActivity", activityId: a.id, as },
+        SORT_KEYS,
+        { key: a.id },
+      ),
+    merge: (a: Activity, into: Activity) =>
+      answer(
+        `«${a.name}» juntada con ${into.name}`,
+        { type: "mergeActivity", activityId: a.id, into: into.id },
+        SORT_KEYS,
+        { key: a.id },
+      ),
+    ignore: (t: AppTask) =>
+      answer(`«${t.title}» ignorada`, { type: "review", taskId: t.id, keep: false }, PLAN_KEYS, {
+        tasks: [t],
+        key: t.id,
+      }),
+    reject: (p: Proposal) =>
+      answer("Todo sigue como estaba", { type: "rejectProposal", id: p.id }, PROPOSAL_KEYS, {
+        key: p.id,
+      }),
   };
 }

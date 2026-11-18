@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Inbox } from "./components/Inbox.js";
 import { DetectedDefaults } from "./components/Preferences.js";
 import { TaskEditor } from "./components/TaskEditor.js";
@@ -18,7 +18,7 @@ function Spy() {
   latest = useStore().data;
   return null;
 }
-const inside = (ui: React.ReactNode, initial: (now: number) => AppData) =>
+function inside(ui: React.ReactNode, initial: (now: number) => AppData) {
   render(
     <ToastProvider>
       <StoreProvider initial={initial} persist={false} fixedNow={NOW}>
@@ -27,11 +27,15 @@ const inside = (ui: React.ReactNode, initial: (now: number) => AppData) =>
       </StoreProvider>
     </ToastProvider>,
   );
-const click = (name: string | RegExp) =>
+}
+function click(name: string | RegExp) {
   act(() => {
     fireEvent.click(screen.getByRole("button", { name }));
   });
-const undo = () => click("Deshacer");
+}
+function undo() {
+  click("Deshacer");
+}
 /** The parts of the data an answer of the inbox may touch. */
 const parts = (d?: AppData) => ({
   tasks: d?.tasks,
@@ -227,7 +231,7 @@ describe("1b. Editar entrega detectada: Volver a las horas por defecto", () => {
           { id: "icloud:p", source: "icloud", externalId: "p", name: "P", role: "parcial" },
         ],
       })(now);
-    inside(<TaskEditor task={task} onClose={() => {}} />, seed);
+    inside(<TaskEditor task={task} onClose={vi.fn()} />, seed);
     const before = structuredClone(parts(latest));
     click("Volver a las horas por defecto");
     expect(latest?.tasks[0]?.estimateMinutes).not.toBe(90);
