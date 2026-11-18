@@ -520,19 +520,20 @@ export function DetectedDefaults() {
   );
 }
 
-/** What is wrong with the times a week and minutes of a routine, and in which field. */
-function routineProblem(
-  times: string,
-  minutes: string,
-): { field: "times" | "minutes"; text: string } | null {
+/** What is wrong with the times a week and the minutes of a routine, each in its own field. */
+function routineProblems(times: string, minutes: string) {
   const t = Math.round(Number(times));
   const m = Math.round(Number(minutes));
-  if (!Number.isFinite(t) || t < 1 || t > 14)
-    return { field: "times", text: "Las veces por semana van de 1 a 14." };
-  if (!Number.isFinite(m) || m < 1 || m > 360)
-    return { field: "minutes", text: "Los minutos por sesión van de 1 a 360." };
-  if (!validRoutine(t, m)) return { field: "times", text: "Eso suma más de 40 h por semana." };
-  return null;
+  const timesBad = !Number.isFinite(t) || t < 1 || t > 14;
+  const minutesBad = !Number.isFinite(m) || m < 1 || m > 360;
+  return {
+    times: timesBad
+      ? "Las veces por semana van de 1 a 14."
+      : !minutesBad && !validRoutine(t, m)
+        ? "Eso suma más de 40 h por semana."
+        : null,
+    minutes: minutesBad ? "Los minutos por sesión van de 1 a 360." : null,
+  };
 }
 
 /** Routines like the gym: the plan places them N times a week; never a materia. */
@@ -554,8 +555,32 @@ export function Routines() {
   // Two «Nadar» would be told apart by nothing.
   const repeated = data.activities.some((a) => sameName(a.name, name));
   const [editing, setEditing] = useState<AppTask | null>(null);
-  const problem = routineProblem(times, minutes);
+  const problem = routineProblems(times, minutes);
+  const bad = !!(problem.times || problem.minutes);
   const nameField = useRef<HTMLInputElement>(null);
+  // The button and Enter in any field do the same: a wrong field is said, not added.
+  const add = (form: Element | null) => {
+    if (!name.trim() || repeated) return;
+    if (bad) {
+      focusFirstInvalid(form);
+      return;
+    }
+    dispatch({
+      type: "saveRoutine",
+      name,
+      sessionsPerWeek: Math.round(Number(times)),
+      sessionMinutes: Math.round(Number(minutes)),
+    });
+    // Back to the defaults: the next routine does not inherit this one's figures.
+    drafted({ name: "", times: "3", minutes: "60" });
+    // The button goes grey with the name cleared: the keyboard goes back to the name.
+    nameField.current?.focus();
+  };
+  const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    add(e.currentTarget.closest(".fields")?.parentElement ?? null);
+  };
   return (
     <Section>
       <p className="meta">
@@ -602,6 +627,7 @@ export function Routines() {
             value={name}
             maxLength={60}
             onChange={(e) => setName(e.target.value)}
+            onKeyDown={onEnter}
             placeholder="Gimnasio"
           />
         </label>
@@ -610,8 +636,9 @@ export function Routines() {
           <input
             inputMode="numeric"
             value={times}
-            aria-invalid={problem?.field === "times" ? true : undefined}
-            aria-describedby={problem?.field === "times" ? "routine-error" : undefined}
+            aria-invalid={problem.times ? true : undefined}
+            aria-describedby={problem.times ? "routine-times-error" : undefined}
+            onKeyDown={onEnter}
             onChange={(e) => setTimes(e.target.value)}
           />
         </label>
@@ -620,36 +647,23 @@ export function Routines() {
           <input
             inputMode="numeric"
             value={minutes}
-            aria-invalid={problem?.field === "minutes" ? true : undefined}
-            aria-describedby={problem?.field === "minutes" ? "routine-error" : undefined}
+            aria-invalid={problem.minutes ? true : undefined}
+            aria-describedby={problem.minutes ? "routine-minutes-error" : undefined}
+            onKeyDown={onEnter}
             onChange={(e) => setMinutes(e.target.value)}
           />
         </label>
       </div>
-      <Problem id="routine-error" text={problem?.text ?? null} />
+      <Problem id="routine-times-error" text={problem.times} />
+      <Problem id="routine-minutes-error" text={problem.minutes} />
       {dirty && <Unsaved />}
       <button
         type="button"
         className="btn"
         style={{ width: "100%" }}
         disabled={!name.trim() || repeated}
-        aria-disabled={problem ? true : undefined}
-        onClick={(e) => {
-          if (problem) {
-            focusFirstInvalid(e.currentTarget.parentElement);
-            return;
-          }
-          dispatch({
-            type: "saveRoutine",
-            name,
-            sessionsPerWeek: Math.round(Number(times)),
-            sessionMinutes: Math.round(Number(minutes)),
-          });
-          // Back to the defaults: the next routine does not inherit this one's figures.
-          drafted({ name: "", times: "3", minutes: "60" });
-          // The button goes grey with the name cleared: the keyboard goes back to the name.
-          nameField.current?.focus();
-        }}
+        aria-disabled={bad ? true : undefined}
+        onClick={(e) => add(e.currentTarget.parentElement)}
       >
         Agregar rutina
       </button>

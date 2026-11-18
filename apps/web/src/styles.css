@@ -1992,12 +1992,27 @@ textarea:focus-visible {
   outline-offset: 0;
 }
 
-/* Touch targets: two blocks side by side at 320 px are ~17 px wide each; the invisible
-   margin brings the tappable width to ~23 px without moving what is drawn. */
+/* Touch targets (SPEC §14): a block is tapped through an invisible ::before, centred on
+   it and at least 44 px tall (a 30-min meal is ~15 px), without moving or resizing what
+   is drawn; drag and press events reach the block itself. Two blocks side by side at
+   320 px are ~17 px wide each, so those only get a margin of 3 px (~23 px): a wider area
+   would take the neighbour's taps. Alone in its column it also reaches 44 px wide. */
 .pill::before {
   content: "";
   position: absolute;
-  inset: -3px -3px;
+  left: -3px;
+  right: -3px;
+  top: 50%;
+  height: max(calc(100% + 6px), 44px);
+  transform: translateY(-50%);
+}
+
+/* Side by side lanes are placed with an inline `transform: none` (see Week's position). */
+.pill:not([style*="transform: none"])::before {
+  left: 50%;
+  right: auto;
+  width: max(calc(100% + 6px), 44px);
+  transform: translate(-50%, -50%);
 }
 
 /* Touch targets (SPEC §14): controls drawn smaller than 44pt get an invisible ::before

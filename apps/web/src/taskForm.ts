@@ -51,6 +51,19 @@ export function hoursProblem(v: string): string | null {
 }
 
 /**
+ * Hours typed below what the parts add up to: said, not raised on its own (the parts are
+ * the work; a 0 next to 10 h of parts would save 10 h behind the figure shown).
+ */
+export function partsProblem(v: string, partsMinutes: number): string | null {
+  const n = typedHours(v);
+  if (!Number.isFinite(n) || partsMinutes <= 0 || Math.round(n * 60) >= partsMinutes) return null;
+  const h = Math.floor(partsMinutes / 60);
+  const m = partsMinutes % 60;
+  const total = m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
+  return `Las partes suman ${total}: poné esas horas o más, o quitá partes.`;
+}
+
+/**
  * What is wrong with the minimum, given the estimate it must not exceed (the larger of the
  * typed hours and what the parts add up to). Only said once both are valid figures.
  */

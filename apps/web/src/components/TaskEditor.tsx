@@ -11,6 +11,7 @@ import {
   hoursProblem,
   minimumProblem,
   parseUnit,
+  partsProblem,
   typedHours,
 } from "../taskForm.js";
 import { focusFirstInvalid } from "./fields.js";
@@ -163,7 +164,10 @@ export function TaskEditor({
 
   // Hours that are not figures, or a minimum above the estimate, are said, never fixed.
   const deliverable = kind === "deliverable";
-  const estimateError = deliverable ? hoursProblem(estimate) : null;
+  const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
+  const estimateError = deliverable
+    ? (hoursProblem(estimate) ?? partsProblem(estimate, partsMinutes))
+    : null;
   const partsHours = units.reduce((n, u) => n + u.estimateMinutes, 0) / 60;
   const minimumError = deliverable
     ? minimumProblem(minimum, Math.max(typedHours(estimate) || 0, partsHours))

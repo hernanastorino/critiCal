@@ -63,7 +63,8 @@ describe("an activity that does not fit even alone", () => {
     expect(dec.options.filter((o) => others.includes(o.taskId ?? ""))).toEqual([]);
   });
 
-  it("does what each option says once chosen", () => {
+  // Each option replans the whole week; with coverage the loop can pass the 5 s default.
+  it("does what each option says once chosen", { timeout: 60_000 }, () => {
     for (const o of dec.options) {
       const after = reducer(d, { type: "applyOption", optionId: o.id, now: NOW });
       const next = refreshPlan(after, NOW);
@@ -92,6 +93,20 @@ describe("a routine of 14 × 60 in the demo", () => {
     const next = refreshPlan(after, NOW);
     expect(next.result.feasible).toBe(true);
     expect(decisions(next.input, next.result).options).toEqual([]);
+  });
+
+  it("leaves the minimum it says even when part of the week is already done", () => {
+    // 2 h of Leer logged: what is left (12 h) is below its weekly minimum, so cutting the
+    // weekly minimum by the same 2 h would leave the clamp in place and cut nothing.
+    const logged = reducer(d, { type: "logProgress", taskId: leer.id, minutes: 120, now: NOW });
+    const r = refreshPlan(logged, NOW);
+    const lower = decisions(r.input, r.result).options.find(
+      (o) => o.id === `lower-minimum:${leer.id}`,
+    );
+    expect(lower?.label).toBe("Dedicarle menos a Leer (mínimo 10 h)");
+    const after = reducer(logged, { type: "applyOption", optionId: lower?.id as string, now: NOW });
+    const leerAfter = refreshPlan(after, NOW).input.tasks.find((t) => t.id === leer.id);
+    expect(leerAfter?.minRemainingMinutes).toBe(600);
   });
 
   it("names the activity when only its objective is short", () => {

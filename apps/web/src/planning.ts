@@ -769,12 +769,25 @@ export function applyOption(
     const minCut = Math.round((old.minRemainingMinutes - next.minRemainingMinutes) / k);
     const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
     const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
+    // What is left of the minimum is clamped by what is left of the task (and by what
+    // was done): cutting the stored minimum by the same amount would cut nothing when
+    // the clamp is the one in force. So it never ends above what the option previewed.
+    const done =
+      task.kind === "habit"
+        ? 0
+        : data.checkIns
+            .filter((c) => c.taskId === task.id)
+            .reduce((s, c) => s + studyMinutes(c), 0);
+    const previewed = Math.max(0, Math.round(next.minRemainingMinutes / k) + Math.ceil(done));
     return {
       ...task,
       ...(option.kind === "start-earlier" && option.taskId === task.id
         ? { startAfter: startAfterAt(data.settings.timezone, option.startAt, now) }
         : {}),
-      minMinutes: Math.max(0, task.minMinutes - minCut),
+      minMinutes: Math.max(
+        0,
+        minCut > 0 ? Math.min(task.minMinutes - minCut, previewed) : task.minMinutes - minCut,
+      ),
       estimateMinutes: Math.max(0, task.estimateMinutes - cut),
       units: out.size
         ? task.units.map((u) => (out.has(u.id) ? { ...u, skipped: true } : u))

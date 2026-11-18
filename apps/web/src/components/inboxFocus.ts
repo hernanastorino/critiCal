@@ -13,6 +13,8 @@ export function useKeepFocus(
   fallback: RefObject<HTMLElement | null>,
 ) {
   const acted = useRef<number | null>(null);
+  /** The last card acted on, to look for its place again after a sheet closes. */
+  const last = useRef<number | null>(null);
   useEffect(() => {
     const index = acted.current;
     const root = list.current;
@@ -25,9 +27,22 @@ export function useKeepFocus(
     const near = cards[index] ?? cards[index - 1];
     (near?.querySelector<HTMLElement>(FOCUSABLE) ?? fallback.current)?.focus();
   });
-  return (e: React.MouseEvent<HTMLElement>) => {
+  const handler = (e: React.MouseEvent<HTMLElement>) => {
     const card = (e.target as HTMLElement).closest(".card");
     const cards = [...e.currentTarget.querySelectorAll(".card")];
-    acted.current = card ? cards.indexOf(card) : null;
+    // A card marked `data-focus-title` hands focus to the screen title, not to a neighbor
+    // (whose button could be a «Deshacer» of something else).
+    acted.current = card
+      ? card.hasAttribute("data-focus-title")
+        ? -1
+        : cards.indexOf(card)
+      : null;
+    last.current = acted.current;
   };
+  // A sheet opened from a card took the focus and closing it saved the card away (a
+  // check-in): look for its place again, as if it had just been acted on.
+  const rearm = () => {
+    acted.current = last.current;
+  };
+  return Object.assign(handler, { rearm });
 }

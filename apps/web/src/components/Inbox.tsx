@@ -467,13 +467,23 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         )}
 
         {decisions.recommendations.map((r) => (
-          <div key={r.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
+          <div
+            key={r.id}
+            className="card"
+            data-focus-title
+            style={{ ["--c" as string]: "var(--warn)" }}
+          >
             <div className="title">Sugerencia</div>
             <p className="meta">{r.message}</p>
             <button
               type="button"
               className="btn small"
-              onClick={() => dispatch({ type: "relaxContext", until: endOfDay(tz, now) })}
+              onClick={() => {
+                dispatch({ type: "relaxContext", until: endOfDay(tz, now) });
+                toast.show("Hoy se mezclan más materias.", {
+                  undo: () => dispatch({ type: "undoPlan" }),
+                });
+              }}
             >
               Hacelo por hoy
             </button>
@@ -549,7 +559,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
       {open && (
         <BlockSheet
           item={{ kind: "block", id: open.id, start: open.start, end: open.end, block: open }}
-          onClose={() => setOpen(null)}
+          onClose={() => {
+            keepFocus.rearm();
+            setOpen(null);
+          }}
         />
       )}
     </div>

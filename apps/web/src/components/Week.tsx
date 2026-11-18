@@ -208,6 +208,7 @@ export function Week({
   const replanRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
   useEffect(() => {
@@ -797,6 +798,7 @@ export function Week({
             type="button"
             className={`icon-btn${editing ? " active" : ""}`}
             aria-label="Modo edición"
+            ref={editRef}
             aria-pressed={editing}
             onClick={() => {
               setEditing(!editing);
@@ -885,7 +887,15 @@ export function Week({
             teclado. Quedan fijados y el resto se reacomoda. Las comidas se mueven igual, solo
             dentro de su día.
           </span>
-          <button type="button" className="btn small" onClick={() => setEditing(false)}>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => {
+              setEditing(false);
+              // The banner goes with its button: focus returns to the edit toggle.
+              requestAnimationFrame(() => editRef.current?.focus());
+            }}
+          >
             Listo
           </button>
         </div>
