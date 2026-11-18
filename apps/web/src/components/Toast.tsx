@@ -85,10 +85,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      {/* Above the tab bar; touches pass through everywhere but the notices. */}
+      {/* The standing summary: above the tab bar; touches pass through but the notice. */}
       <div className="snacks">
-        {/* Two regions: a new notice is announced alone, not with the standing summary. */}
         <div role="status">{pinned}</div>
+      </div>
+      {/* The notice at the very top, so it never covers a row being edited (SPEC §18.10). */}
+      <div className="toasts">
+        {/* Its own region: a new notice is announced alone, not with the standing summary. */}
         <div role="status">
           {current && (
             // Holding it (pointer or keyboard on it) keeps it from going away: §14.

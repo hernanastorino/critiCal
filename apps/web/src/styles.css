@@ -518,6 +518,35 @@ textarea {
   z-index: 60;
 }
 
+/* The notices go at the very top, under the status bar: over nothing that is edited. On a
+   wide screen they sit at the right. Touches pass through around the notice itself. */
+.toasts {
+  position: fixed;
+  top: calc(var(--safe-t) + 8px);
+  left: 12px;
+  right: 12px;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.toasts > [role="status"] {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+
+@media (min-width: 720px) {
+  .toasts {
+    left: auto;
+    width: 380px;
+  }
+
+  .toasts > [role="status"] {
+    align-items: flex-end;
+  }
+}
+
 /* The notice itself takes the pointer (so it stays while hovered); around it, touches pass. */
 .snack {
   pointer-events: auto;
@@ -657,7 +686,8 @@ textarea {
   right: 0;
   bottom: 0;
   z-index: 41;
-  max-height: 88vh;
+  /* Leaves the top free for the notice, so it never covers the grabber and the close button. */
+  max-height: min(88vh, calc(100dvh - var(--safe-t) - 84px));
   overflow-y: auto;
   background: var(--surface);
   border-radius: 22px 22px 0 0;
