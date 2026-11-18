@@ -42,6 +42,41 @@ describe("vercel.json: cabeceras de seguridad", () => {
     expect(csp).not.toMatch(/script-src|connect-src|default-src/);
   });
 
+  it("la CSP completa va en modo «solo reportar», con destino y sin romper nada conocido", () => {
+    const csp = value("Content-Security-Policy-Report-Only") ?? "";
+    const dir = (name: string) =>
+      csp
+        .split(";")
+        .map((d) => d.trim())
+        .find((d) => d.startsWith(`${name} `));
+    for (const name of [
+      "default-src",
+      "script-src",
+      "style-src",
+      "img-src",
+      "connect-src",
+      "font-src",
+      "worker-src",
+      "manifest-src",
+      "frame-src",
+      "form-action",
+    ]) {
+      expect(dir(name), name).toBeDefined();
+    }
+    expect(dir("default-src")).toBe("default-src 'self'");
+    // Scripts sin 'unsafe-inline' ni 'unsafe-eval'; los estilos inline son los style= de React.
+    expect(dir("script-src")).toBe("script-src 'self'");
+    expect(dir("style-src")).toContain("'unsafe-inline'");
+    expect(dir("connect-src")).toContain("https://*.supabase.co wss://*.supabase.co");
+    expect(dir("connect-src")).toContain("https://*.ingest.sentry.io");
+    expect(dir("connect-src")).toContain("https://*.betterstackdata.com");
+    expect(dir("img-src")).toContain("data:");
+    expect(dir("img-src")).toContain("blob:");
+    expect(csp).toContain("report-uri /api/csp-report");
+    expect(csp).toContain("report-to csp-endpoint");
+    expect(value("Reporting-Endpoints")).toBe('csp-endpoint="/api/csp-report"');
+  });
+
   it("Permissions-Policy cierra lo que la app no usa", () => {
     const policy = value("Permissions-Policy") ?? "";
     for (const feature of ["camera", "microphone", "geolocation", "payment", "usb"]) {
