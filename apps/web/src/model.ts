@@ -220,6 +220,11 @@ export interface AppData {
   planHistory?: PlanVersion[];
   /** Normalized titles of class-calendar events that are not a materia (a talk…). */
   notSubjects?: string[];
+  /**
+   * Normalized names of the materias the user deleted: their evaluation events no longer
+   * bring the subject (or its tasks) back from the calendar.
+   */
+  removedSubjects?: string[];
 }
 
 /**

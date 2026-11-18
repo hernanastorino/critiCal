@@ -151,6 +151,10 @@ export function subjectName(title: string): string {
   return name.charAt(0).toUpperCase() + name.slice(1);
 }
 
+/** Whether the user deleted the materia this event title names. */
+const wasRemoved = (data: AppData, title: string) =>
+  !!data.removedSubjects?.includes(normalize(subjectName(title)));
+
 /**
  * Keeps tasks in step with deadline events: a new parcial/entrega/presentación
  * creates a task (marked for review) under the matching activity, and a moved
@@ -224,6 +228,8 @@ export function importFromCalendars(
     // unknown name waits under "Sin materia" until the inbox asks.
     if (hasClasses(data)) {
       let activity = subjectFor({ ...data, activities }, e.title);
+      // A materia the user deleted stays deleted: its events bring neither it nor a task.
+      if (!activity && wasRemoved(data, e.title)) continue;
       if (!activity) {
         activity = activities.find(isNoSubject);
         if (!activity) {
@@ -251,6 +257,7 @@ export function importFromCalendars(
         (normalize(e.title).includes(name) || (subject.length > 0 && name.includes(subject)))
       );
     });
+    if (!activity && wasRemoved(data, e.title)) continue;
     if (!activity) {
       const name = subjectName(e.title);
       const created: Activity = {

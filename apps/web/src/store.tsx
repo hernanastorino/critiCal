@@ -662,6 +662,10 @@ function apply(data: AppData, action: Action): AppData {
         {
           ...data,
           activities: data.activities.filter((a) => a.id !== action.activityId),
+          // The calendar must not bring it back: its events are not read as this subject.
+          removedSubjects: [
+            ...new Set([...(data.removedSubjects ?? []), normalize(removed.activity.name)]),
+          ],
           tasks: data.tasks.filter((t) => !gone.has(t.id)),
           checkIns: data.checkIns.filter((c) => !gone.has(c.taskId)),
           plan: data.plan.filter((b) => !gone.has(b.taskId)),
@@ -683,6 +687,7 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(
         {
           ...data,
+          removedSubjects: data.removedSubjects?.filter((n) => n !== normalize(activity.name)),
           activities: [
             ...data.activities.slice(0, index),
             activity,
