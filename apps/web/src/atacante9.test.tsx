@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { exportJson, parseBackup } from "./backup.js";
 import { Backup } from "./components/Backup.js";
 import { Inbox } from "./components/Inbox.js";
@@ -40,11 +40,14 @@ function backupWith(change: (t: AppTask) => AppTask): string {
   return exportJson(d, NOW);
 }
 const refused = (text: string) => {
-  const out = parseBackup(text, NOW);
+  const out = parseBackup(text);
   return "error" in out;
 };
 
 describe("4. parseBackup: partes, mínimo y fecha", () => {
+  beforeEach(() => vi.useFakeTimers({ toFake: ["Date"], now: NOW }));
+  afterEach(() => vi.useRealTimers());
+
   it("accepts what the editor makes", () => {
     expect(refused(backupWith((t) => t))).toBe(false);
   });

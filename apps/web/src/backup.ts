@@ -38,7 +38,8 @@ export function dayProblem(w: Record<string, unknown>, weekday: number): string 
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
-export function parseBackup(text: string, now = Date.now()): { data: AppData } | { error: string } {
+export function parseBackup(text: string): { data: AppData } | { error: string } {
+  const now = Date.now();
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
