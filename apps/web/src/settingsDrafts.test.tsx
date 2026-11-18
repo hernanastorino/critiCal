@@ -53,8 +53,8 @@ describe("renaming a subject", () => {
       target: { value: ` ${other?.toUpperCase().trim()} ` },
     });
     expect(screen.getByText("Ya hay una materia o rutina con ese nombre.")).toBeTruthy();
-    expect((screen.getByRole("button", { name: /^Guardar / }) as HTMLButtonElement).disabled).toBe(
-      true,
+    expect(screen.getByRole("button", { name: /^Guardar / }).getAttribute("aria-disabled")).toBe(
+      "true",
     );
   });
 });

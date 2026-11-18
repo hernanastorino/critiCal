@@ -493,7 +493,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn"
-                aria-label={`Parcial u otro resultado: ${titleOf(b)}`}
+                aria-label={`Hice una parte: ${titleOf(b)}`}
                 onClick={() => setOpen(b)}
               >
                 ◐

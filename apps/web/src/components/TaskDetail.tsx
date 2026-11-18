@@ -4,7 +4,7 @@ import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
-import { isFigure } from "./fields.js";
+import { focusFirstInvalid, isFigure } from "./fields.js";
 import { useModal } from "./modal.js";
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
@@ -172,9 +172,12 @@ export function TaskDetail({
           <button
             type="button"
             className="btn primary"
-            disabled={!!badMinutes}
+            aria-disabled={badMinutes ? true : undefined}
             onClick={() => {
-              if (badMinutes) return;
+              if (badMinutes) {
+                focusFirstInvalid(sheet.current);
+                return;
+              }
               const total = Math.min(MAX_TOPICS, Math.max(0, Math.round(Number(topics) || 0)));
               dispatch({
                 type: "logProgress",

@@ -7,6 +7,7 @@ import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
 import { validRoutine } from "../subjects.js";
 import { hoursProblem, minimumProblem, parseUnit, typedHours } from "../taskForm.js";
+import { focusFirstInvalid } from "./fields.js";
 import { useModal } from "./modal.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
@@ -155,7 +156,10 @@ export function TaskEditor({
   const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
 
   const save = () => {
-    if (startBlocked || hoursBlocked) return;
+    if (startBlocked || hoursBlocked) {
+      focusFirstInvalid(sheet.current);
+      return;
+    }
     if (!title.trim()) {
       setTried(true);
       return;
@@ -535,7 +539,7 @@ export function TaskEditor({
           <button
             type="button"
             className="btn primary"
-            disabled={startBlocked || hoursBlocked}
+            aria-disabled={startBlocked || hoursBlocked ? true : undefined}
             onClick={save}
           >
             Guardar

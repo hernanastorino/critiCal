@@ -466,9 +466,9 @@ it("does not save a weekly study longer than a week", () => {
     name: /Guardar Análisis y Diseño/,
   }) as HTMLButtonElement;
   fireEvent.change(field, { target: { value: "169" } });
-  expect(save.disabled).toBe(true);
+  expect(save.getAttribute("aria-disabled")).toBe("true");
   fireEvent.change(field, { target: { value: "3" } });
-  expect(save.disabled).toBe(false);
+  expect(save.getAttribute("aria-disabled")).toBeNull();
 });
 
 it("migrates a demo saved before the study mark, once", () => {

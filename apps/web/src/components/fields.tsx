@@ -1,4 +1,5 @@
 // Small pieces shared by the forms of Ajustes.
+import { useEffect, useRef, useState } from "react";
 
 /** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
 export function Unsaved() {
@@ -7,6 +8,33 @@ export function Unsaved() {
       Cambios sin guardar
     </p>
   );
+}
+
+/**
+ * Moves focus to the first field marked invalid inside `root`, so a refused save does
+ * not leave it on the page (a disabled button takes it away; a tap on a button does not
+ * focus it in Safari). Returns whether there was one.
+ */
+export function focusFirstInvalid(root: Element | null | undefined): boolean {
+  const bad = root?.querySelector<HTMLElement>('[aria-invalid="true"]');
+  bad?.focus();
+  return !!bad;
+}
+
+/**
+ * For a save whose errors appear after the tap: `ask(button)` focuses the first invalid
+ * field once the errors have been drawn.
+ */
+export function useFocusInvalid(): (from: Element | null) => void {
+  const [n, setN] = useState(0);
+  const root = useRef<Element | null>(null);
+  useEffect(() => {
+    if (n) focusFirstInvalid(root.current);
+  }, [n]);
+  return (from) => {
+    root.current = from?.parentElement ?? null;
+    setN((c) => c + 1);
+  };
 }
 
 // Two decimals: every whole minute survives a save (105 min → 1.75 h → 105).

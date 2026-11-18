@@ -155,9 +155,6 @@ describe("Ajustes keeps its notices", () => {
     fireEvent.click(screen.getByText("Reiniciar demo"));
     // Nothing asked: the demo starts over and the notice offers the way back.
     expect(screen.getByText("Demo reiniciada")).toBeTruthy();
-    openSettings();
-    expect(screen.getByRole("button", { name: /^Materias, 4/ })).toBeTruthy();
-    fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     openSettings();
     expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
@@ -218,14 +215,14 @@ describe("the silo form says what is wrong, beside the field", () => {
     type(name, "Parcial");
     type(estimate, "2");
     type(minimum, "3");
-    expect(save.disabled).toBe(true);
+    expect(save.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("alert").textContent).toMatch(/mínimo no puede ser mayor/);
     expect(minimum.getAttribute("aria-invalid")).toBe("true");
     type(minimum, "1");
-    expect(save.disabled).toBe(false);
+    expect(save.getAttribute("aria-disabled")).toBeNull();
     for (const bad of ["-2", "1e2", "abc"]) {
       type(estimate, bad);
-      expect(save.disabled).toBe(true);
+      expect(save.getAttribute("aria-disabled")).toBe("true");
       expect(estimate.getAttribute("aria-invalid")).toBe("true");
       expect(screen.getAllByRole("alert").length).toBeGreaterThan(0);
     }
@@ -236,7 +233,7 @@ describe("the silo form says what is wrong, beside the field", () => {
     type(name, "Parcial");
     type(screen.getByLabelText("Fecha límite"), "2026-10-01T10:00");
     expect(screen.getByRole("status").textContent).toMatch(/ya pasó/);
-    expect(save.disabled).toBe(false);
+    expect(save.getAttribute("aria-disabled")).toBeNull();
   });
 
   it("refuses a new part whose minutes are negative or not a number", () => {

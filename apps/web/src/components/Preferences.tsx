@@ -7,7 +7,15 @@ import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
-import { clampMinutes, Field, fromHours, isFigure, toHours, Unsaved } from "./fields.js";
+import {
+  clampMinutes,
+  Field,
+  fromHours,
+  isFigure,
+  toHours,
+  Unsaved,
+  useFocusInvalid,
+} from "./fields.js";
 import { Section } from "./Section.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
@@ -29,6 +37,7 @@ export function WeekSettings() {
   }));
   const setForm = (f: typeof form) => setDraft({ days, form: f, held });
   const toast = useToast();
+  const askFocus = useFocusInvalid();
 
   const pick = (d: number) => {
     const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
@@ -233,7 +242,10 @@ export function WeekSettings() {
         style={{ width: "100%" }}
         // «Guardar para L M M J V» reads as loose letters: VoiceOver gets the day names.
         aria-label={`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAY_NAMES[d]).join(", ")}`}
-        onClick={save}
+        onClick={(e) => {
+          save();
+          askFocus(e.currentTarget);
+        }}
       >
         {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
       </button>
@@ -325,6 +337,7 @@ export function RuleSettings() {
   }));
   const toast = useToast();
   const [problem, setProblem] = useState<ReturnType<typeof ruleProblem>>(null);
+  const askFocus = useFocusInvalid();
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [k]: e.target.value });
     setProblem(null);
@@ -371,7 +384,15 @@ export function RuleSettings() {
         </p>
       )}
       {dirty && <Unsaved />}
-      <button type="button" className="btn primary" style={{ width: "100%" }} onClick={save}>
+      <button
+        type="button"
+        className="btn primary"
+        style={{ width: "100%" }}
+        onClick={(e) => {
+          save();
+          askFocus(e.currentTarget);
+        }}
+      >
         Guardar reglas
       </button>
       <p className="meta">

@@ -1,4 +1,5 @@
 import { type RefObject, useEffect, useRef } from "react";
+import { useToast } from "./Toast.js";
 
 /** Taps on the backdrop this soon after opening are the rest of a double tap, not a close. */
 export const OPEN_GRACE_MS = 400;
@@ -157,6 +158,11 @@ export function useModal(
   const back = useRef(fallback);
   back.current = fallback;
   const openedAt = useRef(Date.now());
+  // A notice from before the sheet opened would sit over its lower rows; the ones that
+  // come with it open stay (the «Deshacer» of something done inside).
+  const { clear } = useToast();
+  const clearToast = useRef(clear);
+  clearToast.current = clear;
 
   useEffect(() => {
     const el = sheet.current;
@@ -164,6 +170,7 @@ export function useModal(
     const me: Open = { sheet: el, escape: () => onEsc.current() };
     if (stack.length === 0) document.addEventListener("keydown", onKey);
     stack.push(me);
+    clearToast.current();
     cover();
     // Whatever mounts later around it (a tab a notification switches to) is covered too.
     const observer = new MutationObserver(cover);
