@@ -9,7 +9,7 @@ import {
   visibleEvents,
 } from "./calendars.js";
 import { demoData, emptyData } from "./demo.js";
-import { type AppData, type AppEvent, stableId } from "./model.js";
+import { type AppData, type AppEvent, type AppTask, stableId } from "./model.js";
 import { refresh } from "./refresh.js";
 import { reducer } from "./store.js";
 
@@ -170,6 +170,25 @@ describe("importFromCalendars", () => {
     expect(ignored.tasks).toHaveLength(1);
     expect(ignored.tasks[0]).toMatchObject({ status: "dropped", needsReview: false });
     expect(importFromCalendars(emptyData(), NOW, id).tasks).toEqual([]);
+  });
+
+  it("keeps a deadline the user edited, until the event itself moves", () => {
+    const d = data({ events: [ev("x1", "icloud:p", "Parcial Física I", NOW + 86_400_000)] });
+    const first = importFromCalendars(d, NOW, id);
+    const mine = NOW + 5 * 86_400_000;
+    const edited = reducer(first, {
+      type: "saveTask",
+      task: { ...(first.tasks[0] as AppTask), deadline: mine },
+      now: NOW,
+    });
+    const again = importFromCalendars(edited, NOW, id);
+    expect(again.tasks[0]?.deadline).toBe(mine);
+    const moved = importFromCalendars(
+      { ...again, events: [ev("x1", "icloud:p", "Parcial Física I", NOW + 2 * 86_400_000)] },
+      NOW,
+      id,
+    );
+    expect(moved.tasks[0]?.deadline).toBe(NOW + 2 * 86_400_000);
   });
 
   it("re-imports when a calendar's role changes", () => {

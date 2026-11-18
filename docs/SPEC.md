@@ -323,7 +323,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - **Avisos que no tapen nada**: el aviso de abajo (con «Deshacer») tapaba filas de la hoja abierta, por ejemplo la materia que se estaba por tocar. Va arriba de todo en la pantalla (o a la derecha, si arriba no entra), nunca encima de un elemento que impida seguir editando.
 - **Roy más grande** donde hay lugar, sin ocupar nunca el espacio de un elemento que se usa: al doble en las opciones de «No llegás a todo · elegí» de la Bandeja (decisiones de la semana) y en el aviso de sincronización de Calendarios.
 - **Lugares**: el botón «Editar» de un lugar sin alias ni dirección (por ejemplo «Abuela») queda desalineado del nombre. Se alinea con la primera línea, igual que en los demás.
-- **Silo ya creado**: cambiar su fecha u hora límite deja elegir la fecha pero no la guarda. Que se actualice.
+- ✅ **Silo ya creado**: cambiar su fecha u hora límite deja elegir la fecha pero no la guarda. Que se actualice. _Causa: un silo que viene de un evento del calendario recuperaba la fecha del evento en la siguiente sincronización. Ahora se recuerda la fecha del evento que reemplazó el usuario (`deadlineSyncedFrom`) y se la respeta mientras el evento no se mueva._
 - **Bloques seguidos de la misma actividad, en una sola píldora**: en la semana, los bloques de una misma actividad pegados uno al otro, sin tiempo entre medio, se dibujan como una sola píldora en vez de varias juntas. Al tocarla se ven sus bloques.
 
 **Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
