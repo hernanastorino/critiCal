@@ -127,7 +127,7 @@ describe("5. Topes de horas coherentes", () => {
       newId,
       color: "#FF8A00",
     });
-    const task = tasks[0];
+    const task = tasks.at(0);
     if (!task) throw new Error("no task");
     const parts = task.units.reduce((sum, u) => sum + u.estimateMinutes, 0);
     expect(task.estimateMinutes).toBeLessThanOrEqual(ESTIMATE_MINUTES_MAX);
