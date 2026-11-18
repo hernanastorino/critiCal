@@ -10,8 +10,12 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // On a Vercel preview, also hide the Vercel toolbar: on desktop it covers the sheet's close button.
     extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
-      ? { "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+      ? {
+          "x-vercel-protection-bypass": process.env.VERCEL_AUTOMATION_BYPASS_SECRET,
+          "x-vercel-skip-toolbar": "1",
+        }
       : undefined,
   },
   projects: [

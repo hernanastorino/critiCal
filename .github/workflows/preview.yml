@@ -69,3 +69,9 @@ jobs:
         env:
           E2E_BASE_URL: ${{ steps.deploy.outputs.url }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      # Only the page snapshots: traces would carry the Vercel bypass header.
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: preview-e2e-context
+          path: apps/web/test-results/**/error-context.md
