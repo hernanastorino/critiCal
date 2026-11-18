@@ -292,6 +292,8 @@ export interface AppliedDecision {
    */
   afterMinutes?: Record<string, { min: number; estimate: number }>;
   freeTimeUntil?: number;
+  /** Blocks this decision added (free time): undoing takes them out of the plan again. */
+  addedBlocks?: string[];
   /** Units this decision left out (prioritizing by weight): undoing brings them back. */
   skippedUnits?: string[];
   /** A flexible event this decision moved: undoing puts it back. */

@@ -74,7 +74,9 @@ export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
   for (const b of ended) row(b.taskId).planned += (b.end - b.start) / MINUTE / factorOf(data, b);
   const counted = new Set(ended.map((b) => b.id));
   for (const c of data.checkIns) {
-    if (c.createdAt < since || c.createdAt > now) continue;
+    // No upper bound: the screen's clock ticks once a minute, so what was just logged is
+    // stamped a little after it.
+    if (c.createdAt < since) continue;
     const r = row(c.taskId);
     r.done += studyMinutes(c);
     if (!counted.has(c.blockId)) r.planned += studyMinutes(c);

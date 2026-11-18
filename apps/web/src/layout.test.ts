@@ -21,3 +21,16 @@ describe("tab bar", () => {
     );
   });
 });
+
+describe("blocks of the week", () => {
+  it("have a tappable area of at least 44 px, without resizing what is drawn", () => {
+    const hit = css.match(/\n\.pill::before \{([^}]*)\}/)?.[1] ?? "";
+    expect(hit).toContain('content: "";');
+    expect(hit).toContain("height: max(calc(100% + 6px), 44px);");
+    // Centred on the block, so a 15 px meal grows up and down alike.
+    expect(hit).toContain("top: 50%;");
+    expect(hit).toContain("translateY(-50%)");
+    // The drawing itself (and its minimum) stays as it was.
+    expect(css.match(/\n\.pill \{([^}]*)\}/)?.[1]).toContain("min-height: 6px;");
+  });
+});

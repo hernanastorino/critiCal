@@ -34,6 +34,7 @@ import type {
   PlanVersion,
   Preferences,
   Spot,
+  Unit,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
 import { eventSpotKey, home, keepableEvents, rekeySpots, spotKey, unlocated } from "./places.js";
@@ -97,6 +98,8 @@ export type Action =
       type: "logProgress";
       taskId: string;
       minutes: number;
+      /** Take the «done» off these units (marked by mistake). */
+      reopenUnitIds?: string[];
       /** Mark these existing units done. */
       unitIds?: string[];
       /** For tasks without units: split into this many topics, the first `topicsDone` done. */
@@ -198,6 +201,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   acceptProposal: "aceptar un cambio propuesto",
   rejectProposal: "rechazar un cambio propuesto",
   mealChoice: "mover o sacar una comida",
+  relaxContext: "mezclar materias por hoy",
 };
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
@@ -254,6 +258,28 @@ export function reducer(data: AppData, action: Action): AppData {
   );
   if (moved.size === 0) return next;
   return { ...next, applied: pruneApplied(next.applied, (id) => moved.has(id)) };
+}
+
+/** The parts among `ids` that were done, taken back to not done. */
+function reopenUnits(units: Unit[], ids: readonly string[] = []) {
+  const back = new Set(ids.filter((id) => units.some((u) => u.id === id && u.doneAt)));
+  return {
+    ids: back,
+    units: back.size ? units.map((u) => (back.has(u.id) ? { ...u, doneAt: undefined } : u)) : units,
+  };
+}
+
+/**
+ * A part taken back is no longer in what was recorded either, so a backup (which marks
+ * parts from the records) does not mark it again.
+ */
+function withoutUnitIds(checkIns: CheckIn[], taskId: string, ids: ReadonlySet<string>) {
+  if (ids.size === 0) return checkIns;
+  return checkIns.map((c) =>
+    c.taskId === taskId && c.unitIds.some((id) => ids.has(id))
+      ? { ...c, unitIds: c.unitIds.filter((id) => !ids.has(id)) }
+      : c,
+  );
 }
 
 /** The data after `action`, planned again where it changes the plan. */
@@ -434,7 +460,17 @@ function apply(data: AppData, action: Action): AppData {
             }
           : {}),
       };
-      return refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
+      const planned = refresh({ ...next, applied: [...(data.applied ?? []), record] }, now);
+      if (option.kind !== "use-free-time") return planned;
+      // Today's blocks stay where they are once planned, so the ones this decision added
+      // (in free time) are remembered: undoing it takes them out again.
+      const had = new Set(data.plan.map((b) => b.id));
+      const addedBlocks = planned.plan.filter((b) => !had.has(b.id)).map((b) => b.id);
+      if (addedBlocks.length === 0) return planned;
+      return {
+        ...planned,
+        applied: planned.applied?.map((d) => (d.id === record.id ? { ...d, addedBlocks } : d)),
+      };
     }
     case "undoDecision": {
       const record = data.applied?.find((d) => d.id === action.id);
@@ -483,6 +519,9 @@ function apply(data: AppData, action: Action): AppData {
           tasks,
           movedEvents: undoMove(data.movedEvents, record),
           freeTimeUntil: record.freeTimeUntil,
+          plan: record.addedBlocks
+            ? data.plan.filter((b) => !record.addedBlocks?.includes(b.id))
+            : data.plan,
           // A later move of the same event that replaced this one now replaces what
           // this one replaced, so undoing it never brings back an undone move.
           applied: data.applied
@@ -539,11 +578,14 @@ function apply(data: AppData, action: Action): AppData {
       const marked = new Set(action.unitIds ?? []);
       const newlyDone = units.filter((u) => !u.doneAt && marked.has(u.id)).map((u) => u.id);
       units = units.map((u) => (marked.has(u.id) && !u.doneAt ? { ...u, doneAt: now } : u));
+      const reopened = reopenUnits(units, action.reopenUnitIds);
+      units = reopened.units;
       const tasks = data.tasks.map((t) => (t.id === task.id ? { ...t, units } : t));
+      const kept = withoutUnitIds(data.checkIns, task.id, reopened.ids);
       const checkIns =
         action.minutes > 0 || newlyDone.length > 0
           ? [
-              ...data.checkIns,
+              ...kept,
               {
                 id: newId(),
                 blockId: `manual@${now}`,
@@ -555,7 +597,7 @@ function apply(data: AppData, action: Action): AppData {
                 factor: checkInFactor(data, task.id),
               },
             ]
-          : data.checkIns;
+          : kept;
       return refresh({ ...data, tasks, checkIns }, now);
     }
     case "pin": {

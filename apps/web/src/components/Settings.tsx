@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
+import { awakeProblem } from "../dayLength.js";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
@@ -10,6 +11,7 @@ import { useStore } from "../store.js";
 import { Account } from "./Account.js";
 import { Backup } from "./Backup.js";
 import { Calendars, describe, healthy } from "./Calendars.js";
+import { Problem, useFocusInvalid } from "./fields.js";
 import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
 import { ChevronLeft, ChevronRight, SettingsIcons as I } from "./icons.js";
@@ -244,6 +246,9 @@ export function Settings({
   const [bedEdit, setBed] = useState<string | null>(null);
   const wake = wakeEdit ?? defaultWake;
   const bed = bedEdit ?? defaultBed;
+  // Shown once «Reacomodar hoy» is refused; typing in either field clears it.
+  const [dayError, setDayError] = useState<string | null>(null);
+  const focusInvalid = useFocusInvalid();
 
   const sheet = useRef<HTMLDivElement>(null);
   const [page, setPage] = useState<PageId | null>(initialPage ?? null);
@@ -477,18 +482,44 @@ export function Settings({
             <div className="row">
               <label className="field" style={{ flex: 1 }}>
                 <span>Me levanté a las</span>
-                <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
+                <input
+                  type="time"
+                  value={wake}
+                  aria-invalid={dayError ? true : undefined}
+                  aria-describedby={dayError ? "day-error" : undefined}
+                  onChange={(e) => {
+                    setWake(e.target.value);
+                    setDayError(null);
+                  }}
+                />
               </label>
               <label className="field" style={{ flex: 1 }}>
                 <span>Me acuesto a las</span>
-                <input type="time" value={bed} onChange={(e) => setBed(e.target.value)} />
+                <input
+                  type="time"
+                  value={bed}
+                  aria-invalid={dayError ? true : undefined}
+                  aria-describedby={dayError ? "day-error" : undefined}
+                  onChange={(e) => {
+                    setBed(e.target.value);
+                    setDayError(null);
+                  }}
+                />
               </label>
             </div>
+            <Problem id="day-error" text={dayError} />
             <button
               type="button"
               className="btn primary"
               style={{ width: "100%" }}
-              onClick={() => {
+              onClick={(e) => {
+                const problem = awakeProblem(wake, bed);
+                if (problem) {
+                  setDayError(problem);
+                  // The fields are marked once drawn: the first one gets the focus then.
+                  focusInvalid(e.currentTarget);
+                  return;
+                }
                 // A double tap would apply it twice (two «Deshacer» for one change).
                 if (replanned.current) return;
                 replanned.current = true;

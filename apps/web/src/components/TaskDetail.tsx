@@ -39,6 +39,8 @@ export function TaskDetail({
   const [topics, setTopics] = useState("");
   const [topicsDone, setTopicsDone] = useState("");
   const [units, setUnits] = useState<string[]>([]);
+  /** Parts already done that were unchecked here. */
+  const [reopen, setReopen] = useState<string[]>([]);
   const [ask, setAsk] = useState<"off" | "delete" | null>(null);
   const live = data.tasks.find((t) => t.id === task.id) ?? task;
   const repeat = (change: RecurrenceChange) => {
@@ -54,8 +56,10 @@ export function TaskDetail({
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const badMinutes = minutesError(minutes);
-  const pending = task.units.filter((u) => !u.doneAt);
-  const done = task.units.length - pending.length;
+  const parts = live.units;
+  const isDone = (u: AppTask["units"][number]) =>
+    u.doneAt ? !reopen.includes(u.id) : units.includes(u.id);
+  const done = parts.filter(isDone).length;
 
   return (
     <>
@@ -132,16 +136,20 @@ export function TaskDetail({
         {task.units.length > 0 ? (
           <div className="field">
             <span>
-              Partes hechas ({done} de {task.units.length})
+              Partes hechas ({done} de {parts.length})
             </span>
-            {pending.map((u) => (
+            {parts.map((u) => (
               <label key={u.id} className="check">
                 <input
                   type="checkbox"
-                  checked={units.includes(u.id)}
-                  onChange={(e) =>
-                    setUnits(e.target.checked ? [...units, u.id] : units.filter((x) => x !== u.id))
-                  }
+                  checked={isDone(u)}
+                  onChange={(e) => {
+                    // One already done is taken back, not marked again.
+                    const set = u.doneAt ? setReopen : setUnits;
+                    const list = u.doneAt ? reopen : units;
+                    const on = u.doneAt ? !e.target.checked : e.target.checked;
+                    set(on ? [...list, u.id] : list.filter((x) => x !== u.id));
+                  }}
                 />
                 {u.title}
               </label>
@@ -188,6 +196,7 @@ export function TaskDetail({
                 taskId: task.id,
                 minutes: Number(minutes.replace(",", ".")) || 0,
                 unitIds: units,
+                reopenUnitIds: reopen,
                 topics: total || undefined,
                 topicsDone: Math.min(total, Math.max(0, Math.round(Number(topicsDone) || 0))),
               });
