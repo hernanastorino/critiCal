@@ -1054,6 +1054,8 @@ input[type="radio"]:disabled {
   border-radius: 16px;
   padding: 12px 14px;
   margin-bottom: 8px;
+  /* A name with no spaces wraps inside the card instead of coming out of it. */
+  overflow-wrap: anywhere;
 }
 
 .card .title {

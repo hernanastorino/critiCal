@@ -49,6 +49,7 @@ beforeEach(() => {
   rpc.mockReset();
   loadData.mockReset();
   release.mockClear();
+  syllabus.reads.reset();
 });
 afterEach(() => vi.unstubAllGlobals());
 
@@ -93,6 +94,22 @@ describe("widget", () => {
     const failed = await widget.manage(bearer("jwt", { action: "revoke" }), env);
     expect(failed.status).toBe(500);
     expect(await failed.json()).toEqual({ ok: false, error: "widget_failed" });
+  });
+
+  it("refuses an unknown action or body without touching the token", async () => {
+    rpc.mockResolvedValue({ data: null, error: null });
+    for (const body of [{ action: "rotate" }, { action: "Create" }, {}]) {
+      const res = await widget.manage(bearer("jwt", body), env);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ ok: false, error: "bad_request" });
+    }
+    const noBody = new Request("https://app/api/x", {
+      method: "POST",
+      headers: { Authorization: "Bearer jwt" },
+    });
+    expect((await widget.manage(noBody, env)).status).toBe(400);
+    expect(rpc).not.toHaveBeenCalledWith("set_widget_token", expect.anything());
+    expect(rpc).not.toHaveBeenCalledWith("revoke_widget_token", expect.anything());
   });
 
   it("skips silos with nothing to do", () => {
@@ -248,6 +265,23 @@ describe("syllabus", () => {
       geminiModel: "gemini-old",
     });
     expect(await gone.json()).toEqual({ ok: false, error: "model_unavailable" });
+  });
+
+  it("limits how many readings one person can ask for", async () => {
+    vi.stubGlobal("fetch", async () => answer(good));
+    for (let i = 0; i < 5; i++) {
+      expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
+        200,
+      );
+    }
+    const res = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW);
+    expect(res.status).toBe(429);
+    expect(res.headers.get("Retry-After")).toBe("60");
+    expect(await res.json()).toEqual({ ok: false, error: "rate_limited" });
+    // Key management and refused files do not use it up.
+    syllabus.reads.reset();
+    for (let i = 0; i < 10; i++) await syllabus.handle(bearer("jwt", {}), env, NOW);
+    expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(200);
   });
 
   it("refuses big or missing files and reports Gemini failures", async () => {

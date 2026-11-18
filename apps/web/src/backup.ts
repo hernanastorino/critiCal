@@ -1,6 +1,6 @@
 // Export and import of everything as one JSON file (also a manual backup).
+import { BACKUP_TEXT_MAX, isRealDate } from "./limits.js";
 import type { AppData } from "./model.js";
-
 import { markLegacyStudy, validRoutine } from "./subjects.js";
 
 /** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
@@ -15,13 +15,6 @@ export function exportJson(data: AppData, now: number): string {
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
-/** A real calendar day, not just its shape (2026-02-30 is not one). */
-function isRealDate(x: unknown) {
-  if (typeof x !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(x)) return false;
-  const d = new Date(`${x}T12:00:00Z`);
-  return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
-}
-
 export function parseBackup(text: string): { data: AppData } | { error: string } {
   let parsed: unknown;
   try {
@@ -51,8 +44,10 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const between = (x: unknown, lo: number, hi: number) =>
     typeof x === "number" && Number.isFinite(x) && x >= lo && x <= hi;
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
+  // Names and titles go into cards, notices and calendar events: a bounded length.
+  const bounded = (x: unknown) => str(x) && (x as string).length <= BACKUP_TEXT_MAX;
   const validUnit = (u: unknown) =>
-    isObject(u) && str(u.id) && str(u.title) && num(u.estimateMinutes);
+    isObject(u) && str(u.id) && bounded(u.title) && num(u.estimateMinutes);
   // An instant Date can represent (toISOString would throw otherwise).
   const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
   const opt = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
@@ -76,6 +71,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const validTask = (t: unknown) =>
     isObject(t) &&
     str(t.id) &&
+    (t.title === undefined || bounded(t.title)) &&
     opt(t.startAfter, validStart) &&
     opt(t.deadlineSyncedFrom, instant) &&
     str(t.activityId) &&
@@ -284,6 +280,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
         str(a.id) &&
         typeof a.name === "string" &&
         a.name.trim() !== "" &&
+        a.name.length <= BACKUP_TEXT_MAX &&
         typeof a.color === "string" &&
         /^#[0-9a-f]{6}$/i.test(a.color),
     ) ||
@@ -297,6 +294,11 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   }
   if (new Set(d.checkIns?.map((c) => c.id)).size !== d.checkIns?.length) {
     return { error: "El respaldo tiene registros duplicados." };
+  }
+  // Two materias, tareas or bloques with one id would overwrite each other in the database.
+  const idLists: unknown[][] = [d.activities ?? [], d.tasks ?? [], d.plan ?? []];
+  if (idLists.some((l) => new Set(l.map((x) => (x as { id: string }).id)).size !== l.length)) {
+    return { error: "El respaldo tiene materias, tareas o bloques repetidos." };
   }
   const activities = new Set(d.activities?.map((a) => a.id));
   if (d.tasks?.some((t) => !activities.has(t.activityId))) {

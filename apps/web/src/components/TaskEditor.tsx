@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
-import { dayDate, hours, minutesToHhmm } from "../format.js";
-import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
+import { dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
+import {
+  dateYearInRange,
+  deadlineInRange,
+  deadlineMaxYear,
+  isBlank,
+  isRealDate,
+  NAME_MAX,
+  TITLE_MAX,
+} from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
@@ -24,10 +32,17 @@ const toLocalInput = (tz: string, t: number) => {
   return `${p.date}T${minutesToHhmm(p.minuteOfDay)}`;
 };
 
-/** NaN for a cleared or malformed field. */
+/** The date and time of a field that is not a real one (2026-02-30, 24:00): never reinterpreted. */
+const unrealLocalInput = (v: string) => {
+  if (!v) return false;
+  const [date, hhmm] = v.split("T");
+  return !isRealDate(date) || !isHhmm(hhmm ?? "");
+};
+
+/** NaN for a cleared, malformed or impossible field. */
 const fromLocalInput = (tz: string, v: string) => {
   const [date, hhmm] = v.split("T");
-  if (!date || !hhmm || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return Number.NaN;
+  if (!date || !hhmm || unrealLocalInput(v)) return Number.NaN;
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
   return zonedInstant(tz, date, h * 60 + m);
 };
@@ -94,6 +109,8 @@ export function TaskEditor({
   /** Saving was tried: an empty name is said now (not before the first try). */
   const [tried, setTried] = useState(false);
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
+  /** The browser holds a date it cannot read (31/02, 24:00): its value is empty, but typed. */
+  const [deadlineUnreal, setDeadlineUnreal] = useState(false);
   const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */
@@ -182,7 +199,7 @@ export function TaskEditor({
     kind === "habit"
       ? habitProblems(sessions, sessionMin, awakeWeekMinutes(data.settings.week), routineAct)
       : { times: null, minutes: null };
-  const nameMissing = activityId === "new" && !newActivity.trim();
+  const nameMissing = activityId === "new" && isBlank(newActivity);
 
   const save = () => {
     setTried(true);
@@ -190,14 +207,18 @@ export function TaskEditor({
     const rangeBad =
       due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now));
     if (rangeBad) {
-      setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
+      setDeadlineError(
+        deadlineUnreal || unrealLocalInput(deadline)
+          ? "Esa fecha no existe."
+          : `Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`,
+      );
     }
     // Every problem is drawn at once; the focus goes to the first one in the form.
     const blockers = [
       startBlocked,
       hoursBlocked,
       !!(habit.times || habit.minutes),
-      !title.trim(),
+      isBlank(title),
       nameMissing,
       rangeBad,
     ];
@@ -294,8 +315,9 @@ export function TaskEditor({
           <span>Nombre</span>
           <input
             value={title}
-            aria-invalid={tried && !title.trim() ? true : undefined}
-            aria-describedby={tried && !title.trim() ? "title-error" : undefined}
+            maxLength={TITLE_MAX}
+            aria-invalid={tried && isBlank(title) ? true : undefined}
+            aria-describedby={tried && isBlank(title) ? "title-error" : undefined}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               // Enter saves, unless it only confirms an IME character.
@@ -305,7 +327,7 @@ export function TaskEditor({
             }}
             placeholder={kind === "habit" ? "Leer 30 min" : "Parcial Física I"}
           />
-          {tried && !title.trim() && (
+          {tried && isBlank(title) && (
             <span
               className="meta"
               id="title-error"
@@ -332,6 +354,7 @@ export function TaskEditor({
             <span>Nombre de la materia</span>
             <input
               value={newActivity}
+              maxLength={NAME_MAX}
               aria-invalid={tried && nameMissing ? true : undefined}
               aria-describedby={tried && nameMissing ? "activity-error" : undefined}
               onChange={(e) => setNewActivity(e.target.value)}
@@ -355,6 +378,7 @@ export function TaskEditor({
                 aria-invalid={deadlineError ? true : undefined}
                 onChange={(e) => {
                   setDeadline(e.target.value);
+                  setDeadlineUnreal(e.target.validity.badInput);
                   setDeadlineError(null);
                 }}
               />

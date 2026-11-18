@@ -50,6 +50,15 @@ export function Places() {
     for (const t of data.travelTimes ?? []) add(t);
     for (const t of tripPairs(data, now)) add(t);
   }
+  /** Saves a place; marking another as home says so and offers to go back to the old one. */
+  const savePlace = (place: Place) => {
+    const before = places.find((p) => p.isHome && p.id !== place.id);
+    dispatch({ type: "savePlace", place });
+    if (!place.isHome || !before) return;
+    toast.show(`Ahora tu casa es ${short(place.name)}`, {
+      undo: () => dispatch({ type: "savePlace", place: before }),
+    });
+  };
   const placeName = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
   const eventSpots = (data.spots ?? []).length + kept.length;
 
@@ -116,7 +125,7 @@ export function Places() {
             place={editing}
             onCancel={() => setEditing(null)}
             onSave={(place) => {
-              dispatch({ type: "savePlace", place });
+              savePlace(place);
               setEditing(null);
               refocusPlace(place.id);
             }}
@@ -165,7 +174,7 @@ export function Places() {
           place={editing}
           onCancel={() => setEditing(null)}
           onSave={(place) => {
-            dispatch({ type: "savePlace", place });
+            savePlace(place);
             setEditing(null);
             refocusPlace(place.id);
           }}
