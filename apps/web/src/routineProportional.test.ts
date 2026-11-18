@@ -30,7 +30,11 @@ function gymMadeOn(now: number, times = 3): AppData {
     now,
   });
 }
-const gym = (d: AppData) => d.tasks.find((t) => t.title === "Gym") as AppTask;
+const gym = (d: AppData): AppTask => {
+  const task = d.tasks.find((t) => t.title === "Gym");
+  if (!task) throw new Error("no gym");
+  return task;
+};
 const asked = (d: AppData, now: number) =>
   progress(d, now).find((p) => p.task.id === gym(d).id)?.totalMinutes;
 const planned = (d: AppData, from: number, to: number) =>
