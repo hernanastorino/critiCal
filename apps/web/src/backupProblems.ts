@@ -9,36 +9,39 @@ import {
   SESSIONS_PER_WEEK_MAX,
 } from "./limits.js";
 
-type Rec = Record<string, unknown>;
-type Ok = (v: unknown, x?: Rec) => boolean;
+export type Rec = Record<string, unknown>;
+export type Ok = (v: unknown, x?: Rec) => boolean;
 /** `[key, valid, what is wrong when it is not]` */
-type Rule = [key: string, ok: Ok, say: string];
+export type Test = [key: string, ok: Ok, ...say: string[]];
+export type Rule = [key: string, ok: Ok, say: string];
 type Check = (d: Rec, strict: boolean) => string | null;
 
-const isRec = (x: unknown): x is Rec => !!x && typeof x === "object" && !Array.isArray(x);
-const list = (x: unknown): Rec[] => (Array.isArray(x) ? x.filter(isRec) : []);
-const num = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
-const int =
+export const isRec = (x: unknown): x is Rec => !!x && typeof x === "object" && !Array.isArray(x);
+export const list = (x: unknown): Rec[] => (Array.isArray(x) ? x.filter(isRec) : []);
+export const num = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+export const int =
   (lo: number, hi: number): Ok =>
   (v) =>
     Number.isInteger(v) && (v as number) >= lo && (v as number) <= hi;
-const opt =
+export const opt =
   (ok: Ok): Ok =>
   (v, x) =>
     v === undefined || ok(v, x);
-const oneOf =
+export const oneOf =
   (...xs: string[]): Ok =>
   (v) =>
     xs.includes(v as string);
-const str: Ok = (v) => typeof v === "string" && v.length > 0;
-const text: Ok = (v) => typeof v === "string";
-const bool: Ok = (v) => typeof v === "boolean";
+export const str: Ok = (v) => typeof v === "string" && v.length > 0;
+export const text: Ok = (v) => typeof v === "string";
+export const bool: Ok = (v) => typeof v === "boolean";
 /** A name or title: something to read, not longer than a backup takes. */
-const name: Ok = (v) => typeof v === "string" && v.trim() !== "" && v.length <= BACKUP_TEXT_MAX;
+export const name: Ok = (v) =>
+  typeof v === "string" && v.trim() !== "" && v.length <= BACKUP_TEXT_MAX;
 /** An instant the database's timestamps hold (years 1900 to 9999). */
-const instant: Ok = (v) => num(v) && v >= Date.UTC(1900, 0, 1) && v <= Date.UTC(9999, 11, 31);
-const strings: Ok = (v) => Array.isArray(v) && v.every((s) => typeof s === "string");
-const shortStrings: Ok = (v) =>
+export const instant: Ok = (v) =>
+  num(v) && v >= Date.UTC(1900, 0, 1) && v <= Date.UTC(9999, 11, 31);
+export const strings: Ok = (v) => Array.isArray(v) && v.every((s) => typeof s === "string");
+export const shortStrings: Ok = (v) =>
   Array.isArray(v) && v.every((s) => typeof s === "string" && s.length <= BACKUP_TEXT_MAX);
 const MEALS = ["desayuno", "almuerzo", "merienda", "cena"];
 const STATUSES = ["done", "missed", "partial"];
@@ -47,7 +50,7 @@ const STATUSES = ["done", "missed", "partial"];
 const id = (strict: boolean): Ok => (strict ? (v) => isUuid(v) : str);
 
 function broken(who: string, x: Rec, rules: Rule[]): string | null {
-  const bad = rules.find(([key, ok]) => !ok(x[key], x));
+  const bad = rules.find(([key, ok]) => !ok(Reflect.get(x, key), x));
   return bad ? `${who} ${bad[2]}.` : null;
 }
 
@@ -59,8 +62,10 @@ function firstBroken(xs: Rec[], who: (x: Rec) => string, rules: Rule[]): string 
   return null;
 }
 
-const called = (x: Rec, key: string, fallback: string) =>
-  typeof x[key] === "string" && x[key] ? `«${(x[key] as string).slice(0, 40)}»` : fallback;
+const called = (x: Rec, key: string, fallback: string) => {
+  const v = Reflect.get(x, key);
+  return typeof v === "string" && v ? `«${v.slice(0, 40)}»` : fallback;
+};
 
 const settingsProblem: Check = (d) => {
   const s = d.settings;
@@ -239,7 +244,22 @@ const placeRules = (strict: boolean): Rule[] => [
   ["isHome", opt(bool), "tiene un dato de «es mi casa» que no es sí o no"],
 ];
 
-const dupes = (xs: unknown[]) => new Set(xs).size !== xs.length;
+export const arrayOf =
+  (ok: Ok): Ok =>
+  (v, x) =>
+    Array.isArray(v) && v.every((e) => ok(e, x));
+export const recordOf =
+  (ok: Ok): Ok =>
+  (v, x) =>
+    isRec(v) && Object.values(v).every((e) => ok(e, x));
+export const allOf = (x: Rec, tests: Test[]) =>
+  tests.every(([key, ok]) => ok(Reflect.get(x, key), x));
+export const shape =
+  (tests: Test[]): Ok =>
+  (v) =>
+    isRec(v) && allOf(v, tests);
+export const listOf = (tests: Test[]): Ok => arrayOf(shape(tests));
+export const dupes = (xs: unknown[]) => new Set(xs).size !== xs.length;
 
 const placesProblem: Check = (d, strict) => {
   const places = list(d.places);
@@ -254,13 +274,17 @@ const placesProblem: Check = (d, strict) => {
   const trips = list(d.travelTimes);
   const lost = trips.some((t) => !known.has(t.from) || !known.has(t.to));
   if (lost) return "Un traslado apunta a un lugar que no está en el respaldo.";
-  if (dupes(trips.map((t) => `${t.from}>${t.to}`)))
+  if (dupes(trips.map((t) => `${String(t.from)}>${String(t.to)}`)))
     return "El respaldo tiene un traslado repetido.";
   return null;
 };
 
-const mealChoice: Ok = (v) =>
-  isRec(v) && oneOf(...MEALS)(v.kind, v) && opt(int(0, 2880))(v.start, v) && opt(bool)(v.skip, v);
+const mealTests: Test[] = [
+  ["kind", oneOf(...MEALS)],
+  ["start", opt(int(0, 2880))],
+  ["skip", opt(bool)],
+];
+const mealChoice: Ok = (v) => shape(mealTests)(v);
 
 const overridesProblem: Check = (d) => {
   const days = list(d.overrides);
@@ -280,98 +304,101 @@ const unitsProblem: Check = (d) => {
 // ---- Data kept as loose JSON in the settings row: not rejected by the database, but the
 // ---- screens read it, so a wrong shape would break them.
 
-const block: Ok = (v) =>
-  isRec(v) && str(v.id) && str(v.taskId) && instant(v.start) && instant(v.end);
-const proposalOk: Ok = (v) =>
-  isRec(v) && str(v.id) && Array.isArray(v.plan) && v.plan.every((b) => block(b));
-const dayOverride: Ok = (v) => isRec(v) && isRealDate(v.date);
-const moved: Ok = (v) =>
-  isRec(v) && str(v.eventId) && instant(v.from) && instant(v.start) && instant(v.end);
-const arrayOf =
-  (ok: Ok): Ok =>
-  (v, x) =>
-    Array.isArray(v) && v.every((e) => ok(e, x));
-const recordOf =
-  (ok: Ok): Ok =>
-  (v, x) =>
-    isRec(v) && Object.values(v).every((e) => ok(e, x));
-const startAfter: Ok = (v) =>
-  isRec(v) && (isRealDate(v.date) || int(0, 365)(v.daysBefore, v) || v.now === true);
+const blockTests: Test[] = [
+  ["id", str],
+  ["taskId", str],
+  ["start", instant],
+  ["end", instant],
+];
+const proposalTests: Test[] = [
+  ["id", str],
+  ["plan", listOf(blockTests)],
+];
+const movedTests: Test[] = [
+  ["eventId", str],
+  ["from", instant],
+  ["start", instant],
+  ["end", instant],
+];
+const startAfterOk: Ok = (v) =>
+  isRec(v) && [isRealDate(v.date), int(0, 365)(v.daysBefore), v.now === true].some(Boolean);
+const statuses = oneOf("active", "done", "dropped");
+const roles = oneOf("busy", "ignore", "parcial", "entrega", "presentacion", "clases", "flexible");
 
-const calendarOk: Ok = (c) =>
-  isRec(c) &&
-  str(c.id) &&
-  oneOf("google", "icloud")(c.source, c) &&
-  str(c.externalId) &&
-  c.id === `${c.source}:${c.externalId}` &&
-  name(c.name, c) &&
-  opt(text)(c.color, c) &&
-  opt(oneOf("busy", "ignore", "parcial", "entrega", "presentacion", "clases", "flexible"))(
-    c.role,
-    c,
-  );
+const calendarTests: Test[] = [
+  ["id", str],
+  ["source", oneOf("google", "icloud")],
+  ["externalId", str],
+  ["id", (v, x) => v === `${String(x?.source)}:${String(x?.externalId)}`],
+  ["name", name],
+  ["color", opt(text)],
+  ["role", opt(roles)],
+];
 
 /** A task of the undo history: what the screens read of it when it is put back. */
-const oldTask: Ok = (t) => isRec(t) && taskIssue(t, false) === null && Array.isArray(t.units);
+const oldTask: Ok = (t) => isRec(t) && taskIssue(t, false) === null;
 
-const decisionOk: Ok = (a) =>
-  isRec(a) &&
-  str(a.id) &&
-  text(a.label, a) &&
-  instant(a.at) &&
-  arrayOf(oldTask)(a.before, a) &&
-  opt(strings)(a.dropped, a) &&
-  opt(recordOf(oneOf("active", "done", "dropped")))(a.after, a) &&
-  opt(recordOf((m) => isRec(m) && num(m.min) && num(m.estimate)))(a.afterMinutes, a) &&
-  opt(instant)(a.freeTimeUntil, a) &&
-  opt(strings)(a.addedBlocks, a) &&
-  opt(strings)(a.skippedUnits, a) &&
-  opt(text)(a.movedEventId, a) &&
-  opt(moved)(a.previousMove, a) &&
-  opt(moved)(a.move, a) &&
-  opt(recordOf(num))(a.skipUntil, a) &&
-  opt(recordOf(startAfter))(a.startAfter, a);
+const decisionTests: Test[] = [
+  ["id", str],
+  ["label", text],
+  ["at", instant],
+  ["before", arrayOf(oldTask)],
+  ["dropped", opt(strings)],
+  ["after", opt(recordOf(statuses))],
+  ["afterMinutes", opt(recordOf((m) => isRec(m) && num(m.min) && num(m.estimate)))],
+  ["freeTimeUntil", opt(instant)],
+  ["addedBlocks", opt(strings)],
+  ["skippedUnits", opt(strings)],
+  ["movedEventId", opt(text)],
+  ["previousMove", opt(shape(movedTests))],
+  ["move", opt(shape(movedTests))],
+  ["skipUntil", opt(recordOf(num))],
+  ["startAfter", opt(recordOf(startAfterOk))],
+];
 
-const versionOk: Ok = (v) =>
-  isRec(v) &&
-  instant(v.at) &&
-  text(v.label, v) &&
-  arrayOf(block)(v.pins, v) &&
-  arrayOf(block)(v.today, v) &&
-  arrayOf(dayOverride)(v.overrides, v) &&
-  arrayOf(proposalOk)(v.proposals, v) &&
-  opt(arrayOf(isMealDay))(v.mealChoices, v) &&
-  opt(instant)(v.freeTimeUntil, v) &&
-  opt(instant)(v.relaxContextUntil, v) &&
-  opt(instant)(v.tentativeHoldUntil, v);
-
-function isMealDay(v: unknown) {
-  return isRec(v) && isRealDate(v.date) && mealChoice(v, v);
-}
+const mealDayTests: Test[] = [["date", isRealDate], ...mealTests];
+const versionTests: Test[] = [
+  ["at", instant],
+  ["label", text],
+  ["pins", listOf(blockTests)],
+  ["today", listOf(blockTests)],
+  ["overrides", listOf([["date", isRealDate]])],
+  ["proposals", listOf(proposalTests)],
+  ["mealChoices", opt(listOf(mealDayTests))],
+  ["freeTimeUntil", opt(instant)],
+  ["relaxContextUntil", opt(instant)],
+  ["tentativeHoldUntil", opt(instant)],
+];
+const tentativeTests: Test[] = [
+  ["id", str],
+  ["title", text],
+  ["start", instant],
+  ["end", instant],
+];
+const travelMinutesTests: Test[] = [
+  ["minutes", int(0, 1440)],
+  ["key", text],
+];
 
 /** Optional top-level keys: `[key, valid, message]`. */
 const extras: Rule[] = [
-  ["calendars", opt(arrayOf(calendarOk)), "Los calendarios del respaldo no son válidos"],
+  ["calendars", opt(listOf(calendarTests)), "Los calendarios del respaldo no son válidos"],
   [
     "applied",
-    opt(arrayOf(decisionOk)),
+    opt(listOf(decisionTests)),
     "Las decisiones que se pueden deshacer del respaldo no son válidas",
   ],
-  ["planHistory", opt(arrayOf(versionOk)), "El historial del plan del respaldo no es válido"],
+  ["planHistory", opt(listOf(versionTests)), "El historial del plan del respaldo no es válido"],
   [
     "eventTravel",
-    opt(recordOf((t) => isRec(t) && int(0, 1440)(t.minutes, t) && text(t.key, t))),
+    opt(recordOf(shape(travelMinutesTests))),
     "Los traslados guardados de eventos del respaldo no son válidos",
   ],
-  ["mealChoices", opt(arrayOf(isMealDay)), "Las comidas cambiadas del respaldo no son válidas"],
-  ["movedEvents", opt(arrayOf(moved)), "Los eventos movidos del respaldo no son válidos"],
+  ["mealChoices", opt(listOf(mealDayTests)), "Las comidas cambiadas del respaldo no son válidas"],
+  ["movedEvents", opt(listOf(movedTests)), "Los eventos movidos del respaldo no son válidos"],
   [
     "tentativeSeen",
-    opt(
-      arrayOf(
-        (t) => isRec(t) && str(t.id) && text(t.title, t) && instant(t.start) && instant(t.end),
-      ),
-    ),
+    opt(listOf(tentativeTests)),
     "Los eventos tentativos del respaldo no son válidos",
   ],
   ["noTravel", opt(strings), "La lista de lugares sin traslado del respaldo no es válida"],
@@ -383,7 +410,7 @@ const extras: Rule[] = [
 ];
 
 const extrasProblem: Check = (d) => {
-  const bad = extras.find(([key, ok]) => !ok(d[key], d));
+  const bad = extras.find(([key, ok]) => !ok(Reflect.get(d, key), d));
   return bad ? `${bad[2]}.` : null;
 };
 
