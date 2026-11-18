@@ -76,6 +76,7 @@ export function rowsToData(r: {
         studyMinutes: (a.study_minutes as number | null) ?? undefined,
         breakMinutes: (a.break_minutes as number | null) ?? undefined,
         startAfter: (a.start_after as Activity["startAfter"] | null) ?? undefined,
+        validHours: (a.valid_hours as Activity["validHours"] | null) ?? undefined,
       }),
     ),
     tasks: r.tasks.map(
@@ -413,6 +414,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         study_minutes: a.studyMinutes ?? null,
         break_minutes: a.breakMinutes ?? null,
         start_after: a.startAfter ?? null,
+        valid_hours: a.validHours ?? null,
       })),
     });
   }

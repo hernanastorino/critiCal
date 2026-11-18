@@ -20,6 +20,7 @@ import {
   overlaps,
   type ScheduleResult,
   type Settings,
+  type ValidHours,
   zonedInstant,
 } from "./engine.js";
 import { lateNight } from "./lateNight.js";
@@ -193,6 +194,8 @@ export type Action =
       name: string;
       sessionsPerWeek: number;
       sessionMinutes: number;
+      /** The hours it may be placed in; none: any time. */
+      validHours?: ValidHours;
       now: number;
     };
 
@@ -386,7 +389,13 @@ function apply(data: AppData, action: Action): AppData {
       const tasks = before
         ? data.tasks.map((t) => (t.id === task.id ? task : t))
         : [...data.tasks, task];
-      const activities = action.activity ? [...data.activities, action.activity] : data.activities;
+      const edited = action.activity;
+      // A routine's hours are edited with its task: that activity is replaced, a new one added.
+      const activities = !edited
+        ? data.activities
+        : data.activities.some((a) => a.id === edited.id)
+          ? data.activities.map((a) => (a.id === edited.id ? edited : a))
+          : [...data.activities, edited];
       return refresh(withoutFutureBlocks({ ...data, tasks, activities }, task, now), now);
     }
     case "override": {
@@ -971,6 +980,7 @@ function apply(data: AppData, action: Action): AppData {
         kind: "rutina",
         maxSessionMinutes: Math.max(minutes, 30),
         minBlockMinutes: Math.min(minutes, 60),
+        ...(action.validHours && { validHours: action.validHours }),
       };
       const habit: AppTask = {
         id: newId(),

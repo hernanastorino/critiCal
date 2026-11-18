@@ -325,6 +325,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
       // A weekly silo's target is its sessions: options can lower only its minimum.
       fixedTarget: p.task.kind === "habit" || undefined,
+      validHours: data.activities.find((x) => x.id === p.task.activityId)?.validHours,
     }));
 }
 

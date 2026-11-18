@@ -90,7 +90,27 @@ function oneOf15(v: unknown) {
   return v === 15 || v === 30 || v === 60;
 }
 
+const hoursRange = (r: unknown) =>
+  isRec(r) &&
+  int(0, 1440)(r.start, r) &&
+  int(0, 1440)(r.end, r) &&
+  (r.end as number) > (r.start as number);
+
+/** A routine's valid hours: a range for every day and ranges for weekdays 0 to 6. */
+export const validHoursOk: Ok = (v) =>
+  isRec(v) &&
+  Object.keys(v).every((k) => k === "all" || k === "days") &&
+  (v.all === undefined || hoursRange(v.all)) &&
+  (v.days === undefined ||
+    (isRec(v.days) &&
+      Object.entries(v.days).every(([k, r]) => /^[0-6]$/.test(k) && hoursRange(r))));
+
 const activityRules = (): Rule[] => [
+  [
+    "validHours",
+    opt(validHoursOk),
+    "tiene un horario válido que no son rangos de 0 a 1440 minutos, con el fin después del inicio",
+  ],
   ["id", str, "tiene un identificador que no es texto"],
   ["name", name, `tiene un nombre vacío o de más de ${BACKUP_TEXT_MAX} caracteres`],
   ["kind", opt(oneOf("materia", "rutina")), "tiene un tipo que no es materia ni rutina"],

@@ -21,6 +21,7 @@ import {
   str,
   type Test,
   text,
+  validHoursOk,
 } from "./backupNamed.js";
 import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
@@ -122,6 +123,7 @@ const activityTests: Test[] = [
   // A colour goes into style attributes: only #rrggbb.
   ["color", (v) => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v)],
   ["startAfter", opt(startOk)],
+  ["validHours", opt(validHoursOk)],
   ["maxSessionMinutes", between(1, 1440)],
   // The block within the session (as the form requires).
   [
