@@ -140,8 +140,10 @@ export function Places() {
         ) : (
           <div key={p.id} id={`place-${p.id}`} tabIndex={-1} className="check place-row">
             <span style={{ flex: 1, minWidth: 0 }}>
-              {p.isHome ? "🏠 " : ""}
-              {p.name}
+              <span className="place-name">
+                {p.isHome ? "🏠 " : ""}
+                {p.name}
+              </span>
               {p.aliases.length > 0 && (
                 <span className="meta place-aliases">{p.aliases.join(", ")}</span>
               )}

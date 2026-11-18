@@ -2366,9 +2366,16 @@ label.check {
   min-height: 36px;
 }
 
+/* The name sits level with the Editar button (36 px) even when it is the only line. */
+.place-name {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+}
+
 .place-aliases {
   display: block;
-  margin: 2px 0 0;
+  margin: -6px 0 0;
   font-size: 0.8125rem;
 }
 
