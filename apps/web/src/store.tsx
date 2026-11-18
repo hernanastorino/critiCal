@@ -317,12 +317,20 @@ function apply(data: AppData, action: Action): AppData {
       );
     }
     case "saveTask": {
-      const exists = data.tasks.some((t) => t.id === action.task.id);
-      const tasks = exists
-        ? data.tasks.map((t) => (t.id === action.task.id ? action.task : t))
-        : [...data.tasks, action.task];
+      const before = data.tasks.find((t) => t.id === action.task.id);
+      // A date the user sets on a task that follows an event is kept against the import.
+      const task =
+        before?.sourceEventId && before.deadline !== action.task.deadline
+          ? {
+              ...action.task,
+              deadlineSyncedFrom: before.deadlineSyncedFrom ?? before.deadline,
+            }
+          : action.task;
+      const tasks = before
+        ? data.tasks.map((t) => (t.id === task.id ? task : t))
+        : [...data.tasks, task];
       const activities = action.activity ? [...data.activities, action.activity] : data.activities;
-      return refresh(withoutFutureBlocks({ ...data, tasks, activities }, action.task, now), now);
+      return refresh(withoutFutureBlocks({ ...data, tasks, activities }, task, now), now);
     }
     case "override": {
       const overrides = [

@@ -203,12 +203,20 @@ export function importFromCalendars(
       const roleChanged = existing.sourceRole !== role;
       const exam = role === "parcial" || undefined;
       const examChanged = roleChanged && !!existing.sourceRole && !!existing.exam !== !!exam;
-      if (back || roleChanged || existing.deadline !== deadline || existing.title !== title) {
+      // The user's own date stays while the event still says what it said when they changed it.
+      const mine =
+        existing.deadlineSyncedFrom !== undefined && existing.deadlineSyncedFrom === deadline;
+      if (
+        back ||
+        roleChanged ||
+        (!mine && existing.deadline !== deadline) ||
+        existing.title !== title
+      ) {
         tasks = tasks.map((t) =>
           t === existing
             ? {
                 ...t,
-                deadline,
+                ...(mine ? {} : { deadline, deadlineSyncedFrom: undefined }),
                 title,
                 sourceRole: role,
                 ...(examChanged ? { exam, dayBeforeOnly: exam && t.dayBeforeOnly } : {}),

@@ -77,6 +77,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     isObject(t) &&
     str(t.id) &&
     opt(t.startAfter, validStart) &&
+    opt(t.deadlineSyncedFrom, instant) &&
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit) &&

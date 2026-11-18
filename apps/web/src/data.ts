@@ -103,6 +103,9 @@ export function rowsToData(r: {
         endedAt: t.ended_at ? ms(t.ended_at as string) : undefined,
         autoDroppedAt: t.auto_dropped_at ? ms(t.auto_dropped_at as string) : undefined,
         startAfter: (t.start_after as AppTask["startAfter"] | null) ?? undefined,
+        deadlineSyncedFrom: t.deadline_synced_from
+          ? ms(t.deadline_synced_from as string)
+          : undefined,
         units: r.units
           .filter((u) => u.task_id === t.id)
           .sort((a, b) => (a.position as number) - (b.position as number))
@@ -432,6 +435,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         ended_at: t.endedAt ? iso(t.endedAt) : null,
         auto_dropped_at: t.autoDroppedAt ? iso(t.autoDroppedAt) : null,
         start_after: t.startAfter ?? null,
+        deadline_synced_from: t.deadlineSyncedFrom ? iso(t.deadlineSyncedFrom) : null,
       })),
     });
     const units = tasks.flatMap((t) =>

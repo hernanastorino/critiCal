@@ -79,6 +79,12 @@ export interface AppTask {
    * Still equal to endedAt: the user has not touched it since, so it may come back.
    */
   autoDroppedAt?: number;
+  /**
+   * Set when the user changes the deadline of a task that follows a calendar event: the
+   * deadline the event gave it, which the user's date replaced. The import keeps the user's
+   * date while the event still says that; once the event moves, it follows it again.
+   */
+  deadlineSyncedFrom?: number;
 }
 
 export type CalendarRole =

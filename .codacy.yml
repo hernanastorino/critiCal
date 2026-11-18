@@ -1,0 +1,3 @@
+exclude_paths:
+  # Postgres migrations: Codacy lints .sql as T-SQL (SET NOCOUNT, ANSI_NULLS...), which does not apply.
+  - "supabase/migrations/**"
