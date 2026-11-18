@@ -14,12 +14,17 @@ export function awakeMinutes(wake: string, bed: string): number {
   return b <= w ? b + 1440 - w : b - w;
 }
 
+/** «3 h 59 min», «22 h 1 min», «23 h»: the exact length, so the edge never contradicts itself. */
+export function awakeText(minutes: number): string {
+  const [h, m] = [Math.floor(minutes / 60), minutes % 60];
+  return m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
+}
+
 /** An error for a day that is too short or too long to plan, or null when it is fine. */
 export function awakeProblem(wake: string, bed: string): string | null {
   // Read as everywhere else: «7» is 07:00; «25:99» or an empty field is not a time.
   if (parseClock(wake) === null || parseClock(bed) === null) return "Hora inválida.";
   const awake = awakeMinutes(wake, bed);
   if (awake >= MIN_AWAKE && awake <= MAX_AWAKE) return null;
-  const h = Math.round((awake / 60) * 10) / 10;
-  return `De ${wake} a ${bed} estás despierto ${String(h).replace(".", ",")} h: el día tiene que tener entre 4 y 22 h despierto. Revisá a qué hora te levantaste y a qué hora te acostás.`;
+  return `De ${wake} a ${bed} estás despierto ${awakeText(awake)}: el día tiene que tener entre 4 y 22 h despierto. Revisá a qué hora te levantaste y a qué hora te acostás.`;
 }

@@ -5,7 +5,20 @@ import { describe, expect, it } from "vitest";
 interface Config {
   headers: { source: string; headers: { key: string; value: string }[] }[];
   rewrites?: unknown;
+  functions?: Record<string, { maxDuration?: number }>;
 }
+
+describe("vercel.json: funciones largas", () => {
+  const config = JSON.parse(
+    readFileSync(resolve(process.cwd(), "apps/web/vercel.json"), "utf8"),
+  ) as Config;
+
+  it("fija 60 s en las que llaman a Gemini o a rutas (rutas relativas a apps/web)", () => {
+    for (const file of ["syllabus", "travel", "transit"]) {
+      expect(config.functions?.[`api/${file}.ts`]?.maxDuration).toBe(60);
+    }
+  });
+});
 
 describe("vercel.json: cabeceras de seguridad", () => {
   const config = JSON.parse(

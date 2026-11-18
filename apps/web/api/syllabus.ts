@@ -144,6 +144,9 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
   });
   // A forced model is the only one tried: the PDF never goes to another model.
   const models = env.geminiModel ? [env.geminiModel] : MODELS;
+  // True once Gemini may have worked on the PDF (a 429, an overload, a timeout): that
+  // spends quota and time, so the budget is not given back however it ended.
+  let spent = false;
   try {
     for (const model of models) {
       const res = await fetch(`${API}/${model}:generateContent`, {
@@ -158,7 +161,10 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
         reads.refund(caller.uid);
         return json({ ok: false, error: "model_unavailable" }, 503);
       }
-      if ([404, 429, 500, 503].includes(res.status)) continue;
+      if ([404, 429, 500, 503].includes(res.status)) {
+        if (res.status !== 404) spent = true;
+        continue;
+      }
       // Upstream failure: a bad gateway for the app, with Gemini's own status in the body.
       if (!res.ok) return json({ ok: false, error: "gemini_error", status: res.status }, 502);
       const out = (await res.json()) as {
@@ -175,13 +181,12 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       if (!syllabus) return json({ ok: false, error: "unreadable" });
       return json({ ok: true, model, syllabus });
     }
-    // Nothing was read: the try does not count against the user's budget.
-    reads.refund(caller.uid);
+    // Only models that do not exist cost nothing: any other failure used Gemini.
+    if (!spent) reads.refund(caller.uid);
     return json({ ok: false, error: "gemini_busy" }, 503);
   } catch (e) {
-    // Gemini that does not answer in time is busy, not a failure of ours.
+    // Gemini that does not answer in time is busy, not a failure of ours (and it spent).
     if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
-      reads.refund(caller.uid);
       return json({ ok: false, error: "gemini_busy" }, 503);
     }
     console.error(e);

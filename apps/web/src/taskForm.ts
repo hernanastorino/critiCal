@@ -51,6 +51,15 @@ export function hoursProblem(v: string): string | null {
   return `Poné horas de 0 a ${MAX_HOURS}, solo cifras (1,5 sirve; negativos no).`;
 }
 
+/** What is wrong with a delivery's estimate: not a figure, too long, or nothing to do (0 h, no parts). */
+export function estimateProblem(v: string, partsMinutes: number): string | null {
+  const own = hoursProblem(v) ?? partsProblem(v, partsMinutes);
+  if (own) return own;
+  return typedHours(v) === 0 && partsMinutes === 0
+    ? "Las horas estimadas no pueden ser 0: poné cuánto pensás que lleva."
+    : null;
+}
+
 /** Minutes as «2 h», «1 h 30 min» or «45 min». */
 export function durationLabel(minutes: number): string {
   const h = Math.floor(minutes / 60);

@@ -15,8 +15,8 @@ import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
 import {
   awakeWeekMinutes,
+  estimateProblem,
   habitProblems,
-  hoursProblem,
   minimumProblem,
   parseUnit,
   partsProblem,
@@ -96,11 +96,14 @@ export function TaskEditor({
   const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
   const [unitTitle, setUnitTitle] = useState("");
   const [unitError, setUnitError] = useState<string | null>(null);
+  const unitInput = useRef<HTMLInputElement>(null);
   const addUnit = () => {
     const parsed = parseUnit(unitTitle);
     if (!parsed) return;
     if ("error" in parsed) {
       setUnitError(parsed.error);
+      // The tap left the focus on the button: it goes to the field that has the error.
+      unitInput.current?.focus();
       return;
     }
     setUnits([...units, { id: newId(), title: parsed.title, estimateMinutes: parsed.minutes }]);
@@ -183,9 +186,7 @@ export function TaskEditor({
   // Hours that are not figures, or a minimum above the estimate, are said, never fixed.
   const deliverable = kind === "deliverable";
   const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
-  const estimateError = deliverable
-    ? (hoursProblem(estimate) ?? partsProblem(estimate, partsMinutes))
-    : null;
+  const estimateError = deliverable ? estimateProblem(estimate, partsMinutes) : null;
   const partsHours = units.reduce((n, u) => n + u.estimateMinutes, 0) / 60;
   const minimumError = deliverable
     ? minimumProblem(minimum, Math.max(typedHours(estimate) || 0, partsHours))
@@ -503,6 +504,7 @@ export function TaskEditor({
               ))}
               <div className="row" style={{ marginTop: 8 }}>
                 <input
+                  ref={unitInput}
                   aria-label="Nueva parte: nombre y minutos entre paréntesis"
                   value={unitTitle}
                   aria-invalid={unitError ? true : undefined}

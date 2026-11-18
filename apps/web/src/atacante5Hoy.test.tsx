@@ -36,6 +36,15 @@ describe("awake time of the day", () => {
   });
 });
 
+describe("awake time at the edges", () => {
+  it("says the exact length instead of rounding it into a contradiction", () => {
+    expect(awakeProblem("08:00", "11:59")).toMatch(/estás despierto 3 h 59 min:/);
+    expect(awakeProblem("08:00", "06:01")).toMatch(/estás despierto 22 h 1 min:/);
+    expect(awakeProblem("08:00", "12:00")).toBeNull();
+    expect(awakeProblem("08:00", "06:00")).toBeNull();
+  });
+});
+
 describe("Ajustes → Hoy", () => {
   it("refuses an absurd day with an error on the fields, and keeps normal ones", () => {
     renderSettings();

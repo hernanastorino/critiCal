@@ -24,12 +24,23 @@ export async function handle(req: Request, env: Env): Promise<Response> {
   if (!key || !ok) return json({ error: "unauthorized" }, 401);
 
   const { data: users, error } = await admin.rpc("connected_users");
-  if (error) throw error;
+  if (error) {
+    await report(env, error, "cron");
+    return json({ ok: false, error: "users_failed" }, 500);
+  }
   const now = Date.now();
   const synced: string[] = [];
   const proposals = new Map<string, Proposal>();
   for (const uid of (users ?? []) as string[]) {
-    const { data: claimed } = await admin.rpc("claim_sync", { p_user: uid, p_gap: GAP });
+    const { data: claimed, error: claimError } = await admin.rpc("claim_sync", {
+      p_user: uid,
+      p_gap: GAP,
+    });
+    if (claimError) {
+      // One user's claim failing does not stop the others.
+      await report(env, claimError, "cron");
+      continue;
+    }
     if (!claimed) continue;
     try {
       const r = await serverSync(env, uid, now);
