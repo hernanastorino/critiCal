@@ -30,6 +30,7 @@ interface State {
   eventTravel?: AppData["eventTravel"];
   mealChoices?: AppData["mealChoices"];
   notSubjects?: string[];
+  removedSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
   tentativeSeen?: AppData["tentativeSeen"];
   tentativeHoldUntil?: number;
@@ -197,6 +198,7 @@ export function rowsToData(r: {
     eventTravel: state.eventTravel,
     mealChoices: state.mealChoices,
     notSubjects: state.notSubjects,
+    removedSubjects: state.removedSubjects,
     movedEvents: state.movedEvents,
     tentativeSeen: state.tentativeSeen,
     tentativeHoldUntil: state.tentativeHoldUntil,
@@ -329,6 +331,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.eventTravel,
       prev.mealChoices,
       prev.notSubjects,
+      prev.removedSubjects,
       prev.movedEvents,
       prev.tentativeSeen,
       prev.tentativeHoldUntil,
@@ -347,6 +350,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.eventTravel,
       next.mealChoices,
       next.notSubjects,
+      next.removedSubjects,
       next.movedEvents,
       next.tentativeSeen,
       next.tentativeHoldUntil,
@@ -370,6 +374,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             eventTravel: next.eventTravel,
             mealChoices: next.mealChoices,
             notSubjects: next.notSubjects,
+            removedSubjects: next.removedSubjects,
             movedEvents: next.movedEvents,
             tentativeSeen: next.tentativeSeen,
             tentativeHoldUntil: next.tentativeHoldUntil,

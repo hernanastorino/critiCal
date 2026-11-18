@@ -11,7 +11,7 @@ import {
 import { demoData, emptyData } from "./demo.js";
 import { type AppData, type AppEvent, type AppTask, stableId } from "./model.js";
 import { refresh } from "./refresh.js";
-import { reducer } from "./store.js";
+import { reducer, removedWith } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 let n = 0;
@@ -370,5 +370,43 @@ describe("tags in event titles", () => {
         (t) => t.sourceEventId === "b",
       )?.status,
     ).toBe("dropped");
+  });
+});
+
+describe("a deleted materia", () => {
+  const day = 86_400_000;
+  const events = [ev("p2", "icloud:p", "P2 PROG AV", NOW + 5 * day)];
+
+  it("stays deleted although its evaluation is still in the calendar", () => {
+    const first = refresh(data({ events }), NOW);
+    const subject = first.activities.find((a) => a.name === "P2 PROG AV");
+    expect(subject).toBeDefined();
+    const gone = reducer(first, {
+      type: "deleteActivity",
+      activityId: subject?.id as string,
+      now: NOW,
+    });
+    expect(gone.activities.some((a) => a.name === "P2 PROG AV")).toBe(false);
+    // The next refresh (a sync brings the same event again) must not recreate it.
+    const later = reducer(gone, { type: "refresh", now: NOW + 60_000 });
+    expect(later.activities.some((a) => a.name === "P2 PROG AV")).toBe(false);
+    expect(later.tasks.some((t) => t.sourceEventId === "p2")).toBe(false);
+  });
+
+  it("comes back with its task when the deletion is undone", () => {
+    const first = refresh(data({ events }), NOW);
+    const subject = first.activities.find((a) => a.name === "P2 PROG AV");
+    const activityId = subject?.id as string;
+    const removed = removedWith(first, activityId);
+    const gone = reducer(first, { type: "deleteActivity", activityId, now: NOW });
+    const back = reducer(gone, {
+      type: "restoreActivity",
+      removed: removed as NonNullable<typeof removed>,
+      now: NOW,
+    });
+    expect(back.removedSubjects ?? []).toEqual([]);
+    const later = reducer(back, { type: "refresh", now: NOW + 60_000 });
+    expect(later.activities.filter((a) => a.name === "P2 PROG AV")).toHaveLength(1);
+    expect(later.tasks.filter((t) => t.sourceEventId === "p2")).toHaveLength(1);
   });
 });
