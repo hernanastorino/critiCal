@@ -10,6 +10,8 @@ import {
   int,
   isRec,
   listOf,
+  looseBlockTests,
+  looseProposalTests,
   name,
   num,
   type Ok,
@@ -181,10 +183,7 @@ const overrideTests: Test[] = [
 ];
 // Bounded intervals: the planner walks them slot by slot.
 const blockTests: Test[] = [
-  ["id", str],
-  ["taskId", str],
-  ["start", instant],
-  ["end", instant],
+  ...looseBlockTests,
   ["end", after("start")],
   ["end", (v, x) => (v as number) - (x?.start as number) <= DAY_MS],
 ];
@@ -198,7 +197,7 @@ const eventTests: Test[] = [
   ["end", after("start", true)],
 ];
 const proposalTests: Test[] = [
-  ["id", str],
+  ...looseProposalTests,
   ["plan", listOf(blockTests)],
   ["conflicts", (v) => Array.isArray(v)],
 ];

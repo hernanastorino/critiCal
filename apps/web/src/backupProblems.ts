@@ -304,15 +304,15 @@ const unitsProblem: Check = (d) => {
 // ---- Data kept as loose JSON in the settings row: not rejected by the database, but the
 // ---- screens read it, so a wrong shape would break them.
 
-const blockTests: Test[] = [
+export const looseBlockTests: Test[] = [
   ["id", str],
   ["taskId", str],
   ["start", instant],
   ["end", instant],
 ];
-const proposalTests: Test[] = [
+export const looseProposalTests: Test[] = [
   ["id", str],
-  ["plan", listOf(blockTests)],
+  ["plan", listOf(looseBlockTests)],
 ];
 const movedTests: Test[] = [
   ["eventId", str],
@@ -360,10 +360,10 @@ const mealDayTests: Test[] = [["date", isRealDate], ...mealTests];
 const versionTests: Test[] = [
   ["at", instant],
   ["label", text],
-  ["pins", listOf(blockTests)],
-  ["today", listOf(blockTests)],
+  ["pins", listOf(looseBlockTests)],
+  ["today", listOf(looseBlockTests)],
   ["overrides", listOf([["date", isRealDate]])],
-  ["proposals", listOf(proposalTests)],
+  ["proposals", listOf(looseProposalTests)],
   ["mealChoices", opt(listOf(mealDayTests))],
   ["freeTimeUntil", opt(instant)],
   ["relaxContextUntil", opt(instant)],

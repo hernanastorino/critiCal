@@ -5,6 +5,14 @@ import { type AppData, newId } from "./model.js";
 import { reducer } from "./store.js";
 
 const TASK = "parcial-calc";
+
+/** The file is refused, and the message names what is wrong (not the generic one). */
+function rejectedWithMessage(_name: string, edits: Edit[], message: RegExp) {
+  const r = edited(edits);
+  expect(r).toHaveProperty("error");
+  expect(errorOf(r)).not.toBe(GENERIC);
+  expect(errorOf(r)).toMatch(message);
+}
 const places = (...ids: string[]) => ids.map((id) => ({ id, name: id, aliases: [] }));
 
 describe("3. El respaldo rechaza lo que la base rechaza", () => {
@@ -113,12 +121,7 @@ describe("3. El respaldo rechaza lo que la base rechaza", () => {
       /parte.*repetid/i,
     ],
   ];
-  it.each(cases)("%s", (_name, edits, message) => {
-    const r = edited(edits);
-    expect(r).toHaveProperty("error");
-    expect(errorOf(r)).not.toBe(GENERIC);
-    expect(errorOf(r)).toMatch(message);
-  });
+  it.each(cases)("%s", rejectedWithMessage);
 
   it("ids that are not uuids are refused for an account, and fine in the demo", () => {
     const d = demoData(NOW);
@@ -189,12 +192,7 @@ describe("4. Datos sueltos del respaldo no rompen la app", () => {
     ["freeTimeUntil de texto", [["freeTimeUntil", "mañana"]], /tiempo libre/i],
     ["evento con ubicación numérica", [["events.0.location", 5]], /evento/i],
   ];
-  it.each(bad)("%s: se rechaza con mensaje", (_name, edits, message) => {
-    const r = edited(edits);
-    expect(r).toHaveProperty("error");
-    expect(errorOf(r)).not.toBe(GENERIC);
-    expect(errorOf(r)).toMatch(message);
-  });
+  it.each(bad)("%s: se rechaza con mensaje", rejectedWithMessage);
 
   it("well-formed extras round-trip identical", () => {
     const d = demoData(NOW);
