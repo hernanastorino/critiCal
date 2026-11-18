@@ -205,7 +205,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 2. Horarios válidos por rutina y por día de la semana (inicio y fin), en el formulario de Rutinas, el modelo, el motor y el respaldo.
 3. Rutina creada a mitad de semana: proporcional a los días que quedan.
 4. Una tarea que no entra ni sola no marca críticos a las demás.
-5. Respaldo: ids nuevos al importar con cuenta (incluye la Media de la 12.ª vuelta) y extras mal formados descartados con aviso en vez de rechazar el archivo.
+5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
 6. Ajustes → Hoy: «Me levanté» no puede ser futura.
 7. CSP completa en modo `Content-Security-Policy-Report-Only` (con dónde reportar), y obligatoria cuando no reporte nada roto.
 
