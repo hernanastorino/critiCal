@@ -23,7 +23,13 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { lateNight } from "./lateNight.js";
-import { UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
+import {
+  BACKUP_TEXT_MAX,
+  NAME_MAX,
+  SESSIONS_PER_WEEK_MAX,
+  UNIT_MINUTES_MAX,
+  UNIT_MINUTES_MIN,
+} from "./limits.js";
 import type {
   AppData,
   AppliedDecision,
@@ -942,7 +948,10 @@ function apply(data: AppData, action: Action): AppData {
           study: true,
         }),
         minMinutes: Math.round(action.minutes),
-        sessionsPerWeek: Math.ceil(action.minutes / (study?.sessionMinutes ?? 60)),
+        sessionsPerWeek: Math.min(
+          SESSIONS_PER_WEEK_MAX,
+          Math.ceil(action.minutes / (study?.sessionMinutes ?? 60)),
+        ),
       };
       const tasks = study
         ? data.tasks.map((t) => (t.id === study.id ? habit : t))
@@ -1010,9 +1019,15 @@ function apply(data: AppData, action: Action): AppData {
     case "saveSpot": {
       const spot = (data.spots ?? []).find((s) => s.key === action.key);
       const at = home(data);
-      const name = action.name.trim();
+      const name = action.name.trim().slice(0, NAME_MAX);
       if (!spot || !name) return data;
-      const place: Place = { id: newId(), name, aliases: [spot.text], address: spot.text };
+      // What the event says may be longer than a backup takes for an alias.
+      const place: Place = {
+        id: newId(),
+        name,
+        aliases: [spot.text.slice(0, BACKUP_TEXT_MAX)],
+        address: spot.text,
+      };
       const travelTimes = [...(data.travelTimes ?? [])];
       if (at && spot.minutes !== undefined) {
         const manual = !!spot.manual;

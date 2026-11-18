@@ -27,7 +27,8 @@ export function Backup() {
   const download = () => downloadJson(data, now);
 
   const restore = async (f: File) => {
-    const parsed = parseBackup(await f.text());
+    // With an account the ids go to a database that stores uuids.
+    const parsed = parseBackup(await f.text(), { strictIds: data.owner !== undefined });
     if ("error" in parsed) {
       setMessage({ text: parsed.error, error: true });
       return;
@@ -53,8 +54,12 @@ export function Backup() {
       );
       return { ...t, units };
     });
+    // The file may come from another account: the data is this account's now (and the
+    // ids of what the import makes are seeded by its owner).
+    const { owner: _theirs, ...theirs } = parsed.data;
     const candidate = {
-      ...parsed.data,
+      ...theirs,
+      ...(data.owner !== undefined ? { owner: data.owner } : {}),
       tasks,
       checkIns: [...parsed.data.checkIns, ...newer],
     };
