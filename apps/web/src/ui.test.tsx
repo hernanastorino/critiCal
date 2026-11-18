@@ -221,12 +221,12 @@ describe("app", () => {
     for (const bad of ["-1", "2.5", "abc", "99999", ""]) {
       fireEvent.change(days, { target: { value: bad } });
       expect(screen.getByRole("alert").textContent).toMatch(/número entero de días/);
-      expect((screen.getByText("Guardar") as HTMLButtonElement).disabled).toBe(true);
+      expect(screen.getByText("Guardar").getAttribute("aria-disabled")).toBe("true");
     }
     fireEvent.change(screen.getByLabelText("Puedo empezar"), { target: { value: "date" } });
     fireEvent.change(screen.getByLabelText("Desde el día"), { target: { value: "2027-01-01" } });
     expect(screen.getByText(/Tiene que ser antes de la entrega/)).toBeTruthy();
-    expect((screen.getByText("Guardar") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText("Guardar").getAttribute("aria-disabled")).toBe("true");
   });
 
   it("re-plans the day from settings and can reset or leave the demo", () => {

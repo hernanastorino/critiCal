@@ -152,12 +152,12 @@ describe("Materias", () => {
     const save = screen.getByRole("button", { name: `Guardar ${name}` });
     fireEvent.change(screen.getByLabelText("Sesión máxima (min)"), { target: { value: "60" } });
     fireEvent.change(screen.getByLabelText("Bloque mínimo (min)"), { target: { value: "500" } });
-    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(save.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("alert").textContent).toMatch(/bloque mínimo/);
     fireEvent.change(screen.getByLabelText("Bloque mínimo (min)"), { target: { value: "30" } });
     fireEvent.change(screen.getByLabelText("Prefiero desde"), { target: { value: "20:00" } });
     fireEvent.change(screen.getByLabelText("hasta"), { target: { value: "08:00" } });
-    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(save.getAttribute("aria-disabled")).toBe("true");
     expect(screen.getByRole("alert").textContent).toMatch(/antes de «hasta»/);
   });
 });

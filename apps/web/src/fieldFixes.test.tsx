@@ -40,7 +40,7 @@ describe("Materias form", () => {
       expect(input.getAttribute("aria-invalid")).toBe("true");
       expect(input.getAttribute("aria-describedby")).toBe(error.id);
     }
-    expect((save as HTMLButtonElement).disabled).toBe(true);
+    expect(save.getAttribute("aria-disabled")).toBe("true");
   });
 
   it("hides the ▼/▲ glyph from screen readers", () => {

@@ -6,7 +6,7 @@ import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf } from "../subjects.js";
-import { clampMinutes, Field, toHours, Unsaved } from "./fields.js";
+import { clampMinutes, Field, focusFirstInvalid, toHours, Unsaved } from "./fields.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { UNDO_MS, useToast } from "./Toast.js";
@@ -312,8 +312,12 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
-            disabled={!hoursOk || !!problem || startAfter === null}
-            onClick={() => {
+            aria-disabled={!hoursOk || problem || startAfter === null ? true : undefined}
+            onClick={(e) => {
+              if (!hoursOk || problem || startAfter === null) {
+                focusFirstInvalid(e.currentTarget.parentElement);
+                return;
+              }
               dispatch({
                 type: "saveActivity",
                 activity: {
