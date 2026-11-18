@@ -163,6 +163,17 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
+### 5.5 Arreglos pedidos el 2026-11-18 (SPEC §18.10)
+
+Después del PR de la segunda vuelta del atacante sobre `main`. Un PR por tema:
+
+1. Materias que no se eliminan aunque sale «… eliminada» (por ejemplo «P2 PROG AV»).
+2. Avisos arriba de todo (o a la derecha), nunca encima de lo que se está editando.
+3. Roy al doble en las opciones de «No llegás a todo» y en el aviso de sincronización de Calendarios, sin tapar nada.
+4. «Editar» desalineado en los lugares sin alias ni dirección.
+5. Cambiar la fecha u hora límite de un silo ya creado no se guarda.
+6. Bloques seguidos de la misma actividad, en una sola píldora.
+
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).

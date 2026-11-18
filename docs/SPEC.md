@@ -317,4 +317,13 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - **Roy más grande**: cada forma se escala a sus propias proporciones para llenar su caja (antes todas se achicaban como si fueran la escalera parada, y las anchas quedaban mínimas). Junto a una línea de texto, la escalera va acostada (una fila de tablitas que se dan vuelta por turno) y el acordeón deja su lugar a esa fila.
    - **Decisiones de la Bandeja**: «Decisiones que tomaste» muestra solo las de los últimos 7 días; las anteriores se archivan (los datos quedan, no se listan). Una decisión sobre una **rutina** vale solo por la semana en que se toma: «No hacer gym» la saltea hasta que termina la semana y a la siguiente el plan la vuelve a ubicar. Las rutinas que una decisión vieja había dejado afuera para siempre vuelven solas (`routinesBack`); una que el usuario terminó a mano no.
 
+10. **Arreglos del 2026-11-18** (pedido del usuario, sobre 4 capturas del iPhone). Pendiente:
+
+- **Eliminar materias que no se van**: algunas materias (por ejemplo «P2 PROG AV») muestran «… eliminada» con Deshacer pero no se eliminan. Averiguar por qué vuelven (¿la sincronización las vuelve a crear desde el calendario?) y que eliminar sea definitivo.
+- **Avisos que no tapen nada**: el aviso de abajo (con «Deshacer») tapaba filas de la hoja abierta, por ejemplo la materia que se estaba por tocar. Va arriba de todo en la pantalla (o a la derecha, si arriba no entra), nunca encima de un elemento que impida seguir editando.
+- **Roy más grande** donde hay lugar, sin ocupar nunca el espacio de un elemento que se usa: al doble en las opciones de «No llegás a todo · elegí» de la Bandeja (decisiones de la semana) y en el aviso de sincronización de Calendarios.
+- **Lugares**: el botón «Editar» de un lugar sin alias ni dirección (por ejemplo «Abuela») queda desalineado del nombre. Se alinea con la primera línea, igual que en los demás.
+- **Silo ya creado**: cambiar su fecha u hora límite deja elegir la fecha pero no la guarda. Que se actualice.
+- **Bloques seguidos de la misma actividad, en una sola píldora**: en la semana, los bloques de una misma actividad pegados uno al otro, sin tiempo entre medio, se dibujan como una sola píldora en vez de varias juntas. Al tocarla se ven sus bloques.
+
 **Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
