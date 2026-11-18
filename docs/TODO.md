@@ -54,8 +54,6 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 4. **Críticos por una tarea que no entra ni sola** (agente atacante sobre `main`, 2026-11-18). Cuando una tarea no entra ni sola (por ejemplo un hábito «Repasar fórmulas» de 14 × 24 h), ¿querés que igual marque como críticos los bloques de las demás entregas? Hoy sí los marca, porque esa tarea podría usar su tiempo.
 
-5. **Freno del ciclo del agente atacante** (2026-11-18). Hubo 5 vueltas seguidas con fallas nuevas sobre `main`; las 4 primeras se arreglaron y mergearon, la 5.ª está anotada en §5.3. Por la regla de la SPEC §17 se frenó y no se empezó nada nuevo (ni los arreglos del §18.10, ni el resto del §5). ¿Cómo seguimos: arreglar los hallazgos de la 5.ª vuelta y volver a correr el atacante, pasar a los arreglos del §18.10 aunque el atacante no haya dado una vuelta limpia, o cambiar el criterio del freno (por ejemplo, frenar solo con fallas graves)?
-
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
@@ -66,10 +64,10 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                                                                             | Qué falta                                                                                        |
-| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                         | **No mergear** hasta que el usuario lo pida.                                                     |
-| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17): 5 vueltas seguidas con fallas nuevas, arregladas las 4 primeras (#114, #115, #117, #118, #119, #120, #121) | Que el usuario decida cómo seguir (§1.1, punto 5). Los hallazgos de la 5.ª vuelta están en §5.3. |
+| Qué                                                                      | Estado                                                                                                                                      | Qué falta                                                                     |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                                  | **No mergear** hasta que el usuario lo pida.                                  |
+| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17) tras 5 vueltas con fallas nuevas. El usuario eligió (2026-11-18) pasar a los arreglos del §18.10 (hechos: #123–#128) | Arreglar los hallazgos de la 5.ª vuelta (§5.3) y volver a correr el atacante. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -180,21 +178,11 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
 
-### 5.5 Arreglos pedidos el 2026-11-18 (SPEC §18.10)
-
-Después del PR de la segunda vuelta del atacante sobre `main`. Un PR por tema:
-
-1. Materias que no se eliminan aunque sale «… eliminada» (por ejemplo «P2 PROG AV»).
-2. Avisos arriba de todo (o a la derecha), nunca encima de lo que se está editando.
-3. Roy al doble en las opciones de «No llegás a todo» y en el aviso de sincronización de Calendarios, sin tapar nada.
-4. «Editar» desalineado en los lugares sin alias ni dirección.
-5. Cambiar la fecha u hora límite de un silo ya creado no se guarda.
-6. Bloques seguidos de la misma actividad, en una sola píldora.
-
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
+- Arreglos de las capturas del 2026-11-18 (SPEC §18.10), mergeados el 2026-11-18: #124 materias que volvían, #127 avisos arriba, #128 Roy al doble, #123 fecha de un silo, #126 «Editar» de lugares, #125 bloques seguidos en una píldora (incluye ocultar la barra de Vercel en los E2E del preview, que tapaba el cierre de la hoja). Falta la vuelta del atacante, la prueba en producción en modo demo y revisar Sentry.
 - #111 Arreglos visuales (SPEC §18.9): mergeado el 2026-11-17. Falta la prueba en el simulador de iPhone (se probó en el navegador a 375×812), la prueba en producción en modo demo y revisar Sentry.
 - #84 Accesibilidad (§14, hallazgos de §5.3): falta la prueba en producción en modo demo (tamaño de letra, foco con teclado, ventanita de un bloque) y revisar Sentry.
 - #89 Mensajes y esperas: la vuelta del atacante en la **preview** no se hizo (Vercel la protege con login, el enlace compartible da 403; decisión del usuario). Falta la prueba en producción en modo demo (carga, sin conexión, Reintentar) y revisar Sentry.
