@@ -7,6 +7,7 @@ import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
+import { detectedProblem, detectedToReset } from "../taskForm.js";
 import {
   clampMinutes,
   Field,
@@ -422,97 +423,96 @@ export function DetectedDefaults() {
       ]),
     ),
   );
-  const [error, setError] = useState<string | null>(null);
   const toast = useToast();
+  const ask = useFocusInvalid();
+  const problems = Object.fromEntries(
+    KINDS.map(({ kind }) => [
+      kind,
+      detectedProblem(form[kind]?.estimate ?? "0", form[kind]?.min ?? "0"),
+    ]),
+  );
+  const save = (button: HTMLElement) => {
+    if (KINDS.some(({ kind }) => problems[kind])) {
+      ask(button);
+      return;
+    }
+    const importDefaults = Object.fromEntries(
+      KINDS.map(({ kind }) => [
+        kind,
+        {
+          estimate: fromHours(form[kind]?.estimate ?? "0"),
+          min: fromHours(form[kind]?.min ?? "0"),
+          priority: current(kind).priority,
+        },
+      ]),
+    );
+    dispatch({ type: "preferences", preferences: { ...data.preferences, importDefaults } });
+    saved(form);
+    toast.show("Horas guardadas");
+  };
+  const resetDetected = () => {
+    const n = detectedToReset(data);
+    dispatch({ type: "resetDetected" });
+    toast.show(
+      n === 0
+        ? "No hay nada detectado para cambiar"
+        : `${n} ${n === 1 ? "tarea detectada vuelve" : "tareas detectadas vuelven"} a estas horas`,
+    );
+  };
   return (
     <Section>
       <p className="meta">
         Cuánto le planifico a cada evento nuevo de tus calendarios hasta que lo ajustes.
       </p>
-      {KINDS.map(({ kind, label }) => (
-        <div key={kind} className="grid3">
-          <span className="grid3-label">{label}</span>
-          <label className="field">
-            <span>Horas</span>
-            <input
-              inputMode="decimal"
-              aria-label={`Horas de ${label}`}
-              value={form[kind]?.estimate}
-              onChange={(e) => {
-                setForm({ ...form, [kind]: { ...form[kind], estimate: e.target.value } as never });
-              }}
-            />
-          </label>
-          <label className="field">
-            <span>Mínimo</span>
-            <input
-              inputMode="decimal"
-              aria-label={`Mínimo de ${label}`}
-              value={form[kind]?.min}
-              onChange={(e) => {
-                setForm({ ...form, [kind]: { ...form[kind], min: e.target.value } as never });
-              }}
-            />
-          </label>
-        </div>
-      ))}
+      {KINDS.map(({ kind, label }) => {
+        const problem = problems[kind];
+        const set = (key: "estimate" | "min", value: string) =>
+          setForm({ ...form, [kind]: { ...form[kind], [key]: value } as never });
+        return (
+          <div key={kind}>
+            <div className="grid3">
+              <span className="grid3-label">{label}</span>
+              <label className="field">
+                <span>Horas</span>
+                <input
+                  inputMode="decimal"
+                  aria-label={`Horas de ${label}`}
+                  value={form[kind]?.estimate}
+                  aria-invalid={problem?.field === "estimate" ? true : undefined}
+                  aria-describedby={problem?.field === "estimate" ? `detected-${kind}` : undefined}
+                  onChange={(e) => set("estimate", e.target.value)}
+                />
+              </label>
+              <label className="field">
+                <span>Mínimo</span>
+                <input
+                  inputMode="decimal"
+                  aria-label={`Mínimo de ${label}`}
+                  value={form[kind]?.min}
+                  aria-invalid={problem?.field === "min" ? true : undefined}
+                  aria-describedby={problem?.field === "min" ? `detected-${kind}` : undefined}
+                  onChange={(e) => set("min", e.target.value)}
+                />
+              </label>
+            </div>
+            <Problem id={`detected-${kind}`} text={problem?.text ?? null} />
+          </div>
+        );
+      })}
       {dirty && <Unsaved />}
       <button
         type="button"
         className="btn primary"
         style={{ width: "100%" }}
-        onClick={() => {
-          const typed = KINDS.flatMap(({ kind }) => [
-            form[kind]?.estimate ?? "0",
-            form[kind]?.min ?? "0",
-          ]);
-          if (!typed.every(isFigure)) {
-            setError("Revisá las horas: solo cifras, sin letras ni signos.");
-            return;
-          }
-          setError(null);
-          const importDefaults = Object.fromEntries(
-            KINDS.map(({ kind }) => {
-              // At most 200 h: more would not even fit a backup.
-              const estimate = Math.min(200 * 60, fromHours(form[kind]?.estimate ?? "0"));
-              return [
-                kind,
-                {
-                  estimate,
-                  min: Math.min(estimate, fromHours(form[kind]?.min ?? "0")),
-                  priority: current(kind).priority,
-                },
-              ];
-            }),
-          );
-          dispatch({ type: "preferences", preferences: { ...data.preferences, importDefaults } });
-          // Show what was saved: 2000 h becomes 200, a minimum above the hours becomes them.
-          saved(
-            Object.fromEntries(
-              KINDS.map(({ kind }) => [
-                kind,
-                {
-                  estimate: toHours(importDefaults[kind]?.estimate ?? 0),
-                  min: toHours(importDefaults[kind]?.min ?? 0),
-                },
-              ]),
-            ),
-          );
-          toast.show("Horas guardadas");
-        }}
+        onClick={(e) => save(e.currentTarget)}
       >
         Guardar horas
       </button>
-      {error && (
-        <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
-          {error}
-        </p>
-      )}
       <button
         type="button"
         className="btn"
         style={{ width: "100%", marginTop: 8 }}
-        onClick={() => dispatch({ type: "resetDetected" })}
+        onClick={resetDetected}
       >
         Volver todo lo detectado a estas horas
       </button>
@@ -645,7 +645,8 @@ export function Routines() {
             sessionsPerWeek: Math.round(Number(times)),
             sessionMinutes: Math.round(Number(minutes)),
           });
-          drafted({ ...draft, name: "" });
+          // Back to the defaults: the next routine does not inherit this one's figures.
+          drafted({ name: "", times: "3", minutes: "60" });
           // The button goes grey with the name cleared: the keyboard goes back to the name.
           nameField.current?.focus();
         }}

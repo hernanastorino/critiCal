@@ -131,7 +131,7 @@ describe("app", () => {
 
     fireEvent.click(screen.getByLabelText("Nueva actividad"));
     fireEvent.click(screen.getByText("Hábito semanal"));
-    fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
+    fireEvent.change(screen.getByPlaceholderText("Leer 30 min"), {
       target: { value: "Correr" },
     });
     fireEvent.click(screen.getByText("Guardar"));

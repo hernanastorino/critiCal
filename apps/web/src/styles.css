@@ -1981,7 +1981,8 @@ textarea:focus-visible {
 }
 
 .btn.small::before,
-.card > button.title::before,
+/* ::after, not ::before: a coloured card's title already draws its dot with ::before. */
+.card > button.title::after,
 .chip::before,
 .swatch.big::before,
 .check > button::before,

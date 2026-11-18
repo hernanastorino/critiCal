@@ -104,7 +104,11 @@ export function TaskDetail({
             onChange={(e) => setMinutes(e.target.value)}
             placeholder="40"
             aria-invalid={badMinutes ? true : undefined}
-            aria-describedby={badMinutes ? "minutes-error" : "break-note"}
+            aria-describedby={
+              [badMinutes && "minutes-error", factor > 1 && "break-note"]
+                .filter(Boolean)
+                .join(" ") || undefined
+            }
           />
           {badMinutes && (
             <span

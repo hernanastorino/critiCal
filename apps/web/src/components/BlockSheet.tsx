@@ -68,7 +68,11 @@ function EventDetail({ item }: { item: Extract<Item, { kind: "event" }> }) {
           Abrir en {e.source === "icloud" ? "iCloud" : "Google Calendar"}
         </a>
       ) : (
-        <p className="meta">Evento fijo de tu calendario: la app planifica alrededor.</p>
+        <p className="meta">
+          {e.busy
+            ? "Evento fijo de tu calendario: la app planifica alrededor."
+            : "No ocupa tiempo: el plan puede poner estudio encima."}
+        </p>
       )}
     </>
   );

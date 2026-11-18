@@ -129,7 +129,7 @@ describe("fixed settings", () => {
     });
   });
 
-  it("saves the default hours for detected events, capping the minimum", () => {
+  it("saves the default hours for detected events, refusing a minimum above them", () => {
     fireEvent.change(screen.getByLabelText("Horas de Parcial / examen"), {
       target: { value: "8" },
     });
@@ -137,9 +137,14 @@ describe("fixed settings", () => {
       target: { value: "20" },
     });
     fireEvent.click(screen.getByText("Guardar horas"));
+    expect(stored().preferences?.importDefaults).toBeUndefined();
+    fireEvent.change(screen.getByLabelText("Mínimo de Parcial / examen"), {
+      target: { value: "5" },
+    });
+    fireEvent.click(screen.getByText("Guardar horas"));
     expect(stored().preferences.importDefaults.parcial).toEqual({
       estimate: 480,
-      min: 480,
+      min: 300,
       priority: 3,
     });
   });

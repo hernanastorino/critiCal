@@ -1,12 +1,18 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { dayDate, hours, minutesToHhmm } from "../format.js";
 import { dateYearInRange, deadlineInRange, deadlineMaxYear } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
 import { useStore } from "../store.js";
-import { validRoutine } from "../subjects.js";
-import { hoursProblem, minimumProblem, parseUnit, typedHours } from "../taskForm.js";
+import {
+  awakeWeekMinutes,
+  habitProblems,
+  hoursProblem,
+  minimumProblem,
+  parseUnit,
+  typedHours,
+} from "../taskForm.js";
 import { focusFirstInvalid } from "./fields.js";
 import { useModal } from "./modal.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
@@ -50,9 +56,16 @@ export function TaskEditor({
   const toast = useToast();
   const tz = data.settings.timezone;
   const [title, setTitle] = useState(task?.title ?? "");
-  const [activityId, setActivityId] = useState(task?.activityId ?? data.activities[0]?.id ?? "new");
+  const [picked, setActivityId] = useState(task?.activityId ?? "");
   const [newActivity, setNewActivity] = useState("");
   const [kind, setKind] = useState<AppTask["kind"]>(task?.kind ?? "deliverable");
+  // Rutinas have no parciales or entregas: they are offered for a habit only (or when the
+  // task already belongs to one).
+  const choices = data.activities.filter(
+    (a) => kind === "habit" || a.kind !== "rutina" || a.id === task?.activityId,
+  );
+  const activityId =
+    picked === "new" || choices.some((a) => a.id === picked) ? picked : (choices[0]?.id ?? "new");
   const [deadline, setDeadline] = useState(
     toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
   );
@@ -82,10 +95,14 @@ export function TaskEditor({
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
-  const [habitError, setHabitError] = useState<string | null>(null);
+  /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */
+  const [focusTick, setFocusTick] = useState(0);
 
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
+  useEffect(() => {
+    if (focusTick) focusFirstInvalid(sheet.current);
+  }, [focusTick]);
 
   // §18.7: with a late start the minimum may no longer fit; say so before saving (the
   // inbox then offers the options of §5.6). Checked on the plan as it would be.
@@ -155,43 +172,38 @@ export function TaskEditor({
   const dueNow = deliverable ? fromLocalInput(tz, deadline) : Number.NaN;
   const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
 
+  // A habit's times and minutes: whole, and what fits in the waking hours of a week.
+  const routineAct = data.activities.find((a) => a.id === activityId)?.kind === "rutina";
+  const habit =
+    kind === "habit"
+      ? habitProblems(sessions, sessionMin, awakeWeekMinutes(data.settings.week), routineAct)
+      : { times: null, minutes: null };
+  const nameMissing = activityId === "new" && !newActivity.trim();
+
   const save = () => {
-    if (startBlocked || hoursBlocked) {
-      focusFirstInvalid(sheet.current);
-      return;
-    }
-    if (!title.trim()) {
-      setTried(true);
-      return;
-    }
+    setTried(true);
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
-    if (due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now))) {
+    const rangeBad =
+      due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now));
+    if (rangeBad) {
       setDeadlineError(`Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`);
+    }
+    // Every problem is drawn at once; the focus goes to the first one in the form.
+    const blockers = [
+      startBlocked,
+      hoursBlocked,
+      !!(habit.times || habit.minutes),
+      !title.trim(),
+      nameMissing,
+      rangeBad,
+    ];
+    if (blockers.some(Boolean)) {
+      setFocusTick((n) => n + 1);
       return;
     }
-    // A routine's habit keeps Rutinas' limits, or its backup could not be restored.
-    const routine = data.activities.find((a) => a.id === activityId)?.kind === "rutina";
-    if (kind === "habit" && routine && !validRoutine(Number(sessions), Number(sessionMin))) {
-      setHabitError(
-        "Una rutina va de 1 a 14 veces por semana, hasta 6 h por vez y 40 h por semana.",
-      );
-      return;
-    }
-    // Any habit: whole times a week and minutes a session that a backup can hold.
-    const times = Number(sessions);
-    const length = Number(sessionMin);
-    const whole = (n: number, max: number) => Number.isInteger(n) && n >= 1 && n <= max;
-    if (kind === "habit" && !(whole(times, 14) && whole(length, 1440))) {
-      setHabitError(
-        "Poné de 1 a 14 veces por semana y de 1 a 1440 minutos por vez, en cifras enteras.",
-      );
-      return;
-    }
-    setHabitError(null);
     let actId = activityId;
     let activity: Activity | undefined;
     if (actId === "new") {
-      if (!newActivity.trim()) return;
       actId = newId();
       activity = {
         id: actId,
@@ -287,7 +299,7 @@ export function TaskEditor({
               e.preventDefault();
               save();
             }}
-            placeholder="Parcial Física I"
+            placeholder={kind === "habit" ? "Leer 30 min" : "Parcial Física I"}
           />
           {tried && !title.trim() && (
             <span
@@ -303,7 +315,7 @@ export function TaskEditor({
         <label className="field">
           <span>Materia o actividad</span>
           <select value={activityId} onChange={(e) => setActivityId(e.target.value)}>
-            {data.activities.map((a) => (
+            {choices.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
@@ -316,10 +328,15 @@ export function TaskEditor({
             <span>Nombre de la materia</span>
             <input
               value={newActivity}
+              aria-invalid={tried && nameMissing ? true : undefined}
+              aria-describedby={tried && nameMissing ? "activity-error" : undefined}
               onChange={(e) => setNewActivity(e.target.value)}
               placeholder="Física I"
             />
           </label>
+        )}
+        {activityId === "new" && tried && nameMissing && (
+          <FieldError id="activity-error" text="Poné el nombre de la materia" />
         )}
         {kind === "deliverable" ? (
           <>
@@ -481,6 +498,8 @@ export function TaskEditor({
               <input
                 inputMode="numeric"
                 value={sessions}
+                aria-invalid={habit.times ? true : undefined}
+                aria-describedby={habit.times ? "times-error" : undefined}
                 onChange={(e) => setSessions(e.target.value)}
               />
             </label>
@@ -489,10 +508,18 @@ export function TaskEditor({
               <input
                 inputMode="numeric"
                 value={sessionMin}
+                aria-invalid={habit.minutes ? true : undefined}
+                aria-describedby={habit.minutes ? "session-error" : undefined}
                 onChange={(e) => setSessionMin(e.target.value)}
               />
             </label>
           </div>
+        )}
+        {kind === "habit" && (
+          <>
+            <FieldError id="times-error" text={habit.times} />
+            <FieldError id="session-error" text={habit.minutes} />
+          </>
         )}
         <label className="field">
           <span>Prioridad</span>
@@ -545,11 +572,6 @@ export function TaskEditor({
             Guardar
           </button>
         </div>
-        {habitError && (
-          <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
-            {habitError}
-          </p>
-        )}
       </div>
     </>
   );

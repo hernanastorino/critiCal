@@ -276,8 +276,13 @@ describe("second round of the attacker", () => {
     expect(screen.getByRole("alert").textContent).toMatch(/solo cifras/);
     fireEvent.change(hours as HTMLElement, { target: { value: "2000" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
+    expect(latest?.preferences?.importDefaults).toBeUndefined();
+    fireEvent.change(hours as HTMLElement, { target: { value: "200" } });
+    fireEvent.change(screen.getAllByLabelText(/^Mínimo de/)[0] as HTMLElement, {
+      target: { value: "10" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
     expect(latest?.preferences?.importDefaults?.parcial?.estimate).toBe(200 * 60);
-    expect((screen.getAllByLabelText(/^Horas de/)[0] as HTMLInputElement).value).toBe("200");
     roundTrips();
   });
 
