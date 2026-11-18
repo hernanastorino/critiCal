@@ -49,6 +49,9 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 1. **Comidas cuando me levanto muy tarde** (agente atacante sobre `main`, 2026-11-17). Ajustes → Hoy → «Me levanté a las 22:00» → Reacomodar hoy: el desayuno queda a las 22:00 «corrido de las 07:30» (14 h 30 más tarde, aunque §5.1 dice que se corre hasta 1 h 30) y el almuerzo de las 13:00 sigue en el día. Hoy la SPEC §5.1 dice que la comida que no entra «aparece justo después de la anterior, aunque pase la hora de dormir». ¿Se mantiene, o la que cae mientras dormís (o pasada la hora de dormir) se omite ese día y el desayuno se saltea si te levantás a la hora del almuerzo o después? Hay un arreglo listo para la segunda opción (commit `90daf71`, guardado en la rama `claude/atacante-main-90daf71`); no se mergeó porque cambia una decisión tuya.
 
+2. **Rutinas hasta la hora de dormir** (agente atacante sobre `main`, 2026-11-18). Las rutinas no son «estudio», así que no respetan «Nada de estudio desde», y el plan puede ponerlas hasta la hora de acostarse (por ejemplo, correr de 23:30 a 00:00). ¿Las rutinas (gym, correr) deberían respetar también «Nada de estudio desde» o dejar un margen antes de acostarte, o está bien así?
+3. **Rutina creada a mitad de semana** (mismo origen). Hoy pide todas sus veces semanales en los días que quedan: gym 3× creado el sábado sale como imposible. ¿Debería pedir todas, o solo la parte proporcional a los días que quedan?
+
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
