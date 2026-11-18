@@ -239,7 +239,7 @@ describe("the silo form says what is wrong, beside the field", () => {
   it("refuses a new part whose minutes are negative or not a number", () => {
     renderEditor();
     const part = screen.getByLabelText("Nueva parte: nombre y minutos entre paréntesis");
-    for (const bad of ["Práctico (-30)", "Práctico (abc)", "Práctico (0)", "Práctico (2000)"]) {
+    for (const bad of ["Práctico (-30)", "Práctico (1,5)", "Práctico (0)", "Práctico (2000)"]) {
       type(part, bad);
       fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
       expect(screen.getByRole("alert").textContent).toMatch(/entre paréntesis/);

@@ -385,7 +385,9 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "applyOption": {
       const r = refreshPlan(data, now);
-      const option = decisions(r.input, r.result).options.find((o) => o.id === action.optionId);
+      const option = decisions(r.input, r.result, { data, now }).options.find(
+        (o) => o.id === action.optionId,
+      );
       if (!option) return data;
       const next = applyOption(data, r.input, option, now);
       const previousMove =
@@ -1310,7 +1312,7 @@ export function StoreProvider({
   const store = useMemo<Store>(() => {
     const r = refreshPlan(data, now);
     const pending = pendingConfirmations(data, now);
-    const d = decisions(r.input, r.result);
+    const d = decisions(r.input, r.result, { data, now });
     // Signed in, the server times event addresses by itself; the demo has no server.
     const where = unlocated(data, visibleEvents(data), now).map((u) =>
       persist ? { ...u, lookup: false } : u,

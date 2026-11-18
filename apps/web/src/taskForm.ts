@@ -1,5 +1,6 @@
 // What the silo form checks before saving: each problem is said beside its field.
 import { DEFAULTS, eventRole } from "./calendars.js";
+import { TITLE_MAX } from "./limits.js";
 import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
 
@@ -89,21 +90,28 @@ export function minimumProblem(minimum: string, estimateHours: number): string |
     : null;
 }
 
-/** A new part typed as «Nombre (minutos)»: its title and minutes, or what is wrong. */
+/**
+ * A new part typed as «Nombre (minutos)»: its title and minutes, or what is wrong. Only a
+ * final «(n)» is the minutes (a figure that is not a whole number of 1 to 1440 is an
+ * error); any other parenthesis («Parte B (opcional)») is part of the name.
+ */
 export function parseUnit(
   text: string,
 ): { title: string; minutes: number } | { error: string } | null {
   if (!text.trim()) return null;
-  const m = text.match(/^(.*?)\s*\(([^)]*)\)\s*$/);
-  if (!m) return { title: text.trim(), minutes: 60 };
-  const raw = (m[2] ?? "").trim();
-  const minutes = Number(raw);
-  if (!/^\d+$/.test(raw) || minutes < 1 || minutes > MAX_UNIT_MINUTES) {
+  const m = text.match(/^(.*?)\s*\(\s*([-+]?\d+(?:[.,]\d+)?)\s*\)\s*$/);
+  const title = (m ? (m[1] ?? "") : text).trim();
+  if (title.length > TITLE_MAX) {
+    return { error: `El nombre de la parte tiene como máximo ${TITLE_MAX} caracteres.` };
+  }
+  if (!m) return { title, minutes: 60 };
+  const minutes = Number(m[2]);
+  // «(-30)» or «(1,5)» are minutes typed wrong, not a name.
+  if (!/^\d+$/.test(m[2] ?? "") || minutes < 1 || minutes > MAX_UNIT_MINUTES) {
     return {
       error: `Los minutos entre paréntesis son un número entero de 1 a ${MAX_UNIT_MINUTES}, como «Práctico 5 (60)».`,
     };
   }
-  const title = (m[1] ?? "").trim();
   return title ? { title, minutes } : { error: "Poné el nombre de la parte antes de los minutos." };
 }
 
