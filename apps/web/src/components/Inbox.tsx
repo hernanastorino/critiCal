@@ -516,7 +516,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               type="button"
               className="btn small"
               aria-label={`Deshacer: ${d.label}`}
-              onClick={() => dispatch({ type: "undoDecision", id: d.id })}
+              onClick={() => {
+                dispatch({ type: "undoDecision", id: d.id });
+                toast.show(`Deshecho: ${d.label}`);
+              }}
             >
               Deshacer
             </button>

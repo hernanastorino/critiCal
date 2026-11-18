@@ -1,7 +1,7 @@
 // Export and import of everything as one JSON file (also a manual backup).
-import { awakeMinutes, awakeProblem } from "./dayLength.js";
+import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
-import { BACKUP_TEXT_MAX, isRealDate } from "./limits.js";
+import { BACKUP_TEXT_MAX, deadlineInRange, isRealDate } from "./limits.js";
 import type { AppData } from "./model.js";
 import { markLegacyStudy, validRoutine } from "./subjects.js";
 
@@ -20,7 +20,7 @@ const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes
 
 /**
  * What is wrong with a day of the week of a backup whose times are valid («El lunes tiene
- * 23,5 h despierto»), or null: awake 4 to 22 h, and no free time asleep (what «Mi semana»
+ * 23 h 30 min despierto»), or null: awake 4 to 22 h, and no free time asleep (what «Mi semana»
  * and «Hoy» take).
  */
 export function dayProblem(w: Record<string, unknown>, weekday: number): string | null {
@@ -28,8 +28,7 @@ export function dayProblem(w: Record<string, unknown>, weekday: number): string 
   const [from, to] = [minutesToHhmm(wake as number), minutesToHhmm(bed as number)];
   const name = `El ${WEEKDAYS[weekday] ?? "día"}`;
   if (awakeProblem(from, to)) {
-    const h = String(Math.round((awakeMinutes(from, to) / 60) * 10) / 10).replace(".", ",");
-    return `${name} tiene ${h} h despierto (de ${from} a ${to}): tiene que tener entre 4 y 22 h.`;
+    return `${name} tiene ${awakeText(awakeMinutes(from, to))} despierto (de ${from} a ${to}): tiene que tener entre 4 y 22 h.`;
   }
   const asleep =
     (bed as number) < (wake as number)
@@ -40,6 +39,7 @@ export function dayProblem(w: Record<string, unknown>, weekday: number): string 
 
 /** The data in a backup file, or an error message in Spanish for the user. */
 export function parseBackup(text: string): { data: AppData } | { error: string } {
+  const now = Date.now();
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
@@ -70,8 +70,10 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   // Names and titles go into cards, notices and calendar events: a bounded length.
   const bounded = (x: unknown) => str(x) && (x as string).length <= BACKUP_TEXT_MAX;
+  // A part of 0 or of days would never plan (the editor takes 1 to 1440 min).
   const validUnit = (u: unknown) =>
-    isObject(u) && str(u.id) && bounded(u.title) && num(u.estimateMinutes);
+    isObject(u) && str(u.id) && bounded(u.title) && between(u.estimateMinutes, 1, 1440);
+  const distinctIds = (units: Rec[]) => new Set(units.map((u) => u.id)).size === units.length;
   // An instant Date can represent (toISOString would throw otherwise).
   const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
   const opt = (x: unknown, ok: (v: unknown) => boolean) => x === undefined || ok(x);
@@ -101,10 +103,14 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     str(t.activityId) &&
     Array.isArray(t.units) &&
     t.units.every(validUnit) &&
-    opt(t.deadline, instant) &&
+    distinctIds(t.units as Rec[]) &&
+    // The date field's range: 2000 up to the end of the year five years ahead.
+    opt(t.deadline, (v) => instant(v) && deadlineInRange(v as number, now)) &&
     // Without its durations the planner gets NaN and leaves it unplanned.
     between(t.estimateMinutes, 0, 100_000) &&
     between(t.minMinutes, 0, 100_000) &&
+    // A deliverable's minimum is part of its estimate (a habit keeps its session in it).
+    (t.kind !== "deliverable" || (t.minMinutes as number) <= (t.estimateMinutes as number)) &&
     opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
     opt(t.sessionMinutes, (v) => between(v, 1, 1440)) &&
     // A routine's habit as Rutinas allows it (6 h a time, 40 h a week); other habits,

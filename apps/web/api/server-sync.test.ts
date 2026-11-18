@@ -54,6 +54,12 @@ vi.mock("./_lib/replan.js", async (original) => ({
   serverSync: (...args: unknown[]) => serverSync(...args),
 }));
 
+const reported = vi.fn();
+vi.mock("./_lib/report.js", async (original) => ({
+  ...(await original<typeof import("./_lib/report.js")>()),
+  report: (...args: unknown[]) => reported(...args),
+}));
+
 const { handle: webhook } = await import("./google-webhook.js");
 const { handle: cron } = await import("./cron.js");
 const { actAs, readEnv } = await import("./_lib/server.js");
@@ -72,6 +78,7 @@ const notify = (headers: Record<string, string>) =>
   new Request("https://app/api/google-webhook", { method: "POST", headers });
 
 beforeEach(() => {
+  reported.mockReset();
   rpc.mockReset();
   serverSync.mockReset();
   ops.length = 0;
@@ -87,6 +94,37 @@ describe("google-webhook", () => {
     expect((await webhook(forged, env)).status).toBe(404);
     const unknown = notify({ "x-goog-channel-id": "zz", "x-goog-channel-token": "s3cret" });
     expect((await webhook(unknown, env)).status).toBe(404);
+    expect(serverSync).not.toHaveBeenCalled();
+  });
+
+  it("compares the channel's secret by value, whatever its length", async () => {
+    for (const token of ["s3cre", "s3crets", "S3CRET", ""]) {
+      const res = await webhook(
+        notify({ "x-goog-channel-id": "ch1", "x-goog-channel-token": token || "x" }),
+        env,
+      );
+      expect(res.status).toBe(404);
+    }
+    rpc.mockResolvedValue({ data: false, error: null });
+    const ok = await webhook(
+      notify({ "x-goog-channel-id": "ch1", "x-goog-channel-token": "s3cret" }),
+      env,
+    );
+    expect(ok.status).toBe(200);
+  });
+
+  it("reports a failed claim instead of throwing", async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error("db down") });
+    const res = await webhook(
+      notify({
+        "x-goog-channel-id": "ch1",
+        "x-goog-channel-token": "s3cret",
+        "x-goog-resource-state": "exists",
+      }),
+      env,
+    );
+    expect(res.status).toBe(500);
+    expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "google-webhook");
     expect(serverSync).not.toHaveBeenCalled();
   });
 
@@ -149,6 +187,29 @@ describe("cron", () => {
     expect((await cron(tick(), env)).status).toBe(401);
     expect((await cron(tick("guess"), env)).status).toBe(401);
     expect((await cron(tick("k"), { ...env, secret: undefined })).status).toBe(503);
+  });
+
+  it("reports the failure of the user list or of one claim", async () => {
+    rpc.mockImplementation(async (name: string) =>
+      name === "check_cron_key"
+        ? { data: true, error: null }
+        : { data: null, error: new Error("db down") },
+    );
+    expect((await cron(tick("k"), env)).status).toBe(500);
+    expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "cron");
+    reported.mockClear();
+    rpc.mockImplementation(async (name: string, args: { p_user?: string }) => {
+      if (name === "check_cron_key") return { data: true, error: null };
+      if (name === "connected_users") return { data: ["u1", "u2"], error: null };
+      if (name === "claim_sync" && args.p_user === "u1")
+        return { data: null, error: new Error("lock") };
+      return { data: true, error: null };
+    });
+    serverSync.mockResolvedValue({});
+    const res = await cron(tick("k"), env);
+    expect(await res.json()).toEqual({ ok: true, synced: 1, notified: 0 });
+    expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "cron");
+    expect(serverSync.mock.calls.map((c) => c[1])).toEqual(["u2"]);
   });
 
   it("syncs each connected user that is due", async () => {

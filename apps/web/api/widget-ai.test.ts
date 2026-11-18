@@ -291,16 +291,28 @@ describe("syllabus", () => {
     expect(syllabus.config.maxDuration).toBe(60);
   });
 
-  it("a reading that ends busy or timed out does not use up the budget", async () => {
+  it("a reading that ends busy or timed out still spends the budget", async () => {
     vi.stubGlobal("fetch", async () => new Response("busy", { status: 503 }));
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 5; i++) {
       expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
         503,
       );
     }
+    expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(429);
+    syllabus.reads.reset();
     vi.stubGlobal("fetch", async () => {
       throw Object.assign(new Error("slow"), { name: "TimeoutError" });
     });
+    for (let i = 0; i < 5; i++) {
+      expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
+        503,
+      );
+    }
+    expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(429);
+  });
+
+  it("gives the budget back only when no model existed to read the PDF", async () => {
+    vi.stubGlobal("fetch", async () => new Response("not found", { status: 404 }));
     for (let i = 0; i < 8; i++) {
       expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
         503,

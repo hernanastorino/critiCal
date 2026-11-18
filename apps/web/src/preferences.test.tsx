@@ -157,6 +157,7 @@ describe("fixed settings", () => {
     fireEvent.click(screen.getByLabelText(`Color ${PALETTE[7]}`));
     fireEvent.change(screen.getByLabelText("Sesión máxima (min)"), { target: { value: "90" } });
     fireEvent.change(screen.getByLabelText("Prefiero desde"), { target: { value: "" } });
+    fireEvent.change(screen.getByLabelText("hasta"), { target: { value: "" } });
     fireEvent.click(screen.getByLabelText(/Es estudio/));
     fireEvent.click(screen.getByText("Guardar Cálculo II"));
     expect(stored().activities[0]).toMatchObject({

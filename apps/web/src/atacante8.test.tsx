@@ -55,9 +55,9 @@ describe("1. Mi semana y el respaldo piden el mismo día", () => {
   const save = () => click(/^Guardar para/);
 
   it.each([
-    ["07:30", "07:00", /23,5 h/],
-    ["00:00", "23:59", /24 h/],
-    ["08:00", "11:00", /3 h/],
+    ["07:30", "07:00", /23 h 30 min/],
+    ["00:00", "23:59", /23 h 59 min/],
+    ["08:00", "11:00", /3 h:/],
   ])("%s a %s is refused in the day's fields", (wake, bed, said) => {
     inside(<WeekSettings />);
     const before = week();
@@ -84,7 +84,7 @@ describe("1. Mi semana y el respaldo piden el mismo día", () => {
       bed: 420,
     };
     const out = parseBackup(exportJson(d, NOW));
-    expect("error" in out && out.error).toMatch(/^El lunes tiene 23,5 h despierto/);
+    expect("error" in out && out.error).toMatch(/^El lunes tiene 23 h 30 min despierto/);
   });
 
   it("whatever the app saves in Mi semana imports back", () => {
@@ -169,6 +169,43 @@ describe("4. Materia: «Prefiero desde / hasta»", () => {
     expect(alerts().join(" ")).toMatch(/Hora inválida/);
     expect(screen.getByLabelText("hasta").getAttribute("aria-invalid")).toBe("true");
     expect(screen.getByLabelText("Prefiero desde").getAttribute("aria-invalid")).toBeNull();
+  });
+});
+
+describe("9.ª vuelta: «Prefiero desde / hasta» a medias o hasta medianoche", () => {
+  const open = () => {
+    inside(<ActivitySettings />);
+    const name = (latest as AppData).activities[0]?.name as string;
+    fireEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
+  };
+
+  it("one field alone is an error in the empty one, not a silent drop", () => {
+    open();
+    set("hasta", "");
+    set("Prefiero desde", "08:00");
+    expect(alerts().join(" ")).toMatch(/Poné también hasta qué hora/);
+    expect(screen.getByLabelText("hasta").getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("Prefiero desde").getAttribute("aria-invalid")).toBeNull();
+    set("Prefiero desde", "");
+    set("hasta", "10:00");
+    expect(alerts().join(" ")).toMatch(/Poné también desde qué hora/);
+    expect(screen.getByLabelText("Prefiero desde").getAttribute("aria-invalid")).toBe("true");
+  });
+
+  it("«hasta» may be midnight", () => {
+    open();
+    set("Prefiero desde", "20:00");
+    typeTime("hasta", "24:00");
+    expect(alerts()).toEqual([]);
+    click(/^Guardar/);
+    expect(latest?.activities[0]?.preferred).toEqual({ start: 1200, end: 1440 });
+    fireEvent.click(screen.getByRole("button", { name: /Cálculo II/ }));
+    expect((screen.getByLabelText("hasta") as HTMLInputElement).value).toBe("00:00");
+    expect(alerts()).toEqual([]);
+    set("Prefiero desde", "19:00");
+    set("hasta", "00:00");
+    click(/^Guardar/);
+    expect(latest?.activities[0]?.preferred).toEqual({ start: 1140, end: 1440 });
   });
 });
 

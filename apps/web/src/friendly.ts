@@ -25,8 +25,13 @@ export function optionPromise(
   minimumsMet: boolean,
   otherwise: string,
 ): string {
-  if (!minimumsMet)
-    return option.result.feasible ? "Con esto llegás a todos los mínimos." : otherwise;
+  if (!minimumsMet) {
+    if (!option.result.feasible) return otherwise;
+    // Free time is lent until the end of the week: it is not what makes it last longer.
+    return option.kind === "use-free-time"
+      ? "Con esto llegás a todos los mínimos usando tu tiempo libre hasta el fin de esta semana."
+      : "Con esto llegás a todos los mínimos.";
+  }
   if (option.kind === "minimum-only")
     return "Con esto el plan cubre todo lo que queda, aunque no llegues al objetivo.";
   if (option.kind === "use-free-time")

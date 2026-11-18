@@ -67,7 +67,7 @@ function savedActivity(
     breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
     preferred:
       form.from.trim() && form.to.trim()
-        ? { start: parseClock(form.from) ?? 0, end: parseClock(form.to) ?? 0 }
+        ? { start: parseClock(form.from) ?? 0, end: windowEnd(form.from, form.to) ?? 0 }
         : undefined,
   };
 }
@@ -84,6 +84,11 @@ function savedForm<F extends ActivityForm>(
 ): F {
   return {
     ...form,
+    // «24:00» is stored as midnight and shown as a time field can hold it.
+    to:
+      form.from.trim() && form.to.trim()
+        ? minutesToHhmm(windowEnd(form.from, form.to) ?? 0)
+        : form.to,
     max: String(maxSession),
     min: String(minBlock),
     study: String(clampMinutes(form.study, 5, 240) ?? activity.studyMinutes ?? form.study),
@@ -99,17 +104,36 @@ function savedForm<F extends ActivityForm>(
 const recent: { current: { removed: RemovedActivity; at: number }[] } = { current: [] };
 
 /**
+ * Where the window ends, in minutes: «hasta» may be midnight, written «24:00» or «00:00»
+ * after a start (the model keeps 1440 for it), and is otherwise read like any time.
+ */
+function windowEnd(from: string, to: string): number | null {
+  if (/^\s*24(?::0{1,2})?\s*$/.test(to)) return 1440;
+  const end = parseClock(to);
+  const start = parseClock(from);
+  return end === 0 && start !== null && start > 0 ? 1440 : end;
+}
+
+/**
  * The «Prefiero desde / hasta» window is two real times (read like everywhere: «7» is
- * 07:00), the first before the second. `from` and `to` say which field the error is about.
+ * 07:00), the first before the second, and both or none. `from` and `to` say which field
+ * the error is about.
  */
 function windowError(
   from: string,
   to: string,
 ): { message: string; from: boolean; to: boolean } | null {
-  const badFrom = from.trim() !== "" && parseClock(from) === null;
-  const badTo = to.trim() !== "" && parseClock(to) === null;
+  const [hasFrom, hasTo] = [from.trim() !== "", to.trim() !== ""];
+  const badFrom = hasFrom && parseClock(from) === null;
+  const badTo = hasTo && windowEnd(from, to) === null;
   if (badFrom || badTo) return { message: "Hora inválida.", from: badFrom, to: badTo };
-  const [a, b] = [parseClock(from), parseClock(to)];
+  // One field alone would be dropped on saving without a word.
+  if (hasFrom !== hasTo) {
+    return hasFrom
+      ? { message: "Poné también hasta qué hora.", from: false, to: true }
+      : { message: "Poné también desde qué hora.", from: true, to: false };
+  }
+  const [a, b] = [parseClock(from), windowEnd(from, to)];
   return a !== null && b !== null && a >= b
     ? { message: "«Prefiero desde» tiene que ser antes de «hasta».", from: true, to: true }
     : null;

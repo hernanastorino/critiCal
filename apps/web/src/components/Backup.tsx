@@ -113,7 +113,11 @@ export function Backup() {
         />
       </div>
       {message && (
-        <p className="meta" style={message.error ? { color: CRITICAL } : undefined}>
+        <p
+          className="meta"
+          role={message.error ? "alert" : undefined}
+          style={message.error ? { color: CRITICAL } : undefined}
+        >
           {message.text}
         </p>
       )}
