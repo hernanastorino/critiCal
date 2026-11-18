@@ -1,12 +1,12 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { edited, errorOf, NOW, roundTrip } from "./atacante11Kit.js";
 import { Routines } from "./components/Preferences.js";
 import { TaskEditor } from "./components/TaskEditor.js";
 import { diffData, rowsToData } from "./data.js";
 import { demoData } from "./demo.js";
 import { localParts, MINUTE, type ValidHours, zonedInstant } from "./engine.js";
-import type { AppData, AppTask } from "./model.js";
+import type { AppData } from "./model.js";
 import { describeHours, emptyHoursForm, formOfHours, readHours } from "./routineHours.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 
@@ -51,8 +51,8 @@ describe("the plan keeps a routine inside its valid hours", () => {
         now: MON,
       },
     );
-    const run = d.tasks.find((t) => t.title === "Correr") as AppTask;
-    return { d, blocks: d.plan.filter((b) => b.taskId === run.id) };
+    const run = d.tasks.find((t) => t.title === "Correr");
+    return { d, blocks: d.plan.filter((b) => b.taskId === run?.id) };
   };
 
   it("keeps it from 17:00, up to 19:00 on weekdays and 20:00 on Saturdays", () => {
@@ -180,16 +180,15 @@ describe("editing a routine's hours", () => {
       now: MON,
     });
     const act = d.activities.find((a) => a.name === "Correr");
-    const habit = d.tasks.find((t) => t.activityId === act?.id) as AppTask;
+    const habit = d.tasks.find((t) => t.activityId === act?.id);
+    if (!habit) throw new Error("the routine has no habit");
     render(
       <StoreProvider initial={() => d} persist={false} fixedNow={MON}>
         <Spy />
-        <TaskEditor task={habit} onClose={() => {}} />
+        <TaskEditor task={habit} onClose={vi.fn()} />
       </StoreProvider>,
     );
-    expect((screen.getByLabelText("Hasta, todos los días") as HTMLInputElement).value).toBe(
-      "19:00",
-    );
+    expect(screen.getByDisplayValue("19:00")).toBe(screen.getByLabelText("Hasta, todos los días"));
     type("Hasta, todos los días", "20");
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(latest?.activities.find((a) => a.name === "Correr")?.validHours).toEqual({
@@ -215,7 +214,7 @@ describe("persistence of the hours", () => {
   it("a backup brings them back, identical", () => {
     const r = roundTrip(withRoutine());
     expect(errorOf(r)).toBe("");
-    const back = "data" in r ? (r.data as AppData) : undefined;
+    const back = "data" in r ? r.data : undefined;
     expect(back?.activities.find((a) => a.name === "Correr")?.validHours).toEqual(hours);
   });
 

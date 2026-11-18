@@ -44,6 +44,17 @@ export interface HoursProblem {
   text: string;
 }
 
+/** A clock typed in a side of a franja: empty is the start (0) or the end (1440) of the day. */
+const clockOf = (v: string, empty: number) => (blank(v) ? empty : parseClock(v));
+
+/** What is wrong with a range of minutes (the side it is about and what to say), or null. */
+function rangeProblem(from: number, to: number, sessionMinutes: number | undefined) {
+  if (from >= to) return { side: "from", text: "«Desde» tiene que ser antes de «Hasta»." };
+  return sessionMinutes !== undefined && to - from < sessionMinutes
+    ? { side: "to", text: `la franja es más corta que una sesión (${sessionMinutes} min).` }
+    : null;
+}
+
 /**
  * A franja as typed: nothing (no limit), or a range. An empty «Desde» is from the start of
  * the day and an empty «Hasta» up to its end, so «a más tardar a las 19» is just «Hasta».
@@ -55,37 +66,20 @@ function readField(
   sessionMinutes: number | undefined,
 ): { range: MinuteRange | null; problems: HoursProblem[] } {
   if (isEmpty(f)) return { range: null, problems: [] };
+  const from = clockOf(f.from, 0);
+  const to = clockOf(f.to, 1440);
   const problems: HoursProblem[] = [];
-  const from = blank(f.from) ? 0 : parseClock(f.from);
-  const to = blank(f.to) ? 1440 : parseClock(f.to);
-  if (from === null) {
-    problems.push({
-      field: `${key}-from`,
-      text: `${who}la hora «Desde» no es válida (por ejemplo 7 o 07:30).`,
-    });
-  }
-  if (to === null) {
-    problems.push({
-      field: `${key}-to`,
-      text: `${who}la hora «Hasta» no es válida (por ejemplo 19 o 19:30).`,
-    });
-  }
-  if (from === null || to === null) return { range: null, problems };
-  if (from >= to) {
-    problems.push({
-      field: `${key}-from`,
-      text: `${who}«Desde» tiene que ser antes de «Hasta».`,
-    });
-  } else if (sessionMinutes !== undefined && to - from < sessionMinutes) {
-    problems.push({
-      field: `${key}-to`,
-      text: `${who}la franja es más corta que una sesión (${sessionMinutes} min).`,
-    });
-  }
-  return { range: problems.length ? null : { start: from, end: to }, problems };
+  const say = (side: string, text: string) =>
+    problems.push({ field: `${key}-${side}`, text: `${who}${text}` });
+  if (from === null) say("from", "la hora «Desde» no es válida (por ejemplo 7 o 07:30).");
+  if (to === null) say("to", "la hora «Hasta» no es válida (por ejemplo 19 o 19:30).");
+  const wrong = from === null || to === null ? null : rangeProblem(from, to, sessionMinutes);
+  if (wrong) say(wrong.side, wrong.text);
+  if (from === null || to === null || problems.length) return { range: null, problems };
+  return { range: { start: from, end: to }, problems };
 }
 
-const cap = (s: string) => (s ? s[0]?.toUpperCase() + s.slice(1) : s);
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * The valid hours a form says (undefined: no limit) and what is wrong with it, field by
