@@ -21,6 +21,7 @@ import {
 } from "../format.js";
 import { lanes } from "../lanes.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
+import { type MoveBounds, moveBounds, moveRefusal } from "../moveBounds.js";
 import {
   isPinned,
   MEAL_NAMES,
@@ -484,12 +485,21 @@ export function Week({
       slot,
     );
     if (!spot) return null;
-    const { busy, earliest } = landingLimits(spot.date, blockId);
-    const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, endMin);
+    const { busy, earliest, latest } = landingLimits(spot.date, blockId);
+    const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, latest);
     return minute === null ? null : { date: spot.date, minute };
   };
 
-  /** What is fixed on `date` (minutes of that day) and the earliest start a block may take. */
+  /** The study hours and deadline a block of `blockId` keeps on `date`, for drops and keys alike. */
+  const boundsOf = (date: string, blockId: string): MoveBounds =>
+    moveBounds(
+      data,
+      now,
+      date,
+      data.tasks.find((t) => t.id === data.plan.find((b) => b.id === blockId)?.taskId)?.deadline,
+    );
+
+  /** What is fixed on `date` (minutes of that day) and the window a block may take. */
   const landingLimits = (date: string, blockId: string) => {
     const slot = data.settings.slotMinutes;
     const midnight = zonedInstant(tz, date, 0);
@@ -501,31 +511,44 @@ export function Week({
           : i.id !== blockId && i.start <= now && i.end > now,
       )
       .map((i) => ({ start: toMinute(i.start), end: toMinute(i.end) }));
+    const bounds = boundsOf(date, blockId);
     const earliest = Math.max(
-      Math.ceil(startMin / slot) * slot,
+      Math.ceil(Math.max(startMin, bounds.from) / slot) * slot,
       Math.floor(toMinute(now) / slot) * slot + slot,
     );
-    return { busy, earliest };
+    const latest = Math.min(endMin, bounds.to, bounds.deadline ?? Number.POSITIVE_INFINITY);
+    return { busy, earliest, latest, bounds };
   };
 
   /** Pins `b` where an arrow key takes it, keeping what a drop respects; says why when it cannot. */
   const keyMove = (b: PlanBlock, step: number) => {
     const start = b.start + step;
     const day = localParts(tz, start).date;
+    if (!dates.includes(day)) return flash("Fuera de la semana que se ve");
     if (day < today) return flash("Ese día ya pasó");
     if (start <= now) return flash("Ese horario ya pasó");
     const minutes = (b.end - b.start) / MINUTE;
-    const { busy, earliest } = landingLimits(day, b.id);
+    const { busy, earliest, latest, bounds } = landingLimits(day, b.id);
+    const target = (start - zonedInstant(tz, day, 0)) / MINUTE;
+    const sameDay = day === localParts(tz, b.start).date;
+    // Within its day the exact slot is the only candidate, so its refusal says why.
+    const why = sameDay ? moveRefusal(bounds, target, minutes) : null;
+    if (why) return flash(why);
     const minute = keyboardLanding(
-      (start - zonedInstant(tz, day, 0)) / MINUTE,
+      target,
       minutes,
       busy,
       data.settings.slotMinutes,
       earliest,
-      endMin,
-      day === localParts(tz, b.start).date,
+      latest,
+      sameDay,
     );
-    if (minute === null) return flash("Ahí hay algo fijo y no queda un hueco libre ese día");
+    if (minute === null) {
+      return flash(
+        moveRefusal(bounds, target, minutes) ??
+          "Ahí hay algo fijo y no queda un hueco libre ese día",
+      );
+    }
     const at = zonedInstant(tz, day, minute);
     const pin = pinAt(b, at);
     setFocusId(pin);
