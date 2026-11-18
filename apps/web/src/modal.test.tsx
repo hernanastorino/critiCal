@@ -60,6 +60,26 @@ describe("sheets inside sheets", () => {
   });
 });
 
+describe("notices over a sheet", () => {
+  it("keeps the notice at the top and the standing summary reachable (their «Deshacer»)", () => {
+    render(
+      <>
+        <div className="app">
+          <Sheet name="Ajustes" onClose={() => {}} />
+        </div>
+        <div className="snacks">
+          <button type="button">Resumen</button>
+        </div>
+        <div className="toasts">
+          <button type="button">Deshacer</button>
+        </div>
+      </>,
+    );
+    expect(screen.getByText("Deshacer").parentElement?.inert).toBeFalsy();
+    expect(screen.getByText("Resumen").parentElement?.inert).toBeFalsy();
+  });
+});
+
 describe("focus after a tap", () => {
   it("goes back to what was tapped to open the sheet, even if it never had focus", () => {
     const view = (open: boolean) => (
