@@ -2,7 +2,13 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { buildSlots, MEAL_RANGE } from "./availability.js";
 import { overlaps } from "./intervals.js";
-import { infeasibilityOptions, moveSpot, recommendations, targetOptions } from "./options.js";
+import {
+  infeasibilityOptions,
+  moveSpot,
+  recommendations,
+  selfShort,
+  targetOptions,
+} from "./options.js";
 import { assignable, type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
 import { activity, at, settings, task } from "./testing.js";
 import { type CalendarEvent, MINUTE, type PlanBlock } from "./types.js";
@@ -972,5 +978,89 @@ describe("exam review", () => {
     );
     expect(minutesOf(r, "fis")).toBeGreaterThan(0);
     expect(r.blocks.every((b) => b.end <= keep.start || b.start >= keep.end)).toBe(true);
+  });
+});
+
+describe("routines and the daily materias cap", () => {
+  // Monday only: 08:00 to midnight.
+  const oneDay = { horizonEnd: at("2026-11-03", "00:00") };
+  const gym = (over = {}) =>
+    task("g", "gym", at("2026-11-03", "00:00"), {
+      remainingMinutes: 30,
+      minRemainingMinutes: 30,
+      sessionMinutes: 30,
+      maxPerDayMinutes: 30,
+      ...over,
+    });
+
+  it("leaves routines out of «máximo de materias por día»", () => {
+    const r = schedule(
+      base({
+        ...oneDay,
+        settings: { ...settings, maxActivitiesPerDay: 1 },
+        tasks: [gym(), task("m", "mate", at("2026-11-03", "00:00"))],
+      }),
+    );
+    // A routine on the day takes no place among the materias, and is not kept out by them.
+    expect(minutesOf(r, "g")).toBe(30);
+    expect(minutesOf(r, "m")).toBe(120);
+    expect(r.feasible).toBe(true);
+  });
+
+  it("still caps materias with a routine on the day", () => {
+    const r = schedule(
+      base({
+        ...oneDay,
+        settings: { ...settings, maxActivitiesPerDay: 1 },
+        tasks: [
+          gym(),
+          task("m", "mate", at("2026-11-03", "00:00")),
+          task("f", "fisica", at("2026-11-03", "00:00")),
+        ],
+      }),
+    );
+    expect(minutesOf(r, "m") > 0 && minutesOf(r, "f") > 0).toBe(false);
+  });
+
+  it("does not flag blocks a short once-a-day routine could never take", () => {
+    // Three sessions wanted, one a day, one day: short whatever happens to the rest.
+    const r = schedule(
+      base({
+        ...oneDay,
+        tasks: [
+          gym({ remainingMinutes: 90, minRemainingMinutes: 90 }),
+          task("m", "mate", at("2026-11-05", "00:00")),
+        ],
+      }),
+    );
+    expect(r.feasible).toBe(false);
+    expect(r.blocks.filter((b) => b.taskId === "m").every((b) => b.level !== "critical")).toBe(
+      true,
+    );
+    // The routine itself is still short: its own block stays critical.
+    expect(r.blocks.find((b) => b.taskId === "g")?.level).toBe("critical");
+  });
+
+  it("names what does not fit even alone, and only that", () => {
+    const input = base({
+      ...oneDay,
+      tasks: [
+        gym({ remainingMinutes: 90, minRemainingMinutes: 90 }),
+        task("m", "mate", at("2026-11-03", "00:00"), {
+          remainingMinutes: 360,
+          minRemainingMinutes: 360,
+        }),
+        task("f", "fisica", at("2026-11-03", "00:00"), {
+          remainingMinutes: 360,
+          minRemainingMinutes: 360,
+        }),
+      ],
+    });
+    const r = schedule(input);
+    // The materias lack room only because of each other; the routine's sessions fit nowhere.
+    const short = r.status.filter((s) => s.minDeficit > 0).map((s) => s.taskId);
+    expect(short).toContain("g");
+    expect(short.length).toBeGreaterThan(1);
+    expect(selfShort(input, r)).toEqual(["g"]);
   });
 });

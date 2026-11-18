@@ -6,6 +6,9 @@ import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "
 import {
   FREE_TODAY,
   mealNoRoom,
+  type NoFitKind,
+  noFit,
+  onlyNoFitLeft,
   REPLANNED_TOAST,
   SKIPPED_TOAST,
   STILL_SHORT,
@@ -13,7 +16,7 @@ import {
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
-import { DECISIONS_SHOWN_MS, endOfDay } from "../planning.js";
+import { DECISIONS_SHOWN_MS, endOfDay, onlyImpossibleLeft } from "../planning.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -40,6 +43,9 @@ function ProposalToday({ text }: { text: string }) {
   return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
 }
 
+const noFitKind = (t: AppTask): NoFitKind =>
+  t.kind !== "habit" ? "dated" : t.study ? "study" : "routine";
+
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
@@ -56,6 +62,8 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
     const event = data.events.find((e) => e.id === m.eventId);
     return event ? [{ ...m, event }] : [];
   });
+  // Tasks that fit nowhere even alone: the Bandeja names them as the cause.
+  const noFits = decisions.impossible.flatMap((id) => data.tasks.filter((t) => t.id === id));
   const late = lateNight(data, now);
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
@@ -412,6 +420,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {decisions.options.length > 0 && (
           <>
             <div className="section-title">No llegás a todo · elegí</div>
+            {noFits.map((t) => (
+              <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
+                <div className="title">«{t.title}» no entra</div>
+                <RoyLine anim="hombros">{noFit(t.title, noFitKind(t))}</RoyLine>
+              </div>
+            ))}
             {decisions.options.map((o) => (
               <div
                 key={o.id}
@@ -420,7 +434,15 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               >
                 <div className="title">{o.label}</div>
                 <RoyLine anim="puente">
-                  {o.result.feasible ? "Con esto llegás a todos los mínimos." : STILL_SHORT}
+                  {o.result.feasible
+                    ? "Con esto llegás a todos los mínimos."
+                    : onlyImpossibleLeft(o, decisions.impossible)
+                      ? onlyNoFitLeft(
+                          noFits
+                            .filter((t) => o.result.status.some((s) => s.taskId === t.id))
+                            .map((t) => t.title),
+                        )
+                      : STILL_SHORT}
                 </RoyLine>
                 <button
                   type="button"

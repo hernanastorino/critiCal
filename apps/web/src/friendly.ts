@@ -14,6 +14,22 @@ export const mealNoRoom = (from: string, to: string, at: string) =>
 /** An option that still does not reach every minimum: say what to do next. */
 export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opción o aflojá un mínimo.";
 
+/** An option that reaches every minimum but those of tasks that fit nowhere anyway. */
+export const onlyNoFitLeft = (names: string[]) =>
+  `Con esto llegás a todo menos ${names.map((n) => `«${n}»`).join(" y ")}, que no entra${names.length > 1 ? "n" : ""} igual.`;
+
+/** What a task that fits nowhere is: a routine, a materia's weekly hours, or one with a date. */
+export type NoFitKind = "routine" | "study" | "dated";
+
+/** A task whose minimum does not fit even with the whole time to itself: it is the cause. */
+export function noFit(name: string, kind: NoFitKind): string {
+  if (kind === "routine")
+    return `«${name}» no entra esta semana aunque no hubiera nada más: son más veces de las que caben en los días que quedan. Bajá las veces en Ajustes › Rutinas o elegí «No hacer ${name}».`;
+  if (kind === "study")
+    return `«${name}» no entra esta semana aunque no hubiera nada más: son más horas de las que caben en los días que quedan. Bajá sus horas en Ajustes › Materias o elegí «No hacer ${name}».`;
+  return `«${name}» no entra antes de su fecha aunque no hubiera nada más. Cambiá la fecha o el mínimo, o elegí «No hacer ${name}».`;
+}
+
 /** Today has nothing left in the plan. */
 export const FREE_TODAY = "Hoy no queda nada por hacer: día libre.";
 
