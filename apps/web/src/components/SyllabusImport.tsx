@@ -217,6 +217,7 @@ export function SyllabusImport() {
                 }
               />
               <span style={{ flex: 1 }}>{u.title}</span>
+              {u.keep && u.hours === 0 && <span className="meta">0 h: no se crea</span>}
               <HoursInput
                 label={`Horas de ${u.title}`}
                 value={u.hours}

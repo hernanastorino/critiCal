@@ -23,19 +23,31 @@ export function minutesError(text: string): string | null {
 }
 
 /** What is wrong with the topics in total typed in the log, if anything (empty is fine). */
-export function topicsError(text: string): string | null {
+export function topicsError(
+  text: string,
+  estimateMinutes = Number.POSITIVE_INFINITY,
+): string | null {
   if (text.trim() === "") return null;
   const n = Number(text);
-  return isWhole(text) && n >= 1 && n <= MAX_TOPICS
-    ? null
-    : `Poné de 1 a ${MAX_TOPICS} temas, en cifras enteras.`;
+  if (!(isWhole(text) && n >= 1 && n <= MAX_TOPICS)) {
+    return `Poné de 1 a ${MAX_TOPICS} temas, en cifras enteras.`;
+  }
+  // Each topic is a part of at least a minute.
+  return n > Math.max(1, estimateMinutes)
+    ? `Con ${Math.max(1, estimateMinutes)} min estimados entran como mucho ${Math.max(1, estimateMinutes)} temas (cada uno de al menos 1 min).`
+    : null;
 }
 
 /** What is wrong with the topics done typed in the log, given the total typed. */
-export function topicsDoneError(done: string, total: string): string | null {
+export function topicsDoneError(
+  done: string,
+  total: string,
+  estimateMinutes?: number,
+): string | null {
   if (done.trim() === "") return null;
   if (!isWhole(done)) return "Poné los temas hechos en cifras enteras, de 0 hasta el total.";
-  if (total.trim() === "" || topicsError(total)) return "Poné primero los temas en total.";
+  if (total.trim() === "" || topicsError(total, estimateMinutes))
+    return "Poné primero los temas en total.";
   return Number(done) > Number(total) ? "No pueden ser más que los temas en total." : null;
 }
 
@@ -76,8 +88,8 @@ export function TaskDetail({
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const badMinutes = minutesError(minutes);
-  const badTopics = topicsError(topics);
-  const badDone = topicsDoneError(topicsDone, topics);
+  const badTopics = topicsError(topics, task.estimateMinutes);
+  const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
   const invalid = !!(badMinutes || badTopics || badDone);
   // Saved with nothing written: said, and it stays open (until something changes).
   const form = JSON.stringify([minutes, topics, topicsDone, units, reopen]);

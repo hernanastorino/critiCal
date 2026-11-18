@@ -54,7 +54,14 @@ export async function handle(req: Request, env: Env): Promise<Response> {
     }
   }
   let notified = 0;
-  for (const uid of await subscribedUsers(admin)) {
+  let subscribed: string[];
+  try {
+    subscribed = await subscribedUsers(admin, env);
+  } catch {
+    // Already reported by the lookup; the syncs above did happen.
+    return json({ ok: false, error: "push_failed", synced: synced.length }, 500);
+  }
+  for (const uid of subscribed) {
     try {
       notified += (await notifyUser(env, admin, uid, now, proposals.get(uid))).length;
     } catch (e) {

@@ -49,9 +49,18 @@ const fromLocalInput = (tz: string, v: string) => {
 };
 
 /** What is wrong with a field, read with it (nothing when it is fine). */
-function FieldError({ id, text }: { id: string; text: string | null }) {
+function FieldError({
+  id,
+  text,
+  role,
+}: {
+  id: string;
+  text: string | null;
+  /** Only when it is the one error: with several, a summary is the one announcement. */
+  role?: "alert";
+}) {
   return text ? (
-    <p className="meta" id={id} role="alert" style={{ color: "var(--critical)" }}>
+    <p className="meta" id={id} role={role} style={{ color: "var(--critical)" }}>
       {text}
     </p>
   ) : null;
@@ -202,6 +211,18 @@ export function TaskEditor({
       ? habitProblems(sessions, sessionMin, awakeWeekMinutes(data.settings.week), routineAct)
       : { times: null, minutes: null };
   const nameMissing = activityId === "new" && isBlank(newActivity);
+  // One error is announced by its own text; several, by one summary (not one alert each).
+  const shown = [
+    tried && isBlank(title),
+    activityId === "new" && tried && nameMissing,
+    !!deadlineError,
+    !!estimateError,
+    !!minimumError,
+    !!unitError,
+    !!habit.times,
+    !!habit.minutes,
+  ].filter(Boolean).length;
+  const alertRole = shown === 1 ? ("alert" as const) : undefined;
 
   const save = () => {
     setTried(true);
@@ -348,7 +369,7 @@ export function TaskEditor({
             <span
               className="meta"
               id="title-error"
-              role="alert"
+              role={alertRole}
               style={{ margin: 0, color: "var(--critical)" }}
             >
               Poné un nombre
@@ -380,7 +401,7 @@ export function TaskEditor({
           </label>
         )}
         {activityId === "new" && tried && nameMissing && (
-          <FieldError id="activity-error" text="Poné el nombre de la materia" />
+          <FieldError id="activity-error" text="Poné el nombre de la materia" role={alertRole} />
         )}
         {kind === "deliverable" ? (
           <>
@@ -393,6 +414,7 @@ export function TaskEditor({
                 min="2000-01-01T00:00"
                 max={`${deadlineMaxYear(now)}-12-31T23:59`}
                 aria-invalid={deadlineError ? true : undefined}
+                aria-describedby={deadlineError ? "deadline-error" : undefined}
                 onChange={(e) => {
                   setDeadline(e.target.value);
                   setDeadlineUnreal(e.target.validity.badInput);
@@ -401,7 +423,7 @@ export function TaskEditor({
               />
             </label>
             {deadlineError && (
-              <p className="meta" role="alert">
+              <p className="meta" id="deadline-error" role={alertRole}>
                 {deadlineError}
               </p>
             )}
@@ -463,8 +485,8 @@ export function TaskEditor({
                 />
               </label>
             </div>
-            <FieldError id="estimate-error" text={estimateError} />
-            <FieldError id="minimum-error" text={minimumError} />
+            <FieldError id="estimate-error" text={estimateError} role={alertRole} />
+            <FieldError id="minimum-error" text={minimumError} role={alertRole} />
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <legend style={{ padding: 0 }}>Partes (opcional)</legend>
               <span className="meta" style={{ margin: 0 }}>
@@ -534,7 +556,7 @@ export function TaskEditor({
                 <p
                   className="meta"
                   id="unit-error"
-                  role="alert"
+                  role={alertRole}
                   style={{ color: "var(--critical)" }}
                 >
                   {unitError}
@@ -568,8 +590,8 @@ export function TaskEditor({
         )}
         {kind === "habit" && (
           <>
-            <FieldError id="times-error" text={habit.times} />
-            <FieldError id="session-error" text={habit.minutes} />
+            <FieldError id="times-error" text={habit.times} role={alertRole} />
+            <FieldError id="session-error" text={habit.minutes} role={alertRole} />
           </>
         )}
         <label className="field">
@@ -592,6 +614,11 @@ export function TaskEditor({
           >
             Volver a las horas por defecto
           </button>
+        )}
+        {shown > 1 && (
+          <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+            Hay {shown} campos para corregir: están marcados arriba.
+          </p>
         )}
         <div className="row">
           {task && (

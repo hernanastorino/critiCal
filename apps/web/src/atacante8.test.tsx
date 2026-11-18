@@ -222,7 +222,7 @@ describe("5. Partes del silo", () => {
       title: "Parte B (opcional)",
       minutes: 45,
     });
-    const bad = parseUnit("Práctico 5 (2000)");
+    const bad = parseUnit("Práctico 5 (70000)");
     expect(bad && "error" in bad).toBe(true);
   });
 

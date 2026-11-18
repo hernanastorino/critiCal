@@ -264,7 +264,7 @@ describe("backup", () => {
     const [first] = data.tasks;
     const brokenUnit = { ...first, units: [null] } as never;
     expect(parseBackup(exportJson({ ...data, tasks: [brokenUnit] }, 1))).toEqual({
-      error: "Al respaldo le faltan datos.",
+      error: expect.stringMatching(/tiene una parte de minutos inválidos/),
     });
     expect(parseBackup(exportJson({ ...data, activities: [[] as never] }, 1))).toEqual({
       error: "Al respaldo le faltan datos.",

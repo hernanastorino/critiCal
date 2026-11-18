@@ -1,7 +1,14 @@
 // Export and import of everything as one JSON file (also a manual backup).
 import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
-import { BACKUP_TEXT_MAX, deadlineInRange, isRealDate } from "./limits.js";
+import {
+  BACKUP_TEXT_MAX,
+  deadlineInRange,
+  deadlineMaxYear,
+  isRealDate,
+  UNIT_MINUTES_MAX,
+  UNIT_MINUTES_MIN,
+} from "./limits.js";
 import type { AppData } from "./model.js";
 import { markLegacyStudy, validRoutine } from "./subjects.js";
 
@@ -37,6 +44,64 @@ export function dayProblem(w: Record<string, unknown>, weekday: number): string 
   return asleep ? `${name}, «Nada de estudio desde» cae cuando estás dormido.` : null;
 }
 
+type Task = Record<string, unknown>;
+const isRecord = (x: unknown): x is Task => !!x && typeof x === "object" && !Array.isArray(x);
+const nameOf = (t: Task) => `"${typeof t.title === "string" ? t.title : "sin título"}"`;
+
+/** What is wrong with the minutes of a part of a silo, or null. */
+function partProblem(t: Task): string | null {
+  const parts = Array.isArray(t.units) ? t.units : [];
+  const bad = parts.find(
+    (u) =>
+      !isRecord(u) ||
+      typeof u.estimateMinutes !== "number" ||
+      !(u.estimateMinutes >= UNIT_MINUTES_MIN && u.estimateMinutes <= UNIT_MINUTES_MAX),
+  );
+  if (bad === undefined) return null;
+  const m = isRecord(bad) ? bad.estimateMinutes : undefined;
+  const said = typeof m === "number" ? `${m} min` : "minutos inválidos";
+  return `La entrega ${nameOf(t)} tiene una parte de ${said}: tiene que ser de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX} min.`;
+}
+
+function repeatedPartProblem(t: Task): string | null {
+  const ids = (Array.isArray(t.units) ? t.units : []).map((u) => (u as Task)?.id);
+  return new Set(ids).size === ids.length
+    ? null
+    : `Hay dos partes con el mismo id en ${nameOf(t)}.`;
+}
+
+function minimumProblemOf(t: Task): string | null {
+  const [min, estimate] = [t.minMinutes, t.estimateMinutes];
+  const over = typeof min === "number" && typeof estimate === "number" && min > estimate;
+  return t.kind === "deliverable" && over
+    ? `El mínimo de ${nameOf(t)} es mayor que lo estimado.`
+    : null;
+}
+
+function dateProblem(t: Task, now: number): string | null {
+  const at = t.deadline;
+  const ok = at === undefined || (typeof at === "number" && deadlineInRange(at, now));
+  return ok ? null : `La fecha de ${nameOf(t)} está fuera de 2000–${deadlineMaxYear(now)}.`;
+}
+
+function hoursProblemOf(t: Task): string | null {
+  const ok = (x: unknown) => typeof x === "number" && x >= 0 && x <= 100_000;
+  return ok(t.estimateMinutes) && ok(t.minMinutes)
+    ? null
+    : `Las horas de ${nameOf(t)} no son válidas (de 0 a 100000 min).`;
+}
+
+/** The first thing wrong with a silo of the file, said with its name, or null. */
+export function taskProblem(tasks: unknown, now: number): string | null {
+  const checks = [partProblem, repeatedPartProblem, minimumProblemOf, hoursProblemOf];
+  for (const t of Array.isArray(tasks) ? tasks : []) {
+    if (!isRecord(t)) continue;
+    const found = checks.map((check) => check(t)).find(Boolean) ?? dateProblem(t, now);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** The data in a backup file, or an error message in Spanish for the user. */
 export function parseBackup(text: string): { data: AppData } | { error: string } {
   const now = Date.now();
@@ -70,9 +135,12 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const num = (x: unknown) => typeof x === "number" && Number.isFinite(x);
   // Names and titles go into cards, notices and calendar events: a bounded length.
   const bounded = (x: unknown) => str(x) && (x as string).length <= BACKUP_TEXT_MAX;
-  // A part of 0 or of days would never plan (the editor takes 1 to 1440 min).
+  // A part of 0 would never plan; the most is the editor's (see `limits.ts`).
   const validUnit = (u: unknown) =>
-    isObject(u) && str(u.id) && bounded(u.title) && between(u.estimateMinutes, 1, 1440);
+    isObject(u) &&
+    str(u.id) &&
+    bounded(u.title) &&
+    between(u.estimateMinutes, UNIT_MINUTES_MIN, UNIT_MINUTES_MAX);
   const distinctIds = (units: Rec[]) => new Set(units.map((u) => u.id)).size === units.length;
   // An instant Date can represent (toISOString would throw otherwise).
   const instant = (x: unknown) => num(x) && !Number.isNaN(new Date(x as number).getTime());
@@ -336,7 +404,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
         )
       : -1;
     const message = badDay >= 0 ? dayProblem((week as unknown[])[badDay] as Rec, badDay) : null;
-    return { error: message ?? "Al respaldo le faltan datos." };
+    return { error: message ?? taskProblem(d.tasks, now) ?? "Al respaldo le faltan datos." };
   }
   if (new Set(d.checkIns?.map((c) => c.id)).size !== d.checkIns?.length) {
     return { error: "El respaldo tiene registros duplicados." };
