@@ -260,11 +260,14 @@ describe("weekly silo controls", () => {
     fireEvent.change(screen.getByLabelText("Llevo hechos"), { target: { value: "1" } });
     fireEvent.click(screen.getByText("Guardar avance"));
     expect(screen.getByLabelText("Temas en total").getAttribute("aria-invalid")).toBe("true");
+    // 500 topics do not fit 480 estimated minutes (a part is at least a minute): also refused.
     fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "500" } });
+    expect(screen.getByLabelText("Temas en total").getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(screen.getByLabelText("Temas en total"), { target: { value: "480" } });
     fireEvent.click(screen.getByText("Guardar avance"));
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     const tp = saved.tasks.find((t) => t.title === "Entrega TP Programación");
-    expect(tp?.units.length).toBe(500);
+    expect(tp?.units.length).toBe(480);
   });
 
   it("deletes everything", () => {

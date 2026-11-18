@@ -28,11 +28,16 @@ export async function handle(req: Request, env: Env): Promise<Response> {
   const state = req.headers.get("x-goog-resource-state");
   if (!id || !secret) return json({ error: "bad_request" }, 400);
   const admin = adminClient(env);
-  const { data: channel } = await admin
+  const { data: channel, error: lookupError } = await admin
     .from("google_channels")
     .select("user_id, secret")
     .eq("id", id)
     .maybeSingle();
+  // A failed lookup is not an unknown channel: answering 404 would make Google drop it.
+  if (lookupError) {
+    await report(env, lookupError, "google-webhook");
+    return json({ error: "lookup_failed" }, 500);
+  }
   // Unknown or forged: Google stops sending to channels that answer 404.
   if (!channel || !sameSecret(secret, channel.secret))
     return json({ error: "unknown_channel" }, 404);

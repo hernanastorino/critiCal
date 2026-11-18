@@ -66,12 +66,12 @@ describe("1. «Nueva parte» sin tocar «Agregar»", () => {
   it("a pending invalid part stops the save and says why in its field", () => {
     const onClose = vi.fn();
     open(onClose);
-    set(PART, "Práctico 5 (2000)");
+    set(PART, "Práctico 5 (70000)");
     click("Guardar");
     expect(latest?.tasks.some((t) => t.title === "Entrega")).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByLabelText(PART).getAttribute("aria-invalid")).toBe("true");
-    expect(alerts().join(" ")).toMatch(/1 a 1440/);
+    expect(alerts().join(" ")).toMatch(/1 a 60000/);
     expect(document.activeElement).toBe(screen.getByLabelText(PART));
   });
 });

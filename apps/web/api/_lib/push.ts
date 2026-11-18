@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendNotification } from "web-push";
 import type { Preferences, Proposal } from "../../src/model.js";
 import { dueNotes, type Note } from "./notify.js";
+import { report } from "./report.js";
 import type { Env } from "./server.js";
 
 const MAX_LEAD_MINUTES = 120;
@@ -96,8 +97,13 @@ async function send(
 }
 
 /** Users with at least one device subscribed. */
-export async function subscribedUsers(admin: SupabaseClient): Promise<string[]> {
-  const { data } = await admin.from("push_subscriptions").select("user_id");
+export async function subscribedUsers(admin: SupabaseClient, env?: Env): Promise<string[]> {
+  const { data, error: listError } = await admin.from("push_subscriptions").select("user_id");
+  // Not «nobody subscribed»: said, and the caller decides.
+  if (listError) {
+    await report(env ?? {}, listError, "push");
+    throw listError;
+  }
   const users = [...new Set((data ?? []).map((r) => r.user_id as string))];
   // Someone no longer invited gets no notifications (their titles stay unread). A
   // lookup that fails is tried once more; if it still fails that user is skipped this

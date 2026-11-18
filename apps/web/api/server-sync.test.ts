@@ -3,6 +3,7 @@ import type { AppData, Proposal } from "../src/model.js";
 
 const rpc = vi.fn();
 const rows: Record<string, unknown[]> = {};
+const failing = new Set<string>();
 const ops: { table: string; op: string; payload?: unknown }[] = [];
 const auth = {
   getUser: vi.fn(),
@@ -18,7 +19,11 @@ function query(table: string) {
       filtered = filtered.filter((r) => (r as Record<string, unknown>)[col] === v);
       return chain;
     },
-    maybeSingle: () => Promise.resolve({ data: filtered[0] ?? null, error: null }),
+    maybeSingle: () =>
+      Promise.resolve({
+        data: filtered[0] ?? null,
+        error: failing.has(table) ? new Error("db") : null,
+      }),
     insert: (payload: unknown) => {
       ops.push({ table, op: "insert", payload });
       rows[table] = [...(rows[table] ?? []), payload];
@@ -82,6 +87,7 @@ beforeEach(() => {
   rpc.mockReset();
   serverSync.mockReset();
   ops.length = 0;
+  failing.clear();
   for (const k of Object.keys(rows)) delete rows[k];
   rows.google_channels = [{ id: "ch1", user_id: "u1", secret: "s3cret" }];
 });
@@ -126,6 +132,16 @@ describe("google-webhook", () => {
     expect(res.status).toBe(500);
     expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "google-webhook");
     expect(serverSync).not.toHaveBeenCalled();
+  });
+
+  it("answers 500 and reports when the channel lookup fails, not 404", async () => {
+    failing.add("google_channels");
+    const res = await webhook(
+      notify({ "x-goog-channel-id": "ch1", "x-goog-channel-token": "s3cret" }),
+      env,
+    );
+    expect(res.status).toBe(500);
+    expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "google-webhook");
   });
 
   it("needs the Google credentials", async () => {

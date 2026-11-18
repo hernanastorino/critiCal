@@ -52,7 +52,7 @@ describe("4. parseBackup: partes, mínimo y fecha", () => {
     expect(refused(backupWith((t) => t))).toBe(false);
   });
 
-  it("refuses a part of 0 or of more than a day", () => {
+  it("refuses a part of 0 or of more than the silo limit", () => {
     const part = (m: number) =>
       backupWith((t) => ({
         ...t,
@@ -60,8 +60,10 @@ describe("4. parseBackup: partes, mínimo y fecha", () => {
       }));
     expect(refused(part(0))).toBe(true);
     expect(refused(part(-5))).toBe(true);
-    expect(refused(part(1441))).toBe(true);
-    expect(refused(part(1440))).toBe(false);
+    expect(refused(part(60_001))).toBe(true);
+    // A silo of 30 h in one topic is a part of 1800 min: the editor and the log make it.
+    expect(refused(part(1800))).toBe(false);
+    expect(refused(part(60_000))).toBe(false);
   });
 
   it("refuses two parts with the same id in one silo", () => {
@@ -144,7 +146,7 @@ describe("10. Formulario de entrega", () => {
   it("a part with bad minutes leaves the focus on its field", () => {
     inside(<TaskEditor onClose={() => {}} />);
     const field = screen.getByLabelText("Nueva parte: nombre y minutos entre paréntesis");
-    set("Nueva parte: nombre y minutos entre paréntesis", "Práctico (2000)");
+    set("Nueva parte: nombre y minutos entre paréntesis", "Práctico (70000)");
     const add = screen.getByRole("button", { name: "Agregar" });
     add.focus();
     fireEvent.click(add);

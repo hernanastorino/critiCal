@@ -1,6 +1,6 @@
 // What the silo form checks before saving: each problem is said beside its field.
 import { DEFAULTS, eventRole } from "./calendars.js";
-import { TITLE_MAX } from "./limits.js";
+import { TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
 
@@ -14,6 +14,9 @@ export function detectedProblem(
 ): { field: "estimate" | "min"; text: string } | null {
   const own = hoursProblem(estimate);
   if (own) return { field: "estimate", text: own };
+  if (typedHours(estimate) === 0) {
+    return { field: "estimate", text: "Las horas no pueden ser 0: poné cuánto planificar." };
+  }
   if (typedHours(estimate) > MAX_DETECTED_HOURS) {
     return { field: "estimate", text: `Hasta ${MAX_DETECTED_HOURS} h.` };
   }
@@ -34,8 +37,10 @@ export function detectedToReset(data: AppData): number {
 
 /** The most hours one silo may hold (its minutes must fit a backup: see `backup.ts`). */
 export const MAX_HOURS = 1000;
-/** The most minutes one part of a silo may hold: a whole day. */
-export const MAX_UNIT_MINUTES = 1440;
+/** The most minutes one part of a silo may hold (the same for the backup: see `limits.ts`). */
+export { UNIT_MINUTES_MAX };
+/** The most minutes of one session of a weekly habit: a whole day. */
+export const MAX_SESSION_MINUTES = 1440;
 
 /** A plain non-negative figure («2», «1,5»): no signs, letters or exponents. */
 const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
@@ -116,9 +121,9 @@ export function parseUnit(
   if (!m) return { title, minutes: 60 };
   const minutes = Number(m[2]);
   // «(-30)» or «(1,5)» are minutes typed wrong, not a name.
-  if (!/^\d+$/.test(m[2] ?? "") || minutes < 1 || minutes > MAX_UNIT_MINUTES) {
+  if (!/^\d+$/.test(m[2] ?? "") || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
     return {
-      error: `Los minutos entre paréntesis son un número entero de 1 a ${MAX_UNIT_MINUTES}, como «Práctico 5 (60)».`,
+      error: `Los minutos entre paréntesis son un número entero de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX}, como «Práctico 5 (60)».`,
     };
   }
   return title ? { title, minutes } : { error: "Poné el nombre de la parte antes de los minutos." };
@@ -148,14 +153,14 @@ export function habitProblems(
   const t = whole(times);
   const m = whole(minutes);
   const timesOk = t >= 1 && t <= 14;
-  const minutesOk = m >= 1 && m <= MAX_UNIT_MINUTES;
+  const minutesOk = m >= 1 && m <= MAX_SESSION_MINUTES;
   const room =
     weekMinutes > 0 ? Math.min(weekMinutes, MAX_HABIT_WEEK_MINUTES) : MAX_HABIT_WEEK_MINUTES;
   return {
     times: timesOk ? null : "Poné de 1 a 14 veces por semana, en cifras enteras.",
     minutes: minutesOk
       ? habitTotalProblem(timesOk ? t : Number.NaN, m, room, routine)
-      : `Poné de 1 a ${MAX_UNIT_MINUTES} minutos por vez, en cifras enteras.`,
+      : `Poné de 1 a ${MAX_SESSION_MINUTES} minutos por vez, en cifras enteras.`,
   };
 }
 
@@ -166,6 +171,6 @@ function habitTotalProblem(times: number, minutes: number, room: number, routine
     return "Una rutina va hasta 6 h por vez y 40 h por semana.";
   }
   return times * minutes > room
-    ? `No entra en una semana: ${times} × ${minutes} min son ${Math.round((times * minutes) / 6) / 10} h y en una semana entran ${Math.floor(room / 60)} h.`
+    ? `No entra en una semana: ${times} × ${minutes} min son ${durationLabel(times * minutes)} y en una semana entran ${Math.floor(room / 60)} h.`
     : null;
 }

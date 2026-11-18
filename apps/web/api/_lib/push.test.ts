@@ -128,6 +128,14 @@ describe("sending", () => {
     expect(await subscribedUsers(admin(tables, () => true).client)).toEqual(["u1"]);
   });
 
+  it("throws when the subscriptions lookup fails", async () => {
+    const client = {
+      from: () => ({ select: async () => ({ data: null, error: new Error("db down") }) }),
+    };
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(subscribedUsers(client as never)).rejects.toThrow("db down");
+  });
+
   it("leaves out users no longer invited", async () => {
     const client = {
       from: () => ({

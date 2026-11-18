@@ -2,7 +2,12 @@
   "functions": {
     "api/syllabus.ts": { "maxDuration": 60 },
     "api/travel.ts": { "maxDuration": 60 },
-    "api/transit.ts": { "maxDuration": 60 }
+    "api/transit.ts": { "maxDuration": 60 },
+    "api/cron.ts": { "maxDuration": 60 },
+    "api/account.ts": { "maxDuration": 60 },
+    "api/google-sync.ts": { "maxDuration": 60 },
+    "api/icloud-sync.ts": { "maxDuration": 60 },
+    "api/google-webhook.ts": { "maxDuration": 60 }
   },
   "headers": [
     {

@@ -2,6 +2,7 @@
 // turned into tasks once the user confirms the preview.
 import { DEFAULTS } from "./calendars.js";
 import { type Activity, zonedInstant } from "./engine.js";
+import { UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppTask } from "./model.js";
 
 export type AssessmentKind = "parcial" | "entrega" | "presentacion";
@@ -157,12 +158,15 @@ export function syllabusTasks(input: {
     minBlockMinutes: 60,
   };
   const tasks = input.assessments.map((a): AppTask => {
-    const units = a.units.map((u) => ({
-      id: input.newId(),
-      title: u.title,
-      estimateMinutes: u.minutes,
-      ...(u.weight !== undefined ? { weight: u.weight } : {}),
-    }));
+    // A unit of 0 h is not made (a part of 0 min would never plan); the preview says so.
+    const units = a.units
+      .filter((u) => u.minutes >= UNIT_MINUTES_MIN)
+      .map((u) => ({
+        id: input.newId(),
+        title: u.title,
+        estimateMinutes: Math.min(UNIT_MINUTES_MAX, u.minutes),
+        ...(u.weight !== undefined ? { weight: u.weight } : {}),
+      }));
     // Its own hours only without units: kept units define the estimate, even at zero.
     const total = units.length ? units.reduce((s, u) => s + u.estimateMinutes, 0) : a.minutes;
     const d = DEFAULTS[a.kind];

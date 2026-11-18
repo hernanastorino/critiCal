@@ -23,6 +23,7 @@ import {
   zonedInstant,
 } from "./engine.js";
 import { lateNight } from "./lateNight.js";
+import { UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type {
   AppData,
   AppliedDecision,
@@ -569,7 +570,11 @@ function apply(data: AppData, action: Action): AppData {
       if (!task) return data;
       let units = task.units;
       if (units.length === 0 && action.topics && action.topics > 0) {
-        const each = Math.round(task.estimateMinutes / action.topics);
+        // Never a part of 0 min (it would not plan), nor above what a backup takes.
+        const each = Math.min(
+          UNIT_MINUTES_MAX,
+          Math.max(UNIT_MINUTES_MIN, Math.round(task.estimateMinutes / action.topics)),
+        );
         units = Array.from({ length: action.topics }, (_, i) => ({
           id: newId(),
           title: `Tema ${i + 1}`,

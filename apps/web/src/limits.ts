@@ -36,6 +36,15 @@ export function isRealDate(x: unknown): x is string {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === x;
 }
 
+/** The least a part of a silo may take: a part of 0 min would never plan. */
+export const UNIT_MINUTES_MIN = 1;
+/**
+ * The most a part of a silo may take: the whole of the longest silo (1000 h), since «1 tema»
+ * of a 30 h silo is one part of 30 h. One limit for the form, the topics log, the program
+ * and the backup.
+ */
+export const UNIT_MINUTES_MAX = 60_000;
+
 /** Longest name of a materia or rutina (their fields stop at it). */
 export const NAME_MAX = 60;
 /** Longest name of a task («Parcial Física I», «Entrega 3»). */
