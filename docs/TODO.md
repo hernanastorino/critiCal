@@ -47,14 +47,7 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-1. **Comidas cuando me levanto muy tarde** (agente atacante sobre `main`, 2026-11-17). Ajustes → Hoy → «Me levanté a las 22:00» → Reacomodar hoy: el desayuno queda a las 22:00 «corrido de las 07:30» (14 h 30 más tarde, aunque §5.1 dice que se corre hasta 1 h 30) y el almuerzo de las 13:00 sigue en el día. Hoy la SPEC §5.1 dice que la comida que no entra «aparece justo después de la anterior, aunque pase la hora de dormir». ¿Se mantiene, o la que cae mientras dormís (o pasada la hora de dormir) se omite ese día y el desayuno se saltea si te levantás a la hora del almuerzo o después? Hay un arreglo listo para la segunda opción (commit `90daf71`, guardado en la rama `claude/atacante-main-90daf71`); no se mergeó porque cambia una decisión tuya.
-
-2. **Rutinas hasta la hora de dormir** (agente atacante sobre `main`, 2026-11-18). Las rutinas no son «estudio», así que no respetan «Nada de estudio desde», y el plan puede ponerlas hasta la hora de acostarse (por ejemplo, correr de 23:30 a 00:00). ¿Las rutinas (gym, correr) deberían respetar también «Nada de estudio desde» o dejar un margen antes de acostarte, o está bien así?
-3. **Rutina creada a mitad de semana** (mismo origen). Hoy pide todas sus veces semanales en los días que quedan: gym 3× creado el sábado sale como imposible. ¿Debería pedir todas, o solo la parte proporcional a los días que quedan?
-
-4. **Críticos por una tarea que no entra ni sola** (agente atacante sobre `main`, 2026-11-18). Cuando una tarea no entra ni sola (por ejemplo un hábito «Repasar fórmulas» de 14 × 24 h), ¿querés que igual marque como críticos los bloques de las demás entregas? Hoy sí los marca, porque esa tarea podría usar su tiempo.
-
-5. **Seguir después del freno** (2026-11-18). Elegiste pasar a los arreglos de las capturas (hechos, #123–#128) y después se arreglaron los hallazgos de la 5.ª vuelta (#130, #131). La 6.ª vuelta volvió a encontrar fallas nuevas: una Alta (el «Deshacer» de los avisos no se podía tocar con una hoja abierta, regresión de #127, ya arreglada) y varias Media/Baja (§5.3). ¿Se arreglan esas y se corre la 7.ª, o se cambia el criterio del freno (por ejemplo, frenar solo con Altas)? Además: ¿el ratio aprendido real/estimado (§5.8) sigue por materia o pasa a ser por entrega?
+Ninguna por ahora: las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
@@ -66,10 +59,10 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                                                                    | Qué falta                                                                                  |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                | **No mergear** hasta que el usuario lo pida.                                               |
-| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17). 6.ª vuelta (2026-11-18, tras #130/#131): 1 Alta (arreglada en este PR) y varias Media/Baja (§5.3) | Que el usuario diga si se arreglan las de la 6.ª vuelta y se corre la 7.ª (§1.1, punto 5). |
+| Qué                                                                      | Estado                                                                                                          | Qué falta                                                        |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                      | **No mergear** hasta que el usuario lo pida.                     |
+| Ciclo del agente atacante sobre `main`                                   | 12 vueltas; desde la 7.ª sin Altas. Nuevo criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Arreglar las 2 Medias de la 12.ª vuelta (§5.3) y correr la 13.ª. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -129,6 +122,17 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor, rutas habituales guardadas y selector auto/ómnibus por lugar y por traslado. Es grande: conviene partirlo en datos y servidor primero, UI después.
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
+
+- **12.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #139/#140):
+  - Media: `isPermanent` (`apps/web/src/data.ts`) no reconoce `22P02` (regex `/^2[23]\d{3}$/`): ese error de la base se reintenta para siempre y traba los guardados siguientes.
+  - Media: importar el respaldo de otra cuenta conserva los ids y choca con filas ajenas (RLS `42501`, tampoco permanente). Se resuelve con la decisión de dar ids nuevos (§5.6).
+  - Baja: lo creado desde el calendario con título > 300 o fecha a más de 5 años se exporta pero no se reimporta.
+  - Baja: materia con estudio semanal enorme pasada a Rutina en la Bandeja (`sortActivity` sin `validRoutine`) queda inimportable.
+  - Baja: Deshacer de Ignorar/Materia/Rutina/Juntar/Es una materia/Evento suelto/Dejar como está deja el foco en el título «Bandeja» (`Inbox.tsx` busca `data-block-id`, que esas tarjetas no tienen).
+  - Baja: «Estudio semanal» casi cero (`0,004`) se descarta o queda en 1 min sin aviso (`Subjects.tsx`).
+  - Baja: `api/_lib/google-run.ts` ignora errores de base en `get_oauth_token`, `google_channels` y el `update` de `plan_blocks.google_event_id`; `api/transit.ts` da 401 ante un error de `check_cron_key` (como lo que #139 arregló en `cron.ts`).
+  - Baja: el `limiter` de `_lib/rate.ts` se vacía al pasar de 1000 claves, así que ids de canal inventados reinician el límite del webhook.
+  - A revisar por el usuario cuando quiera: los textos de los avisos nuevos de #139 («Todo sigue como estaba», «"X" ignorada») y los límites del webhook de Google (30 por minuto por canal, 120 por IP).
 
 - **6.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #131). La Alta («Deshacer» de los avisos inerte con una hoja abierta) se arregló; el resto sin arreglar, por el freno:
   - Media: «Importar JSON» reemplaza todos los datos tras un `window.confirm` y sin «Deshacer» (§14: solo borrar la cuenta confirma).
@@ -192,6 +196,18 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 6. Hecho (#76, validado en producción).
 7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
+
+### 5.6 Decisiones del 2026-11-18 para implementar (SPEC §18 punto 11)
+
+Un PR por tema, con la SPEC actualizada en el mismo PR:
+
+1. Comidas cuando te levantás tarde: partir del commit `90daf71` (rama `claude/atacante-main-90daf71`), rebasado sobre `main`, y actualizar §5.1.
+2. Horarios válidos por rutina y por día de la semana (inicio y fin), en el formulario de Rutinas, el modelo, el motor y el respaldo.
+3. Rutina creada a mitad de semana: proporcional a los días que quedan.
+4. Una tarea que no entra ni sola no marca críticos a las demás.
+5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
+6. Ajustes → Hoy: «Me levanté» no puede ser futura.
+7. CSP completa en modo `Content-Security-Policy-Report-Only` (con dónde reportar), y obligatoria cuando no reporte nada roto.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 

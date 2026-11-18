@@ -70,7 +70,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 6. **Infactibilidad → opciones** (cada una con vista previa de la semana):
    abandonar X · bajar X a su mínimo · recorte proporcional · usar franja libre / extender hoy · mover un evento flexible · versión mínima viable de una entrega · priorizar temas por peso en un parcial.
 7. **Estabilidad**: mover lo mínimo; el bloque en curso y lo ya visto de hoy quedan congelados. Cambios que afectan hoy → **propuesta** en la bandeja + push; no se aplican sin OK. De mañana en adelante se reorganiza solo.
-8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras.
+8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras. Confirmado el 2026-11-18: sigue por materia. «Faltan» muestra las partes que quedan sin el ratio; el ratio solo ajusta lo que se planifica.
 9. **Ajuste por desvelo**: después de un evento nocturno, la bandeja pregunta a qué hora me levanté en vez de asumir el horario normal.
 
 ## 6. Traslados (auto)
@@ -251,7 +251,7 @@ Orden:
 4. Con una vuelta limpia, el CI en verde y Codacy sin hallazgos nuevos, se mergea. Staging se despliega solo y, si su E2E pasa, producción también (no hay aprobación manual: por eso se valida antes de mergear).
 5. **Producción**: Sentry sin errores nuevos ni problemas de seguridad abiertos después del deploy, más una prueba rápida de la app desplegada en el simulador (modo demo). Si algo falla, se abre un PR con el arreglo y vuelve al paso 1.
 
-El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle.
+El ciclo termina cuando una vuelta completa no encuentra nada. Si la misma falla vuelve 3 veces, o pasan 5 vueltas seguidas con fallas nuevas, se frena y se avisa al usuario con el detalle. **Criterio del freno** (decidido el 2026-11-18, después de 12 vueltas): cada vuelta arregla sus Altas y Medias; las Bajas se anotan en el TODO (§5.3) y no traban el resto del trabajo. Se frena y se avisa solo si aparecen Altas nuevas 3 vueltas seguidas o la misma Alta vuelve.
 
 ## 18. Próximos desarrollos (noviembre 2026)
 
