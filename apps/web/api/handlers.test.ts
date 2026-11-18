@@ -319,6 +319,9 @@ describe("icloud-sync partial reads (Node)", () => {
     tables.calendar_events = [
       { external_id: "x|old|", calendar_id: "https://p01-caldav.icloud.com/1/cal/" },
     ];
+    // Tomorrow, so the event is always inside the window the sync reads (a fixed date fell
+    // out of it as the days went by).
+    const day = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10).replaceAll("-", "");
     const ms = (body: string) =>
       new Response(`<multistatus xmlns="DAV:">${body}</multistatus>`, { status: 207 });
     vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
@@ -334,7 +337,7 @@ describe("icloud-sync partial reads (Node)", () => {
         );
       }
       return ms(
-        "<response><calendar-data>BEGIN:VEVENT\nUID:ok\nDTSTART:20261110T120000Z\nDTEND:20261110T130000Z\nEND:VEVENT</calendar-data></response>" +
+        `<response><calendar-data>BEGIN:VEVENT\nUID:ok\nDTSTART:${day}T120000Z\nDTEND:${day}T130000Z\nEND:VEVENT</calendar-data></response>` +
           "<response><calendar-data>BEGIN:VEVENT\nUID:bad\nDTSTART:garbage\nEND:VEVENT</calendar-data></response>",
       );
     });
