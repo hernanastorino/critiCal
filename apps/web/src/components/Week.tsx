@@ -1414,20 +1414,25 @@ function BubbleCard({
   const task = data.tasks.find((t) => t.id === b.taskId);
   const activity = data.activities.find((a) => a.id === b.activityId);
   const p = progress(data, now).find((x) => x.task.id === b.taskId);
+  // A run of blocks may mix tasks of the activity: all their names, the progress of a single one.
+  const titles = [
+    ...new Set(
+      (item.run ?? [b]).map((x) => data.tasks.find((t) => t.id === x.taskId)?.title ?? "Bloque"),
+    ),
+  ].join(" · ");
   return (
     <BubbleDialog
-      label={task?.title ?? "Bloque"}
+      label={titles}
       onClose={onClose}
       style={{ left, top, ["--c" as string]: activity?.color }}
     >
       <button type="button" className="bubble" onClick={onOpen}>
-        <h3>{item.run ? activity?.name : task?.title}</h3>
+        <h3>{titles}</h3>
         <p>
-          {!item.run && `${activity?.name} · `}
-          {dayAndTime(tz, item.start)} – {time(tz, item.end)}
+          {activity?.name} · {dayAndTime(tz, item.start)} – {time(tz, item.end)}
           {item.run && ` · ${item.run.length} bloques seguidos`}
         </p>
-        {p && !item.run && (
+        {p && titles === task?.title && (
           <p>
             Faltan {hours(p.remainingMinutes)} de {hours(p.totalMinutes)}
             {b.level === "critical" && (
