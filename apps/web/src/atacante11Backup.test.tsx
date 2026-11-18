@@ -141,8 +141,8 @@ describe("3. El respaldo rechaza lo que la base rechaza", () => {
   });
 
   it("a check-in whose unit is not a uuid is refused for an account", () => {
-    const [activity] = demoData(NOW).activities;
-    const [task] = demoData(NOW).tasks;
+    const activity = demoData(NOW).activities.at(0);
+    const task = demoData(NOW).tasks.at(0);
     if (!activity || !task) throw new Error("the demo has no data");
     const [activityId, taskId] = [newId(), newId()];
     const checkIn = {
@@ -198,7 +198,7 @@ describe("4. Datos sueltos del respaldo no rompen la app", () => {
 
   it("well-formed extras round-trip identical", () => {
     const d = demoData(NOW);
-    const [task] = d.tasks;
+    const task = d.tasks.at(0);
     if (!task) throw new Error("the demo has no tasks");
     const withExtras: AppData = {
       ...d,

@@ -13,7 +13,9 @@ vi.mock("./monitoring.js", async (original) => ({
   reportError: (e: unknown, context?: unknown) => report(e, context),
 }));
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(async () => {
   cleanup();
   vi.unstubAllGlobals();
@@ -21,7 +23,10 @@ afterEach(async () => {
   await clearLocal();
 });
 
-type Write = { table: string; rows: { name?: string }[] };
+interface Write {
+  table: string;
+  rows: { name?: string }[];
+}
 
 /** A database that takes everything but a materia called MALA (a check violation). */
 function database() {
@@ -58,13 +63,17 @@ function Poke() {
     <>
       <button
         type="button"
-        onClick={() => dispatch({ type: "saveActivity", activity: activity("MALA") })}
+        onClick={() => {
+          dispatch({ type: "saveActivity", activity: activity("MALA") });
+        }}
       >
         mala
       </button>
       <button
         type="button"
-        onClick={() => dispatch({ type: "saveActivity", activity: activity("Buena") })}
+        onClick={() => {
+          dispatch({ type: "saveActivity", activity: activity("Buena") });
+        }}
       >
         buena
       </button>

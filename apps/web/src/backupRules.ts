@@ -40,16 +40,13 @@ const DAY_MS = 86_400_000;
  * and «Hoy» take).
  */
 export function dayProblem(w: Record<string, unknown>, weekday: number): string | null {
-  const [wake, bed, free] = [w.wake, w.bed, w.freeFrom] as number[];
-  const [from, to] = [minutesToHhmm(wake as number), minutesToHhmm(bed as number)];
-  const who = `El ${WEEKDAYS[weekday] ?? "día"}`;
+  const [wake = 0, bed = 0, free = 0] = [w.wake, w.bed, w.freeFrom] as number[];
+  const [from, to] = [minutesToHhmm(wake), minutesToHhmm(bed)];
+  const who = `El ${WEEKDAYS.at(weekday) ?? "día"}`;
   if (awakeProblem(from, to)) {
     return `${who} tiene ${awakeText(awakeMinutes(from, to))} despierto (de ${from} a ${to}): tiene que tener entre 4 y 22 h.`;
   }
-  const asleep =
-    (bed as number) < (wake as number)
-      ? (free as number) < (wake as number) && (free as number) > (bed as number)
-      : (free as number) < (wake as number);
+  const asleep = bed < wake ? free < wake && free > bed : free < wake;
   return asleep ? `${who}, «Nada de estudio desde» cae cuando estás dormido.` : null;
 }
 
@@ -160,7 +157,7 @@ const taskTests = ({ now, routineIds }: Ctx): Test[] => [
     (v, x) =>
       !routineIds.has(v) ||
       x?.sessionsPerWeek === undefined ||
-      validRoutine(x.sessionsPerWeek as number, (x.sessionMinutes as number) ?? 0),
+      validRoutine(x.sessionsPerWeek as number, Number(x.sessionMinutes ?? 0)),
   ],
 ];
 
@@ -285,5 +282,5 @@ export function weekProblem(week: unknown): string | null {
   const days = Array.isArray(week) ? week : [];
   const timesOk = shape(dayTests.slice(0, 3));
   const at = days.findIndex((w) => timesOk(w) && dayProblem(w as Rec, 0) !== null);
-  return at >= 0 ? dayProblem(days[at] as Rec, at) : null;
+  return at >= 0 ? dayProblem(days.at(at) as Rec, at) : null;
 }

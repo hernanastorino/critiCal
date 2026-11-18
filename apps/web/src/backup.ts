@@ -109,39 +109,47 @@ function linksProblem(d: AppData): string | null {
   return checks.find(([bad]) => bad)?.[1] ?? null;
 }
 
-/** The data in a backup file, or an error message in Spanish for the user. */
-export function parseBackup(
-  text: string,
-  options: { strictIds?: boolean } = {},
-): { data: AppData } | { error: string } {
-  const now = Date.now();
+/** The file's contents when it is a backup this version reads, or what is wrong with it. */
+function readFile(text: string): { raw: Task; version: number } | { error: string } {
   let parsed: { app?: unknown; version?: unknown; data?: unknown } | null;
   try {
     parsed = JSON.parse(text);
   } catch {
     return { error: "El archivo no es JSON." };
   }
-  if (parsed?.app !== "critiCal" || typeof parsed.version !== "number" || !isRecord(parsed.data)) {
+  const { app, version, data } = parsed ?? {};
+  if (app !== "critiCal" || typeof version !== "number" || !isRecord(data)) {
     return { error: "No es un respaldo de critiCal." };
   }
-  if (parsed.version > BACKUP_VERSION) return { error: "El respaldo es de una versión más nueva." };
-  const raw = parsed.data;
-  const named = backupProblem(raw, !!options.strictIds);
-  if (named) return { error: named };
-  if (!shapeOk(raw, now)) {
-    // Say which day is the problem when that is the only one (the rest of the file reads).
-    const week = (raw.settings as { week?: unknown } | undefined)?.week;
-    return {
-      error: weekProblem(week) ?? taskProblem(raw.tasks, now) ?? "Al respaldo le faltan datos.",
-    };
-  }
-  const d = raw as unknown as AppData;
-  const linked = linksProblem(d);
-  if (linked) return { error: linked };
+  return version > BACKUP_VERSION
+    ? { error: "El respaldo es de una versión más nueva." }
+    : { raw: data, version };
+}
+
+/** What is wrong with the data of the file, said for the user, or null. */
+function dataProblem(raw: Task, now: number, strict: boolean): string | null {
+  const named = backupProblem(raw, strict);
+  if (named || shapeOk(raw, now)) return named;
+  // Say which day is the problem when that is the only one (the rest of the file reads).
+  const week = (raw.settings as { week?: unknown } | undefined)?.week;
+  return weekProblem(week) ?? taskProblem(raw.tasks, now) ?? "Al respaldo le faltan datos.";
+}
+
+/** The data in a backup file, or an error message in Spanish for the user. */
+export function parseBackup(
+  text: string,
+  options: { strictIds?: boolean } = {},
+): { data: AppData } | { error: string } {
+  const read = readFile(text);
+  if ("error" in read) return read;
+  const problem = dataProblem(read.raw, Date.now(), !!options.strictIds);
+  const d = read.raw as unknown as AppData;
+  const error = problem ?? linksProblem(d);
+  if (error) return { error };
   // A long event title is cut on import: the calendar sends them, and the rest is kept.
   const events = d.events.map((e) =>
     e.title.length > BACKUP_TEXT_MAX ? { ...e, title: e.title.slice(0, BACKUP_TEXT_MAX) } : e,
   );
   const data = { ...d, events };
-  return { data: (parsed.version as number) < 2 ? markLegacyStudy(data) : data };
+  return { data: read.version < 2 ? markLegacyStudy(data) : data };
 }
