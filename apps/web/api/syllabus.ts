@@ -19,6 +19,8 @@ export const reads = limiter(5, 40);
 export const keySets = limiter(5, 20);
 /** Looking at or removing the key: cheap, but still bounded. */
 export const keyCalls = limiter(30, 300);
+/** The budget a key action spends: saving calls Google, the rest does not. */
+const keyBudget = (action: unknown) => (action === "set_key" ? keySets : keyCalls);
 /** The longest a call to Gemini may take before it is given up as busy. */
 const GEMINI_TIMEOUT_MS = 25_000;
 
@@ -58,8 +60,7 @@ async function keyFor(caller: Caller, env: Env): Promise<{ key?: string; own: bo
 
 /** Saves, removes or describes the user's own Gemini key. */
 async function manageKey(caller: Caller, env: Env, body: Record<string, unknown>, now: number) {
-  const budget = body.action === "set_key" ? keySets : keyCalls;
-  if (!budget.take(caller.uid, now)) return tooMany();
+  if (!keyBudget(body.action).take(caller.uid, now)) return tooMany();
   if (body.action === "key_status") {
     const { own } = await keyFor(caller, env);
     return json({ ok: true, own, fallback: !!env.geminiKey });
