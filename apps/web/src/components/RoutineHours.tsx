@@ -28,6 +28,9 @@ function Pair({
   onEnter?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   const bad = (side: "from" | "to") => problems.some((p) => p.field === `${field}-${side}`);
+  const set = (side: "from" | "to", v: string) => {
+    onChange(side === "from" ? { ...value, from: v } : { ...value, to: v });
+  };
   return (
     <div className="row fields">
       {label && (
@@ -42,11 +45,13 @@ function Pair({
             inputMode="numeric"
             placeholder={side === "from" ? "7" : "19:30"}
             aria-label={`${side === "from" ? "Desde" : "Hasta"}${name ? `, ${name}` : ""}`}
-            value={value[side]}
+            value={side === "from" ? value.from : value.to}
             aria-invalid={bad(side) ? true : undefined}
             aria-describedby={bad(side) ? errorId : undefined}
             onKeyDown={onEnter}
-            onChange={(e) => onChange({ ...value, [side]: e.target.value })}
+            onChange={(e) => {
+              set(side, e.target.value);
+            }}
           />
         </label>
       ))}
@@ -80,7 +85,9 @@ export function RoutineHours({
       <Pair
         name={form.perDay ? "los demás días" : "todos los días"}
         value={form.all}
-        onChange={(all) => onChange({ ...form, all })}
+        onChange={(all) => {
+          onChange({ ...form, all });
+        }}
         problems={problems}
         field="all"
         errorId={errorId}
@@ -90,7 +97,9 @@ export function RoutineHours({
         <input
           type="checkbox"
           checked={form.perDay}
-          onChange={(e) => onChange({ ...form, perDay: e.target.checked })}
+          onChange={(e) => {
+            onChange({ ...form, perDay: e.target.checked });
+          }}
         />
         <span>Distinto según el día</span>
       </label>
@@ -105,12 +114,9 @@ export function RoutineHours({
               label={d.short}
               name={d.name}
               value={form.days[d.weekday] ?? { from: "", to: "" }}
-              onChange={(v) =>
-                onChange({
-                  ...form,
-                  days: form.days.map((x, i) => (i === d.weekday ? v : x)),
-                })
-              }
+              onChange={(v) => {
+                onChange({ ...form, days: form.days.map((x, i) => (i === d.weekday ? v : x)) });
+              }}
               problems={problems}
               field={`day-${d.weekday}`}
               errorId={errorId}
