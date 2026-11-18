@@ -1,5 +1,5 @@
 // Export and import of everything as one JSON file (also a manual backup).
-import { backupProblem } from "./backupProblems.js";
+import { backupProblem } from "./backupNamed.js";
 import { dayProblem, shapeOk, weekProblem } from "./backupRules.js";
 import {
   BACKUP_TEXT_MAX,

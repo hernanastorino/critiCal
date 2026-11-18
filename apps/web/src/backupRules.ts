@@ -1,5 +1,5 @@
 // The shape of a backup file the app can use, as lists of tests over each kind of record
-// (a record passes when every test does). `backupProblems.ts` says what the database
+// (a record passes when every test does). `backupNamed.ts` says what the database
 // refuses with its own messages; this is what the screens and the planner need.
 import {
   allOf,
@@ -21,7 +21,7 @@ import {
   str,
   type Test,
   text,
-} from "./backupProblems.js";
+} from "./backupNamed.js";
 import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
 import {
@@ -266,7 +266,7 @@ const fileTests = (ctx: Ctx): Test[] => [
   ["preferences", nullable(shape(preferencesTests))],
 ];
 
-/** Whether the data has the shape the app reads (what `backupProblems` did not already refuse by name). */
+/** Whether the data has the shape the app reads (what `backupNamed` did not already refuse by name). */
 export function shapeOk(d: Rec, now: number): boolean {
   const routineIds = new Set(
     (Array.isArray(d.activities) ? d.activities : [])
