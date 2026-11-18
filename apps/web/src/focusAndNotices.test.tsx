@@ -114,7 +114,7 @@ describe("Bandeja cards", () => {
     const css = readFileSync(file, "utf8");
     const rule = css
       .split("}")
-      .find((b) => b.split("{")[0]?.includes(".card > button.title::before"));
+      .find((b) => b.split("{")[0]?.includes(".card > button.title::after"));
     expect(rule).toMatch(/height:\s*max\(100%,\s*44px\)/);
   });
 });

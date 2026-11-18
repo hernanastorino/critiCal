@@ -1,13 +1,18 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
+import { BlockSheet } from "./components/BlockSheet.js";
+import { Notifications } from "./components/Notifications.js";
+import { DetectedDefaults, Routines } from "./components/Preferences.js";
+import { TaskDetail } from "./components/TaskDetail.js";
 import { TaskEditor } from "./components/TaskEditor.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { localParts, MINUTE, zonedInstant } from "./engine.js";
 import { time, weekdayShort } from "./format.js";
-import type { AppData } from "./model.js";
-import { reducer, StoreProvider } from "./store.js";
+import { noFit } from "./friendly.js";
+import type { AppData, AppTask } from "./model.js";
+import { reducer, StoreProvider, seedHistory } from "./store.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -21,7 +26,7 @@ afterEach(cleanup);
 function setup(tweak: (d: AppData, block: AppData["plan"][number]) => AppData) {
   const base = reducer(demoData(NOW), { type: "refresh", now: NOW });
   const block = base.plan
-    .filter((b) => b.start > NOW)
+    .filter((b) => b.start > NOW && base.activities.find((a) => a.id === b.activityId)?.academic)
     .sort((a, b) => a.start - b.start)[0] as AppData["plan"][number];
   const data = tweak(base, block);
   render(<App fixedNow={NOW} initial={() => data} />);
@@ -71,6 +76,109 @@ describe("keyboard moves keep the limits of a drop", () => {
       fireEvent.keyDown(document.activeElement ?? pill, { key: "ArrowRight" });
     for (const p of pins()) expect(localParts(TIMEZONE, p.start).date <= "2026-11-08").toBe(true);
     expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
+const wrap = (ui: React.ReactNode, at = NOW) =>
+  render(
+    <ToastProvider>
+      <StoreProvider initial={demoData} persist={false} fixedNow={at}>
+        {ui}
+      </StoreProvider>
+    </ToastProvider>,
+  );
+
+describe("Horas para lo detectado", () => {
+  it("refuses a minimum above the hours instead of saving it clamped", () => {
+    wrap(<DetectedDefaults />);
+    const hoursField = screen.getAllByLabelText(/^Horas de /)[0] as HTMLElement;
+    const minField = screen.getAllByLabelText(/^Mínimo de /)[0] as HTMLElement;
+    fireEvent.change(minField, { target: { value: "50" } });
+    fireEvent.change(hoursField, { target: { value: "10" } });
+    fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
+    expect(minField.getAttribute("aria-invalid")).toBe("true");
+    expect(document.activeElement).toBe(minField);
+    expect(screen.queryByText("Horas guardadas")).toBeNull();
+  });
+
+  it("answers «Volver todo lo detectado a estas horas»", () => {
+    wrap(<DetectedDefaults />);
+    fireEvent.click(screen.getByRole("button", { name: "Volver todo lo detectado a estas horas" }));
+    expect(
+      screen.getAllByText(/No hay nada detectado para cambiar|vuelven? a estas horas/).length,
+    ).toBeGreaterThan(0);
+  });
+});
+
+describe("names, labels and small fixes", () => {
+  it("keeps the break note next to the error of «Le dediqué»", () => {
+    const task = demoData(NOW).tasks.find((t) => t.id === "parcial-calc") as AppTask;
+    wrap(<TaskDetail task={task} onClose={() => {}} onEdit={() => {}} />);
+    const field = screen.getByPlaceholderText("40");
+    fireEvent.change(field, { target: { value: "-5" } });
+    const ids = (field.getAttribute("aria-describedby") ?? "").split(" ");
+    expect(ids).toContain("minutes-error");
+    expect(document.getElementById("break-note") ? ids.includes("break-note") : true).toBe(true);
+  });
+
+  it("says a free event does not take time, not that the plan works around it", () => {
+    const event = {
+      id: "p",
+      title: "Escuchar podcast",
+      start: NOW + 3_600_000,
+      end: NOW + 7_200_000,
+      busy: false,
+      source: "demo" as const,
+    };
+    wrap(
+      <BlockSheet
+        item={{ kind: "event", id: "p", start: event.start, end: event.end, event }}
+        onClose={() => {}}
+      />,
+    );
+    expect(screen.getByText("No ocupa tiempo: el plan puede poner estudio encima.")).toBeTruthy();
+    expect(screen.queryByText(/planifica alrededor/)).toBeNull();
+  });
+
+  it("reads the critical-block checkbox alone and greys the Sunday hour with it off", () => {
+    wrap(<Notifications />);
+    expect(screen.getByRole("checkbox", { name: "Antes de cada bloque crítico" })).toBeTruthy();
+    const hour = screen.getByLabelText("Hora del recordatorio") as HTMLInputElement;
+    expect(hour.disabled).toBe(false);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Planificación semanal del domingo" }));
+    expect(hour.disabled).toBe(true);
+  });
+
+  it("gives each «¿Cómo te fue?» row and each decision a name of its own", () => {
+    const monday = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
+    render(
+      <App
+        fixedNow={monday}
+        initial={(now) =>
+          seedHistory({ ...demoData(now), preferences: { holidaysOff: false } }, now)
+        }
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    const done = screen.getAllByLabelText(/^Hecho: /).map((e) => e.getAttribute("aria-label"));
+    expect(done.length).toBeGreaterThan(1);
+    expect(new Set(done).size).toBe(done.length);
+    expect(done[0]).toMatch(/\d{1,2}\/\d{1,2} \d{2}:\d{2}$/);
+  });
+
+  it("goes back to the defaults after «Agregar rutina»", () => {
+    wrap(<Routines />);
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Yoga" } });
+    fireEvent.change(screen.getByLabelText("Veces/sem."), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Minutos"), { target: { value: "45" } });
+    fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
+    expect((screen.getByLabelText("Veces/sem.") as HTMLInputElement).value).toBe("3");
+    expect((screen.getByLabelText("Minutos") as HTMLInputElement).value).toBe("60");
+  });
+
+  it("tells where a habit made in Silos is edited", () => {
+    expect(noFit("Correr", "habit")).toContain("Silos");
+    expect(noFit("Correr", "habit")).not.toContain("Ajustes › Rutinas");
   });
 });
 

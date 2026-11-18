@@ -1,5 +1,35 @@
 // What the silo form checks before saving: each problem is said beside its field.
+import { DEFAULTS, eventRole } from "./calendars.js";
+import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
+
+/** The most hours a detected kind may be given (more would not fit a backup). */
+export const MAX_DETECTED_HOURS = 200;
+
+/** What is wrong with the hours and minimum typed for a detected kind, and in which field. */
+export function detectedProblem(
+  estimate: string,
+  min: string,
+): { field: "estimate" | "min"; text: string } | null {
+  const own = hoursProblem(estimate);
+  if (own) return { field: "estimate", text: own };
+  if (typedHours(estimate) > MAX_DETECTED_HOURS) {
+    return { field: "estimate", text: `Hasta ${MAX_DETECTED_HOURS} h.` };
+  }
+  const low = minimumProblem(min, typedHours(estimate));
+  return low ? { field: "min", text: low } : null;
+}
+
+/** How many detected tasks «Volver todo lo detectado a estas horas» would change. */
+export function detectedToReset(data: AppData): number {
+  return data.tasks.filter((t) => {
+    const event = t.sourceEventId ? data.events.find((e) => e.id === t.sourceEventId) : undefined;
+    const role = event ? eventRole(data, event) : undefined;
+    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") return false;
+    const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
+    return t.estimateMinutes !== d.estimate || t.minMinutes !== d.min;
+  }).length;
+}
 
 /** The most hours one silo may hold (its minutes must fit a backup: see `backup.ts`). */
 export const MAX_HOURS = 1000;

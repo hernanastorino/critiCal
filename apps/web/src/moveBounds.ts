@@ -1,5 +1,5 @@
 import { localParts, MINUTE, zonedInstant } from "./engine.js";
-import type { AppData } from "./model.js";
+import type { AppData, AppTask } from "./model.js";
 import { wakingDay } from "./planning.js";
 
 /** Where a block may sit on a day, in minutes since that day's midnight. */
@@ -17,15 +17,18 @@ export function moveBounds(
   data: AppData,
   now: number,
   date: string,
-  deadline: number | undefined,
+  task: AppTask | undefined,
 ): MoveBounds {
   const tz = data.settings.timezone;
+  const { deadline } = task ?? {};
+  // «Nada de estudio desde» is about academic work: a gym session may go after it.
+  const academic = data.activities.find((a) => a.id === task?.activityId)?.academic ?? true;
   const midnight = zonedInstant(tz, date, 0);
   const { wake, bed } = wakingDay(data, now, date);
   const day = data.settings.week[localParts(tz, zonedInstant(tz, date, 720)).weekday];
   const from = wake + Math.max(0, day?.morningMinutes ?? 0);
   // A «nothing to study from» that falls before waking up is ignored, not a closed day.
-  const free = day && day.freeFrom > from ? day.freeFrom : bed;
+  const free = academic && day && day.freeFrom > from ? day.freeFrom : bed;
   return {
     from,
     to: Math.min(bed, free),

@@ -72,13 +72,16 @@ export function Notifications() {
           {error}
         </p>
       )}
-      <label className="check">
+      <div className="check">
         <input
+          id="notif-critical"
           type="checkbox"
           checked={prefs.critical}
           onChange={(e) => save({ critical: e.target.checked })}
         />
-        <span style={{ flex: 1 }}>Antes de cada bloque crítico</span>
+        <label htmlFor="notif-critical" style={{ flex: 1 }}>
+          Antes de cada bloque crítico
+        </label>
         <select
           aria-label="Minutos antes"
           style={{ width: "auto" }}
@@ -91,7 +94,7 @@ export function Notifications() {
             </option>
           ))}
         </select>
-      </label>
+      </div>
       <label className="check">
         <input
           type="checkbox"
@@ -107,14 +110,18 @@ export function Notifications() {
           onChange={(e) => save({ sunday: e.target.checked })}
         />
         <span style={{ flex: 1 }}>Planificación semanal del domingo</span>
+      </label>
+      <div className="check">
+        <span style={{ flex: 1 }}>Hora del recordatorio</span>
         <input
           type="time"
           aria-label="Hora del recordatorio"
+          disabled={!prefs.sunday}
           style={{ width: "auto" }}
           value={minutesToHhmm(prefs.sundayAt)}
           onChange={(e) => save({ sundayAt: hhmmToMinutes(e.target.value) })}
         />
-      </label>
+      </div>
     </Section>
   );
 }

@@ -843,7 +843,8 @@ describe("plan history", () => {
     expect(await screen.findByText("Deshecho: reacomodar la semana")).toBeTruthy();
     expect(slot()?.className).toContain("placeholder");
     await act(() => new Promise((r) => requestAnimationFrame(r)));
-    expect(document.activeElement?.getAttribute("aria-label")).toBe("Reacomodar semana");
+    // The undo button is gone: the week's title takes the focus, not the page.
+    expect(document.activeElement?.tagName).toBe("H1");
     cleanup();
   });
 

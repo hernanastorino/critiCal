@@ -1,7 +1,7 @@
 import { useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
-import { MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
+import { type Activity, MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
 import {
   FREE_TODAY,
@@ -43,8 +43,12 @@ function ProposalToday({ text }: { text: string }) {
   return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
 }
 
-const noFitKind = (t: AppTask): NoFitKind =>
-  t.kind !== "habit" ? "dated" : t.study ? "study" : "routine";
+const noFitKind = (t: AppTask, activities: Activity[]): NoFitKind => {
+  if (t.kind !== "habit") return "dated";
+  if (t.study) return "study";
+  // A habit made from Silos is not in Rutinas: it is edited where it was made.
+  return activities.find((a) => a.id === t.activityId)?.kind === "rutina" ? "routine" : "habit";
+};
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
@@ -423,7 +427,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             {noFits.map((t) => (
               <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
                 <div className="title">«{t.title}» no entra</div>
-                <RoyLine anim="hombros">{noFit(t.title, noFitKind(t))}</RoyLine>
+                <RoyLine anim="hombros">{noFit(t.title, noFitKind(t, data.activities))}</RoyLine>
               </div>
             ))}
             {decisions.options.map((o) => (
@@ -482,6 +486,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             <button
               type="button"
               className="btn small"
+              aria-label={`Deshacer: ${d.label}`}
               onClick={() => dispatch({ type: "undoDecision", id: d.id })}
             >
               Deshacer
@@ -507,7 +512,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn done"
-                aria-label={`Hecho: ${titleOf(b)}`}
+                aria-label={`Hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => quick(b, "done")}
               >
                 ✓
@@ -515,7 +520,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn"
-                aria-label={`Hice una parte: ${titleOf(b)}`}
+                aria-label={`Hice una parte: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => setOpen(b)}
               >
                 ◐
@@ -523,7 +528,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn missed"
-                aria-label={`No hecho: ${titleOf(b)}`}
+                aria-label={`No hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => quick(b, "missed")}
               >
                 ✗

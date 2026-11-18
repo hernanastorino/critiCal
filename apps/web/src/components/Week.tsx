@@ -171,6 +171,7 @@ export function Week({
   const weekRef = useRef<HTMLDivElement>(null);
   const replanRef = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
+  const undoRef = useRef<HTMLButtonElement>(null);
 
   // iOS scrolls on touchmove unless told not to; a live drag owns the finger.
   useEffect(() => {
@@ -496,7 +497,7 @@ export function Week({
       data,
       now,
       date,
-      data.tasks.find((t) => t.id === data.plan.find((b) => b.id === blockId)?.taskId)?.deadline,
+      data.tasks.find((t) => t.id === data.plan.find((b) => b.id === blockId)?.taskId),
     );
 
   /** What is fixed on `date` (minutes of that day) and the window a block may take. */
@@ -524,8 +525,8 @@ export function Week({
   const keyMove = (b: PlanBlock, step: number) => {
     const start = b.start + step;
     const day = localParts(tz, start).date;
-    if (!dates.includes(day)) return flash("Fuera de la semana que se ve");
     if (day < today) return flash("Ese día ya pasó");
+    if (!dates.includes(day)) return flash("Fuera de la semana que se ve");
     if (start <= now) return flash("Ese horario ya pasó");
     const minutes = (b.end - b.start) / MINUTE;
     const { busy, earliest, latest, bounds } = landingLimits(day, b.id);
@@ -807,6 +808,7 @@ export function Week({
             className={`icon-btn${lastChange ? "" : " placeholder"}`}
             aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
             title={lastChange ? `Deshacer: ${lastChange}` : undefined}
+            ref={undoRef}
             aria-hidden={lastChange ? undefined : true}
             tabIndex={lastChange ? undefined : -1}
             disabled={!lastChange}
@@ -825,8 +827,9 @@ export function Week({
               if (away) setOffset(weekOffset(away));
               flash(`Deshecho: ${lastChange}${away ? ` · semana del ${weekLabel(away)}` : ""}`);
               setSpoken("");
-              // The button hides with the last change: the keyboard goes to its neighbour.
-              if (last) requestAnimationFrame(() => replanRef.current?.focus());
+              // The focus stays on the button; once it hides (the last change) it goes to
+              // the week's title, never to the page.
+              requestAnimationFrame(() => (last ? titleRef : undoRef).current?.focus());
             }}
           >
             <UndoIcon />
