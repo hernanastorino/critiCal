@@ -3,11 +3,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const rpc = vi.fn();
 let invited = true;
 let inviteError: Error | null = null;
+/** Tables whose reads and writes fail. */
+const failTables = new Set<string>();
 const tables: Record<string, unknown> = {};
 const writes: { table: string; op: string; payload?: unknown }[] = [];
 
 function query(table: string) {
-  const result = { data: tables[table] ?? null, error: null };
+  const result = {
+    data: tables[table] ?? null,
+    error: failTables.has(table) ? new Error("db down") : null,
+  };
   // A thenable query builder: awaiting any step yields `result`.
   const chain = Promise.resolve(result) as unknown as Promise<typeof result> &
     Record<string, unknown>;
@@ -31,10 +36,20 @@ function query(table: string) {
 vi.mock("@supabase/supabase-js", () => ({
   createClient: () => ({
     auth: {
-      getUser: async (token: string) =>
-        token === "good"
-          ? { data: { user: { id: "u1" } }, error: null }
-          : { data: { user: null }, error: new Error("bad") },
+      getUser: async (token: string) => {
+        if (token === "good") return { data: { user: { id: "u1" } }, error: null };
+        // supabase-js: a network failure is a retryable fetch error, a bad token a 4xx.
+        const error =
+          token === "down"
+            ? Object.assign(new Error("fetch failed"), {
+                name: "AuthRetryableFetchError",
+                status: 0,
+              })
+            : token === "expired"
+              ? Object.assign(new Error("jwt expired"), { status: 401 })
+              : new Error("bad");
+        return { data: { user: null }, error };
+      },
     },
     // Everyone in these tests is invited unless a test says otherwise.
     rpc: (name: string, args: unknown) =>
@@ -69,6 +84,7 @@ const req = (token?: string, body: object = {}) =>
 beforeEach(() => {
   invited = true;
   inviteError = null;
+  failTables.clear();
   rpc.mockReset();
   writes.length = 0;
   for (const k of Object.keys(tables)) delete tables[k];
@@ -86,6 +102,14 @@ describe("server", () => {
     const failed = await google(req("good"), env);
     expect(failed.status).toBe(503);
     expect(await failed.json()).toEqual({ error: "access_check_failed" });
+  });
+
+  it("tells a down auth service (503) from a bad token (401)", async () => {
+    const down = await google(req("down"), env);
+    expect(down.status).toBe(503);
+    expect(await down.json()).toEqual({ error: "access_check_failed" });
+    expect((await google(req("expired"), env)).status).toBe(401);
+    expect((await google(req("bad"), env)).status).toBe(401);
   });
 
   it("reads the environment itself, ignoring Vercel's extra argument", async () => {
@@ -306,6 +330,41 @@ describe("icloud-sync (Node)", () => {
       status: 401,
     });
     expect(rpc).not.toHaveBeenCalledWith("store_oauth_token", expect.anything());
+  });
+});
+
+describe("icloud-sync: a failed read is not «no hay»", () => {
+  const log = () => vi.spyOn(console, "error").mockImplementation(() => {});
+  const reports = () => {
+    const fetched = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetched);
+    vi.stubEnv("SENTRY_DSN", "https://key@o1.ingest.sentry.io/1");
+    return fetched;
+  };
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("a failed credentials lookup is reported as 500, not «not_connected»", async () => {
+    log();
+    const fetched = reports();
+    rpc.mockResolvedValue({ data: null, error: new Error("vault down") });
+    const res = await icloud(req("good"), env);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ connected: false, error: "sync_failed" });
+    expect(fetched).toHaveBeenCalledTimes(1);
+  });
+
+  it("disconnect says so when the events or calendars could not be deleted", async () => {
+    log();
+    for (const table of ["calendar_events", "calendars"]) {
+      const fetched = reports();
+      failTables.clear();
+      failTables.add(table);
+      rpc.mockResolvedValue({ data: null, error: null });
+      const res = await icloud(req("good", { action: "disconnect" }), env);
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ connected: false, error: "sync_failed" });
+      expect(fetched).toHaveBeenCalledTimes(1);
+    }
   });
 });
 

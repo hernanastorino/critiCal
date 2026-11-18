@@ -27,6 +27,7 @@ import { Section } from "./Section.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
+import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 /** For VoiceOver: two «M» would read alike. */
@@ -508,6 +509,7 @@ export function DetectedDefaults() {
     ),
   );
   const toast = useToast();
+  const answer = useUndoable();
   const ask = useFocusInvalid();
   const problems = Object.fromEntries(
     KINDS.map(({ kind }) => [
@@ -536,11 +538,16 @@ export function DetectedDefaults() {
   };
   const resetDetected = () => {
     const n = detectedToReset(data);
-    dispatch({ type: "resetDetected" });
-    toast.show(
-      n === 0
-        ? "No hay nada detectado para cambiar"
-        : `${n} ${n === 1 ? "tarea detectada vuelve" : "tareas detectadas vuelven"} a estas horas`,
+    if (n === 0) {
+      dispatch({ type: "resetDetected" });
+      toast.show("No hay nada detectado para cambiar");
+      return;
+    }
+    answer(
+      `${n} ${n === 1 ? "tarea detectada vuelve" : "tareas detectadas vuelven"} a estas horas`,
+      { type: "resetDetected" },
+      PLAN_KEYS,
+      { tasks: data.tasks.filter((t) => t.sourceEventId) },
     );
   };
   return (

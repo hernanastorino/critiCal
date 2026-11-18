@@ -14,7 +14,7 @@ export function detectedProblem(
 ): { field: "estimate" | "min"; text: string } | null {
   const own = hoursProblem(estimate);
   if (own) return { field: "estimate", text: own };
-  if (typedHours(estimate) === 0) {
+  if (isZeroHours(estimate)) {
     return { field: "estimate", text: "Las horas no pueden ser 0: poné cuánto planificar." };
   }
   if (typedHours(estimate) > MAX_DETECTED_HOURS) {
@@ -49,6 +49,12 @@ const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
 export const typedHours = (v: string): number =>
   figure(v) ? Number(v.replace(",", ".")) : Number.NaN;
 
+/** Hours that are 0, or so few that they round to 0 minutes («0,004»). */
+export const isZeroHours = (v: string): boolean => {
+  const n = typedHours(v);
+  return Number.isFinite(n) && Math.round(n * 60) === 0;
+};
+
 /** What is wrong with hours typed in a field, if anything. */
 export function hoursProblem(v: string): string | null {
   const n = typedHours(v);
@@ -60,7 +66,7 @@ export function hoursProblem(v: string): string | null {
 export function estimateProblem(v: string, partsMinutes: number): string | null {
   const own = hoursProblem(v) ?? partsProblem(v, partsMinutes);
   if (own) return own;
-  return typedHours(v) === 0 && partsMinutes === 0
+  return isZeroHours(v) && partsMinutes === 0
     ? "Las horas estimadas no pueden ser 0: poné cuánto pensás que lleva."
     : null;
 }

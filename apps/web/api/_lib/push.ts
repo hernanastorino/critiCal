@@ -23,27 +23,40 @@ export async function notifyUser(
   proposal?: Proposal,
 ): Promise<string[]> {
   if (!env.vapidPublic || !env.vapidPrivate) return [];
-  const { data: subs } = await admin
+  const { data: subs, error: subsError } = await admin
     .from("push_subscriptions")
     .select("id, endpoint, keys")
     .eq("user_id", uid);
+  // A lookup that fails is not «no devices» or «default preferences»: nothing goes out.
+  if (subsError) {
+    await report(env, subsError, "push");
+    return [];
+  }
   if (!subs?.length) return [];
-  const { data: settings } = await admin
+  const { data: settings, error: settingsError } = await admin
     .from("settings")
     .select("data, state")
     .eq("user_id", uid)
     .maybeSingle();
+  if (settingsError) {
+    await report(env, settingsError, "push");
+    return [];
+  }
   const timeZone =
     (settings?.data as { timezone?: string } | null)?.timezone ?? "America/Montevideo";
   const prefs = (settings?.state as { preferences?: Preferences } | null)?.preferences
     ?.notifications;
-  const { data: blocks } = await admin
+  const { data: blocks, error: blocksError } = await admin
     .from("plan_blocks")
     .select("id, start_at, tasks(title)")
     .eq("user_id", uid)
     .eq("level", "critical")
     .gt("start_at", new Date(now).toISOString())
     .lte("start_at", new Date(now + MAX_LEAD_MINUTES * 60_000).toISOString());
+  if (blocksError) {
+    await report(env, blocksError, "push");
+    return [];
+  }
   const critical = (blocks ?? []).map((b) => ({
     id: b.id as string,
     start: Date.parse(b.start_at as string),

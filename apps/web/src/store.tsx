@@ -119,6 +119,8 @@ export type Action =
   | { type: "deleteActivity"; activityId: string; now: number }
   /** Takes back a `deleteActivity`: what it removed, as it was. */
   | { type: "restoreActivity"; removed: RemovedActivity; now: number }
+  /** Takes back an answer of the inbox («Deshacer»): puts the parts it changed as they were. */
+  | { type: "restoreState"; before: Snapshot; now: number }
   | { type: "savePlace"; place: Place; now: number }
   | { type: "deletePlace"; placeId: string; now: number }
   | { type: "travelTime"; from: string; to: string; minutes: number; now: number }
@@ -217,6 +219,26 @@ export interface RemovedActivity {
   pins: NonNullable<AppData["pins"]>;
 }
 
+/** What an answer of the inbox may change, kept by the notice that offers «Deshacer». */
+export interface Snapshot {
+  /** Tasks put back one by one (what was added or edited since stays). */
+  tasks?: AppTask[];
+  /** Parts of the data put back whole. */
+  keys?: Partial<AppData>;
+}
+
+/** The parts `keys` of `data` as they are now (a missing one stays missing). */
+export function snapshotOf(
+  data: AppData,
+  keys: readonly (keyof AppData)[],
+  tasks: readonly AppTask[] = [],
+): Snapshot {
+  return {
+    tasks: [...tasks],
+    keys: Object.fromEntries(keys.map((k) => [k, data[k]])) as Partial<AppData>,
+  };
+}
+
 /** Everything that goes when the activity `id` is deleted (to put it back on undo). */
 export function removedWith(data: AppData, id: string): RemovedActivity | undefined {
   const activity = data.activities.find((a) => a.id === id);
@@ -251,7 +273,9 @@ export function reducer(data: AppData, action: Action): AppData {
   const next = rekeySpots(versioned(base, action, apply(base, action)));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
-  const exempt = ["applyOption", "undoDecision", "replace", "refresh"].includes(action.type);
+  const exempt = ["applyOption", "undoDecision", "replace", "refresh", "restoreState"].includes(
+    action.type,
+  );
   if (exempt || !next.applied?.length) return next;
   const before = new Map(base.tasks.map((t) => [t.id, t.status]));
   const moved = new Set(
@@ -732,6 +756,15 @@ function apply(data: AppData, action: Action): AppData {
         },
         now,
       );
+    }
+    case "restoreState": {
+      const back = new Map((action.before.tasks ?? []).map((t) => [t.id, t]));
+      // The snapshot was a settled state: it is put back as it was, not planned again.
+      return {
+        ...data,
+        ...action.before.keys,
+        tasks: action.before.keys?.tasks ?? data.tasks.map((t) => back.get(t.id) ?? t),
+      };
     }
     case "restoreActivity": {
       const { activity, index, tasks, checkIns, pins } = action.removed;

@@ -65,7 +65,7 @@ vi.mock("./_lib/report.js", async (original) => ({
   report: (...args: unknown[]) => reported(...args),
 }));
 
-const { handle: webhook } = await import("./google-webhook.js");
+const { handle: webhook, byChannel, byIp } = await import("./google-webhook.js");
 const { handle: cron } = await import("./cron.js");
 const { actAs, readEnv } = await import("./_lib/server.js");
 const { newProposal } = await import("./_lib/replan.js");
@@ -84,6 +84,8 @@ const notify = (headers: Record<string, string>) =>
 
 beforeEach(() => {
   reported.mockReset();
+  byChannel.reset();
+  byIp.reset();
   rpc.mockReset();
   serverSync.mockReset();
   ops.length = 0;
@@ -142,6 +144,29 @@ describe("google-webhook", () => {
     );
     expect(res.status).toBe(500);
     expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "google-webhook");
+  });
+
+  it("limits the requests of one channel and of one address, before reading the database", async () => {
+    const from = (id: string, ip = "1.1.1.1") =>
+      notify({
+        "x-goog-channel-id": id,
+        "x-goog-channel-token": "s3cret",
+        "x-goog-resource-state": "sync",
+        "x-forwarded-for": ip,
+      });
+    const statuses: number[] = [];
+    for (let i = 0; i < 40; i++) statuses.push((await webhook(from("ch1"), env)).status);
+    expect(statuses.slice(0, 30).every((s) => s === 200)).toBe(true);
+    expect(statuses.slice(30).every((s) => s === 429)).toBe(true);
+    // A lookup that would fail is never reached once the address is over its budget.
+    byChannel.reset();
+    byIp.reset();
+    failing.add("google_channels");
+    for (let i = 0; i < 125; i++) await webhook(from(`c${i}`, "9.9.9.9"), env);
+    reported.mockClear();
+    const over = await webhook(from("other", "9.9.9.9"), env);
+    expect(over.status).toBe(429);
+    expect(reported).not.toHaveBeenCalled();
   });
 
   it("needs the Google credentials", async () => {
@@ -203,6 +228,14 @@ describe("cron", () => {
     expect((await cron(tick(), env)).status).toBe(401);
     expect((await cron(tick("guess"), env)).status).toBe(401);
     expect((await cron(tick("k"), { ...env, secret: undefined })).status).toBe(503);
+  });
+
+  it("a failed check of the key is a server error (500, reported), not a refusal", async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error("db down") });
+    const res = await cron(tick("k"), env);
+    expect(res.status).toBe(500);
+    expect(reported).toHaveBeenCalledWith(env, expect.any(Error), "cron");
+    expect(serverSync).not.toHaveBeenCalled();
   });
 
   it("reports the failure of the user list or of one claim", async () => {

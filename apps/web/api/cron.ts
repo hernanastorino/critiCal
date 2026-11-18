@@ -20,7 +20,12 @@ export async function handle(req: Request, env: Env): Promise<Response> {
   if (missing(env).length) return json({ error: "server_not_configured" }, 503);
   const admin = adminClient(env);
   const key = req.headers.get("x-cron-key") ?? "";
-  const { data: ok } = await admin.rpc("check_cron_key", { p_key: key });
+  const { data: ok, error: keyError } = await admin.rpc("check_cron_key", { p_key: key });
+  // A check that fails is the server's problem, not a wrong key.
+  if (keyError) {
+    await report(env, keyError, "cron");
+    return json({ ok: false, error: "key_check_failed" }, 500);
+  }
   if (!key || !ok) return json({ error: "unauthorized" }, 401);
 
   const { data: users, error } = await admin.rpc("connected_users");

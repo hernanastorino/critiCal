@@ -98,6 +98,19 @@ describe("widget", () => {
     expect(await failed.json()).toEqual({ ok: false, error: "widget_failed" });
   });
 
+  it("says a failed token write like a failed revoke, and reports it", async () => {
+    const fetched = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetched);
+    rpc.mockResolvedValueOnce({ data: null, error: new Error("rls") });
+    const res = await widget.manage(bearer("jwt", { action: "create" }), {
+      ...env,
+      sentryDsn: "https://key@o1.ingest.sentry.io/1",
+    });
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "widget_failed" });
+    expect(fetched).toHaveBeenCalledTimes(1);
+  });
+
   it("refuses an unknown action or body without touching the token", async () => {
     rpc.mockResolvedValue({ data: null, error: null });
     for (const body of [{ action: "rotate" }, { action: "Create" }, {}]) {
