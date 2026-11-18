@@ -13,6 +13,11 @@ const MODELS = ["gemini-3.6-flash", "gemini-3.5-flash-lite"];
 /** Vercel accepts request bodies up to 4.5 MB; base64 adds a third. */
 export const MAX_PDF_BYTES = 3_000_000;
 
+/** Two models of up to 25 s each: the default 10 s of a Vercel function would cut them. */
+export const maxDuration = 60;
+/** How Vercel reads it for a plain Node function in `/api`. */
+export const config = { maxDuration };
+
 /** Readings per user: every one spends the shared Gemini quota (and costs time). */
 export const reads = limiter(5, 40);
 /** Saving a key calls Google to check it: few tries per user. */
@@ -149,8 +154,10 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       });
       // Retired model, quota or overload: try the next one.
       // A forced model that does not exist will not start working by retrying.
-      if (res.status === 404 && env.geminiModel)
+      if (res.status === 404 && env.geminiModel) {
+        reads.refund(caller.uid);
         return json({ ok: false, error: "model_unavailable" }, 503);
+      }
       if ([404, 429, 500, 503].includes(res.status)) continue;
       // Upstream failure: a bad gateway for the app, with Gemini's own status in the body.
       if (!res.ok) return json({ ok: false, error: "gemini_error", status: res.status }, 502);
@@ -168,10 +175,13 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
       if (!syllabus) return json({ ok: false, error: "unreadable" });
       return json({ ok: true, model, syllabus });
     }
+    // Nothing was read: the try does not count against the user's budget.
+    reads.refund(caller.uid);
     return json({ ok: false, error: "gemini_busy" }, 503);
   } catch (e) {
     // Gemini that does not answer in time is busy, not a failure of ours.
     if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
+      reads.refund(caller.uid);
       return json({ ok: false, error: "gemini_busy" }, 503);
     }
     console.error(e);

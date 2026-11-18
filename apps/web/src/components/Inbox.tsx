@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
 import { type Activity, MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
@@ -9,6 +9,7 @@ import {
   type NoFitKind,
   noFit,
   onlyNoFitLeft,
+  optionPromise,
   REPLANNED_TOAST,
   SKIPPED_TOAST,
   STILL_SHORT,
@@ -54,6 +55,7 @@ const noFitKind = (t: AppTask, activities: Activity[]): NoFitKind => {
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
     useStore();
+  const { result: plan } = useStore();
   const offline = !!useSync()?.status.offline;
   const toast = useToast();
   const tz = data.settings.timezone;
@@ -109,6 +111,16 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const listRef = useRef<HTMLDivElement>(null);
   const keepFocus = useKeepFocus(listRef, titleRef);
 
+  // «Deshacer» on the notice of an answer brings its card back; the notice that held the
+  // focus is gone then, so the card (or the title) takes it instead of <body>.
+  const [restored, setRestored] = useState<string | null>(null);
+  useEffect(() => {
+    if (restored === null) return;
+    setRestored(null);
+    const card = listRef.current?.querySelector<HTMLElement>(`[data-block-id="${restored}"]`);
+    (card?.querySelector<HTMLElement>("button") ?? titleRef.current)?.focus();
+  }, [restored]);
+
   // The list reflows after each answer: a second tap right after lands on the next item.
   const lastAnswer = useRef(0);
   const quick = (b: PlanBlock, status: "done" | "missed") => {
@@ -124,7 +136,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         unitIds: [],
       },
     });
-    const undo = () => dispatch({ type: "undoCheckIn", blockId: b.id });
+    const undo = () => {
+      dispatch({ type: "undoCheckIn", blockId: b.id });
+      setRestored(b.id);
+    };
     if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros", undo });
     else toast.show("Anotado como hecho.", { undo });
   };
@@ -440,15 +455,17 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               >
                 <div className="title">{o.label}</div>
                 <RoyLine anim="puente" big>
-                  {o.result.feasible
-                    ? "Con esto llegás a todos los mínimos."
-                    : onlyImpossibleLeft(o, decisions.impossible)
+                  {optionPromise(
+                    o,
+                    plan.feasible,
+                    onlyImpossibleLeft(o, decisions.impossible)
                       ? onlyNoFitLeft(
                           noFits
                             .filter((t) => o.result.status.some((s) => s.taskId === t.id))
                             .map((t) => t.title),
                         )
-                      : STILL_SHORT}
+                      : STILL_SHORT,
+                  )}
                 </RoyLine>
                 <button
                   type="button"
@@ -508,7 +525,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
         {pending.length > 0 && <div className="section-title">¿Cómo te fue?</div>}
         {pending.map((b) => (
-          <div key={b.id} className="card" style={{ ["--c" as string]: colorOf(b) }}>
+          <div
+            key={b.id}
+            className="card"
+            data-block-id={b.id}
+            style={{ ["--c" as string]: colorOf(b) }}
+          >
             <button
               type="button"
               className="title"

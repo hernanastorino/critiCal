@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
+import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
@@ -9,6 +10,7 @@ import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
 import { detectedProblem, detectedToReset } from "../taskForm.js";
+import { clockText, weekMinutesProblem } from "../weekForm.js";
 import {
   clampMinutes,
   Field,
@@ -56,7 +58,7 @@ export function WeekSettings() {
   const [failure, setFailure] = useState<{
     message: string | null;
     /** The field a minutes error is about, so its input says it is invalid. */
-    field: string | null;
+    field: string | string[] | null;
     /** The form it was found in: any change to the form (or the days) clears it. */
     form: typeof form;
   } | null>(null);
@@ -65,6 +67,8 @@ export function WeekSettings() {
   const current = failure?.form === form ? failure : null;
   const error = current?.message ?? null;
   const badField = current?.field ?? null;
+  const isBad = (name: string) =>
+    Array.isArray(badField) ? badField.includes(name) : badField === name;
   const save = () => {
     const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
       kind,
@@ -72,28 +76,9 @@ export function WeekSettings() {
       // At most 4 h: a 99999-minute breakfast would not even fit a backup.
       end: hhmmToMinutes(at) + (clampMinutes(minutes, 0, 240) ?? 0),
     });
-    // A figure out of range would be corrected without a word (−20 → 0, 999 → 240).
-    const badMinutes = (
-      [
-        ["Arreglarse, traslado (min)", form.morning],
-        ["Dura (min), desayuno", form.breakfastMin],
-        ["Dura (min), almuerzo", form.lunchMin],
-        ["Dura (min), merienda", form.snackMin],
-        ["Dura (min), cena", form.dinnerMin],
-      ] as const
-    ).find(([, v]) => {
-      if (v.trim() === "") return false;
-      // The figure as typed, not rounded: «240,4» is out of range too.
-      if (!isFigure(v)) return true;
-      const n = Number(v.replace(",", "."));
-      return !Number.isFinite(n) || n < 0 || n > 240;
-    });
+    const badMinutes = weekMinutesProblem(form);
     if (badMinutes) {
-      setFailure({
-        message: `«${badMinutes[0]}» tiene que ser un número de minutos entre 0 y 240.`,
-        field: badMinutes[0],
-        form,
-      });
+      setFailure({ ...badMinutes, form });
       return;
     }
     // A time that is not one (a blank or impossible hour) would be read as midnight.
@@ -170,6 +155,13 @@ export function WeekSettings() {
       });
       return;
     }
+    // The same day «Hoy» and a backup take: awake 4 to 22 h (said after what is about the
+    // meals and the free time, which fall asleep first in a day that is not one).
+    const tooLong = awakeProblem(form.wake, form.bed);
+    if (tooLong) {
+      setFailure({ message: tooLong, field: ["Me levanto", "Me acuesto"], form });
+      return;
+    }
     setError(null);
     const day: DaySettings = {
       wake,
@@ -192,6 +184,14 @@ export function WeekSettings() {
       held: Object.fromEntries(Object.entries(held).filter(([d]) => !days.includes(Number(d)))),
       form: {
         ...form,
+        // Times typed as «7» or «7:5» are shown as saved.
+        wake: clockText(form.wake),
+        bed: clockText(form.bed),
+        freeFrom: clockText(form.freeFrom),
+        breakfast: clockText(form.breakfast),
+        lunch: clockText(form.lunch),
+        snack: clockText(form.snack),
+        dinner: clockText(form.dinner),
         morning: String(day.morningMinutes),
         breakfastMin: shown(meals.find((m) => m.kind === "desayuno")),
         lunchMin: shown(meals.find((m) => m.kind === "almuerzo")),
@@ -227,7 +227,7 @@ export function WeekSettings() {
           type="time"
           value={form.wake}
           onChange={set("wake")}
-          invalid={badField === "Me levanto"}
+          invalid={isBad("Me levanto")}
         />
         <Field
           label="Arreglarse, traslado (min)"
@@ -303,7 +303,7 @@ export function WeekSettings() {
           type="time"
           value={form.bed}
           onChange={set("bed")}
-          invalid={badField === "Me acuesto"}
+          invalid={isBad("Me acuesto")}
         />
       </div>
       <p className="meta">

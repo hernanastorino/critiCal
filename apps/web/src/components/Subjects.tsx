@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
-import { hhmmToMinutes, isHhmm, minutesToHhmm } from "../format.js";
+import { minutesToHhmm, parseClock } from "../format.js";
 import { isBlank, NAME_MAX } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
@@ -66,8 +66,8 @@ function savedActivity(
     studyMinutes: clampMinutes(form.study, 5, 240) ?? activity.studyMinutes,
     breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
     preferred:
-      form.from && form.to
-        ? { start: hhmmToMinutes(form.from), end: hhmmToMinutes(form.to) }
+      form.from.trim() && form.to.trim()
+        ? { start: parseClock(form.from) ?? 0, end: parseClock(form.to) ?? 0 }
         : undefined,
   };
 }
@@ -98,11 +98,20 @@ function savedForm<F extends ActivityForm>(
  */
 const recent: { current: { removed: RemovedActivity; at: number }[] } = { current: [] };
 
-/** The «Prefiero desde / hasta» window is two real times, the first before the second. */
-function windowError(from: string, to: string): string | null {
-  if ((from && !isHhmm(from)) || (to && !isHhmm(to))) return "Hora inválida.";
-  return from && to && hhmmToMinutes(from) >= hhmmToMinutes(to)
-    ? "«Prefiero desde» tiene que ser antes de «hasta»."
+/**
+ * The «Prefiero desde / hasta» window is two real times (read like everywhere: «7» is
+ * 07:00), the first before the second. `from` and `to` say which field the error is about.
+ */
+function windowError(
+  from: string,
+  to: string,
+): { message: string; from: boolean; to: boolean } | null {
+  const badFrom = from.trim() !== "" && parseClock(from) === null;
+  const badTo = to.trim() !== "" && parseClock(to) === null;
+  if (badFrom || badTo) return { message: "Hora inválida.", from: badFrom, to: badTo };
+  const [a, b] = [parseClock(from), parseClock(to)];
+  return a !== null && b !== null && a >= b
+    ? { message: "«Prefiero desde» tiene que ser antes de «hasta».", from: true, to: true }
     : null;
 }
 
@@ -216,7 +225,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
   const windowProblem = windowError(form.from, form.to);
   const nameProblem = nameError(form.name, repeated);
   const numberProblem = numbers.max ?? numbers.min ?? numbers.study ?? numbers.rest;
-  const problem = nameProblem ?? numberProblem ?? blockProblem ?? windowProblem;
+  const problem = nameProblem ?? numberProblem ?? blockProblem ?? windowProblem?.message;
   const saved = activity.name;
   // A long name would wrap the button onto two lines.
   const named = saved.length > 24 ? "" : ` ${saved}`;
@@ -302,7 +311,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             <Field
               label="Prefiero desde"
               type="time"
-              invalid={!!windowProblem}
+              invalid={!!windowProblem?.from}
               errorId={`${key}-window-error`}
               value={form.from}
               onChange={(e) => setForm({ ...form, from: e.target.value })}
@@ -310,7 +319,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             <Field
               label="hasta"
               type="time"
-              invalid={!!windowProblem}
+              invalid={!!windowProblem?.to}
               errorId={`${key}-window-error`}
               value={form.to}
               onChange={(e) => setForm({ ...form, to: e.target.value })}
@@ -321,7 +330,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           <Problem id={`${key}-study-error`} text={numbers.study} />
           <Problem id={`${key}-rest-error`} text={numbers.rest} />
           <Problem id={`${key}-block-error`} text={blockProblem} />
-          <Problem id={`${key}-window-error`} text={windowProblem} />
+          <Problem id={`${key}-window-error`} text={windowProblem?.message ?? null} />
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"

@@ -1,5 +1,5 @@
 // Export and import of everything as one JSON file (also a manual backup).
-import { awakeProblem } from "./dayLength.js";
+import { awakeMinutes, awakeProblem } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
 import { BACKUP_TEXT_MAX, isRealDate } from "./limits.js";
 import type { AppData } from "./model.js";
@@ -14,6 +14,28 @@ export function exportJson(data: AppData, now: number): string {
     null,
     2,
   );
+}
+
+const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+/**
+ * What is wrong with a day of the week of a backup whose times are valid («El lunes tiene
+ * 23,5 h despierto»), or null: awake 4 to 22 h, and no free time asleep (what «Mi semana»
+ * and «Hoy» take).
+ */
+export function dayProblem(w: Record<string, unknown>, weekday: number): string | null {
+  const [wake, bed, free] = [w.wake, w.bed, w.freeFrom] as number[];
+  const [from, to] = [minutesToHhmm(wake as number), minutesToHhmm(bed as number)];
+  const name = `El ${WEEKDAYS[weekday] ?? "día"}`;
+  if (awakeProblem(from, to)) {
+    const h = String(Math.round((awakeMinutes(from, to) / 60) * 10) / 10).replace(".", ",");
+    return `${name} tiene ${h} h despierto (de ${from} a ${to}): tiene que tener entre 4 y 22 h.`;
+  }
+  const asleep =
+    (bed as number) < (wake as number)
+      ? (free as number) < (wake as number) && (free as number) > (bed as number)
+      : (free as number) < (wake as number);
+  return asleep ? `${name}, «Nada de estudio desde» cae cuando estás dormido.` : null;
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
@@ -127,13 +149,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     minute(r.end, 2880) &&
     (r.end as number) > (r.start as number);
   // The day «Mi semana» and «Hoy» would take: awake 4 to 22 h, and no free time asleep.
-  const sensibleDay = (w: Rec) => {
-    const [wake, bed, free] = [w.wake, w.bed, w.freeFrom] as number[];
-    if (awakeProblem(minutesToHhmm(wake as number), minutesToHhmm(bed as number))) return false;
-    return (bed as number) < (wake as number)
-      ? (free as number) >= (wake as number) || (free as number) <= (bed as number)
-      : (free as number) >= (wake as number);
-  };
+  const sensibleDay = (w: Rec) => dayProblem(w, 0) === null;
   const validDay = (w: unknown) =>
     isObject(w) &&
     minute(w.wake) &&
@@ -302,7 +318,19 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     !validShapes() ||
     !validPreferences(d.preferences)
   ) {
-    return { error: "Al respaldo le faltan datos." };
+    // Say which day is the problem when that is the only one (the rest of the file reads).
+    const badDay = Array.isArray(week)
+      ? week.findIndex(
+          (w) =>
+            isObject(w) &&
+            minute(w.wake) &&
+            minute(w.bed) &&
+            minute(w.freeFrom, 2880) &&
+            !sensibleDay(w),
+        )
+      : -1;
+    const message = badDay >= 0 ? dayProblem((week as unknown[])[badDay] as Rec, badDay) : null;
+    return { error: message ?? "Al respaldo le faltan datos." };
   }
   if (new Set(d.checkIns?.map((c) => c.id)).size !== d.checkIns?.length) {
     return { error: "El respaldo tiene registros duplicados." };

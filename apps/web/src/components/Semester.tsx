@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
-import { localParts, zonedInstant } from "../engine.js";
+import { addDays, localParts, zonedInstant } from "../engine.js";
 import { dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { dateError, deadlineMaxYear, isBlank, TITLE_MAX } from "../limits.js";
@@ -11,6 +11,9 @@ import { hasClasses, sameName, subjectsOf } from "../subjects.js";
 import { focusFirstInvalid, isFigure, Problem, useFocusInvalid } from "./fields.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
+
+/** The longest a semester may last: a year (an end typed with the wrong year says so). */
+const SEMESTER_MAX_DAYS = 366;
 
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
@@ -81,6 +84,13 @@ export function Semester() {
   // Nothing readable in it (spaces, zero-width characters): said when typed or tried.
   const nameProblem = isBlank(subject) && (subject !== "" || nameTried) ? "Poné un nombre." : null;
   const backwards = !!start && !!end && end < start;
+  const tooLong =
+    !backwards &&
+    !startProblem &&
+    !endProblem &&
+    !!start &&
+    !!end &&
+    end > addDays(start, SEMESTER_MAX_DAYS);
   const addSubject = (e: React.MouseEvent<HTMLButtonElement>) => {
     const name = subject.trim().replace(/\s+/g, " ");
     if (isBlank(name)) {
@@ -189,11 +199,11 @@ export function Semester() {
                 value={end}
                 min="2000-01-01"
                 max={`${deadlineMaxYear(now)}-12-31`}
-                aria-invalid={backwards || endProblem ? true : undefined}
+                aria-invalid={backwards || tooLong || endProblem ? true : undefined}
                 aria-describedby={
                   endProblem
                     ? "semester-end-date-error"
-                    : backwards
+                    : backwards || tooLong
                       ? "semester-end-error"
                       : undefined
                 }
@@ -209,20 +219,26 @@ export function Semester() {
           <Problem id="semester-end-date-error" text={endProblem} />
           <Problem
             id="semester-end-error"
-            text={backwards ? "«Termina» no puede ser anterior a «Empieza»." : null}
+            text={
+              backwards
+                ? "«Termina» no puede ser anterior a «Empieza»."
+                : tooLong
+                  ? "Un cuatrimestre dura como mucho 12 meses: revisá la fecha de «Termina»."
+                  : null
+            }
           />
           <button
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            aria-disabled={backwards || startProblem || endProblem ? true : undefined}
+            aria-disabled={backwards || tooLong || startProblem || endProblem ? true : undefined}
             onClick={(e) => {
               if (!start || !end) {
                 setDatesTried(true);
                 askFocus(e.currentTarget);
                 return;
               }
-              if (backwards || startProblem || endProblem) {
+              if (backwards || tooLong || startProblem || endProblem) {
                 focusFirstInvalid(e.currentTarget.parentElement);
                 return;
               }

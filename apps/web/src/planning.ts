@@ -671,11 +671,39 @@ export interface Decisions {
   impossible: string[];
 }
 
-export function decisions(input: ScheduleInput, result: ScheduleResult): Decisions {
+/**
+ * «Quedarme con el mínimo» promises the targets are covered. When the cut cannot be made
+ * in the tasks (with parts, what is left is measured by them, so a lower estimate changes
+ * nothing), choosing it would only say «Listo» and leave the plan as it was: it is not
+ * offered. Checked by applying it and planning again.
+ */
+function keepsItsPromise(
+  data: AppData,
+  now: number,
+  input: ScheduleInput,
+  result: ScheduleResult,
+  option: PlanOption,
+): boolean {
+  if (option.kind !== "minimum-only") return true;
+  const short = new Set(
+    result.status.filter((s) => s.minDeficit === 0 && s.targetDeficit > 0).map((s) => s.taskId),
+  );
+  const after = refreshPlan(applyOption(data, input, option, now), now).result;
+  return !after.status.some((s) => short.has(s.taskId) && s.targetDeficit > 0);
+}
+
+export function decisions(
+  input: ScheduleInput,
+  result: ScheduleResult,
+  /** With the user's data, the options are checked to do what they say. */
+  from?: { data: AppData; now: number },
+): Decisions {
   const impossible = result.feasible ? [] : selfShort(input, result);
   return {
     options: result.feasible
-      ? targetOptions(input, result)
+      ? targetOptions(input, result).filter(
+          (o) => !from || keepsItsPromise(from.data, from.now, input, result, o),
+        )
       : infeasibilityOptions(input, result, impossible),
     recommendations: recommendations(input, result),
     impossible,

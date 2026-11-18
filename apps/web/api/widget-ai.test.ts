@@ -286,6 +286,30 @@ describe("syllabus", () => {
     expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(200);
   });
 
+  it("may run longer than its two Gemini calls together", () => {
+    expect(syllabus.maxDuration).toBe(60);
+    expect(syllabus.config.maxDuration).toBe(60);
+  });
+
+  it("a reading that ends busy or timed out does not use up the budget", async () => {
+    vi.stubGlobal("fetch", async () => new Response("busy", { status: 503 }));
+    for (let i = 0; i < 8; i++) {
+      expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
+        503,
+      );
+    }
+    vi.stubGlobal("fetch", async () => {
+      throw Object.assign(new Error("slow"), { name: "TimeoutError" });
+    });
+    for (let i = 0; i < 8; i++) {
+      expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
+        503,
+      );
+    }
+    vi.stubGlobal("fetch", async () => answer(good));
+    expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(200);
+  });
+
   it("refuses big or missing files and reports Gemini failures", async () => {
     expect((await syllabus.handle(bearer("jwt", {}), env)).status).toBe(400);
     const big = "A".repeat(4_100_000);

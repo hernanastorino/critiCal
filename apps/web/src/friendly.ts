@@ -14,6 +14,28 @@ export const mealNoRoom = (from: string, to: string, at: string) =>
 /** An option that still does not reach every minimum: say what to do next. */
 export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opción o aflojá un mínimo.";
 
+/**
+ * What a card says an option achieves. When the minimums were already reached and only the
+ * targets were short, «llegás a todos los mínimos» would say nothing about it. `otherwise`
+ * is the text for an option that does not reach every minimum; `minimumsMet` is whether the
+ * plan reached them before the option.
+ */
+export function optionPromise(
+  option: { kind: string; result: { feasible: boolean; status: { targetDeficit: number }[] } },
+  minimumsMet: boolean,
+  otherwise: string,
+): string {
+  if (!minimumsMet)
+    return option.result.feasible ? "Con esto llegás a todos los mínimos." : otherwise;
+  if (option.kind === "minimum-only")
+    return "Con esto el plan cubre todo lo que queda, aunque no llegues al objetivo.";
+  if (option.kind === "use-free-time")
+    return option.result.status.every((s) => s.targetDeficit === 0)
+      ? "Con esto llegás al objetivo usando tiempo libre."
+      : "Con esto sumás tiempo libre al plan, pero el objetivo no se cubre del todo.";
+  return option.result.feasible ? "Con esto llegás a todos los mínimos." : otherwise;
+}
+
 /** An option that reaches every minimum but those of tasks that fit nowhere anyway. */
 export const onlyNoFitLeft = (names: string[]) =>
   `Con esto llegás a todo menos ${names.map((n) => `«${n}»`).join(" y ")}, que no entra${names.length > 1 ? "n" : ""} igual.`;
