@@ -69,6 +69,7 @@ describe("vercel.json: cabeceras de seguridad", () => {
     expect(dir("style-src")).toContain("'unsafe-inline'");
     expect(dir("connect-src")).toContain("https://*.supabase.co wss://*.supabase.co");
     expect(dir("connect-src")).toContain("https://*.ingest.sentry.io");
+    expect(dir("connect-src")).toContain("https://*.betterstackdata.com");
     expect(dir("img-src")).toContain("data:");
     expect(dir("img-src")).toContain("blob:");
     expect(csp).toContain("report-uri /api/csp-report");

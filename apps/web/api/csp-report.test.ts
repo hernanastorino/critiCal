@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { byIp, handle, MAX_BODY, securityUrl } from "./csp-report.js";
+import { byIp, handle, MAX_BODY, summary } from "./csp-report.js";
 
 const dsn = "https://abc@o1.ingest.sentry.io/42";
 const req = (body: string, type = "application/csp-report") =>
@@ -12,12 +12,28 @@ const req = (body: string, type = "application/csp-report") =>
 describe("csp-report", () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it("arma la URL de seguridad de Sentry desde el DSN", () => {
-    expect(securityUrl(dsn)).toBe("https://o1.ingest.sentry.io/api/42/security/?sentry_key=abc");
-    expect(securityUrl("nada")).toBeNull();
+  it("resume la violación en una línea, en los dos formatos", () => {
+    const legacy =
+      '{"csp-report":{"violated-directive":"connect-src","blocked-uri":"https://x.test"}}';
+    const modern =
+      '[{"type":"csp-violation","body":{"effectiveDirective":"img-src","blockedURL":"data"}}]';
+    expect(summary(legacy)).toBe("CSP: connect-src blocked https://x.test");
+    expect(summary(modern)).toBe("CSP: img-src blocked data");
+    expect(summary("nada")).toBe("CSP: ? blocked ?");
   });
 
-  it("reenvía el reporte a Sentry y responde 204", async () => {
+  it("funciona con un DSN de Better Stack", async () => {
+    const fetched = vi.fn((_url: string) => Promise.resolve(new Response("{}")));
+    vi.stubGlobal("fetch", fetched);
+    byIp.reset();
+    const bs = "https://tok@s2842817.us-west-2a.betterstackdata.com/2842817";
+    expect((await handle(req("{}"), { sentryDsn: bs })).status).toBe(204);
+    expect(fetched.mock.calls[0]?.[0]).toBe(
+      "https://s2842817.us-west-2a.betterstackdata.com/api/2842817/envelope/",
+    );
+  });
+
+  it("manda el reporte como error y responde 204", async () => {
     const fetched = vi.fn(() => Promise.resolve(new Response("{}")));
     vi.stubGlobal("fetch", fetched);
     const res = await handle(req('{"csp-report":{}}'), { sentryDsn: dsn });
