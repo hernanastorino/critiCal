@@ -6,7 +6,7 @@ import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf } from "../subjects.js";
-import { clampMinutes, Field, focusFirstInvalid, toHours, Unsaved } from "./fields.js";
+import { clampMinutes, Field, focusFirstInvalid, Problem, toHours, Unsaved } from "./fields.js";
 import { Section } from "./Section.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { UNDO_MS, useToast } from "./Toast.js";
@@ -189,7 +189,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
         <span className="swatch" style={{ background: activity.color }} />
         {activity.name}
         {activity.kind && (
-          <span className="meta" style={{ margin: 0 }}>
+          <span className="meta" style={{ margin: 0, whiteSpace: "nowrap" }}>
             {" "}
             · {activity.kind}
           </span>
@@ -361,13 +361,4 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
       )}
     </div>
   );
-}
-
-/** A form error, right under its fields; empty when there is none. */
-function Problem({ id, text }: { id: string; text: string | null }) {
-  return text ? (
-    <p id={id} className="meta" role="alert" style={{ color: "var(--critical)" }}>
-      {text}
-    </p>
-  ) : null;
 }

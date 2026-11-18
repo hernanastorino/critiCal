@@ -127,12 +127,12 @@ describe("Ajustes keeps its notices", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     openSettings();
-    expect(screen.getByRole("button", { name: /^Materias, 4/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
   });
 
   it("two deleted with Ajustes closed and opened in between share one Deshacer", () => {
     render(<App fixedNow={MON} initial={seeded} />);
-    for (const name of ["Física I", "Gym"]) {
+    for (const name of ["Física I", "Programación"]) {
       openSettings("Materias");
       fireEvent.click(screen.getByText(name));
       fireEvent.click(screen.getByText(`Eliminar ${name}`));
@@ -141,7 +141,7 @@ describe("Ajustes keeps its notices", () => {
     expect(screen.getByText(/2 eliminadas/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     openSettings();
-    expect(screen.getByRole("button", { name: /^Materias, 4/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
   });
 
   it("«Reiniciar demo» is immediate, says so and can be undone", () => {
@@ -151,13 +151,13 @@ describe("Ajustes keeps its notices", () => {
     fireEvent.click(screen.getByText("Eliminar Física I"));
     fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
     openSettings();
-    expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Materias, 2/ })).toBeTruthy();
     fireEvent.click(screen.getByText("Reiniciar demo"));
     // Nothing asked: the demo starts over and the notice offers the way back.
     expect(screen.getByText("Demo reiniciada")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     openSettings();
-    expect(screen.getByRole("button", { name: /^Materias, 3/ })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^Materias, 2/ })).toBeTruthy();
   });
 });
 

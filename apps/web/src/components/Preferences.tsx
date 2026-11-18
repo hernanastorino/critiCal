@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
@@ -10,8 +10,10 @@ import { sameName, validRoutine } from "../subjects.js";
 import {
   clampMinutes,
   Field,
+  focusFirstInvalid,
   fromHours,
   isFigure,
+  Problem,
   toHours,
   Unsaved,
   useFocusInvalid,
@@ -518,6 +520,21 @@ export function DetectedDefaults() {
   );
 }
 
+/** What is wrong with the times a week and minutes of a routine, and in which field. */
+function routineProblem(
+  times: string,
+  minutes: string,
+): { field: "times" | "minutes"; text: string } | null {
+  const t = Math.round(Number(times));
+  const m = Math.round(Number(minutes));
+  if (!Number.isFinite(t) || t < 1 || t > 14)
+    return { field: "times", text: "Las veces por semana van de 1 a 14." };
+  if (!Number.isFinite(m) || m < 1 || m > 360)
+    return { field: "minutes", text: "Los minutos por sesión van de 1 a 360." };
+  if (!validRoutine(t, m)) return { field: "times", text: "Eso suma más de 40 h por semana." };
+  return null;
+}
+
 /** Routines like the gym: the plan places them N times a week; never a materia. */
 export function Routines() {
   const { data, dispatch } = useStore();
@@ -537,6 +554,8 @@ export function Routines() {
   // Two «Nadar» would be told apart by nothing.
   const repeated = data.activities.some((a) => sameName(a.name, name));
   const [editing, setEditing] = useState<AppTask | null>(null);
+  const problem = routineProblem(times, minutes);
+  const nameField = useRef<HTMLInputElement>(null);
   return (
     <Section>
       <p className="meta">
@@ -579,6 +598,7 @@ export function Routines() {
         <label className="field" style={{ flex: 2 }}>
           <span>Rutina</span>
           <input
+            ref={nameField}
             value={name}
             maxLength={60}
             onChange={(e) => setName(e.target.value)}
@@ -587,20 +607,38 @@ export function Routines() {
         </label>
         <label className="field" style={{ flex: 1 }}>
           <span>Veces/sem.</span>
-          <input inputMode="numeric" value={times} onChange={(e) => setTimes(e.target.value)} />
+          <input
+            inputMode="numeric"
+            value={times}
+            aria-invalid={problem?.field === "times" ? true : undefined}
+            aria-describedby={problem?.field === "times" ? "routine-error" : undefined}
+            onChange={(e) => setTimes(e.target.value)}
+          />
         </label>
         <label className="field" style={{ flex: 1 }}>
           <span>Minutos</span>
-          <input inputMode="numeric" value={minutes} onChange={(e) => setMinutes(e.target.value)} />
+          <input
+            inputMode="numeric"
+            value={minutes}
+            aria-invalid={problem?.field === "minutes" ? true : undefined}
+            aria-describedby={problem?.field === "minutes" ? "routine-error" : undefined}
+            onChange={(e) => setMinutes(e.target.value)}
+          />
         </label>
       </div>
+      <Problem id="routine-error" text={problem?.text ?? null} />
       {dirty && <Unsaved />}
       <button
         type="button"
         className="btn"
         style={{ width: "100%" }}
-        disabled={!name.trim() || repeated || !validRoutine(Number(times), Number(minutes))}
-        onClick={() => {
+        disabled={!name.trim() || repeated}
+        aria-disabled={problem ? true : undefined}
+        onClick={(e) => {
+          if (problem) {
+            focusFirstInvalid(e.currentTarget.parentElement);
+            return;
+          }
           dispatch({
             type: "saveRoutine",
             name,
@@ -608,6 +646,8 @@ export function Routines() {
             sessionMinutes: Math.round(Number(minutes)),
           });
           drafted({ ...draft, name: "" });
+          // The button goes grey with the name cleared: the keyboard goes back to the name.
+          nameField.current?.focus();
         }}
       >
         Agregar rutina

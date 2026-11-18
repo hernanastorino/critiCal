@@ -1483,7 +1483,7 @@ input[type="datetime-local"] {
   border: 0;
   padding: 0;
   display: flex;
-  gap: 8px;
+  gap: 14px;
   margin: 4px 0 12px;
   flex-wrap: wrap;
 }
@@ -2409,4 +2409,19 @@ label.check {
 
 .title + .roy-line {
   margin-top: 8px;
+}
+
+/* The Fecha of «Parciales y entregas» takes its own line on a narrow phone. */
+.row.fields.wraps {
+  flex-wrap: wrap;
+}
+
+.field.wide-narrow {
+  flex: 1 1 100%;
+}
+
+@media (min-width: 480px) {
+  .field.wide-narrow {
+    flex: 1 1 0;
+  }
 }

@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import { localParts, zonedInstant } from "../engine.js";
@@ -6,6 +7,7 @@ import { holidaysBetween } from "../holidays.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, sameName, subjectsOf } from "../subjects.js";
+import { focusFirstInvalid, isFigure, Problem } from "./fields.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -47,8 +49,17 @@ export function Semester() {
     dispatch({ type: "preferences", preferences: { ...data.preferences, ...patch } });
 
   const repeated = data.activities.some((a) => sameName(a.name, subject));
-  const addSubject = () => {
+  const subjectField = useRef<HTMLInputElement>(null);
+  // Blank means no weekly silo; otherwise a figure of at most a whole week (as in Materias).
+  const hoursNum = Number(weekly.replace(",", "."));
+  const hoursOk = weekly.trim() === "" || (isFigure(weekly) && hoursNum >= 0 && hoursNum <= 168);
+  const backwards = !!start && !!end && end < start;
+  const addSubject = (e: React.MouseEvent<HTMLButtonElement>) => {
     const name = subject.trim().replace(/\s+/g, " ");
+    if (!hoursOk) {
+      focusFirstInvalid(e.currentTarget.parentElement);
+      return;
+    }
     if (!name || repeated) return;
     const activity = {
       id: newId(),
@@ -83,6 +94,8 @@ export function Semester() {
     setSubject("");
     setWeekly("");
     toast.show(`${name} agregada`);
+    // The button may be gone from under the keyboard: it goes back to the name field.
+    subjectField.current?.focus();
   };
 
   const addExam = () => {
@@ -118,15 +131,30 @@ export function Semester() {
             </label>
             <label className="field" style={{ flex: 1 }}>
               <span>Termina</span>
-              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <input
+                type="date"
+                value={end}
+                aria-invalid={backwards ? true : undefined}
+                aria-describedby={backwards ? "semester-end-error" : undefined}
+                onChange={(e) => setEnd(e.target.value)}
+              />
             </label>
           </div>
+          <Problem
+            id="semester-end-error"
+            text={backwards ? "«Termina» no puede ser anterior a «Empieza»." : null}
+          />
           <button
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            disabled={!start || !end || end < start}
-            onClick={() => {
+            disabled={!start || !end}
+            aria-disabled={backwards ? true : undefined}
+            onClick={(e) => {
+              if (backwards) {
+                focusFirstInvalid(e.currentTarget.parentElement);
+                return;
+              }
               prefs({ semester: { start, end } });
               startSaved(start);
               endSaved(end);
@@ -166,7 +194,9 @@ export function Semester() {
             <label className="field" style={{ flex: 2 }}>
               <span>Materia</span>
               <input
+                ref={subjectField}
                 value={subject}
+                maxLength={60}
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder="Física II"
               />
@@ -176,15 +206,22 @@ export function Semester() {
               <input
                 inputMode="decimal"
                 value={weekly}
+                aria-invalid={hoursOk ? undefined : true}
+                aria-describedby={hoursOk ? undefined : "semester-hours-error"}
                 onChange={(e) => setWeekly(e.target.value)}
               />
             </label>
           </div>
+          <Problem
+            id="semester-hours-error"
+            text={hoursOk ? null : "El estudio semanal va de 0 a 168 h."}
+          />
           <button
             type="button"
             className="btn"
             style={{ width: "100%" }}
             disabled={!subject.trim() || repeated}
+            aria-disabled={hoursOk ? undefined : true}
             onClick={addSubject}
           >
             Agregar materia
@@ -203,7 +240,7 @@ export function Semester() {
               <div className="title" style={{ marginTop: 12 }}>
                 Parciales y entregas
               </div>
-              <div className="row fields">
+              <div className="row fields wraps">
                 <label className="field" style={{ flex: 1 }}>
                   <span>De la materia</span>
                   <select
@@ -225,7 +262,7 @@ export function Semester() {
                     onChange={(e) => setExam({ ...exam, title: e.target.value })}
                   />
                 </label>
-                <label className="field" style={{ flex: 1 }}>
+                <label className="field wide-narrow">
                   <span>Fecha</span>
                   <input
                     type="date"

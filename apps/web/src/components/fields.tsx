@@ -90,3 +90,12 @@ export function Field({
 }
 
 /** Planning rules that apply to every day. */
+
+/** A form error, right under its fields; empty when there is none. */
+export function Problem({ id, text }: { id: string; text: string | null }) {
+  return text ? (
+    <p id={id} className="meta" role="alert" style={{ color: "var(--critical)" }}>
+      {text}
+    </p>
+  ) : null;
+}

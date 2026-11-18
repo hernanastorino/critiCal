@@ -7,7 +7,7 @@ import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
 export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox: () => void }) {
-  const { data, now, result, decisions } = useStore();
+  const { data, now, result, inboxCount } = useStore();
   const tz = data.settings.timezone;
   const dates = weekToPlan(data, now);
   const days = weekPlan(data, dates);
@@ -18,7 +18,6 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
     .sort((a, b) => a.start - b.start);
   const short = result.status.filter((s) => s.minDeficit > 0);
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
-  const pendingDecisions = decisions.options.length + decisions.recommendations.length;
   const max = Math.max(60, ...days.map((d) => d.minutes));
   const sheet = useRef<HTMLDivElement>(null);
 
@@ -98,9 +97,10 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
           ))
         )}
 
-        {pendingDecisions > 0 && (
+        {inboxCount > 0 && (
+          // The same total as the badge of the Bandeja tab.
           <button type="button" className="btn" style={{ width: "100%" }} onClick={onInbox}>
-            {pendingDecisions === 1 ? "1 decisión" : `${pendingDecisions} decisiones`} en la Bandeja
+            Ver la Bandeja ({inboxCount})
           </button>
         )}
         <button type="button" className="btn primary" style={{ width: "100%" }} onClick={onClose}>
