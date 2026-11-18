@@ -49,8 +49,11 @@ export async function syncICloudFor(
         p_provider: "icloud",
       });
       if (error) throw error;
-      await user.from("calendar_events").delete().eq("source", "icloud");
-      await user.from("calendars").delete().eq("source", "icloud");
+      // Not «connected: false» unless the imported data is really gone.
+      const events = await user.from("calendar_events").delete().eq("source", "icloud");
+      if (events.error) throw events.error;
+      const calendars = await user.from("calendars").delete().eq("source", "icloud");
+      if (calendars.error) throw calendars.error;
       return json({ connected: false });
     }
 
@@ -61,7 +64,12 @@ export async function syncICloudFor(
       }
       creds = { appleId: body.appleId.trim(), appPassword: body.appPassword.replace(/\s/g, "") };
     } else {
-      const { data } = await admin.rpc("get_oauth_token", { p_user: uid, p_provider: "icloud" });
+      const { data, error } = await admin.rpc("get_oauth_token", {
+        p_user: uid,
+        p_provider: "icloud",
+      });
+      // Unreadable is not «not connected».
+      if (error) throw error;
       if (!data) return json({ connected: false, error: "not_connected" });
       creds = JSON.parse(data as string) as Credentials;
     }

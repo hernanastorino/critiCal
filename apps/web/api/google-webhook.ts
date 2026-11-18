@@ -2,6 +2,7 @@
 // created by the sync; a change re-syncs that user's calendars and re-plans right away.
 import { timingSafeEqual } from "node:crypto";
 import { notifyUser } from "./_lib/push.js";
+import { limiter } from "./_lib/rate.js";
 import { serverSync } from "./_lib/replan.js";
 import { report } from "./_lib/report.js";
 import { adminClient, type Env, json, missing, readEnv } from "./_lib/server.js";
@@ -16,6 +17,11 @@ function sameSecret(given: string, stored: unknown): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** Requests per channel and per address: one channel sends a burst per edit, not a flood. */
+export const byChannel = limiter(30, 5000);
+/** Google sends for many users from a few addresses: a wider budget, only against floods. */
+export const byIp = limiter(120, 20000);
+
 export function POST(req: Request): Promise<Response> {
   return handle(req, readEnv());
 }
@@ -27,6 +33,9 @@ export async function handle(req: Request, env: Env): Promise<Response> {
   const secret = req.headers.get("x-goog-channel-token");
   const state = req.headers.get("x-goog-resource-state");
   if (!id || !secret) return json({ error: "bad_request" }, 400);
+  // Before the database: forged ids cost a lookup each.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+  if (!(byIp.take(ip) && byChannel.take(id))) return json({ error: "rate_limited" }, 429);
   const admin = adminClient(env);
   const { data: channel, error: lookupError } = await admin
     .from("google_channels")

@@ -64,13 +64,20 @@ describe("due notifications", () => {
   });
 });
 
-function admin(tables: Record<string, unknown[]>, claimed: (key: string) => boolean) {
+function admin(
+  tables: Record<string, unknown[]>,
+  claimed: (key: string) => boolean,
+  errors: Record<string, Error> = {},
+) {
   const deleted: unknown[] = [];
   const from = (table: string) => {
-    const result = { data: tables[table] ?? [], error: null };
+    const result = { data: tables[table] ?? [], error: errors[table] ?? null };
     const chain: Record<string, unknown> = {};
     for (const m of ["select", "eq", "gt", "lte"]) chain[m] = () => chain;
-    chain.maybeSingle = async () => ({ data: (tables[table] ?? [])[0] ?? null });
+    chain.maybeSingle = async () => ({
+      data: (tables[table] ?? [])[0] ?? null,
+      error: errors[table] ?? null,
+    });
     chain.delete = () => ({
       eq: async (_c: string, v: unknown) => {
         deleted.push(v);
@@ -122,6 +129,22 @@ describe("sending", () => {
     expect(sendNotification).not.toHaveBeenCalled();
     expect(await notifyUser({}, admin(tables, () => true).client, "u1", now)).toEqual([]);
     expect(await notifyUser(env, admin({}, () => true).client, "u1", now)).toEqual([]);
+  });
+
+  it("sends nothing, and reports, when a lookup fails (never default preferences)", async () => {
+    const fetched = vi.fn(async () => new Response("{}"));
+    vi.stubGlobal("fetch", fetched);
+    const withDsn = { ...env, sentryDsn: "https://key@o1.ingest.sentry.io/1" };
+    for (const table of ["push_subscriptions", "settings", "plan_blocks"]) {
+      sendNotification.mockReset();
+      fetched.mockClear();
+      const db = admin(tables, () => true, { [table]: new Error("db down") });
+      expect(await notifyUser(withDsn, db.client, "u1", now)).toEqual([]);
+      expect(sendNotification).not.toHaveBeenCalled();
+      expect(db.rpc).not.toHaveBeenCalled();
+      expect(fetched).toHaveBeenCalledTimes(1);
+    }
+    vi.unstubAllGlobals();
   });
 
   it("lists each subscribed user once", async () => {

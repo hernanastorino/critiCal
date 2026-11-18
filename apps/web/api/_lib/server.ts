@@ -70,6 +70,9 @@ export async function authenticate(
   if (!token) return json({ error: "unauthorized" }, 401);
   const admin = adminClient(env);
   const { data, error } = await admin.auth.getUser(token);
+  // A service that cannot answer (network, 5xx, rate limit) is not a bad token: 503, as for
+  // the invitation lookup, so the client keeps the session and tries again.
+  if (error && authDown(error)) return json({ error: "access_check_failed" }, 503);
   if (error || !data.user) return json({ error: "unauthorized" }, 401);
   // Invitation only: a signed-in account that is not on the list gets nothing.
   const { data: invited, error: lookup } = await admin.rpc("user_invited", {
@@ -79,6 +82,15 @@ export async function authenticate(
   if (lookup) return json({ error: "access_check_failed" }, 503);
   if (invited !== true) return json({ error: "not_invited" }, 403);
   return { uid: data.user.id, user: userClient(env, token), admin };
+}
+
+/** supabase-js: a failed fetch is an `AuthRetryableFetchError`; a bad token answers 4xx. */
+function authDown(error: { name?: string; status?: number }): boolean {
+  const { name, status } = error;
+  return (
+    name === "AuthRetryableFetchError" ||
+    (typeof status === "number" && (status === 0 || status === 429 || status >= 500))
+  );
 }
 
 const options = { auth: { persistSession: false, autoRefreshToken: false } };

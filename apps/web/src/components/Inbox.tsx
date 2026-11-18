@@ -28,6 +28,7 @@ import { RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
+import { useInboxAnswers } from "./useUndoable.js";
 
 const EAT: Record<MealKind, string> = {
   desayuno: "desayunar",
@@ -121,6 +122,9 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
     (card?.querySelector<HTMLElement>("button") ?? titleRef.current)?.focus();
   }, [restored]);
 
+  // Answers that are taken at the tap and offer «Deshacer»; undoing gives the focus back.
+  const answers = useInboxAnswers(setRestored);
+
   // The list reflows after each answer: a second tap right after lands on the next item.
   const lastAnswer = useRef(0);
   const quick = (b: PlanBlock, status: "done" | "missed") => {
@@ -205,14 +209,14 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn small"
-                onClick={() => dispatch({ type: "classTitle", title: c.title, as: "materia" })}
+                onClick={() => answers.classAs(c, "materia")}
               >
                 Es una materia
               </button>
               <button
                 type="button"
                 className="btn small"
-                onClick={() => dispatch({ type: "classTitle", title: c.title, as: "event" })}
+                onClick={() => answers.classAs(c, "event")}
               >
                 Evento suelto
               </button>
@@ -260,22 +264,18 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <button
                 type="button"
                 className="btn small"
-                onClick={() => dispatch({ type: "sortActivity", activityId: a.id, as: "materia" })}
+                onClick={() => answers.sort(a, "materia")}
               >
                 Materia
               </button>
-              <button
-                type="button"
-                className="btn small"
-                onClick={() => dispatch({ type: "sortActivity", activityId: a.id, as: "rutina" })}
-              >
+              <button type="button" className="btn small" onClick={() => answers.sort(a, "rutina")}>
                 Rutina
               </button>
             </div>
             <SubjectSearch
               label={`Juntar ${a.name} con una materia`}
               exclude={a.id}
-              onPick={(m) => dispatch({ type: "mergeActivity", activityId: a.id, into: m.id })}
+              onPick={(m) => answers.merge(a, m)}
             />
           </div>
         ))}
@@ -294,11 +294,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               {hours(t.estimateMinutes)} (mínimo {hours(t.minMinutes)})
             </p>
             <div className="row">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => dispatch({ type: "review", taskId: t.id, keep: false })}
-              >
+              <button type="button" className="btn" onClick={() => answers.ignore(t)}>
                 Ignorar
               </button>
               <button type="button" className="btn" onClick={() => setEditing(t)}>
@@ -326,11 +322,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 .join(" · ")}
             />
             <div className="row">
-              <button
-                type="button"
-                className="btn"
-                onClick={() => dispatch({ type: "rejectProposal", id: p.id })}
-              >
+              <button type="button" className="btn" onClick={() => answers.reject(p)}>
                 Dejar como está
               </button>
               <button

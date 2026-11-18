@@ -34,6 +34,9 @@ export function StartAfterField({
   now,
   label = "Puedo empezar",
   inherited,
+  invalid,
+  describedBy,
+  summary,
 }: {
   value: StartAfter | undefined | null;
   onChange: (v: StartAfter | undefined | null) => void;
@@ -42,6 +45,11 @@ export function StartAfterField({
   label?: string;
   /** A task of a materia with a rule: that rule, in words; «Igual que la materia» is offered. */
   inherited?: string;
+  /** The form says this field is wrong (its own text is `describedBy`): marked, focusable. */
+  invalid?: boolean;
+  describedBy?: string;
+  /** The form already announces its errors in one summary: no alert of its own here. */
+  summary?: boolean;
 }) {
   const today = localParts(tz, now).date;
   const [mode, setMode] = useState<Mode>(modeOf(value, inherited !== undefined));
@@ -67,6 +75,8 @@ export function StartAfterField({
       <legend>{label}</legend>
       <select
         aria-label={label}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={invalid ? describedBy : undefined}
         value={mode}
         onChange={(e) => {
           const m = e.target.value as Mode;
@@ -88,6 +98,7 @@ export function StartAfterField({
           aria-label="Desde el día"
           value={date}
           min="2000-01-01"
+          aria-invalid={!date ? true : undefined}
           onChange={(e) => {
             setDate(e.target.value);
             emit("date", e.target.value);
@@ -131,7 +142,11 @@ export function StartAfterField({
         </span>
       )}
       {bad && (
-        <p className="meta" role="alert" style={{ width: "100%", margin: 0 }}>
+        <p
+          className="meta"
+          role={summary ? undefined : "alert"}
+          style={{ width: "100%", margin: 0 }}
+        >
           {mode === "date" ? "Elegí un día." : "Poné un número entero de días, de 0 a 365."}
         </p>
       )}

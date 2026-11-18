@@ -27,6 +27,7 @@ import { focusFirstInvalid } from "./fields.js";
 import { useModal } from "./modal.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
+import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
 
 const toLocalInput = (tz: string, t: number) => {
   const p = localParts(tz, t);
@@ -80,6 +81,7 @@ export function TaskEditor({
 }) {
   const { data, now, dispatch } = useStore();
   const toast = useToast();
+  const answer = useUndoable();
   const tz = data.settings.timezone;
   const [title, setTitle] = useState(task?.title ?? "");
   const [picked, setActivityId] = useState(task?.activityId ?? "");
@@ -221,6 +223,8 @@ export function TaskEditor({
     !!unitError,
     !!habit.times,
     !!habit.minutes,
+    deliverable && startAfter === null,
+    startWarning === AFTER_DUE,
   ].filter(Boolean).length;
   const alertRole = shown === 1 ? ("alert" as const) : undefined;
 
@@ -439,8 +443,21 @@ export function TaskEditor({
               tz={tz}
               now={now}
               inherited={materiaStart ? describeStart(materiaStart, tz) : undefined}
+              invalid={startWarning === AFTER_DUE}
+              describedBy="start-error"
+              summary={shown > 1}
             />
-            {startWarning && (
+            {startWarning === AFTER_DUE && (
+              <p
+                className="meta"
+                id="start-error"
+                role={alertRole}
+                style={{ color: "var(--critical)" }}
+              >
+                {startWarning}
+              </p>
+            )}
+            {startWarning && startWarning !== AFTER_DUE && (
               <p className="meta" role="status">
                 {startWarning}
               </p>
@@ -608,7 +625,14 @@ export function TaskEditor({
             className="btn"
             style={{ width: "100%" }}
             onClick={() => {
-              dispatch({ type: "resetDetected", taskId: task.id });
+              answer(
+                "Vuelve a las horas por defecto",
+                { type: "resetDetected", taskId: task.id },
+                PLAN_KEYS,
+                {
+                  tasks: [data.tasks.find((t) => t.id === task.id) ?? task],
+                },
+              );
               onClose();
             }}
           >

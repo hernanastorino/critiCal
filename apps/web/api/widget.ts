@@ -62,7 +62,10 @@ export async function manage(req: Request, env: Env): Promise<Response> {
   }
   if (body.action === "revoke") {
     const { error } = await caller.admin.rpc("revoke_widget_token", { p_user: caller.uid });
-    if (error) return json({ ok: false, error: "widget_failed" }, 500);
+    if (error) {
+      await report(env, error, "widget");
+      return json({ ok: false, error: "widget_failed" }, 500);
+    }
     return json({ ok: true });
   }
   const bytes = crypto.getRandomValues(new Uint8Array(24));
@@ -71,6 +74,9 @@ export async function manage(req: Request, env: Env): Promise<Response> {
     p_user: caller.uid,
     p_hash: await sha256(token),
   });
-  if (error) return json({ error: "widget_failed" }, 500);
+  if (error) {
+    await report(env, error, "widget");
+    return json({ ok: false, error: "widget_failed" }, 500);
+  }
   return json({ ok: true, token });
 }
