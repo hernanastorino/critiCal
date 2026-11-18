@@ -25,7 +25,8 @@ test("demo: week, critical path, bubble, silos and inbox", async ({ page }) => {
   await expect(bubble).toContainText("Faltan");
   await bubble.click();
   await expect(page.getByRole("dialog")).toBeVisible();
-  await page.getByRole("button", { name: "Cerrar" }).last().click();
+  // A short timeout so a failure says why the click did not land.
+  await page.getByRole("button", { name: "Cerrar" }).last().click({ timeout: 10_000 });
 
   await page.getByRole("button", { name: /Silos/ }).click();
   await expect(page.getByRole("heading", { name: "Lo que falta" })).toBeVisible();
