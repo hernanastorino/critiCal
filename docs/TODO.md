@@ -54,6 +54,8 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 4. **Críticos por una tarea que no entra ni sola** (agente atacante sobre `main`, 2026-11-18). Cuando una tarea no entra ni sola (por ejemplo un hábito «Repasar fórmulas» de 14 × 24 h), ¿querés que igual marque como críticos los bloques de las demás entregas? Hoy sí los marca, porque esa tarea podría usar su tiempo.
 
+5. **Freno del ciclo del agente atacante** (2026-11-18). Hubo 5 vueltas seguidas con fallas nuevas sobre `main`; las 4 primeras se arreglaron y mergearon, la 5.ª está anotada en §5.3. Por la regla de la SPEC §17 se frenó y no se empezó nada nuevo (ni los arreglos del §18.10, ni el resto del §5). ¿Cómo seguimos: arreglar los hallazgos de la 5.ª vuelta y volver a correr el atacante, pasar a los arreglos del §18.10 aunque el atacante no haya dado una vuelta limpia, o cambiar el criterio del freno (por ejemplo, frenar solo con fallas graves)?
+
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
 ## 0. Antes de empezar algo nuevo
@@ -64,11 +66,10 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                       | Qué falta                                                                                                                            |
-| ------------------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------ |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)   | **No mergear** hasta que el usuario lo pida. Rebasar sobre `main` (reaplicar el buscador sobre el `Settings.tsx` actual; ver el PR). |
-| PR #112 CI: preview sin Dependabot y revisión con Codacy                 | Abierto                                                      | CI y Codacy en verde, merge. Después `@dependabot rebase` en #109 y #110.                                                            |
-| PRs de Dependabot #109 (grupo dev) y #110 (`@sentry/browser` 11.12.0)    | Validados contra sus notas de versión, sin cambios de código | Rebase después de #112, CI y Codacy en verde, merge.                                                                                 |
+| Qué                                                                      | Estado                                                                                                                             | Qué falta                                                                                        |
+| ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                         | **No mergear** hasta que el usuario lo pida.                                                     |
+| Ciclo del agente atacante sobre `main`                                   | **Frenado** (SPEC §17): 5 vueltas seguidas con fallas nuevas, arregladas las 4 primeras (#114, #115, #117, #118, #119, #120, #121) | Que el usuario decida cómo seguir (§1.1, punto 5). Los hallazgos de la 5.ª vuelta están en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -128,6 +129,17 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor, rutas habituales guardadas y selector auto/ómnibus por lugar y por traslado. Es grande: conviene partirlo en datos y servidor primero, UI después.
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
+
+- **5.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #121). Sin arreglar, por el freno:
+  - **Alta**: el avance registrado en una entrega descuenta también a otras entregas de la misma materia (una entrega nueva con una parte de 60 min muestra «faltan 44m» sin avance propio).
+  - **Alta**: «Faltan» de una entrega con partes no coincide con las partes que quedan (se descuentan los minutos registrados además de las partes; la pantalla dice que lo que falta se mide por las partes).
+  - **Alta**: al mover un bloque con el teclado, la comida que se corre queda encima del estudio (almuerzo 14:30–15:30 sobre un bloque 15:00–17:00).
+  - Media: «Dedicarle menos a Leer (mínimo 10 h)» dice «llegás a todos los mínimos» pero deja Leer en 8 h y achica un bloque de otra entrega.
+  - Media: «Deshacer» de «Usar tiempo libre para llegar al objetivo» saca la decisión pero no el bloque que agregó.
+  - Media: «Hacelo por hoy» no ofrece Deshacer y deja el foco en el «Deshacer» de otra decisión.
+  - Media: «Esta semana: planificado vs. hecho» no se actualiza hasta recargar.
+  - Media: Ajustes → Hoy acepta «me levanté 23:00, me acuesto 06:00» y arma un día absurdo (tiene «Deshacer: ajustar el día»).
+  - Baja: foco en `<body>` tras «Guardar parcial» (Bandeja), «Listo» del modo edición y el último «Deshacer: mover o fijar un bloque»; Editar entrega acepta horas estimadas 0 con partes que suman 10 h; una parte marcada no se puede desmarcar desde la hoja del silo; en Rutinas los errores salen de a uno y Enter no agrega; bloques de la grilla con zona tocable menor a 44 px (comidas 30×15).
 
 - **Contraste AA que quedó sin cerrar en #84** (SPEC §14 «Contraste AA» sin ✅): en modo claro, las opciones de `ActionSheet` usan `#0a72ff` sobre blanco (4,32:1, menos de 4,5:1); se ve, por ejemplo, al desactivar un hábito. Oscurecer el azul de texto y revisar el resto de los textos azules.
 - **Borradores de Ajustes** (caso muy raro, decidido no arreglarlo en #90): si otro dispositivo cambia una fecha guardada del cuatrimestre con Ajustes abierto y se vuelve a tipear la fecha vieja, el borrador se borra y se pierde la edición (`useDraft`, `Semester.tsx`).
