@@ -25,6 +25,7 @@ import {
   type Settings,
   type StartAfter,
   schedule,
+  selfShort,
   type Task,
   targetOptions,
   travelBuffers,
@@ -253,6 +254,16 @@ export function earliestStartOf(data: AppData, task: AppTask): number | undefine
   return zonedInstant(tz, addDays(day, -Math.max(0, Math.round(rule.daysBefore))), 0);
 }
 
+/**
+ * A weekly silo spreads its sessions one a day; more sessions than days in a week
+ * (running 8 times) need two on some days, so the daily cap grows to fit them.
+ */
+export function maxPerDay(task: AppTask): number | undefined {
+  if (task.maxPerDayMinutes !== undefined || task.kind !== "habit") return task.maxPerDayMinutes;
+  if (task.sessionMinutes === undefined) return undefined;
+  return task.sessionMinutes * Math.max(1, Math.ceil((task.sessionsPerWeek ?? 0) / 7));
+}
+
 export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   const tz = data.settings.timezone;
@@ -276,8 +287,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       remainingMinutes: Math.ceil(p.remainingMinutes * k),
       minRemainingMinutes: Math.ceil(p.minRemainingMinutes * k),
       sessionMinutes: p.task.sessionMinutes,
-      maxPerDayMinutes:
-        p.task.maxPerDayMinutes ?? (p.task.kind === "habit" ? p.task.sessionMinutes : undefined),
+      maxPerDayMinutes: maxPerDay(p.task),
       priority: p.task.priority,
       earliestStart: earliestStartOf(data, p.task),
       // An entrega can be handed in smaller: half its minimum, never below an hour
@@ -622,13 +632,22 @@ export function pendingConfirmations(data: AppData, now: number): PlanBlock[] {
 export interface Decisions {
   options: PlanOption[];
   recommendations: Recommendation[];
+  /** Tasks whose minimum does not fit even alone: the cause no cut elsewhere fixes. */
+  impossible: string[];
 }
 
 export function decisions(input: ScheduleInput, result: ScheduleResult): Decisions {
   return {
     options: result.feasible ? targetOptions(input, result) : infeasibilityOptions(input, result),
     recommendations: recommendations(input, result),
+    impossible: result.feasible ? [] : selfShort(input, result),
   };
+}
+
+/** Whether an option reaches every minimum but those of tasks that fit nowhere anyway. */
+export function onlyImpossibleLeft(option: PlanOption, impossible: readonly string[]): boolean {
+  const short = option.result.status.filter((s) => s.minDeficit > 0);
+  return short.length > 0 && short.every((s) => impossible.includes(s.taskId));
 }
 
 /** The «puedo empezar» an earlier start becomes: a date, or right away. */
