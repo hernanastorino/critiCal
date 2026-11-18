@@ -9,7 +9,7 @@ export const GENERIC = "Al respaldo le faltan datos.";
 
 export const plain = <T>(x: T): T => JSON.parse(JSON.stringify(x));
 export const errorOf = (r: ReturnType<typeof parseBackup>) => ("error" in r ? r.error : "");
-export const roundTrip = (d: AppData, opts?: { strictIds?: boolean }) =>
+export const roundTrip = (d: AppData, opts?: { account?: string }) =>
   parseBackup(exportJson(d, NOW), opts);
 
 /** One change to the data: a dotted path («tasks.0.priority», «tasks.last.title») and the new value (`undefined` removes it). */
@@ -29,7 +29,7 @@ function setAt(root: object, path: string, value: unknown): void {
 }
 
 /** The demo with `edits` applied, as a backup file, parsed. */
-export function edited(edits: Edit[], opts?: { strictIds?: boolean }) {
+export function edited(edits: Edit[], opts?: { account?: string }) {
   const d = plain(demoData(NOW));
   for (const [path, value] of edits) setAt(d, path, value);
   return parseBackup(

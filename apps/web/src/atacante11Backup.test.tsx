@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { type Edit, edited, errorOf, GENERIC, NOW, plain, roundTrip } from "./atacante11Kit.js";
 import { demoData } from "./demo.js";
-import { type AppData, newId } from "./model.js";
+import type { AppData } from "./model.js";
 import { reducer } from "./store.js";
 
 const TASK = "parcial-calc";
+const ACCOUNT = "11111111-1111-4111-8111-111111111111";
 
 /** The file is refused, and the message names what is wrong (not the generic one). */
 function rejectedWithMessage(_name: string, edits: Edit[], message: RegExp) {
@@ -123,15 +124,13 @@ describe("3. El respaldo rechaza lo que la base rechaza", () => {
   ];
   it.each(cases)("%s", rejectedWithMessage);
 
-  it("ids that are not uuids are refused for an account, and fine in the demo", () => {
+  it("ids that are not uuids get new ones for an account, and stay in the demo", () => {
     const d = demoData(NOW);
     expect(errorOf(roundTrip(d))).toBe("");
-    const r = roundTrip(d, { strictIds: true });
-    expect(errorOf(r)).toMatch(/identificador/i);
-    expect(errorOf(r)).not.toBe(GENERIC);
+    expect(errorOf(roundTrip(d, { account: ACCOUNT }))).toBe("");
   });
 
-  it("what the app creates with its own ids passes the strict check", () => {
+  it("what the app creates with its own ids passes with an account", () => {
     const start: AppData = { ...demoData(NOW), activities: [], tasks: [], plan: [], checkIns: [] };
     const d = reducer(start, {
       type: "saveRoutine",
@@ -140,33 +139,7 @@ describe("3. El respaldo rechaza lo que la base rechaza", () => {
       sessionMinutes: 60,
       now: NOW,
     });
-    expect(errorOf(roundTrip(d, { strictIds: true }))).toBe("");
-  });
-
-  it("a check-in whose unit is not a uuid is refused for an account", () => {
-    const activity = demoData(NOW).activities.at(0);
-    const task = demoData(NOW).tasks.at(0);
-    if (!activity || !task) throw new Error("the demo has no data");
-    const [activityId, taskId] = [newId(), newId()];
-    const checkIn = {
-      id: newId(),
-      blockId: "b",
-      taskId,
-      status: "done" as const,
-      minutesDone: 30,
-      unitIds: ["u1"],
-      createdAt: NOW,
-    };
-    const d: AppData = {
-      ...demoData(NOW),
-      activities: [{ ...activity, id: activityId }],
-      tasks: [{ ...task, id: taskId, activityId, units: [] }],
-      plan: [],
-      proposals: [],
-      pins: [],
-      checkIns: [checkIn],
-    };
-    expect(errorOf(roundTrip(d, { strictIds: true }))).toMatch(/identificador/i);
+    expect(errorOf(roundTrip(d, { account: ACCOUNT }))).toBe("");
   });
 });
 
@@ -190,9 +163,18 @@ describe("4. Datos sueltos del respaldo no rompen la app", () => {
     ["notSubjects con números", [["notSubjects", [1]]], /clases/i],
     ["removedSubjects que no es lista", [["removedSubjects", "x"]], /eliminadas/i],
     ["freeTimeUntil de texto", [["freeTimeUntil", "mañana"]], /tiempo libre/i],
-    ["evento con ubicación numérica", [["events.0.location", 5]], /evento/i],
   ];
-  it.each(bad)("%s: se rechaza con mensaje", rejectedWithMessage);
+  /** The file is read, and the notice says what was left out. */
+  function droppedWithNotice(_name: string, edits: Edit[], what: RegExp) {
+    const r = edited(edits);
+    expect(r).not.toHaveProperty("error");
+    expect("dropped" in r ? r.dropped?.join(" ") : "").toMatch(what);
+  }
+  it.each(bad)("%s: se importa lo demás y se avisa", droppedWithNotice);
+
+  it("un evento con ubicación numérica sigue rechazando el archivo", () => {
+    rejectedWithMessage("", [["events.0.location", 5]], /evento/i);
+  });
 
   it("well-formed extras round-trip identical", () => {
     const d = demoData(NOW);

@@ -1,5 +1,6 @@
 // Export and import of everything as one JSON file (also a manual backup).
-import { backupProblem } from "./backupNamed.js";
+import { needsNewIds, withNewIds } from "./backupIds.js";
+import { backupProblem, dropBadExtras } from "./backupNamed.js";
 import { dayProblem, shapeOk, weekProblem } from "./backupRules.js";
 import {
   BACKUP_TEXT_MAX,
@@ -127,29 +128,41 @@ function readFile(text: string): { raw: Task; version: number } | { error: strin
 }
 
 /** What is wrong with the data of the file, said for the user, or null. */
-function dataProblem(raw: Task, now: number, strict: boolean): string | null {
-  const named = backupProblem(raw, strict);
+function dataProblem(raw: Task, now: number): string | null {
+  const named = backupProblem(raw);
   if (named || shapeOk(raw, now)) return named;
   // Say which day is the problem when that is the only one (the rest of the file reads).
   const week = (raw.settings as { week?: unknown } | undefined)?.week;
   return weekProblem(week) ?? taskProblem(raw.tasks, now) ?? "Al respaldo le faltan datos.";
 }
 
-/** The data in a backup file, or an error message in Spanish for the user. */
+/**
+ * The data in a backup file, or an error message in Spanish for the user. `dropped` names the
+ * optional data left out because it was malformed (the rest is imported). With `account` (the
+ * signed-in user's id) the data is that account's: a file from another owner, from the demo or
+ * with ids that are not uuids gets new ids everywhere; the account's own file keeps its ids.
+ */
 export function parseBackup(
   text: string,
-  options: { strictIds?: boolean } = {},
-): { data: AppData } | { error: string } {
+  options: { account?: string } = {},
+): { data: AppData; dropped?: string[] } | { error: string } {
   const read = readFile(text);
   if ("error" in read) return read;
-  const problem = dataProblem(read.raw, Date.now(), !!options.strictIds);
-  const d = read.raw as unknown as AppData;
+  const { data: clean, dropped } = dropBadExtras(read.raw);
+  const problem = dataProblem(clean, Date.now());
+  const d = clean as unknown as AppData;
   const error = problem ?? linksProblem(d);
   if (error) return { error };
   // A long event title is cut on import: the calendar sends them, and the rest is kept.
   const events = d.events.map((e) =>
     e.title.length > BACKUP_TEXT_MAX ? { ...e, title: e.title.slice(0, BACKUP_TEXT_MAX) } : e,
   );
-  const data = { ...d, events };
-  return { data: read.version < 2 ? markLegacyStudy(data) : data };
+  const whole = { ...d, events };
+  const marked = read.version < 2 ? markLegacyStudy(whole) : whole;
+  const { account } = options;
+  const data =
+    account === undefined
+      ? marked
+      : { ...(needsNewIds(marked, account) ? withNewIds(marked) : marked), owner: account };
+  return dropped.length > 0 ? { data, dropped } : { data };
 }

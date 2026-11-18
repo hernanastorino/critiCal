@@ -313,11 +313,14 @@ export const isMissingParent = (e: unknown) =>
   typeof e === "object" && !!e && (e as { code?: unknown }).code === "23503";
 
 /**
- * A write the database refuses for what it says (a check, a type, a missing parent:
- * Postgres classes 22 and 23): trying it again changes nothing.
+ * A write the database refuses for what it says: a bad value or a missing parent (Postgres
+ * classes 22 and 23, with letters too: `22P02`) or a permission it will not give (`42501`,
+ * row-level security). Trying it again changes nothing.
  */
 export const isPermanent = (e: unknown) =>
-  typeof e === "object" && !!e && /^2[23]\d{3}$/.test(String((e as { code?: unknown }).code));
+  typeof e === "object" &&
+  !!e &&
+  /^(2[23][0-9A-Z]{3}|42501)$/.test(String((e as { code?: unknown }).code));
 
 export function diffData(prev: AppData, next: AppData): Writes {
   const upserts: Writes["upserts"] = [];
