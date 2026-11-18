@@ -214,6 +214,21 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     );
   };
 
+  const academic = (activityId: string) => activityById.get(activityId)?.academic ?? true;
+
+  /**
+   * Mixing activities on one day: the cap counts distinct materias (§5.4), so routines
+   * (gym, running…) neither count towards it nor are limited by it. Null: over the cap.
+   */
+  const mixScore = (p: Prepared, date: string): number | null => {
+    const acts = board.dayActivities.get(date);
+    if (acts?.has(p.activity.id)) return W.sameActivityOnDay;
+    const materias = [...(acts?.keys() ?? [])].filter(academic).length;
+    // The daily subject cap is firm; `recommendations` proposes relaxing it.
+    if (p.activity.academic && materias >= maxActivities) return null;
+    return W.newActivityOnDay;
+  };
+
   const score = (p: Prepared, start: number, length: number, urgent: boolean): number | null => {
     const first = board.slots[start] as Slot;
     const last = board.slots[start + length - 1] as Slot;
@@ -234,14 +249,9 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     const today = board.dayTask.get(`${p.task.id}|${first.date}`) ?? 0;
     if (perDay !== undefined && today + length * slotMinutes > perDay) return null;
 
-    let s = board.dayLoad.get(first.date) ?? 0;
-    const acts = board.dayActivities.get(first.date);
-    if (acts?.has(p.activity.id)) s += W.sameActivityOnDay;
-    else {
-      // The daily subject cap is firm; `recommendations` proposes relaxing it.
-      if ((acts?.size ?? 0) >= maxActivities) return null;
-      s += W.newActivityOnDay;
-    }
+    const mix = mixScore(p, first.date);
+    if (mix === null) return null;
+    let s = (board.dayLoad.get(first.date) ?? 0) + mix;
     const before = start > 0 && board.contiguous(start - 1) ? board.owner[start - 1] : null;
     const after = board.contiguous(start + length - 1) ? board.owner[start + length] : null;
     for (const n of [before, after]) {
@@ -333,7 +343,19 @@ export function schedule(input: ScheduleInput): ScheduleResult {
   const blocks = collectBlocks(board);
   const status = statuses(prepared, placed, board, eligible, settings);
   const statusById = new Map(status.map((s) => [s.taskId, s]));
-  for (const b of blocks) b.level = blockLevel(b, prepared, statusById, settings);
+  const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
+  /** Whether `p` could take any of the block's time if it were skipped. */
+  const couldUse = (p: Prepared, block: PlanBlock): boolean => {
+    for (let t = block.start; t < block.end; t += slotMinutes * MINUTE) {
+      const slot = board.slots[slotAt.get(t) ?? -1];
+      if (!slot || !eligible(p, slot, false)) continue;
+      const perDay = p.task.maxPerDayMinutes;
+      const today = board.dayTask.get(`${p.task.id}|${slot.date}`) ?? 0;
+      if (perDay === undefined || today + slotMinutes <= perDay) return true;
+    }
+    return false;
+  };
+  for (const b of blocks) b.level = blockLevel(b, prepared, statusById, settings, couldUse);
   for (const b of frozen) blocks.push({ ...b, frozen: true });
   blocks.sort((a, b) => a.start - b.start);
 
@@ -490,6 +512,7 @@ function blockLevel(
   prepared: Prepared[],
   status: Map<string, TaskStatus>,
   settings: Settings,
+  couldUse: (p: Prepared, block: PlanBlock) => boolean,
 ): Level {
   const own = prepared.find((p) => p.task.id === block.taskId) as Prepared;
   block.activityId = own.activity.id;
@@ -501,9 +524,14 @@ function blockLevel(
     minSlack = Math.min(minSlack, (status.get(p.task.id) as TaskStatus).slack);
   }
   const ownStatus = status.get(block.taskId) as TaskStatus;
-  // If some minimum already does not fit, every block before its deadline is needed.
+  // If some minimum already does not fit, every block before its deadline that it
+  // could use is needed. Time it could not take (its once-a-day routine already ran
+  // that day, a free-time evening for study) does not make the block critical.
   const shortAfter = prepared.some(
-    (p) => p.task.deadline > block.start && (status.get(p.task.id) as TaskStatus).minDeficit > 0,
+    (p) =>
+      p.task.deadline > block.start &&
+      (status.get(p.task.id) as TaskStatus).minDeficit > 0 &&
+      couldUse(p, block),
   );
   if (shortAfter || ownStatus.minDeficit > 0 || (own.min > 0 && minSlack < length))
     return "critical";

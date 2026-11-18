@@ -40,6 +40,26 @@ function withTasks(input: ScheduleInput, tasks: Task[]): ScheduleInput {
 }
 
 /**
+ * Short tasks whose minimum does not fit even with the time all to themselves (more
+ * sessions than days left, a minimum beyond what is awake before the deadline): no
+ * cut to the others can make room, only changing them.
+ */
+export function selfShort(input: ScheduleInput, result: ScheduleResult): string[] {
+  return result.status
+    .filter((s) => s.minDeficit > 0)
+    .map((s) => s.taskId)
+    .filter((id) => {
+      const alone = schedule(
+        withTasks(
+          input,
+          input.tasks.filter((t) => t.id === id),
+        ),
+      );
+      return alone.status.some((s) => s.minDeficit > 0);
+    });
+}
+
+/**
  * Deterministic ways out when the minimums do not fit, each previewed with its
  * own schedule. Feasible options come first; within them, least invasive first.
  */
