@@ -21,17 +21,28 @@ export function POST(req: Request): Promise<Response> {
 /** Public endpoint: a budget per IP keeps a script from spending the Sentry quota. */
 export const byIp = limiter(20, 200);
 
+const REPORT_TYPE = /^application\/(csp-report|reports\+json|json)\b/i;
+
+function clientIp(req: Request): string {
+  const first = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  return first ? first : "unknown";
+}
+
+/** Reads the body unless its own header already says it is too big. */
+async function readBody(req: Request): Promise<string> {
+  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return "";
+  const body = await req.text();
+  return body.length > MAX_BODY ? "" : body;
+}
+
 export async function handle(req: Request, env: Env): Promise<Response> {
   const done = new Response(null, { status: 204 });
   const target = env.sentryDsn ? securityUrl(env.sentryDsn) : null;
   const type = req.headers.get("content-type") ?? "";
-  if (!target || !/^application\/(csp-report|reports\+json|json)\b/i.test(type)) return done;
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-  if (!byIp.take(ip)) return json({ error: "rate_limited" }, 429);
-  // Too big by its own header: not read at all.
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return done;
-  const body = await req.text();
-  if (!body || body.length > MAX_BODY) return done;
+  if (!target || !REPORT_TYPE.test(type)) return done;
+  if (!byIp.take(clientIp(req))) return json({ error: "rate_limited" }, 429);
+  const body = await readBody(req);
+  if (!body) return done;
   try {
     await fetch(target, {
       method: "POST",
