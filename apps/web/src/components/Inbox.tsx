@@ -427,7 +427,9 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             {noFits.map((t) => (
               <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
                 <div className="title">«{t.title}» no entra</div>
-                <RoyLine anim="hombros">{noFit(t.title, noFitKind(t, data.activities))}</RoyLine>
+                <RoyLine anim="hombros" big>
+                  {noFit(t.title, noFitKind(t, data.activities))}
+                </RoyLine>
               </div>
             ))}
             {decisions.options.map((o) => (
@@ -437,7 +439,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
                 <div className="title">{o.label}</div>
-                <RoyLine anim="puente">
+                <RoyLine anim="puente" big>
                   {o.result.feasible
                     ? "Con esto llegás a todos los mínimos."
                     : onlyImpossibleLeft(o, decisions.impossible)

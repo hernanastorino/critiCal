@@ -42,6 +42,7 @@ export function Loading({
   progress,
   mascot,
   inline,
+  large,
 }: {
   kind?: LoadingKind;
   /** Replaces the kind's default words (without the ellipsis). */
@@ -51,18 +52,24 @@ export function Loading({
   mascot?: ReactNode;
   /** Small, next to a button or a line of text, instead of a block. */
   inline?: boolean;
+  /** An inline wait with room to spare: Roy at twice the size, above the words. */
+  large?: boolean;
 }) {
   const text = loadingText(kind, label, progress);
   return (
-    <div className={`loading${inline ? " inline" : ""}`} data-kind={kind} role="status">
+    <div
+      className={`loading${inline ? " inline" : ""}${inline && large ? " large" : ""}`}
+      data-kind={kind}
+      role="status"
+    >
       {mascot ??
         (inline ? (
           // Next to a line of text only wide shapes read: the ladder goes on its side, and
           // the accordion (tall and thin) gives way to it.
           <Roy
             anim={kind === "ai" ? "cascada" : LOADING_ANIM[kind]}
-            size={30}
-            maxWidth={104}
+            size={large ? 60 : 30}
+            maxWidth={large ? 208 : 104}
             flat
           />
         ) : (
