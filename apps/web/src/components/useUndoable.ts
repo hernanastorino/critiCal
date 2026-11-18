@@ -48,35 +48,40 @@ export function useUndoable(onBack?: (key: string) => void) {
 export function useInboxAnswers(onBack: (key: string) => void) {
   const answer = useUndoable(onBack);
   return {
-    classAs: (c: { key: string; title: string }, as: "materia" | "event") =>
+    classAs: (c: { key: string; title: string }, as: "materia" | "event") => {
       answer(
         `«${c.title}» es ${as === "materia" ? "una materia" : "un evento suelto"}`,
         { type: "classTitle", title: c.title, as },
         SORT_KEYS,
         { key: c.key },
-      ),
-    sort: (a: Activity, as: "materia" | "rutina") =>
+      );
+    },
+    sort: (a: Activity, as: "materia" | "rutina") => {
       answer(
         `«${a.name}» es ${as === "materia" ? "una materia" : "una rutina"}`,
         { type: "sortActivity", activityId: a.id, as },
         SORT_KEYS,
         { key: a.id },
-      ),
-    merge: (a: Activity, into: Activity) =>
+      );
+    },
+    merge: (a: Activity, into: Activity) => {
       answer(
         `«${a.name}» juntada con ${into.name}`,
         { type: "mergeActivity", activityId: a.id, into: into.id },
         SORT_KEYS,
         { key: a.id },
-      ),
-    ignore: (t: AppTask) =>
+      );
+    },
+    ignore: (t: AppTask) => {
       answer(`«${t.title}» ignorada`, { type: "review", taskId: t.id, keep: false }, PLAN_KEYS, {
         tasks: [t],
         key: t.id,
-      }),
-    reject: (p: Proposal) =>
+      });
+    },
+    reject: (p: Proposal) => {
       answer("Todo sigue como estaba", { type: "rejectProposal", id: p.id }, PROPOSAL_KEYS, {
         key: p.id,
-      }),
+      });
+    },
   };
 }

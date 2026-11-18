@@ -30,7 +30,9 @@ function set(label: string | RegExp, value: string) {
 }
 const alerts = () => screen.queryAllByRole("alert").map((a) => a.textContent ?? "");
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(() => {
   cleanup();
   clearDrafts();

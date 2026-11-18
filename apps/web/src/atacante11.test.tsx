@@ -49,7 +49,9 @@ const parts = (d?: AppData) => ({
   planHistory: d?.planHistory,
 });
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(() => {
   cleanup();
   clearDrafts();
