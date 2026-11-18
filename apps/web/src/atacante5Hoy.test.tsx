@@ -60,3 +60,45 @@ describe("Ajustes → Hoy", () => {
     expect(screen.queryByRole("alert")).toBeNull();
   });
 });
+
+describe("Ajustes → Hoy: «Me levanté» no es futura", () => {
+  const at = (hhmm: string) => {
+    const [h = 0, m = 0] = hhmm.split(":").map(Number);
+    return zonedInstant("America/Montevideo", "2026-11-18", h * 60 + m);
+  };
+  function renderAt(now: number) {
+    return render(
+      <StoreProvider initial={demoData} persist={false} fixedNow={now}>
+        <Settings onClose={() => {}} onReset={() => {}} onSignOut={() => {}} />
+      </StoreProvider>,
+    );
+  }
+  const apply = () => fireEvent.click(screen.getByRole("button", { name: "Reacomodar hoy" }));
+
+  it("refuses a wake-up after now, with the error on the field", () => {
+    renderAt(NOW);
+    set("Me levanté a las", "13:00");
+    apply();
+    expect(screen.getByRole("alert").textContent).toBe("Todavía no son las 13:00.");
+    expect(screen.getByLabelText("Me levanté a las").getAttribute("aria-invalid")).toBe("true");
+    // Typing again clears it; a time that already passed (or is now) is fine.
+    set("Me levanté a las", "12:00");
+    expect(screen.queryByRole("alert")).toBeNull();
+    apply();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("after midnight, 23:00 is still today's and has not come yet", () => {
+    renderAt(at("00:30"));
+    set("Me levanté a las", "23:00");
+    apply();
+    expect(screen.getByRole("alert").textContent).toBe("Todavía no son las 23:00.");
+  });
+
+  it("does not block changing only the bedtime when the routine wake-up is later than now", () => {
+    renderAt(at("06:00"));
+    set("Me acuesto a las", "23:30");
+    apply();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+});
