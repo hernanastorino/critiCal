@@ -25,6 +25,7 @@ import { type MoveBounds, moveBounds, moveRefusal } from "../moveBounds.js";
 import {
   isPinned,
   MEAL_NAMES,
+  mealOverPin,
   mealTimes,
   pinId,
   progress,
@@ -572,11 +573,13 @@ export function Week({
       earliest,
       latest,
       sameDay,
+      // The meals that give way to the block must not end up on top of it.
+      (m) => !mealOverPin(data, now, b, zonedInstant(tz, day, m)),
     );
     if (minute === null) {
       return flash(
         moveRefusal(bounds, target, minutes) ??
-          "Ahí hay algo fijo y no queda un hueco libre ese día",
+          "Ahí hay algo fijo o una comida y no queda un hueco libre",
       );
     }
     const at = zonedInstant(tz, day, minute);
