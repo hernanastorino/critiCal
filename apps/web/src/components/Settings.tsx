@@ -2,7 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { awakeProblem } from "../dayLength.js";
 import { localParts } from "../engine.js";
-import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { home } from "../places.js";
 import { mealsOf } from "../planning.js";
@@ -513,7 +513,14 @@ export function Settings({
               className="btn primary"
               style={{ width: "100%" }}
               onClick={(e) => {
-                const problem = awakeProblem(wake, bed);
+                // A wake-up typed here is today's: it cannot be later than now (a night
+                // shift is set up in «Mi semana»). The untouched routine time is not checked.
+                const woke = parseClock(wake);
+                const future =
+                  wake !== defaultWake && woke !== null && woke > localParts(tz, now).minuteOfDay
+                    ? `Todavía no son las ${wake}.`
+                    : null;
+                const problem = future ?? awakeProblem(wake, bed);
                 if (problem) {
                   setDayError(problem);
                   // The fields are marked once drawn: the first one gets the focus then.
