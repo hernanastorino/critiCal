@@ -18,7 +18,7 @@ describe("csp-report", () => {
   });
 
   it("reenvía el reporte a Sentry y responde 204", async () => {
-    const fetched = vi.fn(async () => new Response("{}"));
+    const fetched = vi.fn(() => Promise.resolve(new Response("{}")));
     vi.stubGlobal("fetch", fetched);
     const res = await handle(req('{"csp-report":{}}'), { sentryDsn: dsn });
     expect(res.status).toBe(204);
@@ -26,7 +26,7 @@ describe("csp-report", () => {
   });
 
   it("sin DSN, de otro tipo o demasiado grande no reenvía nada", async () => {
-    const fetched = vi.fn(async () => new Response("{}"));
+    const fetched = vi.fn(() => Promise.resolve(new Response("{}")));
     vi.stubGlobal("fetch", fetched);
     await handle(req("{}"), {});
     await handle(req("x", "text/plain"), { sentryDsn: dsn });
