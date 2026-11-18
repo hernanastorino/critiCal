@@ -312,6 +312,13 @@ export function withoutDeleted(before: AppData, server: AppData, local: AppData)
 export const isMissingParent = (e: unknown) =>
   typeof e === "object" && !!e && (e as { code?: unknown }).code === "23503";
 
+/**
+ * A write the database refuses for what it says (a check, a type, a missing parent:
+ * Postgres classes 22 and 23): trying it again changes nothing.
+ */
+export const isPermanent = (e: unknown) =>
+  typeof e === "object" && !!e && /^2[23]\d{3}$/.test(String((e as { code?: unknown }).code));
+
 export function diffData(prev: AppData, next: AppData): Writes {
   const upserts: Writes["upserts"] = [];
   const inserts: Writes["inserts"] = [];
@@ -604,20 +611,21 @@ async function deleteIn(
   }
 }
 
+/** Parents first: activities → tasks → units/blocks. */
+const WRITE_ORDER = [
+  "settings",
+  "calendars",
+  "activities",
+  "tasks",
+  "task_units",
+  "day_overrides",
+  "places",
+  "travel_times",
+  "plan_blocks",
+];
+
 export async function applyWrites(client: SupabaseClient, w: Writes): Promise<void> {
-  // Parents first: activities → tasks → units/blocks.
-  const order = [
-    "settings",
-    "calendars",
-    "activities",
-    "tasks",
-    "task_units",
-    "day_overrides",
-    "places",
-    "travel_times",
-    "plan_blocks",
-  ];
-  for (const table of order) {
+  for (const table of WRITE_ORDER) {
     for (const u of w.upserts.filter((x) => x.table === table)) {
       const { error } = await client.from(table).upsert(u.rows);
       if (error) throw error;
@@ -649,4 +657,32 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     }
     await deleteIn(client, d.table, "id", d.ids);
   }
+}
+
+/**
+ * The same writes, one row at a time, for when the batch was refused for good: what the
+ * database takes is written, and what it refuses is returned (with its error), so one
+ * bad row does not hold every save after it. A failure that is not permanent (the
+ * network) still throws, and the whole thing is tried again later.
+ */
+export async function applyWritesEach(
+  client: SupabaseClient,
+  w: Writes,
+): Promise<{ table: string; error: unknown }[]> {
+  const refused: { table: string; error: unknown }[] = [];
+  const each = async (table: string, rows: Row[], options?: object) => {
+    for (const row of rows) {
+      const { error } = await client.from(table).upsert([row], options);
+      if (!error) continue;
+      if (!isPermanent(error)) throw error;
+      refused.push({ table, error });
+    }
+  };
+  for (const table of WRITE_ORDER)
+    for (const u of w.upserts.filter((x) => x.table === table)) await each(table, u.rows);
+  for (const i of w.inserts)
+    await each(i.table, i.rows, { onConflict: "id", ignoreDuplicates: true });
+  // Deletes have nothing the database could refuse but the network.
+  await applyWrites(client, { upserts: [], inserts: [], deletes: w.deletes });
+  return refused;
 }

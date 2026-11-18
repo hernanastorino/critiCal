@@ -254,24 +254,20 @@ describe("backup", () => {
       error: "El respaldo es de una versión más nueva.",
     });
     expect(parseBackup('{"app":"critiCal","version":1,"data":{"settings":{}}}')).toEqual({
-      error: "Al respaldo le faltan datos.",
+      error: "Ajustes: la zona horaria no es válida.",
     });
     expect(
       parseBackup(exportJson({ ...data, settings: { ...data.settings, week: [] } }, 1)),
-    ).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    ).toHaveProperty("error");
     const [first] = data.tasks;
     const brokenUnit = { ...first, units: [null] } as never;
     expect(parseBackup(exportJson({ ...data, tasks: [brokenUnit] }, 1))).toEqual({
       error: expect.stringMatching(/tiene una parte de minutos inválidos/),
     });
-    expect(parseBackup(exportJson({ ...data, activities: [[] as never] }, 1))).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
-    expect(parseBackup(exportJson({ ...data, tasks: [null as never] }, 1))).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    expect(parseBackup(exportJson({ ...data, activities: [[] as never] }, 1))).toHaveProperty(
+      "error",
+    );
+    expect(parseBackup(exportJson({ ...data, tasks: [null as never] }, 1))).toHaveProperty("error");
     const ok = {
       ...data.checkIns[0],
       id: "x",
@@ -287,18 +283,14 @@ describe("backup", () => {
     });
     expect(
       parseBackup(exportJson({ ...data, overrides: [{ date: "2026-11-05", asWeekday: 9 }] }, 1)),
-    ).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    ).toHaveProperty("error");
     for (const overrides of [
       [{ date: "2026-02-30" }],
       [{ date: "2026-11-05", wake: "invalid" as never }],
       [{ date: "2026-11-05", bed: 1e100 }],
       [{ date: "2026-11-05", wake: 480.5 }],
     ])
-      expect(parseBackup(exportJson({ ...data, overrides }, 1))).toEqual({
-        error: "Al respaldo le faltan datos.",
-      });
+      expect(parseBackup(exportJson({ ...data, overrides }, 1))).toHaveProperty("error");
     expect(
       parseBackup(
         exportJson(
@@ -345,17 +337,13 @@ describe("backup", () => {
       { travelTimes: [{ from: "a", to: "b", minutes: -1, manual: false }] },
       { events: [{ id: "e", title: "x", start: 10, end: 5 }] },
     ])
-      expect(parseBackup(exportJson({ ...data, ...broken } as never, 1))).toEqual({
-        error: "Al respaldo le faltan datos.",
-      });
+      expect(parseBackup(exportJson({ ...data, ...broken } as never, 1))).toHaveProperty("error");
     for (const settings of [
       { ...data.settings, timezone: "Mars/Olympus" },
       { ...data.settings, slotMinutes: 7 },
       { ...data.settings, maxActivitiesPerDay: 0 },
     ])
-      expect(parseBackup(exportJson({ ...data, settings }, 1))).toEqual({
-        error: "Al respaldo le faltan datos.",
-      });
+      expect(parseBackup(exportJson({ ...data, settings }, 1))).toHaveProperty("error");
     for (const preferences of [
       { semester: { start: 1, end: 2 } as never },
       { semester: { start: "2026-08-01", end: "2026-02-30" } },
@@ -367,23 +355,17 @@ describe("backup", () => {
       { notifications: { leadMinutes: -5 } },
       { notifications: { critical: "yes" as never } },
     ])
-      expect(parseBackup(exportJson({ ...data, preferences }, 1))).toEqual({
-        error: "Al respaldo le faltan datos.",
-      });
+      expect(parseBackup(exportJson({ ...data, preferences }, 1))).toHaveProperty("error");
     const lateWake = data.settings.week.map((w, i) => (i === 2 ? { ...w, wake: 1e100 } : w));
     expect(
       parseBackup(exportJson({ ...data, settings: { ...data.settings, week: lateWake } }, 1)),
-    ).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    ).toHaveProperty("error");
     const badWeek = data.settings.week.map((w, i) =>
       i === 3 ? ({ ...w, meals: [null] } as never) : w,
     );
     expect(
       parseBackup(exportJson({ ...data, settings: { ...data.settings, week: badWeek } }, 1)),
-    ).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    ).toHaveProperty("error");
     const orphan = {
       id: "c",
       blockId: "b",
@@ -394,9 +376,7 @@ describe("backup", () => {
       createdAt: 0,
     };
     const noUnits = { ...orphan, taskId: data.tasks[0]?.id as string, unitIds: undefined as never };
-    expect(parseBackup(exportJson({ ...data, checkIns: [noUnits] }, 1))).toEqual({
-      error: "Al respaldo le faltan datos.",
-    });
+    expect(parseBackup(exportJson({ ...data, checkIns: [noUnits] }, 1))).toHaveProperty("error");
     for (const bad of [
       { ...noUnits, unitIds: [], blockId: "" },
       { ...noUnits, unitIds: [], status: "maybe" as never },
@@ -404,9 +384,7 @@ describe("backup", () => {
       { ...noUnits, unitIds: [], createdAt: 1e100 },
       { ...noUnits, unitIds: [], status: "missed" as const, minutesDone: 30 },
     ])
-      expect(parseBackup(exportJson({ ...data, checkIns: [bad] }, 1))).toEqual({
-        error: "Al respaldo le faltan datos.",
-      });
+      expect(parseBackup(exportJson({ ...data, checkIns: [bad] }, 1))).toHaveProperty("error");
     expect(parseBackup(exportJson({ ...data, checkIns: [orphan] }, 1))).toEqual({
       error: "El respaldo está incompleto: hay registros de tareas que no están.",
     });

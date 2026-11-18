@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
+import { BACKUP_TEXT_MAX, NAME_MAX } from "../limits.js";
 import { CRITICAL, newId, type Place, type Spot } from "../model.js";
 import {
   keepableEvents,
@@ -458,11 +459,14 @@ function PlaceForm({
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
   const empty = !name.trim();
+  const longAlias = aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
   const problem = taken
     ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
-    : empty && tried
-      ? "Poné un nombre para el lugar."
-      : null;
+    : longAlias
+      ? `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`
+      : empty && tried
+        ? "Poné un nombre para el lugar."
+        : null;
   const nameField = useRef<HTMLInputElement>(null);
   // Opened from «Agregar lugar» or «Editar»: the keyboard lands on the first field.
   useEffect(() => nameField.current?.focus(), []);
@@ -473,7 +477,7 @@ function PlaceForm({
         <input
           ref={nameField}
           value={name}
-          maxLength={60}
+          maxLength={NAME_MAX}
           onChange={(e) => setName(e.target.value)}
           placeholder="Facu"
           aria-invalid={problem ? true : undefined}
@@ -518,9 +522,9 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          aria-disabled={empty || taken ? true : undefined}
+          aria-disabled={empty || taken || longAlias ? true : undefined}
           onClick={() => {
-            if (empty || taken) {
+            if (empty || taken || longAlias) {
               setTried(true);
               nameField.current?.focus();
               return;
@@ -623,6 +627,7 @@ function SpotRow({ spot }: { spot: Spot }) {
         <div className="row" style={{ width: "100%" }}>
           <input
             aria-label={`Nombre para ${short(spot.text)}`}
+            maxLength={NAME_MAX}
             // Opening «Guardar como lugar» goes straight to typing the name.
             ref={(el) => el?.focus()}
             value={name}

@@ -2,7 +2,7 @@
 // turned into tasks once the user confirms the preview.
 import { DEFAULTS } from "./calendars.js";
 import { type Activity, zonedInstant } from "./engine.js";
-import { UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
+import { ESTIMATE_MINUTES_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppTask } from "./model.js";
 
 export type AssessmentKind = "parcial" | "entrega" | "presentacion";
@@ -159,16 +159,22 @@ export function syllabusTasks(input: {
   };
   const tasks = input.assessments.map((a): AppTask => {
     // A unit of 0 h is not made (a part of 0 min would never plan); the preview says so.
-    const units = a.units
-      .filter((u) => u.minutes >= UNIT_MINUTES_MIN)
-      .map((u) => ({
-        id: input.newId(),
-        title: u.title,
-        estimateMinutes: Math.min(UNIT_MINUTES_MAX, u.minutes),
-        ...(u.weight !== undefined ? { weight: u.weight } : {}),
-      }));
+    const kept = a.units.filter((u) => u.minutes >= UNIT_MINUTES_MIN);
+    // The silo's most (what its form and the backup take): the parts shrink to fit it.
+    const sum = kept.reduce((s, u) => s + Math.min(UNIT_MINUTES_MAX, u.minutes), 0);
+    const fit = sum > ESTIMATE_MINUTES_MAX ? ESTIMATE_MINUTES_MAX / sum : 1;
+    const units = kept.map((u) => ({
+      id: input.newId(),
+      title: u.title,
+      estimateMinutes: Math.max(
+        UNIT_MINUTES_MIN,
+        Math.floor(Math.min(UNIT_MINUTES_MAX, u.minutes) * fit),
+      ),
+      ...(u.weight !== undefined ? { weight: u.weight } : {}),
+    }));
     // Its own hours only without units: kept units define the estimate, even at zero.
-    const total = units.length ? units.reduce((s, u) => s + u.estimateMinutes, 0) : a.minutes;
+    const own = Math.min(ESTIMATE_MINUTES_MAX, Math.round(a.minutes));
+    const total = units.length ? units.reduce((s, u) => s + u.estimateMinutes, 0) : own;
     const d = DEFAULTS[a.kind];
     return {
       id: input.newId(),

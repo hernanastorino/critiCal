@@ -19,10 +19,12 @@ import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from ".
 import { home, missingPairs } from "./places.js";
 import {
   applyWrites,
+  applyWritesEach,
   computeTravel,
   connectFakeGoogle,
   diffData,
   isMissingParent,
+  isPermanent,
   loadData,
   SPOTS_PER_CALL,
   type SyncResult,
@@ -47,6 +49,8 @@ export interface SyncStatus {
   /** Changes made on this device that are not in the database yet. */
   pending?: boolean;
   offline?: boolean;
+  /** Changes the database refused for good (invalid data): not saved, and said so. */
+  rejected?: number;
 }
 
 interface SyncApi {
@@ -183,6 +187,7 @@ export function Connected({
         await Promise.resolve();
         let wrote = false;
         let rebased = false;
+        let rejected = 0;
         try {
           for (;;) {
             const target = latest.current;
@@ -199,14 +204,25 @@ export function Connected({
               // them here too and retry once. The baseline stays, so only this device's
               // own pending changes are written; the server's copy just says what is gone,
               // and the next reload brings everything else.
-              if (rebased || !isMissingParent(e)) throw e;
-              rebased = true;
-              const server = owned(await loadData(client));
-              const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
-              if (pruned === (latest.current ?? target)) throw e;
-              latest.current = pruned;
-              replace.current?.(pruned);
-              continue;
+              if (!rebased && isMissingParent(e)) {
+                rebased = true;
+                const server = owned(await loadData(client));
+                const pruned = withoutDeleted(stored.current, server, latest.current ?? target);
+                if (pruned !== (latest.current ?? target)) {
+                  latest.current = pruned;
+                  replace.current?.(pruned);
+                  continue;
+                }
+              }
+              if (!isPermanent(e)) throw e;
+              // The database will never take it (a check, a type): write the rest row by
+              // row, say what it refused, and move on, or every later save would fail too.
+              const refused = await applyWritesEach(client, writes);
+              rejected += refused.length;
+              reportError(refused[0]?.error ?? e, {
+                where: "save",
+                table: refused[0]?.table ?? "",
+              });
             }
             stored.current = target;
             wrote = true;
@@ -215,6 +231,7 @@ export function Connected({
           }
           setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
           hold("unsaved", false);
+          if (rejected > 0) setStatus((s) => ({ ...s, rejected: (s.rejected ?? 0) + rejected }));
           if (wrote) {
             // Mirror the new plan into Google once the burst of edits settles.
             clearTimeout(pushTimer.current);
@@ -322,11 +339,34 @@ export function Connected({
         changes={changes}
         owned={owned}
       >
+        <SaveRefused
+          refused={status.rejected}
+          onDismiss={() => setStatus((s) => ({ ...s, rejected: 0 }))}
+        />
         <AutoLocate client={client} flush={flush} />
         <AutoTravel />
         {children}
       </SyncProvider>
     </StoreProvider>
+  );
+}
+
+/** Says that a change was not saved because the database refused it (and lets it go). */
+function SaveRefused({ refused, onDismiss }: { refused?: number; onDismiss: () => void }) {
+  if (!refused) return null;
+  return (
+    <div className="notices">
+      <div className="notice error" role="alert">
+        <p>
+          No se pudo guardar {refused === 1 ? "un cambio" : `${refused} cambios`}: tienen datos que
+          la base no acepta. Lo demás sí se guardó. Ya avisamos del error; al recargar la app vas a
+          ver lo que quedó guardado.
+        </p>
+        <button type="button" className="btn small" onClick={onDismiss}>
+          Entendido
+        </button>
+      </div>
+    </div>
   );
 }
 

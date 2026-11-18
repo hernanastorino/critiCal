@@ -4,9 +4,11 @@ import type { Syllabus } from "./syllabus.js";
 
 export {
   applyWrites,
+  applyWritesEach,
   DELETE_BATCH,
   diffData,
   isMissingParent,
+  isPermanent,
   loadData,
   rowsToData,
   type Writes,

@@ -1,7 +1,14 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { zonedInstant } from "../engine.js";
-import { dateYearInRange, deadlineInRange } from "../limits.js";
+import {
+  dateYearInRange,
+  deadlineInRange,
+  ESTIMATE_MINUTES_MAX,
+  MAX_HOURS,
+  NAME_MAX,
+  TITLE_MAX,
+} from "../limits.js";
 import { CRITICAL, newId, nextColor } from "../model.js";
 import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
@@ -127,16 +134,20 @@ export function SyllabusImport() {
     const assessments: PlannedAssessment[] = d.assessments
       .filter((a) => a.keep && usable(a.date))
       .map((a) => ({
-        title: a.title.trim() || "Evaluación",
+        title: a.title.trim().slice(0, TITLE_MAX) || "Evaluación",
         kind: a.kind,
         date: a.date,
         units: a.units
           .filter((t) => hours.has(t))
-          .map((t) => ({ title: t, minutes: (hours.get(t) ?? 0) * 60, weight: a.weights?.[t] })),
+          .map((t) => ({
+            title: t.slice(0, TITLE_MAX),
+            minutes: (hours.get(t) ?? 0) * 60,
+            weight: a.weights?.[t],
+          })),
         minutes: a.hours * 60,
       }));
     const { activity, isNew, tasks } = syllabusTasks({
-      subject: d.subject.trim() || "Materia",
+      subject: d.subject.trim().slice(0, NAME_MAX).trim() || "Materia",
       activities: data.activities,
       assessments,
       timeZone: data.settings.timezone,
@@ -156,6 +167,14 @@ export function SyllabusImport() {
   const covered = (a: Draft["assessments"][number]) =>
     a.units.filter((t) => draft?.units.some((u) => u.title === t && u.keep));
 
+  /** What the evaluation would take: the kept units it covers, or its own hours. */
+  const prepMinutes = (a: Draft["assessments"][number]) => {
+    const own = covered(a).reduce(
+      (sum, t) => sum + (draft?.units.find((u) => u.title === t)?.hours ?? 0) * 60,
+      0,
+    );
+    return covered(a).length ? own : a.hours * 60;
+  };
   return (
     <Section>
       <p className="meta">
@@ -198,6 +217,7 @@ export function SyllabusImport() {
             <span>Materia</span>
             <input
               value={draft.subject}
+              maxLength={NAME_MAX}
               onChange={(e) => set({ subject: e.target.value })}
               aria-label="Nombre de la materia"
             />
@@ -245,6 +265,7 @@ export function SyllabusImport() {
                 <input
                   style={{ flex: 1 }}
                   aria-label={`Nombre de ${a.key}`}
+                  maxLength={TITLE_MAX}
                   value={a.title}
                   onChange={(e) =>
                     set({
@@ -271,6 +292,9 @@ export function SyllabusImport() {
                 {covered(a).length ? `Abarca: ${covered(a).join(", ")}` : "Sin unidades: "}
                 {a.keep && !a.date ? " · falta la fecha" : ""}
                 {a.keep && a.date && !usable(a.date) ? " · revisá la fecha" : ""}
+                {a.keep && prepMinutes(a) > ESTIMATE_MINUTES_MAX
+                  ? ` · son más de ${MAX_HOURS} h: se limita a ${MAX_HOURS} h`
+                  : ""}
               </p>
               {covered(a).length === 0 && (
                 <div className="check">

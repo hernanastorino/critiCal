@@ -1,6 +1,6 @@
 // What the silo form checks before saving: each problem is said beside its field.
 import { DEFAULTS, eventRole } from "./calendars.js";
-import { TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
+import { MAX_HOURS, TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
 
@@ -36,9 +36,8 @@ export function detectedToReset(data: AppData): number {
 }
 
 /** The most hours one silo may hold (its minutes must fit a backup: see `backup.ts`). */
-export const MAX_HOURS = 1000;
 /** The most minutes one part of a silo may hold (the same for the backup: see `limits.ts`). */
-export { UNIT_MINUTES_MAX };
+export { MAX_HOURS, UNIT_MINUTES_MAX };
 /** The most minutes of one session of a weekly habit: a whole day. */
 export const MAX_SESSION_MINUTES = 1440;
 

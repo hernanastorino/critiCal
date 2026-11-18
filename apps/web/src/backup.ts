@@ -1,4 +1,5 @@
 // Export and import of everything as one JSON file (also a manual backup).
+import { backupProblem } from "./backupProblems.js";
 import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
 import { minutesToHhmm } from "./format.js";
 import {
@@ -6,6 +7,7 @@ import {
   deadlineInRange,
   deadlineMaxYear,
   isRealDate,
+  SESSIONS_PER_WEEK_MAX,
   UNIT_MINUTES_MAX,
   UNIT_MINUTES_MIN,
 } from "./limits.js";
@@ -103,7 +105,10 @@ export function taskProblem(tasks: unknown, now: number): string | null {
 }
 
 /** The data in a backup file, or an error message in Spanish for the user. */
-export function parseBackup(text: string): { data: AppData } | { error: string } {
+export function parseBackup(
+  text: string,
+  options: { strictIds?: boolean } = {},
+): { data: AppData } | { error: string } {
   const now = Date.now();
   let parsed: unknown;
   try {
@@ -179,7 +184,7 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     between(t.minMinutes, 0, 100_000) &&
     // A deliverable's minimum is part of its estimate (a habit keeps its session in it).
     (t.kind !== "deliverable" || (t.minMinutes as number) <= (t.estimateMinutes as number)) &&
-    opt(t.sessionsPerWeek, (v) => between(v, 1, 14)) &&
+    opt(t.sessionsPerWeek, (v) => between(v, 1, SESSIONS_PER_WEEK_MAX)) &&
     opt(t.sessionMinutes, (v) => between(v, 1, 1440)) &&
     // A routine's habit as Rutinas allows it (6 h a time, 40 h a week); other habits,
     // saved from the editor, keep their own limits.
@@ -307,8 +312,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     [15, 30, 60].includes(settings.slotMinutes as number) &&
     // The rules form accepts decimals, so a backup may carry them.
     between(settings.travelMarginMinutes, 0, 1440) &&
-    between(settings.maxActivitiesPerDay, 1, 100) &&
-    between(settings.warnSlackMinutes, 0, 100_000);
+    between(settings.maxActivitiesPerDay, 1, 50) &&
+    between(settings.warnSlackMinutes, 0, 10_080);
   const DAY_MS = 86_400_000;
   // Bounded intervals: the planner walks them slot by slot.
   const block = (b: unknown) =>
@@ -322,14 +327,13 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   const event = (e: unknown) =>
     isObject(e) &&
     str(e.id) &&
+    // A long title is cut on import, and a long event (the calendar sends them) is kept.
     typeof e.title === "string" &&
-    e.title.length <= BACKUP_TEXT_MAX &&
     // Without it the planner would silently treat busy time as free.
     typeof e.busy === "boolean" &&
     instant(e.start) &&
     instant(e.end) &&
-    (e.end as number) >= (e.start as number) &&
-    (e.end as number) - (e.start as number) <= 366 * DAY_MS;
+    (e.end as number) >= (e.start as number);
   const proposal = (p: unknown) =>
     isObject(p) &&
     str(p.id) &&
@@ -368,6 +372,8 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
     optionalList(d.places, place) &&
     optionalList(d.travelTimes, travel) &&
     optionalList(d.spots, spot);
+  const known = backupProblem(d as Rec, !!options.strictIds);
+  if (known) return { error: known };
   if (
     !validSettings ||
     !Array.isArray(week) ||
@@ -423,5 +429,11 @@ export function parseBackup(text: string): { data: AppData } | { error: string }
   if (d.checkIns?.some((c) => !tasks.has(c.taskId))) {
     return { error: "El respaldo está incompleto: hay registros de tareas que no están." };
   }
-  return { data: file.version < 2 ? markLegacyStudy(d as AppData) : (d as AppData) };
+  const clipped = {
+    ...d,
+    events: d.events?.map((e) =>
+      e.title.length > BACKUP_TEXT_MAX ? { ...e, title: e.title.slice(0, BACKUP_TEXT_MAX) } : e,
+    ),
+  } as AppData;
+  return { data: file.version < 2 ? markLegacyStudy(clipped) : clipped };
 }

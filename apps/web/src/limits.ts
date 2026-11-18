@@ -45,6 +45,20 @@ export const UNIT_MINUTES_MIN = 1;
  */
 export const UNIT_MINUTES_MAX = 60_000;
 
+/** The most hours one silo may hold (what its field accepts). */
+export const MAX_HOURS = 1000;
+/** The most minutes of one silo (its estimate and its minimum): the same for the form, the program and the backup. */
+export const ESTIMATE_MINUTES_MAX = MAX_HOURS * 60;
+/** What a backup carries as a silo's minutes: more than the form lets you type, so old data still imports. */
+export const BACKUP_MINUTES_MAX = 100_000;
+/** The most sessions a week of a weekly habit: one-hour sessions all week (a materia's «Estudio semanal» of 168 h). */
+export const SESSIONS_PER_WEEK_MAX = 168;
+
+/** What the database stores as an id (`uuid` columns). */
+export const isUuid = (x: unknown): x is string =>
+  typeof x === "string" &&
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(x);
+
 /** Longest name of a materia or rutina (their fields stop at it). */
 export const NAME_MAX = 60;
 /** Longest name of a task («Parcial Física I», «Entrega 3»). */

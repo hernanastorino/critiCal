@@ -293,13 +293,12 @@ describe("6. Importar JSON", () => {
           d.places = [{ id: "p", name: "Casa", aliases: [long] }];
         }),
     ).toBe(true);
-    expect(
-      "error" in
-        file((d) => {
-          const e = d.events[0];
-          if (e) e.title = long;
-        }),
-    ).toBe(true);
+    // A long event title comes from the calendar: it is cut, not refused.
+    const trimmed = file((d) => {
+      const e = d.events[0];
+      if (e) e.title = long;
+    });
+    expect("data" in trimmed && trimmed.data.events[0]?.title.length).toBe(300);
     expect(
       "data" in
         file((d) => {
