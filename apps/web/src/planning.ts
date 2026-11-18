@@ -19,7 +19,6 @@ import {
   placeMeals,
   type Recommendation,
   recommendations,
-  remainingFromUnits,
   type ScheduleInput,
   type ScheduleResult,
   type Settings,
@@ -145,10 +144,9 @@ export function semesterLabel(tz: string, instant: number) {
 export const isRunning = (task: AppTask, now: number) =>
   task.status === "active" && !task.paused && !((task.skipUntil ?? 0) > now);
 
-/** What is left of each active task, with the learned effort ratio applied. */
+/** What is left of each active task: its unmarked parts, or its estimate minus what was logged. */
 export function progress(data: AppData, now: number): TaskProgress[] {
   const tz = data.settings.timezone;
-  const effort = samples(data);
   return data.tasks
     .filter((t) => isRunning(t, now))
     .map((task) => {
@@ -169,17 +167,18 @@ export function progress(data: AppData, now: number): TaskProgress[] {
         .filter((c) => c.taskId === task.id)
         .reduce((sum, c) => sum + studyMinutes(c), 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
-      // Units left out to make the rest fit are neither done nor missing.
-      const units = task.units.filter((u) => !u.skipped);
-      // With units, only those count (all left out: nothing to plan); without, the estimate.
-      const fromUnits =
+      // With parts, what is left is the parts still unmarked (left out ones are neither
+      // done nor missing); the minutes logged already marked them, so they are not
+      // taken off again. Without parts, the estimate minus what was logged.
+      const remaining =
         task.units.length > 0
-          ? remainingFromUnits(
-              units.map((u) => ({ estimateMinutes: u.estimateMinutes, done: !!u.doneAt })),
-              effortRatio(effort, task.activityId),
+          ? Math.min(
+              task.estimateMinutes,
+              task.units
+                .filter((u) => !u.skipped && !u.doneAt)
+                .reduce((sum, u) => sum + u.estimateMinutes, 0),
             )
           : capLeft;
-      const remaining = Math.min(capLeft, fromUnits);
       return {
         task,
         totalMinutes: task.estimateMinutes,
@@ -195,12 +194,12 @@ export function progress(data: AppData, now: number): TaskProgress[] {
  * the rest they never exceed what is left of the task (capped by its estimate), so
  * leaving some out never takes the time of the ones kept.
  */
-function weighedUnits(p: TaskProgress, k: number, ratio: number) {
+function weighedUnits(p: TaskProgress, k: number, ratio: number, remaining: number) {
   if (!p.task.units.some((u) => u.weight !== undefined)) return undefined;
   const open = p.task.units.filter((u) => !u.doneAt && !u.skipped);
   const raw = (u: (typeof open)[number]) => u.estimateMinutes * ratio * k;
   const total = open.reduce((sum, u) => sum + raw(u), 0);
-  const left = p.remainingMinutes * k;
+  const left = remaining * k;
   const scale = total > left && total > 0 ? left / total : 1;
   return open
     .filter((u) => u.weight !== undefined)
@@ -268,6 +267,15 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   const tz = data.settings.timezone;
   const kept = keptDays(data, now);
+  // With parts the planner sizes the rest by the materia's learned effort ratio; what
+  // the screens show (progress) stays the plain parts that are left.
+  const planned = (p: TaskProgress) =>
+    p.task.units.length > 0 && p.task.kind !== "habit"
+      ? Math.min(
+          p.task.estimateMinutes,
+          Math.round(p.remainingMinutes * effortRatio(effort, p.task.activityId)),
+        )
+      : p.remainingMinutes;
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => {
@@ -284,8 +292,8 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       activityId: p.task.activityId,
       title: p.task.title,
       deadline: p.deadline,
-      remainingMinutes: Math.ceil(p.remainingMinutes * k),
-      minRemainingMinutes: Math.ceil(p.minRemainingMinutes * k),
+      remainingMinutes: Math.ceil(planned(p) * k),
+      minRemainingMinutes: Math.ceil(Math.min(planned(p), p.minRemainingMinutes) * k),
       sessionMinutes: p.task.sessionMinutes,
       maxPerDayMinutes: maxPerDay(p.task),
       priority: p.task.priority,
@@ -298,7 +306,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
           : undefined,
       // Exams with weighed units can leave the lightest ones out; a unit with no weight
       // is of unknown importance, so it is never offered to leave out.
-      units: weighedUnits(p, k, effortRatio(effort, p.task.activityId)),
+      units: weighedUnits(p, k, effortRatio(effort, p.task.activityId), planned(p)),
       reviewDates:
         p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
@@ -423,6 +431,18 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
     to,
     busy,
     events,
+  );
+}
+
+/**
+ * Whether pinning `block` at `start` leaves a meal on top of it: meals go around a pin,
+ * but one with no room near its time (or put there by hand) stays where it is (§5.1).
+ */
+export function mealOverPin(data: AppData, now: number, block: PlanBlock, start: number): boolean {
+  const pin = pinBlock(block, start);
+  const next = { ...data, pins: [...(data.pins ?? []).filter((p) => p.id !== block.id), pin] };
+  return mealTimes(next, now, pin.start - 1440 * MINUTE, pin.end + 1440 * MINUTE).some(
+    (m) => m.at && overlaps(m.at, pin),
   );
 }
 

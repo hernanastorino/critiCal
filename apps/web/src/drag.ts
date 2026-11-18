@@ -47,9 +47,13 @@ export function nearestFree(
   slot: number,
   min: number,
   max: number,
+  allowed: (start: number) => boolean = () => true,
 ): number | null {
   const fits = (s: number) =>
-    s >= min && s + duration <= max && busy.every((b) => s + duration <= b.start || s >= b.end);
+    s >= min &&
+    s + duration <= max &&
+    busy.every((b) => s + duration <= b.start || s >= b.end) &&
+    allowed(s);
   // Far enough to reach either end, even when `minute` lies outside [min, max].
   const reach = Math.max(max - minute, minute - min);
   for (let d = 0; d <= reach; d += slot) {
@@ -63,6 +67,7 @@ export function nearestFree(
  * Where a block moved with the keyboard lands. Within its day an arrow step lands exactly
  * one slot over or not at all (a fixed event is in the way); on another day it moves to the
  * closest free start, as a drop with the finger does. `null` means there is no room.
+ * `allowed` rules out starts for a reason that is not an interval (a meal left on top).
  */
 export function keyboardLanding(
   minute: number,
@@ -72,11 +77,13 @@ export function keyboardLanding(
   min: number,
   max: number,
   sameDay: boolean,
+  allowed: (start: number) => boolean = () => true,
 ): number | null {
-  if (!sameDay) return nearestFree(minute, duration, busy, slot, min, max);
+  if (!sameDay) return nearestFree(minute, duration, busy, slot, min, max, allowed);
   const free =
     minute >= min &&
     minute + duration <= max &&
-    busy.every((b) => minute + duration <= b.start || minute >= b.end);
+    busy.every((b) => minute + duration <= b.start || minute >= b.end) &&
+    allowed(minute);
   return free ? minute : null;
 }
