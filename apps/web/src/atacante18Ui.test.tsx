@@ -19,7 +19,9 @@ const store = () => {
   return seen.store;
 };
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(cleanup);
 
 describe("18th round: the notice's «Deshacer» keeps what was done while it was visible", () => {
@@ -36,7 +38,7 @@ describe("18th round: the notice's «Deshacer» keeps what was done while it was
     fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Eliminar…"));
     fireEvent.click(screen.getByText("Eliminar todo"));
     expect(store().data.tasks.some((t) => t.title === "Gym")).toBe(false);
-    const other = store().data.tasks[0];
+    const other = store().data.tasks.at(0);
     if (!other) throw new Error("no task");
     act(() => {
       store().dispatch({

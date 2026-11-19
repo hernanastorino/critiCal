@@ -34,7 +34,9 @@ export function useUndoable(onBack?: (key: string) => void) {
     opts: { tasks?: readonly AppTask[]; key?: string } = {},
   ) => {
     const before = snapshotOf(data, keys, opts.tasks);
-    dispatch(doing, (after) => settleSnapshot(before, after));
+    dispatch(doing, (after) => {
+      settleSnapshot(before, after);
+    });
     toast.show(message, {
       undo: () => {
         dispatch({ type: "restoreState", before });
