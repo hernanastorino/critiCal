@@ -30,7 +30,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 
 ### Errores: Better Stack, no Sentry (desde el 2026-11-18)
 
-El usuario no puede entrar a Sentry. Los errores van a **Better Stack Errors** (equipo `t637956`, aplicación «critiCal», id `2842817`, host `s2842817.us-west-2a.betterstackdata.com`), que acepta el SDK de Sentry: la variable sigue llamándose `VITE_SENTRY_DSN` (config, no secreta) y el código no cambió. Donde abajo dice «Sentry», leé Better Stack: los issues se miran en https://errors.betterstack.com/team/t637956/applications/2842817 (o con su API o su servidor MCP). Si `errors.betterstack.com` no abre, el bloqueador de DNS del usuario lo tapa (resuelve a `0.0.0.0`): pedile que lo desactive o lo permita.
+El usuario no puede entrar a Sentry. Los errores van a **Better Stack Errors** (equipo `t637956`, aplicación «critiCal», id `2842817`, host `s2842817.us-west-2a.betterstackdata.com`), que acepta el SDK de Sentry: la variable sigue llamándose `VITE_SENTRY_DSN` (config, no secreta) y el código no cambió. Donde abajo dice «Sentry», leé Better Stack: los issues se miran en `https://errors.betterstack.com/team/t637956/applications/2842817` (o con su API o su servidor MCP). Si `errors.betterstack.com` no abre, el bloqueador de DNS del usuario lo tapa (resuelve a `0.0.0.0`): pedile que lo desactive o lo permita.
 
 ### Vigilar Sentry desde la cuenta nueva
 
