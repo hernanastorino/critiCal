@@ -115,6 +115,37 @@ class Board {
   }
 }
 
+/** Whether two inputs are the same but for their tasks (every other field, by identity). */
+function sameButTasks(a: ScheduleInput, b: ScheduleInput): boolean {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  keys.delete("tasks");
+  for (const k of keys) {
+    if (Reflect.get(a, k) !== Reflect.get(b, k)) return false;
+  }
+  return true;
+}
+
+/** What was found for a task, with the rest of the input it was found with. */
+const aloneCache = new WeakMap<Task, { input: ScheduleInput; short: boolean }[]>();
+
+/**
+ * Whether the task's minimum does not fit even with all the time to itself. The options
+ * run `schedule` many times over inputs that differ in other tasks, not in this one, so
+ * the answer is kept while the task and the rest of the input are the same objects.
+ */
+function fitsNowhere(input: ScheduleInput, task: Task): boolean {
+  const kept = aloneCache.get(task) ?? [];
+  const hit = kept.find((k) => sameButTasks(k.input, input));
+  if (hit) return hit.short;
+  const only = schedule({ ...input, tasks: [task] }, true);
+  const short = only.status.some((s) => s.minDeficit > 0);
+  kept.push({ input, short });
+  // A few inputs per task are enough: the options reuse the plan's own.
+  if (kept.length > 8) kept.shift();
+  aloneCache.set(task, kept);
+  return short;
+}
+
 /**
  * `alone` is internal: the check of a task that fits nowhere runs the plan with that
  * task by itself, and must not look for more of them.
@@ -353,11 +384,7 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
   if (!alone) {
     for (const p of prepared) {
       if (p.min - (placed.get(p.task.id) ?? 0) <= 0) continue;
-      const only = schedule(
-        { ...input, tasks: input.tasks.filter((t) => t.id === p.task.id) },
-        true,
-      );
-      if (only.status.some((s) => s.minDeficit > 0)) impossible.add(p.task.id);
+      if (fitsNowhere(input, p.task)) impossible.add(p.task.id);
     }
   }
   const status = statuses(prepared, placed, board, eligible, settings, impossible);

@@ -78,7 +78,7 @@ export function RoutineHours({
   onEnter?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
   return (
-    <fieldset className="routine-hours" style={{ border: 0, padding: 0, margin: "8px 0 0" }}>
+    <fieldset className="routine-hours" style={{ border: 0, padding: 0 }}>
       <legend className="meta" style={{ padding: 0 }}>
         Horario válido (vacío: a cualquier hora)
       </legend>

@@ -137,6 +137,24 @@ function dataProblem(raw: Task, now: number): string | null {
 }
 
 /**
+ * A habit without a creation date (a file from before it was kept, or the demo) is older than
+ * any week: the database would stamp «now» on its row, and the routine would then ask only the
+ * share of the week left, when the ones from before ask the whole week (SPEC §5.4).
+ */
+export const BEFORE_CREATION_DATES = Date.UTC(2000, 0, 1);
+
+/** `d` as the account's: new ids when needed, and every habit with a creation date. */
+function ownedBy(d: AppData, account: string): AppData {
+  const fresh = needsNewIds(d, account) ? withNewIds(d) : d;
+  const tasks = fresh.tasks.map((t) =>
+    t.kind === "habit" && t.createdAt === undefined
+      ? { ...t, createdAt: BEFORE_CREATION_DATES }
+      : t,
+  );
+  return { ...fresh, tasks, owner: account };
+}
+
+/**
  * The data in a backup file, or an error message in Spanish for the user. `dropped` names the
  * optional data left out because it was malformed (the rest is imported). With `account` (the
  * signed-in user's id) the data is that account's: a file from another owner, from the demo or
@@ -160,9 +178,6 @@ export function parseBackup(
   const whole = { ...d, events };
   const marked = read.version < 2 ? markLegacyStudy(whole) : whole;
   const { account } = options;
-  const data =
-    account === undefined
-      ? marked
-      : { ...(needsNewIds(marked, account) ? withNewIds(marked) : marked), owner: account };
+  const data = account === undefined ? marked : ownedBy(marked, account);
   return dropped.length > 0 ? { data, dropped } : { data };
 }

@@ -2468,6 +2468,12 @@ label.check {
   margin-top: 8px;
 }
 
+/* The «Distinto según el día» box above the form's button: its label's padding is taken back
+   by a negative margin, so the fieldset adds the air (12 px at least from text to button). */
+.routine-hours {
+  margin: 8px 0 8px;
+}
+
 .prefs > .title {
   margin-top: 24px;
   margin-bottom: 4px;

@@ -47,12 +47,42 @@ export interface HoursProblem {
 /** A clock typed in a side of a franja: empty is the start (0) or the end (1440) of the day. */
 const clockOf = (v: string, empty: number) => (blank(v) ? empty : parseClock(v));
 
+/** The grid the engine places blocks on (`Settings.slotMinutes`, 30 in the app). */
+export const GRID_MINUTES = 30;
+
+/** The part of a franja the engine can use: whole slots of the grid inside it (null: none). */
+export function gridPart(r: MinuteRange, slot = GRID_MINUTES): MinuteRange | null {
+  const start = Math.ceil(r.start / slot) * slot;
+  const end = Math.floor(r.end / slot) * slot;
+  return end > start ? { start, end } : null;
+}
+
+/** What a session takes on the grid: whole slots, as the engine counts them. */
+const sessionOnGrid = (sessionMinutes: number, slot: number) =>
+  Math.max(1, Math.round(sessionMinutes / slot)) * slot;
+
+/** Whether a franja has room for a session once cut to the grid (the engine's own count). */
+export const franjaHolds = (r: MinuteRange, sessionMinutes: number, slot = GRID_MINUTES) => {
+  const part = gridPart(r, slot);
+  return !!part && part.end - part.start >= sessionOnGrid(sessionMinutes, slot);
+};
+
 /** What is wrong with a range of minutes (the side it is about and what to say), or null. */
-function rangeProblem(from: number, to: number, sessionMinutes: number | undefined) {
+function rangeProblem(from: number, to: number, sessionMinutes: number | undefined, slot: number) {
   if (from >= to) return { side: "from", text: "«Desde» tiene que ser antes de «Hasta»." };
-  return sessionMinutes !== undefined && to - from < sessionMinutes
-    ? { side: "to", text: `la franja es más corta que una sesión (${sessionMinutes} min).` }
-    : null;
+  if (sessionMinutes === undefined) return null;
+  const range = { start: from, end: to };
+  if (to - from < sessionMinutes)
+    return { side: "to", text: `la franja es más corta que una sesión (${sessionMinutes} min).` };
+  if (franjaHolds(range, sessionMinutes, slot)) return null;
+  const part = gridPart(range, slot);
+  const fits = part
+    ? `solo entra ${clock(part.start)}–${clock(part.end)}`
+    : "no entra ningún bloque";
+  return {
+    side: "to",
+    text: `con la grilla de ${slot} min, de ${clock(from)} a ${clock(to)} ${fits}: ampliá la franja.`,
+  };
 }
 
 /**
@@ -64,6 +94,7 @@ function readField(
   key: string,
   who: string,
   sessionMinutes: number | undefined,
+  slot: number,
 ): { range: MinuteRange | null; problems: HoursProblem[] } {
   if (isEmpty(f)) return { range: null, problems: [] };
   const from = clockOf(f.from, 0);
@@ -73,7 +104,7 @@ function readField(
     problems.push({ field: `${key}-${side}`, text: `${who}${text}` });
   if (from === null) say("from", "la hora «Desde» no es válida (por ejemplo 7 o 07:30).");
   if (to === null) say("to", "la hora «Hasta» no es válida (por ejemplo 19 o 19:30).");
-  const wrong = from === null || to === null ? null : rangeProblem(from, to, sessionMinutes);
+  const wrong = from === null || to === null ? null : rangeProblem(from, to, sessionMinutes, slot);
   if (wrong) say(wrong.side, wrong.text);
   if (from === null || to === null || problems.length) return { range: null, problems };
   return { range: { start: from, end: to }, problems };
@@ -83,20 +114,21 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 /**
  * The valid hours a form says (undefined: no limit) and what is wrong with it, field by
- * field. `sessionMinutes` is the routine's session, when known: a franja shorter than it
- * could never hold one.
+ * field. `sessionMinutes` is the routine's session, when known: a franja that, cut to the
+ * grid, is shorter than it could never hold one.
  */
 export function readHours(
   form: HoursForm,
   sessionMinutes?: number,
+  slot = GRID_MINUTES,
 ): { hours: ValidHours | undefined; problems: HoursProblem[] } {
-  const all = readField(form.all, "all", "", sessionMinutes);
+  const all = readField(form.all, "all", "", sessionMinutes, slot);
   const problems = [...all.problems.map((p) => ({ ...p, text: cap(p.text) }))];
   const days: Partial<Record<number, MinuteRange>> = {};
   if (form.perDay) {
     for (const d of HOURS_DAYS) {
       const f = form.days[d.weekday] ?? EMPTY;
-      const read = readField(f, `day-${d.weekday}`, `El ${d.name}: `, sessionMinutes);
+      const read = readField(f, `day-${d.weekday}`, `El ${d.name}: `, sessionMinutes, slot);
       problems.push(...read.problems.map((p) => ({ ...p, text: cap(p.text) })));
       if (read.range) days[d.weekday] = read.range;
     }
@@ -147,4 +179,24 @@ export function describeHours(hours: ValidHours | undefined): string {
   return all
     ? `${all} (${days === 1 ? "con 1 día distinto" : `con ${days} días distintos`})`
     : "según el día";
+}
+
+/** Whether every day's franja is too short for a session on the grid (a day with none is unlimited). */
+export function hoursTooShort(
+  hours: ValidHours | undefined,
+  sessionMinutes: number,
+  slot = GRID_MINUTES,
+): boolean {
+  if (!hours) return false;
+  const own = new Map(Object.entries(hours.days ?? {}));
+  return [0, 1, 2, 3, 4, 5, 6].every((w) => {
+    const r = own.get(String(w)) ?? hours.all;
+    return !!r && !franjaHolds(r, sessionMinutes, slot);
+  });
+}
+
+/** Whether every franja of the hours (the form's own rule) has room for a session on the grid. */
+export function hoursHold(hours: ValidHours, sessionMinutes: number, slot = GRID_MINUTES): boolean {
+  const ranges = [hours.all, ...Object.values(hours.days ?? {})];
+  return ranges.every((r) => !r || franjaHolds(r, sessionMinutes, slot));
 }

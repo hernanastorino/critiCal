@@ -223,7 +223,11 @@ export function TaskEditor({
   );
   const hoursRead =
     ownRoutine && kind === "habit"
-      ? readHours(hoursForm, habit.minutes ? undefined : Number(sessionMin))
+      ? readHours(
+          hoursForm,
+          habit.minutes ? undefined : Number(sessionMin),
+          data.settings.slotMinutes,
+        )
       : { hours: undefined, problems: [] };
   const nameMissing = activityId === "new" && isBlank(newActivity);
   // One error is announced by its own text; several, by one summary (not one alert each).

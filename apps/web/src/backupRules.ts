@@ -24,6 +24,7 @@ import {
   validHoursOk,
 } from "./backupNamed.js";
 import { awakeMinutes, awakeProblem, awakeText } from "./dayLength.js";
+import type { ValidHours } from "./engine.js";
 import { minutesToHhmm } from "./format.js";
 import {
   deadlineInRange,
@@ -32,6 +33,7 @@ import {
   UNIT_MINUTES_MAX,
   UNIT_MINUTES_MIN,
 } from "./limits.js";
+import { GRID_MINUTES, hoursHold } from "./routineHours.js";
 import { validRoutine } from "./subjects.js";
 
 const WEEKDAYS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
@@ -135,9 +137,12 @@ const activityTests: Test[] = [
 interface Ctx {
   now: number;
   routineIds: Set<unknown>;
+  /** The valid hours of each routine, and the grid the engine places blocks on. */
+  routineHours: Map<unknown, ValidHours>;
+  slot: number;
 }
 const isDeliverable = (x?: Rec) => x?.kind === "deliverable";
-const taskTests = ({ now, routineIds }: Ctx): Test[] => [
+const taskTests = ({ now, routineIds, routineHours, slot }: Ctx): Test[] => [
   ["id", str],
   ["startAfter", opt(startOk)],
   ["deadlineSyncedFrom", opt(instant)],
@@ -162,6 +167,18 @@ const taskTests = ({ now, routineIds }: Ctx): Test[] => [
       !routineIds.has(v) ||
       x?.sessionsPerWeek === undefined ||
       validRoutine(x.sessionsPerWeek as number, Number(x.sessionMinutes ?? 0)),
+  ],
+  // A franja too short for a session on the grid could never plan it (the form says so).
+  [
+    "activityId",
+    (v, x) => {
+      const hours = routineHours.get(v);
+      return (
+        !hours ||
+        x?.sessionMinutes === undefined ||
+        hoursHold(hours, Number(x.sessionMinutes), slot)
+      );
+    },
   ],
 ];
 
@@ -275,7 +292,16 @@ export function shapeOk(d: Rec, now: number): boolean {
       .filter((a) => isRec(a) && a.kind === "rutina")
       .map((a) => (a as Rec).id),
   );
-  return allOf(d, fileTests({ now, routineIds }));
+  const routineHours = new Map<unknown, ValidHours>();
+  for (const a of Array.isArray(d.activities) ? d.activities : []) {
+    if (isRec(a) && a.kind === "rutina" && a.validHours)
+      routineHours.set(a.id, a.validHours as ValidHours);
+  }
+  const slot =
+    isRec(d.settings) && typeof d.settings.slotMinutes === "number"
+      ? d.settings.slotMinutes
+      : GRID_MINUTES;
+  return allOf(d, fileTests({ now, routineIds, routineHours, slot }));
 }
 
 /** The day of the week that is the only thing wrong (says which), or null. */
