@@ -5,16 +5,14 @@ import { newId, stableId, uniqueColors } from "./model.js";
 import { endOfDay, isPinned, refreshPlan, settleUnits } from "./planning.js";
 
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
-export function refresh(unsettled: AppData, now: number): AppData {
-  // The parts first: what is done follows from the hand marks and the standing records.
-  return replan(settleUnits(unsettled), now);
-}
-
-function replan(raw: AppData, now: number): AppData {
+export function refresh(raw: AppData, now: number): AppData {
   // Pins that already happened live on as plan history.
-  const input = raw.pins?.some((p) => p.end <= now)
-    ? { ...raw, pins: raw.pins.filter((p) => p.end > now) }
-    : raw;
+  // The parts first: what is done follows from the hand marks and the standing records.
+  const input = settleUnits(
+    raw.pins?.some((p) => p.end <= now)
+      ? { ...raw, pins: raw.pins.filter((p) => p.end > now) }
+      : raw,
+  );
   // Same ids for the same user on every device and on the server; never across users.
   const owner = raw.owner;
   const ids = owner ? (seed: string) => stableId(`${owner}:${seed}`) : newId;

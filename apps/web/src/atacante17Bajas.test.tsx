@@ -126,7 +126,7 @@ describe("17th round: after undoing a deleted materia the focus is on its row", 
     await act(() => Promise.resolve());
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     await waitFor(() =>
-      expect(need(document.activeElement as HTMLElement | null).dataset.activityHead).toBe(head),
+      expect(document.activeElement?.getAttribute("data-activity-head")).toBe(head),
     );
   });
 });
