@@ -144,6 +144,23 @@ export function semesterLabel(tz: string, instant: number) {
 export const isRunning = (task: AppTask, now: number) =>
   task.status === "active" && !task.paused && !((task.skipUntil ?? 0) > now);
 
+/**
+ * The sessions a habit asks of the week `now` is in. One made mid-week asks the share of
+ * the days left, counting the day it was made: 3 a week made on Saturday leave 2 of 7
+ * days, so 1 session. Rounded up, so a routine never starts with nothing to do, and it
+ * never asks more than a day holds (the daily cap is sessions per week over 7, rounded
+ * up). From the next week on, all of them. Study silos and habits from before the
+ * creation date was kept ask the whole week.
+ */
+export function sessionsThisWeek(task: AppTask, tz: string, now: number): number {
+  const full = task.sessionsPerWeek ?? 0;
+  const made = task.createdAt;
+  if (made === undefined || task.study) return full;
+  if (made < zonedInstant(tz, weekStart(tz, now), 0) || made >= endOfWeek(tz, now)) return full;
+  const daysLeft = 7 - ((localParts(tz, made).weekday + 6) % 7);
+  return Math.min(full, Math.ceil((full * daysLeft) / 7));
+}
+
 /** What is left of each active task: its unmarked parts, or its estimate minus what was logged. */
 export function progress(data: AppData, now: number): TaskProgress[] {
   const tz = data.settings.timezone;
@@ -151,7 +168,7 @@ export function progress(data: AppData, now: number): TaskProgress[] {
     .filter((t) => isRunning(t, now))
     .map((task) => {
       if (task.kind === "habit") {
-        const total = (task.sessionsPerWeek ?? 0) * (task.sessionMinutes ?? 0);
+        const total = sessionsThisWeek(task, tz, now) * (task.sessionMinutes ?? 0);
         const since = zonedInstant(tz, weekStart(tz, now), 0);
         const left = Math.max(0, total - doneMinutes(data, task.id, since));
         return {

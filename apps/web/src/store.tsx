@@ -379,13 +379,18 @@ function apply(data: AppData, action: Action): AppData {
     case "saveTask": {
       const before = data.tasks.find((t) => t.id === action.task.id);
       // A date the user sets on a task that follows an event is kept against the import.
-      const task =
+      const synced =
         before?.sourceEventId && before.deadline !== action.task.deadline
           ? {
               ...action.task,
               deadlineSyncedFrom: before.deadlineSyncedFrom ?? before.deadline,
             }
           : action.task;
+      // A new habit remembers when it was made: its first week asks only the days left.
+      const task =
+        !before && synced.kind === "habit" && synced.createdAt === undefined
+          ? { ...synced, createdAt: action.now }
+          : synced;
       const tasks = before
         ? data.tasks.map((t) => (t.id === task.id ? task : t))
         : [...data.tasks, task];
@@ -991,6 +996,7 @@ function apply(data: AppData, action: Action): AppData {
         minMinutes: times * minutes,
         sessionsPerWeek: times,
         sessionMinutes: minutes,
+        createdAt: action.now,
         priority: 2,
         status: "active",
         units: [],

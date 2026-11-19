@@ -207,6 +207,7 @@ const taskRules = (): Rule[] => [
   ["skipUntil", opt(instant), "tiene una fecha de pausa que no es válida"],
   ["endedAt", opt(instant), "tiene una fecha de fin que no es válida"],
   ["autoDroppedAt", opt(instant), "tiene una fecha de descarte que no es válida"],
+  ["createdAt", opt(instant), "tiene una fecha de creación que no es válida"],
   ["units", (v) => Array.isArray(v), "no tiene la lista de partes"],
 ];
 
