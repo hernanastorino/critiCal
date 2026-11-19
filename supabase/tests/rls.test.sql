@@ -3,7 +3,7 @@ create extension if not exists pgtap with schema extensions;
 -- Start from an app without accounts: the local seed's test account would own it.
 delete from auth.users where email = 'prueba@critical.test';
 delete from private.app_config where key = 'owner';
-select plan(14);
+select plan(15);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-00000000000a', 'a@test.local'),
@@ -23,6 +23,7 @@ insert into public.tasks (activity_id, title, min_minutes)
   select id, 'Práctico 5', 60 from public.activities;
 insert into public.check_ins (block_id, task_id, status)
   select 'b1', id, 'done' from public.tasks;
+select lives_ok($$ insert into public.check_ins (block_id, task_id, status) select 'b1', id, 'retired' from public.tasks $$, 'a record can be retired (undo adds a record)');
 
 select is((select count(*)::int from public.tasks), 1, 'A sees own task');
 

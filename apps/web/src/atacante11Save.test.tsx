@@ -34,7 +34,12 @@ function database() {
   const empty = Promise.resolve({ data: [], error: null });
   const from = (table: string) => ({
     select: () =>
-      Object.assign(empty, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+      Object.assign(empty, {
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        order() {
+          return this;
+        },
+      }),
     upsert: (rows: Write["rows"]) => {
       writes.push({ table, rows });
       const bad = table === "activities" && rows.some((r) => r.name === "MALA");

@@ -186,7 +186,7 @@ const checkInTests: Test[] = [
   ["id", str],
   ["blockId", str],
   ["taskId", str],
-  ["status", (v) => ["done", "missed", "partial"].includes(v as string)],
+  ["status", (v) => ["done", "missed", "partial", "retired"].includes(v as string)],
   ["minutesDone", between(0, Number.MAX_SAFE_INTEGER)],
   // A missed block did no work.
   ["status", (v, x) => v !== "missed" || x?.minutesDone === 0],

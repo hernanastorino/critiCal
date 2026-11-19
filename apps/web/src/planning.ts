@@ -72,19 +72,36 @@ export function blockFactor(activity: Activity | undefined): number {
   return study > 0 && rest > 0 ? (study + rest) / study : 1;
 }
 
+/** The newest record of each block: by date, then by id (rows come back in any order). */
+export function latestCheckIns(data: AppData): Map<string, CheckIn> {
+  const last = new Map<string, CheckIn>();
+  for (const c of data.checkIns) {
+    const prev = last.get(c.blockId);
+    if (!prev || c.createdAt > prev.createdAt || (c.createdAt === prev.createdAt && c.id > prev.id))
+      last.set(c.blockId, c);
+  }
+  return last;
+}
+
 /**
  * The check-ins that count: the log only grows (SPEC §3), so a correction is a newer
- * check-in of the same block, and it is the one that stands.
+ * check-in of the same block, and it is the one that stands. A «retired» one (an undo of
+ * the first record) leaves the block with none.
  */
 export function standingCheckIns(data: AppData): CheckIn[] {
-  const last = new Map(data.checkIns.map((c) => [c.blockId, c]));
-  return data.checkIns.filter((c) => last.get(c.blockId) === c);
+  const last = latestCheckIns(data);
+  return data.checkIns.filter((c) => last.get(c.blockId) === c && c.status !== "retired");
+}
+
+/** When the block a check-in is about starts: the week it belongs to, not when it was logged. */
+export function blockStartOf(data: AppData, c: CheckIn): number {
+  return data.plan.find((b) => b.id === c.blockId)?.start ?? c.createdAt;
 }
 
 /** Minutes really worked on a task, from check-ins. */
 export function doneMinutes(data: AppData, taskId: string, since = 0): number {
   return standingCheckIns(data)
-    .filter((c) => c.taskId === taskId && c.createdAt >= since)
+    .filter((c) => c.taskId === taskId && blockStartOf(data, c) >= since)
     .reduce((sum, c) => sum + c.minutesDone, 0);
 }
 
@@ -685,7 +702,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
 
 /** Past blocks with no check-in yet. */
 export function pendingConfirmations(data: AppData, now: number): PlanBlock[] {
-  const answered = new Set(data.checkIns.map((c) => c.blockId));
+  const answered = new Set(standingCheckIns(data).map((c) => c.blockId));
   return data.plan
     .filter((b) => b.end <= now && !answered.has(b.id))
     .sort((a, b) => a.start - b.start);

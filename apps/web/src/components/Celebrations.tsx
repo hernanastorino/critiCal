@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { progress } from "../planning.js";
+import { progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
@@ -39,7 +39,9 @@ export function Celebrations() {
     if (!first) return;
     // Undo takes back the check-in that closed it, only if one just came in for it.
     const taskId = [...now].find(([, v]) => v.title === first)?.[0];
-    const fresh = data.checkIns.filter((c) => c.taskId === taskId && !seen?.has(c.id)).at(-1);
+    const fresh = standingCheckIns(data)
+      .filter((c) => c.taskId === taskId && !seen?.has(c.id))
+      .at(-1);
     toast.show(`${first}: entrega cerrada. Bien ahí.`, {
       roy: "festejo",
       ...(fresh ? { undo: () => dispatch({ type: "undoCheckIn", id: fresh.id }) } : {}),

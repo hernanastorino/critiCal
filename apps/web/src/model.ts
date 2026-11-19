@@ -125,7 +125,11 @@ export interface CheckIn {
   id: string;
   blockId: string;
   taskId: string;
-  status: "done" | "missed" | "partial";
+  /**
+   * «retired» takes back the block's first record (the log only grows, so undoing is a new
+   * record): the block counts as having none.
+   */
+  status: "done" | "missed" | "partial" | "retired";
   minutesDone: number;
   unitIds: string[];
   createdAt: number;

@@ -21,6 +21,9 @@ function fakeClient(fail = false) {
     select: () =>
       Object.assign(fail ? Promise.resolve({ data: null, error: new Error("boom") }) : ok, {
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        order() {
+          return this;
+        },
       }),
     upsert: () => {
       writes.push(table);
@@ -59,6 +62,9 @@ function calendarClient() {
     select: () =>
       Object.assign(Promise.resolve({ data: tables[table] ?? [], error: null }), {
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        order() {
+          return this;
+        },
       }),
     upsert: (rows: unknown) => {
       writes.push({ table, rows });
@@ -222,7 +228,12 @@ describe("Connected", () => {
         select: () =>
           Object.assign(
             Promise.resolve({ data: null, error: { code: "42P01", message: "tabla rota" } }),
-            { maybeSingle: () => Promise.resolve({ data: null, error: null }) },
+            {
+              maybeSingle: () => Promise.resolve({ data: null, error: null }),
+              order() {
+                return this;
+              },
+            },
           ),
       }),
     };

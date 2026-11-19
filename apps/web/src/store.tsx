@@ -54,6 +54,7 @@ import {
   endOfDay,
   endOfWeek,
   isRunning,
+  latestCheckIns,
   missedMeals,
   pendingConfirmations,
   pinBlock,
@@ -61,6 +62,7 @@ import {
   pinShortfall,
   refreshPlan,
   routinesBack,
+  standingCheckIns,
   weekStart,
 } from "./planning.js";
 import { refresh } from "./refresh.js";
@@ -87,9 +89,13 @@ export type RecurrenceChange = "skipWeek" | "pause" | "resume" | "endFromToday" 
 export type Action =
   | { type: "refresh"; now: number }
   | { type: "replace"; data: AppData; now: number }
-  | { type: "checkIn"; checkIn: Omit<CheckIn, "id" | "createdAt">; now: number }
+  /** `id` lets the caller name the record it may take back (and keeps a repeat harmless). */
+  | { type: "checkIn"; checkIn: Omit<CheckIn, "id" | "createdAt"> & { id?: string }; now: number }
   | { type: "saveTask"; task: AppTask; activity?: Activity; now: number }
-  /** Takes one check-in back (and the parts it marked done), e.g. on «Deshacer». */
+  /**
+   * Takes the newest check-in of a block back, e.g. on «Deshacer». The log only grows, so
+   * it adds a record: the earlier answer again, or «retired» when there was none.
+   */
   | { type: "undoCheckIn"; id?: string; blockId?: string; now: number }
   | { type: "override"; override: DayOverride; now: number }
   | { type: "acceptProposal"; id: string; now: number }
@@ -316,6 +322,43 @@ function withoutUnitIds(checkIns: CheckIn[], taskId: string, ids: ReadonlySet<st
   );
 }
 
+const byDate = (a: CheckIn, b: CheckIn) =>
+  a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
+
+/** A record is always newer than the block's earlier ones, whatever the clock says. */
+function stampAfter(data: AppData, blockId: string, now: number): number {
+  const last = latestCheckIns(data).get(blockId);
+  return last ? Math.max(now, last.createdAt + 1) : now;
+}
+
+/**
+ * Adds a record to the log and brings the parts in line with the records that stand: the
+ * parts it declares get marked, and a part an earlier record marked that no standing
+ * record declares any more is open again. A mark made by hand (its date is not the date
+ * of any record) is never touched.
+ */
+function withRecord(data: AppData, record: CheckIn): AppData {
+  const checkIns = [...data.checkIns, record];
+  const mine = checkIns.filter((c) => c.taskId === record.taskId);
+  const declared = new Set(standingCheckIns({ ...data, checkIns }).flatMap((c) => c.unitIds));
+  const stamps = new Set(mine.map((c) => c.createdAt));
+  const tasks = data.tasks.map((t) =>
+    t.id !== record.taskId
+      ? t
+      : {
+          ...t,
+          units: t.units.map((u) => {
+            if (record.unitIds.includes(u.id) && record.status !== "retired")
+              return u.doneAt === undefined ? { ...u, doneAt: record.createdAt } : u;
+            if (u.doneAt !== undefined && stamps.has(u.doneAt) && !declared.has(u.id))
+              return { ...u, doneAt: undefined };
+            return u;
+          }),
+        },
+  );
+  return { ...data, tasks, checkIns };
+}
+
 /** The data after `action`, planned again where it changes the plan. */
 function apply(data: AppData, action: Action): AppData {
   const now = action.now;
@@ -325,45 +368,46 @@ function apply(data: AppData, action: Action): AppData {
     case "replace":
       return refresh(rekeySpots(action.data), now);
     case "checkIn": {
+      const id = action.checkIn.id ?? newId();
+      if (data.checkIns.some((c) => c.id === id)) return data;
       const checkIn: CheckIn = {
         ...action.checkIn,
-        id: newId(),
-        createdAt: now,
+        id,
+        createdAt: stampAfter(data, action.checkIn.blockId, now),
         factor: checkInFactor(data, action.checkIn.taskId),
       };
-      const tasks = data.tasks.map((t) =>
-        t.id === checkIn.taskId
-          ? {
-              ...t,
-              units: t.units.map((u) =>
-                checkIn.unitIds.includes(u.id) ? { ...u, doneAt: now } : u,
-              ),
-            }
-          : t,
-      );
-      return refresh({ ...data, tasks, checkIns: [...data.checkIns, checkIn] }, now);
+      return refresh(withRecord(data, checkIn), now);
     }
     case "undoCheckIn": {
-      // By block it takes back the latest answer: after a correction, that one.
-      const gone = data.checkIns.findLast(
-        (c) =>
-          (action.id !== undefined && c.id === action.id) ||
-          (action.blockId !== undefined && c.blockId === action.blockId),
-      );
-      if (!gone) return data;
-      const reopen = new Set(gone.unitIds);
-      const tasks = data.tasks.map((t) =>
-        t.id === gone.taskId && reopen.size > 0
-          ? {
-              ...t,
-              units: t.units.map((u) => (reopen.has(u.id) ? { ...u, doneAt: undefined } : u)),
-            }
-          : t,
-      );
-      return refresh(
-        { ...data, tasks, checkIns: data.checkIns.filter((c) => c.id !== gone.id) },
-        now,
-      );
+      // By block it takes back the newest answer: after a correction, that one. It must
+      // still be the newest of its block, so a repeated «Deshacer» does nothing more.
+      const newest = latestCheckIns(data);
+      const gone =
+        action.id !== undefined
+          ? data.checkIns.find((c) => c.id === action.id)
+          : action.blockId !== undefined
+            ? newest.get(action.blockId)
+            : undefined;
+      if (!gone || gone.status === "retired" || newest.get(gone.blockId) !== gone) return data;
+      const before = data.checkIns
+        .filter((c) => c.blockId === gone.blockId)
+        .sort(byDate)
+        .findLast((c) => byDate(c, gone) < 0);
+      // The log only grows: undoing writes the earlier answer again, or retires the block's
+      // first one. Either way what stands is derived from the records.
+      const back: CheckIn =
+        before && before.status !== "retired"
+          ? { ...before, id: newId(), createdAt: stampAfter(data, gone.blockId, now) }
+          : {
+              id: newId(),
+              blockId: gone.blockId,
+              taskId: gone.taskId,
+              status: "retired",
+              minutesDone: 0,
+              unitIds: [],
+              createdAt: stampAfter(data, gone.blockId, now),
+            };
+      return refresh(withRecord(data, back), now);
     }
     case "unarchive": {
       if (!data.tasks.some((t) => t.id === action.taskId && t.status === "dropped")) return data;
