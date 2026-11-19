@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BlockSheet } from "./components/BlockSheet.js";
 import { ToastProvider } from "./components/Toast.js";
@@ -69,10 +69,9 @@ describe("16th round: correcting keeps the parts the record declares", () => {
     )?.remainingMinutes;
     press("Corregir");
     // Offered although done, and ticked from the start.
-    expect((screen.getByLabelText(/Tema uno/) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByRole("checkbox", { name: /Tema uno/ })).toHaveProperty("checked", true);
     press("◐ Parcial");
     press("Guardar parcial");
-    await act(async () => {});
     expect(units().find((u) => u.id === "u1")?.doneAt).toBeDefined();
     const after = progress(store().data, LATER).find(
       (p) => p.task.id === b.taskId,

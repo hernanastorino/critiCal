@@ -109,10 +109,11 @@ describe("16th round: Deshacer copies are not news", () => {
       id: latestCheckIns(d2).get("b1")?.id ?? "",
       now: tick(),
     });
-    const copy = latestCheckIns(d3).get("b1") as CheckIn;
-    expect(isUndoCopy(d3, copy)).toBe(true);
-    expect(isUndoCopy(d3, d3.checkIns[0] as CheckIn)).toBe(false);
-    expect(isUndoCopy(d3, latestCheckIns(d2).get("b1") as CheckIn)).toBe(false);
+    const pick = (d: AppData, i: number) => d.checkIns.slice(i)[0];
+    const isCopy = (d: AppData, c: CheckIn | undefined) => (c ? isUndoCopy(d, c) : undefined);
+    expect(isCopy(d3, pick(d3, -1))).toBe(true);
+    expect(isCopy(d3, pick(d3, 0))).toBe(false);
+    expect(isCopy(d3, pick(d3, 1))).toBe(false);
   });
 });
 
