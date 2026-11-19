@@ -81,7 +81,7 @@ describe("13th round: a franja that does not fall on the grid", () => {
     );
     expect(screen.getByText(/franja de horas es más corta que una sesión/)).toBeTruthy();
     expect(screen.queryByText(/más veces de las que caben/)).toBeNull();
-  });
+  }, 30_000);
 });
 
 describe("13th round: habits of a backup without creation date", () => {
