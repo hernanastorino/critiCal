@@ -277,6 +277,27 @@ const keyOf = (e: unknown) =>
     ? (e as { id: string }).id
     : JSON.stringify(e);
 
+const DROP = Symbol("drop");
+
+/** What stands for entry `k` once the answer is taken back (`DROP`: none). */
+function pick<T>(
+  k: string,
+  b: Map<string, T>,
+  a: Map<string, T>,
+  c: Map<string, T>,
+  only?: ReadonlySet<string>,
+) {
+  const cur = c.get(k) as T;
+  const mid = a.get(k);
+  if (only && !only.has(k)) return c.has(k) ? cur : DROP;
+  // Removed by the answer: back. Removed since: it was not the answer's.
+  if (!c.has(k)) return b.has(k) && !a.has(k) ? (b.get(k) as T) : DROP;
+  // Added by the answer and still as it left it: goes.
+  if (!b.has(k)) return a.has(k) && same(cur, mid) ? DROP : cur;
+  // Changed by the answer and not since: back to what it was.
+  return a.has(k) && !same(b.get(k), mid) && same(cur, mid) ? (b.get(k) as T) : cur;
+}
+
 /**
  * `now` with what the answer changed taken back: what it removed comes back, what it
  * edited returns to its earlier version, what it added goes, and anything else (made or
@@ -286,26 +307,31 @@ function mergeBack<T>(now: T[], before: T[], after: T[], only?: ReadonlySet<stri
   const b = new Map(before.map((e) => [keyOf(e), e]));
   const a = new Map(after.map((e) => [keyOf(e), e]));
   const c = new Map(now.map((e) => [keyOf(e), e]));
-  const out = new Map<string, T>();
   // What there was before keeps its order; what is new since goes after.
-  for (const [k, was] of b) {
-    const cur = c.get(k);
-    if (only && !only.has(k)) {
-      if (c.has(k)) out.set(k, cur as T);
-    } else if (!c.has(k)) {
-      // Removed by the answer: back. Removed since: it was not the answer's.
-      if (!a.has(k)) out.set(k, was);
-    } else if (a.has(k) && !same(was, a.get(k)) && same(cur, a.get(k))) {
-      out.set(k, was);
-    } else out.set(k, cur as T);
-  }
-  for (const [k, cur] of c) {
-    if (out.has(k)) continue;
-    // Added by the answer and still as it left it: goes.
-    if (!b.has(k) && a.has(k) && (!only || only.has(k)) && same(cur, a.get(k))) continue;
-    out.set(k, cur);
-  }
-  return [...out.values()];
+  const keys = new Set([...b.keys(), ...c.keys()]);
+  return [...keys].map((k) => pick(k, b, a, c, only)).filter((e): e is Awaited<T> => e !== DROP);
+}
+
+type Records = AppData["checkIns"];
+
+/**
+ * The records never go: those the answer removed (with their silo) come back once their
+ * silo is back and the block has none; those it added are taken back with a new record.
+ */
+function restoreRecords(data: AppData, old: Records, mine: Records, now: number): AppData {
+  const added = mine.filter((c) => !old.some((o) => o.id === c.id));
+  const gone = old.filter((o) => !mine.some((c) => c.id === o.id));
+  const tasks = new Set(data.tasks.map((t) => t.id));
+  const blocks = new Set(data.checkIns.map((c) => c.blockId));
+  let out = {
+    ...data,
+    checkIns: [
+      ...data.checkIns,
+      ...gone.filter((c) => tasks.has(c.taskId) && !blocks.has(c.blockId)),
+    ],
+  };
+  for (const c of added.reverse()) out = apply(out, { type: "undoCheckIn", id: c.id, now });
+  return out;
 }
 
 /** The whole of `data` with the parts of `snap` put back (see `restoreState`). */
@@ -316,43 +342,24 @@ function restoreSnapshot(data: AppData, snap: Snapshot, now: number): AppData {
   const next: Record<string, unknown> = { ...data };
   const was = (snap.keys ?? {}) as Record<string, unknown>;
   const mid = after.keys as Record<string, unknown>;
-  for (const k of Object.keys(was)) {
-    if (k === "checkIns") continue;
+  for (const k of Object.keys(was).filter((x) => x !== "checkIns")) {
     const cur = (data as unknown as Record<string, unknown>)[k];
-    if (Array.isArray(was[k]) || Array.isArray(mid[k])) {
-      const merged = mergeBack(
-        Array.isArray(cur) ? cur : [],
-        (was[k] as unknown[]) ?? [],
-        (mid[k] as unknown[]) ?? [],
-      );
-      // A part that was missing stays missing while it has nothing in it.
-      next[k] = merged.length === 0 && was[k] === undefined ? undefined : merged;
-    } else next[k] = same(cur, mid[k]) ? was[k] : cur;
+    if (!Array.isArray(was[k]) && !Array.isArray(mid[k])) {
+      next[k] = same(cur, mid[k]) ? was[k] : cur;
+      continue;
+    }
+    const list = Array.isArray(cur) ? cur : [];
+    const merged = mergeBack(list, (was[k] as unknown[]) ?? [], (mid[k] as unknown[]) ?? []);
+    // A part that was missing stays missing while it has nothing in it.
+    next[k] = merged.length === 0 && was[k] === undefined ? undefined : merged;
   }
   if (snap.tasks?.length) {
     const only = new Set(snap.tasks.map((t) => t.id));
     next.tasks = mergeBack(next.tasks as AppTask[], snap.tasks, after.tasks ?? [], only);
   }
-  let out = next as unknown as AppData;
-  const old = was.checkIns as AppData["checkIns"] | undefined;
-  if (old) {
-    // The records never go: those the answer removed (with their silo) come back once their
-    // silo is back and the block has none; those it added are taken back with a new record.
-    const mine = (mid.checkIns as AppData["checkIns"] | undefined) ?? [];
-    const added = mine.filter((c) => !old.some((o) => o.id === c.id));
-    const gone = old.filter((o) => !mine.some((c) => c.id === o.id));
-    const tasks = new Set(out.tasks.map((t) => t.id));
-    const blocks = new Set(out.checkIns.map((c) => c.blockId));
-    out = {
-      ...out,
-      checkIns: [
-        ...out.checkIns,
-        ...gone.filter((c) => tasks.has(c.taskId) && !blocks.has(c.blockId)),
-      ],
-    };
-    for (const c of added.reverse()) out = apply(out, { type: "undoCheckIn", id: c.id, now });
-  }
-  return out;
+  const out = next as unknown as AppData;
+  const old = was.checkIns as Records | undefined;
+  return old ? restoreRecords(out, old, (mid.checkIns as Records | undefined) ?? [], now) : out;
 }
 
 /** Everything that goes when the activity `id` is deleted (to put it back on undo). */
