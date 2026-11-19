@@ -586,6 +586,27 @@ describe("options", () => {
     expect(lower?.result.feasible).toBe(true);
   });
 
+  it("a task that fits nowhere, even alone, does not make the others' blocks critical", () => {
+    const due = at("2026-11-08", "08:00");
+    const m = task("m", "mate", due, { remainingMinutes: 120, minRemainingMinutes: 120 });
+    const f = task("f", "fisica", due, {
+      remainingMinutes: 6000,
+      minRemainingMinutes: 6000,
+      fixedTarget: true,
+    });
+    const withF = schedule(base({ tasks: [m, f] }));
+    const alone = schedule(base({ tasks: [m] }));
+    expect(selfShort(base({ tasks: [m, f] }), withF)).toEqual(["f"]);
+    const levels = (r: ScheduleResult) =>
+      r.blocks.filter((b) => b.taskId === "m").map((b) => b.level);
+    expect(levels(withF).length).toBeGreaterThan(0);
+    expect(levels(withF)).not.toContain("critical");
+    expect(levels(withF)).toEqual(levels(alone));
+    expect(withF.status.find((s) => s.taskId === "m")?.level).not.toBe("critical");
+    // «f» itself is still reported short.
+    expect(withF.feasible).toBe(false);
+  });
+
   it("re-rates frozen blocks with the current plan", () => {
     const due = at("2026-11-02", "13:00");
     const frozen: PlanBlock = {

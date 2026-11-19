@@ -115,7 +115,11 @@ class Board {
   }
 }
 
-export function schedule(input: ScheduleInput): ScheduleResult {
+/**
+ * `alone` is internal: the check of a task that fits nowhere runs the plan with that
+ * task by itself, and must not look for more of them.
+ */
+export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
   const { settings, now } = input;
   const slotMinutes = settings.slotMinutes;
   const frozen = input.frozen ?? [];
@@ -342,7 +346,21 @@ export function schedule(input: ScheduleInput): ScheduleResult {
   for (const p of prepared) place(p, p.target, false);
 
   const blocks = collectBlocks(board);
-  const status = statuses(prepared, placed, board, eligible, settings);
+  // A task whose minimum does not fit even with all the time to itself is reported on
+  // its own: it must not make the others' time critical (it could use it, but no cut
+  // would make it fit).
+  const impossible = new Set<string>();
+  if (!alone) {
+    for (const p of prepared) {
+      if (p.min - (placed.get(p.task.id) ?? 0) <= 0) continue;
+      const only = schedule(
+        { ...input, tasks: input.tasks.filter((t) => t.id === p.task.id) },
+        true,
+      );
+      if (only.status.some((s) => s.minDeficit > 0)) impossible.add(p.task.id);
+    }
+  }
+  const status = statuses(prepared, placed, board, eligible, settings, impossible);
   const statusById = new Map(status.map((s) => [s.taskId, s]));
   const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
   /** Whether `p` could take any of the block's time if it were skipped. */
@@ -356,12 +374,13 @@ export function schedule(input: ScheduleInput): ScheduleResult {
     }
     return false;
   };
-  for (const b of blocks) b.level = blockLevel(b, prepared, statusById, settings, couldUse);
+  for (const b of blocks)
+    b.level = blockLevel(b, prepared, statusById, settings, couldUse, impossible);
   // Frozen blocks keep their time, not the level they had when planned: a decision
   // since (a lower minimum) may have taken them out of danger.
   for (const b of frozen) {
     const level = statusById.has(b.taskId)
-      ? blockLevel({ ...b }, prepared, statusById, settings, couldUse)
+      ? blockLevel({ ...b }, prepared, statusById, settings, couldUse, impossible)
       : b.level;
     blocks.push({ ...b, frozen: true, level });
   }
@@ -483,6 +502,7 @@ function statuses(
   board: Board,
   eligible: (p: Prepared, s: Slot, strict: boolean) => boolean,
   settings: Settings,
+  impossible: ReadonlySet<string>,
 ): TaskStatus[] {
   // Slack: capacity before each deadline (free + planned slots, strict rules) minus
   // the minimums due by then, in deadline order.
@@ -492,12 +512,13 @@ function statuses(
   let capacity = 0;
   const counted = board.slots.map(() => false);
   return prepared.map((p) => {
-    demand += p.min;
+    const skip = impossible.has(p.task.id);
+    if (!skip) demand += p.min;
     let own = 0;
     board.slots.forEach((s, i) => {
       if (!eligible(p, s, true)) return;
       own += settings.slotMinutes;
-      if (!counted[i]) {
+      if (!skip && !counted[i]) {
         counted[i] = true;
         capacity += settings.slotMinutes;
       }
@@ -529,6 +550,7 @@ function blockLevel(
   status: Map<string, TaskStatus>,
   settings: Settings,
   couldUse: (p: Prepared, block: PlanBlock) => boolean,
+  impossible: ReadonlySet<string>,
 ): Level {
   const own = prepared.find((p) => p.task.id === block.taskId) as Prepared;
   block.activityId = own.activity.id;
@@ -536,7 +558,7 @@ function blockLevel(
   // Losing this block's time hurts every task due after it starts.
   let minSlack = Number.POSITIVE_INFINITY;
   for (const p of prepared) {
-    if (p.task.deadline <= block.start || p.min === 0) continue;
+    if (p.task.deadline <= block.start || p.min === 0 || impossible.has(p.task.id)) continue;
     minSlack = Math.min(minSlack, (status.get(p.task.id) as TaskStatus).slack);
   }
   const ownStatus = status.get(block.taskId) as TaskStatus;
@@ -546,6 +568,7 @@ function blockLevel(
   const shortAfter = prepared.some(
     (p) =>
       p.task.deadline > block.start &&
+      !impossible.has(p.task.id) &&
       (status.get(p.task.id) as TaskStatus).minDeficit > 0 &&
       couldUse(p, block),
   );
