@@ -61,10 +61,10 @@ Las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en �
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                                                          | Qué falta                                                        |
-| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                      | **No mergear** hasta que el usuario lo pida.                     |
-| Ciclo del agente atacante sobre `main`                                   | 13 vueltas; desde la 7.ª sin Altas (la 13.ª tampoco tuvo). Criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Correr la 14.ª cuando el usuario quiera. |
+| Qué                                                                      | Estado                                                                                                                           | Qué falta                                    |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                       | **No mergear** hasta que el usuario lo pida. |
+| Ciclo del agente atacante sobre `main`                                   | 13 vueltas; desde la 7.ª sin Altas (la 13.ª tampoco tuvo). Criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Correr la 14.ª cuando el usuario quiera.     |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 

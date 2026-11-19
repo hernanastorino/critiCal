@@ -91,16 +91,14 @@ describe("13th round: habits of a backup without creation date", () => {
 
   it("imported into an account they ask the whole week, and the rows carry an old date", () => {
     const r = roundTrip(demoData(SAT), { account: ACCOUNT });
-    const data = "data" in r ? r.data : undefined;
-    const habits = (data?.tasks ?? []).filter((t) => t.kind === "habit" && !t.study);
+    const data = "data" in r ? r.data : emptyData();
+    const habits = data.tasks.filter((t) => t.kind === "habit" && !t.study);
     expect(habits.length).toBeGreaterThan(0);
     for (const t of habits) {
       expect(t.createdAt).toBeDefined();
       expect(sessionsThisWeek(t, TZ, SAT)).toBe(t.sessionsPerWeek);
     }
-    const rows = diffData(emptyData(), data as AppData).upserts.find(
-      (u) => u.table === "tasks",
-    )?.rows;
+    const rows = diffData(emptyData(), data).upserts.find((u) => u.table === "tasks")?.rows;
     for (const t of habits)
       expect(new Date(String(rows?.find((x) => x.id === t.id)?.created_at)).getTime()).toBeLessThan(
         SAT - 7 * 86_400_000,
@@ -109,9 +107,11 @@ describe("13th round: habits of a backup without creation date", () => {
 
   it("without an account (the demo itself) nothing is added", () => {
     const r = roundTrip(demoData(SAT));
-    const data = "data" in r ? r.data : undefined;
-    expect((data?.tasks ?? []).filter((t) => t.kind === "habit").map((t) => t.createdAt)).toEqual(
-      (demoData(SAT).tasks ?? []).filter((t) => t.kind === "habit").map((t) => t.createdAt),
+    const data = "data" in r ? r.data : emptyData();
+    expect(data.tasks.filter((t) => t.kind === "habit").map((t) => t.createdAt)).toEqual(
+      demoData(SAT)
+        .tasks.filter((t) => t.kind === "habit")
+        .map((t) => t.createdAt),
     );
   });
 });

@@ -188,8 +188,9 @@ export function hoursTooShort(
   slot = GRID_MINUTES,
 ): boolean {
   if (!hours) return false;
+  const own = new Map(Object.entries(hours.days ?? {}));
   return [0, 1, 2, 3, 4, 5, 6].every((w) => {
-    const r = hours.days?.[w] ?? hours.all;
+    const r = own.get(String(w)) ?? hours.all;
     return !!r && !franjaHolds(r, sessionMinutes, slot);
   });
 }
