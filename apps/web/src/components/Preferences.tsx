@@ -660,7 +660,11 @@ export function Routines() {
   const [editing, setEditing] = useState<AppTask | null>(null);
   const problem = routineProblems(times, minutes);
   // A franja shorter than the session is said once the session is a valid figure.
-  const read = readHours(hours, problem.minutes ? undefined : Number(minutes));
+  const read = readHours(
+    hours,
+    problem.minutes ? undefined : Number(minutes),
+    data.settings.slotMinutes,
+  );
   const bad = !!(problem.times || problem.minutes || read.problems.length);
   const nameField = useRef<HTMLInputElement>(null);
   // Nothing readable in the name (spaces, zero-width characters): said when typed or tried.

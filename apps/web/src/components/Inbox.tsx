@@ -18,6 +18,7 @@ import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
 import { DECISIONS_SHOWN_MS, endOfDay, onlyImpossibleLeft } from "../planning.js";
+import { hoursTooShort } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
@@ -45,11 +46,16 @@ function ProposalToday({ text }: { text: string }) {
   return text ? <p className="meta">{text}</p> : <RoyLine anim="reposo">{FREE_TODAY}</RoyLine>;
 }
 
-const noFitKind = (t: AppTask, activities: Activity[]): NoFitKind => {
+const noFitKind = (t: AppTask, activities: Activity[], slot: number): NoFitKind => {
   if (t.kind !== "habit") return "dated";
   if (t.study) return "study";
+  const activity = activities.find((a) => a.id === t.activityId);
+  // A franja too short for one session is the cause, not the number of times.
+  const session = t.sessionMinutes ?? activity?.minBlockMinutes ?? 0;
+  if (activity?.kind === "rutina" && hoursTooShort(activity.validHours, session, slot))
+    return "hours";
   // A habit made from Silos is not in Rutinas: it is edited where it was made.
-  return activities.find((a) => a.id === t.activityId)?.kind === "rutina" ? "routine" : "habit";
+  return activity?.kind === "rutina" ? "routine" : "habit";
 };
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
@@ -435,7 +441,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
                 <div className="title">«{t.title}» no entra</div>
                 <RoyLine anim="hombros" big>
-                  {noFit(t.title, noFitKind(t, data.activities))}
+                  {noFit(t.title, noFitKind(t, data.activities, data.settings.slotMinutes))}
                 </RoyLine>
               </div>
             ))}

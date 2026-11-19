@@ -47,7 +47,9 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-Ninguna por ahora: las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
+Las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
+
+- La tarjeta «¿A qué hora te levantaste?» de la Bandeja no valida hora futura (la SPEC lo limita a Ajustes → Hoy). ¿Se quiere el mismo límite en la Bandeja? (13.ª vuelta, §5.3.)
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
@@ -62,7 +64,7 @@ Ninguna por ahora: las del 2026-11-18 están respondidas en la SPEC §18 punto 1
 | Qué                                                                      | Estado                                                                                                          | Qué falta                                                        |
 | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                      | **No mergear** hasta que el usuario lo pida.                     |
-| Ciclo del agente atacante sobre `main`                                   | 12 vueltas; desde la 7.ª sin Altas. Nuevo criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Arreglar las 2 Medias de la 12.ª vuelta (§5.3) y correr la 13.ª. |
+| Ciclo del agente atacante sobre `main`                                   | 13 vueltas; desde la 7.ª sin Altas (la 13.ª tampoco tuvo). Criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Correr la 14.ª cuando el usuario quiera. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -123,6 +125,10 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
 
+- **13.ª vuelta del agente atacante sobre `main`** (2026-11-19, después de #150; sin Altas). Arregladas en el PR de la vuelta: la Media (franja de rutina que no cae en la grilla de 30 min: formulario, respaldo y motivo de la Bandeja) y las Bajas de «Distinto según el día» pegado al botón y de los hábitos del respaldo sin `createdAt`. Quedan:
+  - Baja: la tarjeta «¿A qué hora te levantaste?» de la Bandeja no valida hora futura (la SPEC lo limita a Ajustes → Hoy). Pregunta para el usuario en §1.1.
+  - Baja: `/api/csp-report` es público: permite inyectar texto en el rastreador, su `limiter` es por instancia y acepta `chunked` sin `content-length`.
+  - Baja (rendimiento de #150): `schedule` corre una vez más por cada tarea con déficit para ver si entra sola, y `options.ts` llama a `schedule` muchas veces. Medido con la demo + 5 rutinas imposibles: el plan tarda ~100 ms y las decisiones de la Bandeja ~850 ms. Se memoizó el chequeo por tarea mientras la tarea y el resto del input sean los mismos objetos (~15 % menos); el grueso es el costo de cada `schedule` de la demo (unos 35 ms por corrida), no el chequeo. Si molesta, bajar la cantidad de corridas de `options.ts`.
 - **12.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #139/#140):
   - Media: `isPermanent` (`apps/web/src/data.ts`) no reconoce `22P02` (regex `/^2[23]\d{3}$/`): ese error de la base se reintenta para siempre y traba los guardados siguientes.
   - Media: importar el respaldo de otra cuenta conserva los ids y choca con filas ajenas (RLS `42501`, tampoco permanente). Se resuelve con la decisión de dar ids nuevos (§5.6).

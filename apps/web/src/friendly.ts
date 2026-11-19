@@ -46,12 +46,14 @@ export const onlyNoFitLeft = (names: string[]) =>
   `Con esto llegás a todo menos ${names.map((n) => `«${n}»`).join(" y ")}, que no entra${names.length > 1 ? "n" : ""} igual.`;
 
 /** What a task that fits nowhere is: a routine, a materia's weekly hours, or one with a date. */
-export type NoFitKind = "routine" | "habit" | "study" | "dated";
+export type NoFitKind = "routine" | "hours" | "habit" | "study" | "dated";
 
 /** A task whose minimum does not fit even with the whole time to itself: it is the cause. */
 export function noFit(name: string, kind: NoFitKind): string {
   if (kind === "routine")
     return `«${name}» no entra esta semana aunque no hubiera nada más: son más veces de las que caben en los días que quedan. Bajá las veces en Ajustes › Rutinas o elegí «No hacer ${name}».`;
+  if (kind === "hours")
+    return `«${name}» no entra: su franja de horas es más corta que una sesión (con la grilla de los bloques). Ampliá la franja en Ajustes › Rutinas o elegí «No hacer ${name}».`;
   if (kind === "habit")
     return `«${name}» no entra esta semana aunque no hubiera nada más: son más veces de las que caben en los días que quedan. Bajá las veces en Silos: tocá «${name}» y después Editar. O elegí «No hacer ${name}».`;
   if (kind === "study")
