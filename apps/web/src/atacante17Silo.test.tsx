@@ -94,7 +94,9 @@ describe("17th round: deleting a routine from its sheet can be undone", () => {
     const rows = w.inserts.filter((i) => i.table === "check_ins").flatMap((i) => i.rows);
     expect(rows.map((r) => r.id)).toEqual(["c"]);
     // The focus lands on the restored silo.
-    await waitFor(() => expect((document.activeElement as HTMLElement | null)?.dataset.task).toBe(id));
+    await waitFor(() =>
+      expect((document.activeElement as HTMLElement | null)?.dataset.task).toBe(id),
+    );
   });
 
   it("«Eliminar de hoy en adelante» can be undone too", () => {

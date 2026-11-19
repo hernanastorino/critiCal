@@ -117,7 +117,13 @@ describe("17th round: a part is done by hand or declared by a record", () => {
     expect(doneIds(d)).toEqual(["p1"]);
     // Also when the mark carries the very date of the record.
     let e: AppData = base();
-    e = { ...e, tasks: e.tasks.map((t) => ({ ...t, units: t.units.map((u) => (u.id === "p2" ? { ...u, doneAt: at + 5, doneByHand: true } : u)) })) };
+    e = {
+      ...e,
+      tasks: e.tasks.map((t) => ({
+        ...t,
+        units: t.units.map((u) => (u.id === "p2" ? { ...u, doneAt: at + 5, doneByHand: true } : u)),
+      })),
+    };
     e = answer(e, "b1", "done", ["p2"], at + 5);
     e = answer(e, "b1", "missed", [], at + 9);
     expect(doneIds(e)).toEqual(["p2"]);

@@ -18,10 +18,15 @@ export interface Toast {
   tag?: unknown;
   /** Roy at the left of the text, in this shape: plays once and stays still (SPEC §18.1). */
   roy?: RoyAnim;
+  /** «alert»: a refusal or an error, drawn in red. Anything else is neutral. */
+  tone?: "alert";
 }
 
 interface ToastApi {
-  show: (message: string, opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim }) => void;
+  show: (
+    message: string,
+    opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim; tone?: "alert" },
+  ) => void;
   /** Takes the notice away, only if it is still the one tagged `tag` when given. */
   clear: (tag?: unknown) => void;
   current: Toast | null;
@@ -99,7 +104,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             // biome-ignore lint/a11y/useKeyWithClickEvents: a tap only puts it away early; it goes by itself.
             <div
               ref={box}
-              className={`snack${current.undo ? " short" : ""}`}
+              className={`snack${current.tone === "alert" ? " alert" : ""}`}
               // It can sit over a button: tapping it (not its «Deshacer») puts it away.
               onClick={(e) => {
                 if (!(e.target instanceof Element && e.target.closest("button"))) setCurrent(null);

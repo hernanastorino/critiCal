@@ -10,6 +10,8 @@ export interface MoveBounds {
   to: number;
   /** The task's deadline on this day's scale (can be negative or past 1440); null if none. */
   deadline: number | null;
+  /** The task's title, for the refusal to name it. */
+  title?: string;
 }
 
 /** The limits a manual move (key or drag) keeps on `date` for a task due at `deadline`. */
@@ -33,13 +35,14 @@ export function moveBounds(
     from,
     to: Math.min(bed, free),
     deadline: deadline === undefined ? null : (deadline - midnight) / MINUTE,
+    ...(task?.title && { title: task.title }),
   };
 }
 
 /** Why a block of `minutes` starting at `minute` cannot sit within `bounds`; null when it can. */
 export function moveRefusal(bounds: MoveBounds, minute: number, minutes: number): string | null {
   if (bounds.deadline !== null && minute + minutes > bounds.deadline) {
-    return "Después de la entrega no";
+    return `Después de la entrega${bounds.title ? ` de ${bounds.title}` : ""} no`;
   }
   if (minute < bounds.from || minute + minutes > bounds.to) return "Fuera de tu horario de estudio";
   return null;

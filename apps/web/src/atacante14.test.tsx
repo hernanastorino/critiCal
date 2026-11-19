@@ -216,7 +216,7 @@ describe("14th round: dragging says the real reason", () => {
     fireEvent.pointerUp(pill, { clientX: 170, clientY: 500, pointerId: 1 });
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.pins ?? []).toHaveLength(0);
-    expect(screen.getAllByText("Después de la entrega no").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Después de la entrega de .+ no$/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/No hay un hueco libre/)).toBeNull();
   });
 });

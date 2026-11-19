@@ -50,7 +50,9 @@ describe("keyboard moves keep the limits of a drop", () => {
     }));
     fireEvent.keyDown(pill, { key: "ArrowDown" });
     expect(pins()).toHaveLength(0);
-    expect(screen.getAllByText("Después de la entrega no").length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/^Después de la entrega de .+ no$/).length).toBeGreaterThan(0);
+    // A refusal is the one kind of notice drawn in red.
+    expect(document.querySelector(".snack.alert")).toBeTruthy();
   });
 
   it("does not go past «Nada de estudio desde»", () => {

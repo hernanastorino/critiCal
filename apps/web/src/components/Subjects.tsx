@@ -183,6 +183,12 @@ export function ActivitySettings() {
           recent.current = [];
           // The last deleted goes back first, so each lands where it was.
           for (const r of [...all].reverse()) dispatch({ type: "restoreActivity", removed: r });
+          // The row that came back (the one just deleted) takes the focus the delete moved.
+          requestAnimationFrame(() =>
+            document
+              .querySelector<HTMLElement>(`[data-activity-head="${CSS.escape(activity.id)}"]`)
+              ?.focus(),
+          );
         },
       },
     );
