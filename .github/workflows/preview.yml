@@ -84,7 +84,16 @@ jobs:
           else
             cmd="npx playwright install --with-deps webkit"
           fi
-          timeout 300 $cmd || { echo "First attempt failed or timed out, retrying"; timeout 300 $cmd; }
+          for attempt in 1 2; do
+            timeout 300 $cmd && exit 0
+            echo "Attempt $attempt failed or timed out"
+            # A killed run leaves apt/dpkg holding the lock: clean up before retrying.
+            sudo pkill apt-get || true
+            sudo pkill dpkg || true
+            sleep 3
+            sudo dpkg --configure -a || true
+          done
+          exit 1
       - name: E2E against the preview
         run: npm run e2e
         env:
