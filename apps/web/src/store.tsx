@@ -279,24 +279,23 @@ const keyOf = (e: unknown) =>
 
 const DROP = Symbol("drop");
 
+type Entries<T> = { b: Map<string, T>; a: Map<string, T>; c: Map<string, T> };
+
 /** What stands for entry `k` once the answer is taken back (`DROP`: none). */
-function pick<T>(
-  k: string,
-  b: Map<string, T>,
-  a: Map<string, T>,
-  c: Map<string, T>,
-  only?: ReadonlySet<string>,
-) {
+function pick<T>(k: string, { b, a, c }: Entries<T>, only?: ReadonlySet<string>): T | symbol {
   const cur = c.get(k) as T;
   const mid = a.get(k);
   if (only && !only.has(k)) return c.has(k) ? cur : DROP;
   // Removed by the answer: back. Removed since: it was not the answer's.
   if (!c.has(k)) return b.has(k) && !a.has(k) ? (b.get(k) as T) : DROP;
-  // Added by the answer and still as it left it: goes.
+  // Added by the answer and still as it left it: goes. Made since: stays.
   if (!b.has(k)) return a.has(k) && same(cur, mid) ? DROP : cur;
-  // Changed by the answer and not since: back to what it was.
-  return a.has(k) && !same(b.get(k), mid) && same(cur, mid) ? (b.get(k) as T) : cur;
+  return changedByAnswer(b.get(k), mid, cur) ? (b.get(k) as T) : cur;
 }
+
+/** The answer changed this entry (`mid` is not `was`) and nothing has since (`cur` is `mid`). */
+const changedByAnswer = (was: unknown, mid: unknown, cur: unknown) =>
+  mid !== undefined && !same(was, mid) && same(cur, mid);
 
 /**
  * `now` with what the answer changed taken back: what it removed comes back, what it
@@ -304,12 +303,11 @@ function pick<T>(
  * edited since) stays. `only` limits it to those entries.
  */
 function mergeBack<T>(now: T[], before: T[], after: T[], only?: ReadonlySet<string>): T[] {
-  const b = new Map(before.map((e) => [keyOf(e), e]));
-  const a = new Map(after.map((e) => [keyOf(e), e]));
-  const c = new Map(now.map((e) => [keyOf(e), e]));
+  const by = (list: T[]) => new Map(list.map((e) => [keyOf(e), e]));
+  const entries = { b: by(before), a: by(after), c: by(now) };
   // What there was before keeps its order; what is new since goes after.
-  const keys = new Set([...b.keys(), ...c.keys()]);
-  return [...keys].map((k) => pick(k, b, a, c, only)).filter((e): e is Awaited<T> => e !== DROP);
+  const keys = new Set([...entries.b.keys(), ...entries.c.keys()]);
+  return [...keys].map((k) => pick(k, entries, only)).filter((e): e is T => e !== DROP);
 }
 
 type Records = AppData["checkIns"];
