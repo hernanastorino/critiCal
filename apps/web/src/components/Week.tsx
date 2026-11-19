@@ -29,6 +29,7 @@ import {
   mealTimes,
   pinId,
   progress,
+  standingCheckIns,
   wakingDay,
   weekDates,
 } from "../planning.js";
@@ -1468,7 +1469,8 @@ function BubbleCard({
     ),
   ].join(" · ");
   // Already registered: the sheet offers to correct it, not to mark how it went.
-  const unanswered = (item.run ?? [b]).some((x) => !data.checkIns.some((c) => c.blockId === x.id));
+  const answeredIds = new Set(standingCheckIns(data).map((c) => c.blockId));
+  const unanswered = (item.run ?? [b]).some((x) => !answeredIds.has(x.id));
   return (
     <BubbleDialog
       label={titles}

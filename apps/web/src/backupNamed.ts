@@ -43,7 +43,7 @@ export const strings: Ok = (v) => Array.isArray(v) && v.every((s) => typeof s ==
 export const shortStrings: Ok = (v) =>
   Array.isArray(v) && v.every((s) => typeof s === "string" && s.length <= BACKUP_TEXT_MAX);
 const MEALS = ["desayuno", "almuerzo", "merienda", "cena"];
-const STATUSES = ["done", "missed", "partial"];
+const STATUSES = ["done", "missed", "partial", "retired"];
 
 function broken(who: string, x: Rec, rules: Rule[]): string | null {
   const bad = rules.find(([key, ok]) => !ok(Reflect.get(x, key), x));

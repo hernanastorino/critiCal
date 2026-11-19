@@ -215,8 +215,9 @@ export function rowsToData(r: {
 }
 
 export async function loadData(client: SupabaseClient): Promise<AppData> {
-  const all = async (table: string) => {
-    const { data, error } = await client.from(table).select("*");
+  const all = async (table: string, order?: string) => {
+    const query = client.from(table).select("*");
+    const { data, error } = await (order ? query.order(order) : query);
     if (error) throw error;
     return (data ?? []) as Row[];
   };
@@ -245,7 +246,8 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     all("activities"),
     all("tasks"),
     all("task_units"),
-    all("check_ins"),
+    // The newest record of a block is the one that stands: oldest first.
+    all("check_ins", "created_at"),
     all("calendar_events"),
     all("day_overrides"),
     all("plan_blocks"),

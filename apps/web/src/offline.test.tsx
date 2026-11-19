@@ -97,7 +97,12 @@ describe("offline", () => {
     const ok = Promise.resolve({ data: [], error: null });
     const from = (table: string) => ({
       select: () =>
-        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+        Object.assign(ok, {
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          order() {
+            return this;
+          },
+        }),
       upsert: () => {
         if (!online) return Promise.resolve({ error: { message: "TypeError: Failed to fetch" } });
         writes.push(table);
@@ -157,6 +162,9 @@ describe("offline", () => {
       select: () =>
         Object.assign(Promise.resolve({ data: db[table] ?? [], error: null }), {
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          order() {
+            return this;
+          },
         }),
       upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         const list = Array.isArray(rows) ? rows : [rows];
@@ -199,6 +207,9 @@ describe("offline", () => {
       select: () =>
         Object.assign(Promise.resolve({ data: db[table] ?? [], error: null }), {
           maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          order() {
+            return this;
+          },
         }),
       upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         if (!online) return Promise.resolve({ error: { message: "TypeError: Failed to fetch" } });

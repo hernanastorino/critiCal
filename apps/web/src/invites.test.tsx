@@ -28,6 +28,7 @@ function client(owner: boolean) {
       }
       return Object.assign(ok, {
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
+        order: () => ok,
       });
     },
     upsert: (row: { email?: string }) => {

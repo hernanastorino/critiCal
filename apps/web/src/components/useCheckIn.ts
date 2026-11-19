@@ -1,5 +1,7 @@
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { SKIPPED_TOAST } from "../friendly.js";
+import { newId } from "../model.js";
+import { standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
@@ -29,10 +31,13 @@ export function useCheckIn(onUndone?: (blockId: string) => void) {
     status: CheckInStatus,
     opts: { minutesDone?: number; unitIds?: string[] } = {},
   ) => {
-    const corrects = data.checkIns.some((c) => c.blockId === block.id);
+    const corrects = standingCheckIns(data).some((c) => c.blockId === block.id);
+    // The record is named here so «Deshacer» takes back this one and nothing newer.
+    const id = newId();
     dispatch({
       type: "checkIn",
       checkIn: {
+        id,
         blockId: block.id,
         taskId: block.taskId,
         status,
@@ -48,7 +53,7 @@ export function useCheckIn(onUndone?: (blockId: string) => void) {
     toast.show(said(status, corrects), {
       ...(status === "missed" && !corrects ? { roy: "hombros" as const } : {}),
       undo: () => {
-        dispatch({ type: "undoCheckIn", blockId: block.id });
+        dispatch({ type: "undoCheckIn", id });
         onUndone?.(block.id);
       },
     });

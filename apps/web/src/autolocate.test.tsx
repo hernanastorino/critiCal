@@ -36,7 +36,12 @@ function client(location = "Instituto Anglo") {
     const ok = Promise.resolve({ data: rows[table] ?? [], error: null });
     return {
       select: () =>
-        Object.assign(ok, { maybeSingle: () => Promise.resolve({ data: null, error: null }) }),
+        Object.assign(ok, {
+          maybeSingle: () => Promise.resolve({ data: null, error: null }),
+          order() {
+            return this;
+          },
+        }),
       upsert: () => Promise.resolve({ error: null }),
       insert: () => Promise.resolve({ error: null }),
       delete: () => ({ in: () => Promise.resolve({ error: null }) }),

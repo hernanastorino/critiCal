@@ -39,7 +39,7 @@ El plan es **dato derivado**: se puede recalcular entero en cualquier momento de
 - **Evento fijo**: viene del calendario (clases, cumpleaños, juntadas, familia).
 - **Evento tentativo**: reserva el lugar; el motor mantiene un plan B.
 - **Comidas**: desayuno, almuerzo y cena de cada día de la rutina, cada una con hora preferida y duración (0 = sin esa comida). Rutinas guardadas antes del desayuno (solo almuerzo y cena) toman un desayuno de 30 min al levantarse. Un evento cuyo título dice que es una comida («Almuerzo con la abuela») es esa comida ese día.
-- **Registro (append-only)**: por bloque, ✓ / ✗ / parcial + unidades completadas + timestamp. Nunca se edita, solo se agregan correcciones.
+- **Registro (append-only)**: por bloque, ✓ / ✗ / parcial + unidades completadas + timestamp. Nunca se edita, solo se agregan correcciones. Deshacer también agrega un registro (una copia del anterior, o uno «retirado» si era el primero); lo que cuenta de cada bloque es su registro más nuevo y de él se derivan las partes marcadas, «Faltan» y lo hecho de la semana (la del inicio del bloque).
 - **Ajuste del día**: "me levanté a las X" / "me acuesto a las X".
 - **Lugares guardados**: casa, facu, gym, familia… con tiempos de viaje fijados a mano.
 - **Versiones del plan**: historial para "deshacer".

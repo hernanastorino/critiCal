@@ -8,7 +8,7 @@ import { demoData, TIMEZONE } from "./demo.js";
 import { MINUTE, zonedInstant } from "./engine.js";
 import { time, weekdayShort } from "./format.js";
 import type { AppData } from "./model.js";
-import { doneMinutes, pendingConfirmations } from "./planning.js";
+import { doneMinutes, pendingConfirmations, standingCheckIns } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 
 // Wednesday 2026-11-04, 17:50: history behind, and the last blocks not answered yet.
@@ -66,6 +66,8 @@ function sheetOf(d: AppData, blockId: string) {
 }
 const done = (taskId: string) => doneMinutes(current().data, taskId);
 const logOf = (blockId: string) => current().data.checkIns.filter((c) => c.blockId === blockId);
+const standsOf = (blockId: string) =>
+  standingCheckIns(current().data).filter((c) => c.blockId === blockId);
 const press = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
 
 /** The pill of a block of `d`, by the label the week gives it. */
@@ -93,9 +95,9 @@ describe("14th round: answering a block from its sheet", () => {
     sheetOf(d, b.id);
     press("✓ Hecho");
     expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
-    expect(logOf(b.id)).toHaveLength(1);
+    expect(standsOf(b.id)).toHaveLength(1);
     press("Deshacer");
-    expect(logOf(b.id)).toHaveLength(0);
+    expect(standsOf(b.id)).toHaveLength(0);
   });
 
   it("«✗ No» and «Guardar parcial» also say so and undo", () => {
@@ -103,12 +105,12 @@ describe("14th round: answering a block from its sheet", () => {
     sheetOf(d, b.id);
     press("✗ No");
     press("Deshacer");
-    expect(logOf(b.id)).toHaveLength(0);
+    expect(standsOf(b.id)).toHaveLength(0);
     press("◐ Parcial");
     press("Guardar parcial");
     expect(screen.getByText("Anotado como parcial.")).toBeTruthy();
     press("Deshacer");
-    expect(logOf(b.id)).toHaveLength(0);
+    expect(standsOf(b.id)).toHaveLength(0);
   });
 
   it("a block already registered can be corrected, adding a new check-in", () => {
@@ -127,7 +129,7 @@ describe("14th round: answering a block from its sheet", () => {
     expect(screen.getByText(/no lo hice/)).toBeTruthy();
     // «Deshacer» of the correction brings the first answer back.
     press("Deshacer");
-    expect(logOf(b.id)).toHaveLength(1);
+    expect(standsOf(b.id)).toHaveLength(1);
     expect(done(b.taskId)).toBe(afterDone);
     expect(screen.getByText(/hecho ✓/)).toBeTruthy();
   });

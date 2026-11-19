@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
-import { isPinned, progress } from "../planning.js";
+import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { useModal } from "./modal.js";
 import { useCheckIn } from "./useCheckIn.js";
@@ -125,7 +125,7 @@ export function CheckInForm({
   const task = data.tasks.find((t) => t.id === block.taskId);
   const activity = data.activities.find((a) => a.id === block.activityId);
   // The newest answer stands: a correction is a later check-in of the same block.
-  const answered = data.checkIns.findLast((c) => c.blockId === block.id);
+  const answered = standingCheckIns(data).find((c) => c.blockId === block.id);
   const [correcting, setCorrecting] = useState(false);
   const p = progress(data, now).find((x) => x.task.id === block.taskId);
   const length = (block.end - block.start) / MINUTE;

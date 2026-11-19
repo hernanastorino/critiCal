@@ -22,6 +22,9 @@ function fakeClient(tables: Record<string, unknown[]>, settings: unknown = null)
     select: () =>
       Object.assign(Promise.resolve({ data: tables[table] ?? [], error: null }), {
         maybeSingle: () => Promise.resolve({ data: settings, error: null }),
+        order() {
+          return this;
+        },
       }),
     upsert: (rows: unknown) => {
       calls.push({ op: "upsert", table, payload: rows });
@@ -286,6 +289,9 @@ describe("remote", () => {
         select: () =>
           Object.assign(Promise.resolve({ data: [], error: null }), {
             maybeSingle: () => Promise.resolve({ data: null, error: boom }),
+            order() {
+              return this;
+            },
           }),
       }),
     };

@@ -7,6 +7,7 @@ import { TaskEditor } from "./components/TaskEditor.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
+import { standingCheckIns } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
@@ -268,7 +269,7 @@ describe("undoCheckIn", () => {
     const id = logged.checkIns.at(-1)?.id as string;
     expect(logged.checkIns).toHaveLength(d.checkIns.length + 1);
     const undone = reducer(logged, { type: "undoCheckIn", id, now: NOW });
-    expect(undone.checkIns).toHaveLength(d.checkIns.length);
+    expect(standingCheckIns(undone)).toHaveLength(standingCheckIns(d).length);
     expect(
       undone.tasks.find((t) => t.id === task.id)?.units.find((u) => u.id === unit?.id)?.doneAt,
     ).toBeUndefined();
