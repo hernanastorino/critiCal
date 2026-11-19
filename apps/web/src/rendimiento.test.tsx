@@ -58,8 +58,6 @@ describe("decisions do not stand in the way of a tap", () => {
     // it is the plan alone, so it takes less than the decisions do (machine-independent).
     expect(tap).toBeLessThan(working);
     expect(now.decisions.options.map((o) => o.id)).toEqual(dec.options.map((o) => o.id));
-    expect(now.inboxCount).toBeGreaterThanOrEqual(
-      (dec.options.length > 0 ? 1 : 0) + dec.recommendations.length,
-    );
+    expect(now.inboxCount).toBe((dec.options.length > 0 ? 1 : 0) + dec.recommendations.length);
   }, 60_000);
 });

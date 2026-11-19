@@ -85,17 +85,33 @@ export function Shell({
       <Celebrations />
       {resetUndo && <ResetNotice undo={resetUndo} />}
       <div className="app">
-        {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
-        {tab === "silos" && <Silos />}
-        {tab === "inbox" && (
-          <Inbox
-            onDay={(date) => {
-              setDay(date);
-              setTab("week");
-            }}
-          />
-        )}
-        <nav className="tabs">
+        {/* Hidden until the keyboard lands on it (WCAG 2.4.1): the tabs come after the screen. */}
+        {/* biome-ignore lint/a11y/useValidAnchor: a skip link; without script it still jumps to #tabs. */}
+        <a
+          className="skip-link"
+          href="#tabs"
+          onClick={(e) => {
+            e.preventDefault();
+            document
+              .querySelector<HTMLElement>('.tabs button[aria-current="page"], .tabs button')
+              ?.focus();
+          }}
+        >
+          Saltar a las pestañas
+        </a>
+        <main className="main">
+          {tab === "week" && <Week day={day} onSettings={(page) => setSettings(page ?? true)} />}
+          {tab === "silos" && <Silos />}
+          {tab === "inbox" && (
+            <Inbox
+              onDay={(date) => {
+                setDay(date);
+                setTab("week");
+              }}
+            />
+          )}
+        </main>
+        <nav className="tabs" id="tabs" aria-label="Secciones">
           {tabs.map((t) => (
             <button
               key={t.id}

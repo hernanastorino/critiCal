@@ -408,7 +408,16 @@ describe("week", () => {
   it("answers a replan with a tick on its button, not a notice over the week", () => {
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     try {
-      render(<App fixedNow={NOW} initial={demoData} />);
+      // A plan that is not the one replanning gives (a block missing), so the replan moves it.
+      render(
+        <App
+          fixedNow={NOW}
+          initial={(now) => {
+            const d = demoData(now);
+            return { ...d, plan: d.plan.filter((b, i) => b.start <= now || i % 2 === 0) };
+          }}
+        />,
+      );
       const replan = screen.getByLabelText("Reacomodar semana");
       fireEvent.click(replan);
       // The edit was handed to its save, so it no longer keeps a new version waiting.
@@ -432,7 +441,9 @@ describe("week", () => {
       act(() => {
         vi.advanceTimersByTime(600);
       });
-      expect(screen.getByText(/Semana reacomodada/)).toBeTruthy();
+      // Nothing left to move this time: it says so (and a tick would be a lie).
+      expect(screen.getAllByText("Ya estaba acomodada").length).toBeGreaterThan(0);
+      expect(replan.className).not.toContain("done");
     } finally {
       vi.useRealTimers();
     }

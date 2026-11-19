@@ -68,7 +68,7 @@ Las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en �
 | Qué                                                                      | Estado                                                                                                                           | Qué falta                                    |
 | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
 | PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                       | **No mergear** hasta que el usuario lo pida. |
-| Ciclo del agente atacante sobre `main`                                   | 13 vueltas; desde la 7.ª sin Altas (la 13.ª tampoco tuvo). Criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Correr la 14.ª cuando el usuario quiera.     |
+| Ciclo del agente atacante sobre `main`                                   | 14 vueltas; desde la 7.ª sin Altas (la 14.ª tampoco tuvo). Criterio (SPEC §17): se arreglan Altas y Medias, las Bajas van a §5.3 | Correr la 15.ª cuando el usuario quiera.     |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -129,6 +129,14 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
 
+- **14.ª vuelta del agente atacante sobre `main`** (2026-11-19, después de #152; sin Altas). Arregladas en el PR de la vuelta: la Media (registrar un bloque desde su hoja daba «Ya registrado» sin aviso, sin «Deshacer» y sin salida: ahora «Hecho», «Parcial» y «No» avisan con «Deshacer» como la Bandeja, «Hice una parte» también, y un bloque ya registrado se corrige con una corrección nueva —el registro solo crece, cuenta la más nueva—; el globito ya no pide «Marcar cómo te fue» si está registrado) y las Bajas de arrastre sin motivo real tras la entrega o fuera del horario (`moveRefusal` también en el arrastre), enlace «Saltar a las pestañas» y `<main>`, «Reacomodar semana» sin cambios («Ya estaba acomodada», foco al botón, sin versión vacía en Deshacer), foco tras Deshacer de «Hoy no almuerzo» y `inboxCount` con igualdad en `rendimiento.test.tsx`. Quedan:
+  - Baja: marcar «Hecho» en la demo hace aparecer «No llegás a todo» (el factor de avance; mismo origen que lo anotado de 240 min ≈ 200).
+  - Baja: el aviso de movimiento rechazado tapa la barra de arriba 2,5 s.
+  - Baja (`api/syllabus`): no valida que `pdf` sea base64 / empiece con `%PDF` antes de gastar cupo.
+  - Baja (`api/_lib/caldav.ts`): los pedidos CalDAV no tienen `AbortSignal.timeout`.
+  - Baja (`api/icloud-sync.ts`): el `upsert` de `calendars` no mira el error.
+  - Baja (`api/travel`): la cola de geocodificación es global (un usuario puede demorar a los demás).
+  - Baja (`api/account`): ignora el error de `google_channels`.
 - **13.ª vuelta del agente atacante sobre `main`** (2026-11-19, después de #150; sin Altas). Arregladas en el PR de la vuelta: la Media (franja de rutina que no cae en la grilla de 30 min: formulario, respaldo y motivo de la Bandeja) y las Bajas de «Distinto según el día» pegado al botón y de los hábitos del respaldo sin `createdAt`. Quedan:
   - Baja: la tarjeta «¿A qué hora te levantaste?» de la Bandeja no valida hora futura (la SPEC lo limita a Ajustes → Hoy). Pregunta para el usuario en §1.1.
   - Baja: `/api/csp-report` es público: permite inyectar texto en el rastreador, su `limiter` es por instancia y acepta `chunked` sin `content-length`.
