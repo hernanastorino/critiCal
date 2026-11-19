@@ -62,6 +62,10 @@ const answer = (
     },
     now,
   });
+function need<T>(x: T | null | undefined): T {
+  if (x === null || x === undefined) throw new Error("missing");
+  return x;
+}
 const unit = (d: AppData, id: string) =>
   d.tasks.find((t) => t.id === "t")?.units.find((u) => u.id === id);
 const doneIds = (d: AppData) =>
@@ -214,12 +218,12 @@ describe("17th round: a copy of «Deshacer» is told by its mark", () => {
       id: latestCheckIns(d2).get("b1")?.id ?? "",
       now: tick(),
     });
-    const copy = d3.checkIns.at(-1) as CheckIn;
+    const copy = need(d3.checkIns.at(-1));
     expect(copy.origin).toBe("undo");
     expect(isUndoCopy(d3, copy)).toBe(true);
     // Same status, minutes and parts as an earlier one, written by hand: it celebrates.
     const d4 = answer(d3, "b1", "done", ["p1"]);
-    const again = d4.checkIns.at(-1) as CheckIn;
+    const again = need(d4.checkIns.at(-1));
     expect(again.origin).toBeUndefined();
     expect(isUndoCopy(d4, again)).toBe(false);
   });

@@ -7,7 +7,10 @@ import { endOfDay, isPinned, refreshPlan, settleUnits } from "./planning.js";
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
 export function refresh(unsettled: AppData, now: number): AppData {
   // The parts first: what is done follows from the hand marks and the standing records.
-  const raw = settleUnits(unsettled);
+  return replan(settleUnits(unsettled), now);
+}
+
+function replan(raw: AppData, now: number): AppData {
   // Pins that already happened live on as plan history.
   const input = raw.pins?.some((p) => p.end <= now)
     ? { ...raw, pins: raw.pins.filter((p) => p.end > now) }

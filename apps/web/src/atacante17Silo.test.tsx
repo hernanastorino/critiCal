@@ -12,7 +12,7 @@ const NOW = Date.UTC(2026, 10, 2, 20); // Monday 17:00 in Montevideo
 /** The demo with a past, answered block of Gym and a pin ahead, so there is history to lose. */
 const start = (): AppData => {
   const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
-  const gym = d.tasks.find((t) => t.title === "Gym") as AppData["tasks"][number];
+  const gym = need(d.tasks.find((t) => t.title === "Gym"));
   const future = d.plan.find((b) => b.taskId === gym.id && b.start > NOW);
   const past = {
     id: "past",
@@ -39,12 +39,17 @@ const start = (): AppData => {
   };
 };
 
+function need<T>(x: T | null | undefined): T {
+  if (x === null || x === undefined) throw new Error("missing");
+  return x;
+}
+
 const seen: { store?: ReturnType<typeof useStore> } = {};
 const Probe = () => {
   seen.store = useStore();
   return null;
 };
-const data = () => (seen.store as ReturnType<typeof useStore>).data;
+const data = () => need(seen.store).data;
 const gymOf = (d: AppData) => d.tasks.find((t) => t.title === "Gym");
 
 const open = () => {
@@ -60,7 +65,9 @@ const open = () => {
   fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Eliminar…"));
 };
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(cleanup);
 
 describe("17th round: deleting a routine from its sheet can be undone", () => {
@@ -71,7 +78,7 @@ describe("17th round: deleting a routine from its sheet can be undone", () => {
     fireEvent.click(screen.getByText("Eliminar todo"));
     expect(gymOf(data())).toBeUndefined();
     expect(data().checkIns.some((c) => c.taskId === id)).toBe(false);
-    expect(screen.getByText(/Gym eliminada/)).toBeTruthy();
+    expect(screen.getAllByText(/Gym eliminada/).length).toBeGreaterThan(0);
     // Focus goes somewhere useful, not to the page.
     await waitFor(() => expect(document.activeElement?.tagName).toBe("H1"));
     const afterDelete = data();
@@ -95,7 +102,7 @@ describe("17th round: deleting a routine from its sheet can be undone", () => {
     expect(rows.map((r) => r.id)).toEqual(["c"]);
     // The focus lands on the restored silo.
     await waitFor(() =>
-      expect((document.activeElement as HTMLElement | null)?.dataset.task).toBe(id),
+      expect(need(document.activeElement as HTMLElement | null).dataset.task).toBe(id),
     );
   });
 

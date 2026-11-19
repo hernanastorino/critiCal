@@ -19,10 +19,23 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+function need<T>(x: T | null | undefined): T {
+  if (x === null || x === undefined) throw new Error("missing");
+  return x;
+}
+
+const snackOf = () => need(document.querySelector<HTMLElement>(".snack"));
+const noop = () => undefined;
+
 function Say({ message, tone }: { message: string; tone?: "alert" }) {
   const toast = useToast();
   return (
-    <button type="button" onClick={() => toast.show(message, { undo: () => {}, tone })}>
+    <button
+      type="button"
+      onClick={() => {
+        toast.show(message, { undo: noop, tone });
+      }}
+    >
       say
     </button>
   );
@@ -58,10 +71,9 @@ describe("17th round: only refusals are red", () => {
       </ToastProvider>,
     );
     fireEvent.click(screen.getByText("say"));
-    const snack = document.querySelector(".snack") as HTMLElement;
-    expect(snack.textContent).toContain("Corregido");
-    expect(snack.classList.contains("alert")).toBe(false);
-    expect(snack.classList.contains("short")).toBe(false);
+    expect(screen.getByText(/Corregido/)).toBeTruthy();
+    expect(snackOf().classList.contains("alert")).toBe(false);
+    expect(snackOf().classList.contains("short")).toBe(false);
     cleanup();
     render(
       <ToastProvider>
@@ -69,9 +81,7 @@ describe("17th round: only refusals are red", () => {
       </ToastProvider>,
     );
     fireEvent.click(screen.getByText("say"));
-    expect((document.querySelector(".snack") as HTMLElement).classList.contains("alert")).toBe(
-      true,
-    );
+    expect(snackOf().classList.contains("alert")).toBe(true);
   });
 
   it("deleting a materia is a neutral notice", () => {
@@ -84,9 +94,8 @@ describe("17th round: only refusals are red", () => {
     );
     fireEvent.click(screen.getByText("Física I"));
     fireEvent.click(screen.getByText("Eliminar Física I"));
-    const snack = document.querySelector(".snack") as HTMLElement;
-    expect(snack.textContent).toMatch(/Física I eliminada/);
-    expect(snack.classList.contains("alert")).toBe(false);
+    expect(screen.getByText(/Física I eliminada/)).toBeTruthy();
+    expect(snackOf().classList.contains("alert")).toBe(false);
   });
 
   it("the refusal after the deadline names the task", () => {
@@ -96,7 +105,7 @@ describe("17th round: only refusals are red", () => {
   });
 
   it("both hours of a routine's franja show the same format as an example", () => {
-    render(<RoutineHours form={emptyHoursForm()} onChange={() => {}} problems={[]} errorId="e" />);
+    render(<RoutineHours form={emptyHoursForm()} onChange={noop} problems={[]} errorId="e" />);
     expect(screen.getByLabelText(/^Desde/).getAttribute("placeholder")).toBe("7:00");
     expect(screen.getByLabelText(/^Hasta/).getAttribute("placeholder")).toBe("19:30");
   });
@@ -114,10 +123,10 @@ describe("17th round: after undoing a deleted materia the focus is on its row", 
     const head = demoData(NOW).activities.find((a) => a.name === "Física I")?.id;
     fireEvent.click(screen.getByText("Física I"));
     fireEvent.click(screen.getByText("Eliminar Física I"));
-    await act(async () => {});
+    await act(() => Promise.resolve());
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     await waitFor(() =>
-      expect((document.activeElement as HTMLElement | null)?.dataset.activityHead).toBe(head),
+      expect(need(document.activeElement as HTMLElement | null).dataset.activityHead).toBe(head),
     );
   });
 });
