@@ -33,7 +33,7 @@ import {
   weekDates,
 } from "../planning.js";
 import { blockRuns } from "../runs.js";
-import { replanChanged, useStore } from "../store.js";
+import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
 import {
@@ -206,11 +206,16 @@ export function Week({
   const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
   const replanRef = useRef<HTMLButtonElement>(null);
-  /** The store as it is now, for what a timer decides later. */
-  const live = useRef(data);
-  useLayoutEffect(() => {
-    live.current = data;
-  }, [data]);
+  /**
+   * A replan under way: the undo version it started from, and whether one came out of it
+   * (the store adds a version only when the replan moved something).
+   */
+  const replanWatch = useRef<{ from: PlanVersion | undefined; changed: boolean } | null>(null);
+  const lastVersion = data.planHistory?.at(-1);
+  useEffect(() => {
+    const w = replanWatch.current;
+    if (w && lastVersion !== w.from) w.changed = true;
+  }, [lastVersion]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
   const editRef = useRef<HTMLButtonElement>(null);
@@ -841,13 +846,14 @@ export function Week({
               // Emptied first, so a second replan in the same minute is announced again.
               setSpoken("");
               setReplanning(true);
-              const before = data;
+              const run = { from: data.planHistory?.at(-1), changed: false };
+              replanWatch.current = run;
               dispatch({ type: "replanWeek" });
               const at = now;
               replanTimer.current = setTimeout(() => {
                 setReplanning(false);
                 // Nothing moved: say so, and no tick for a change that did not happen.
-                if (!replanChanged(before, live.current)) {
+                if (!run.changed) {
                   flash("Ya estaba acomodada");
                   setSpoken("Ya estaba acomodada");
                   replanRef.current?.focus();

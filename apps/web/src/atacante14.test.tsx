@@ -263,6 +263,21 @@ describe("14th round: «Reacomodar semana» with nothing to change", () => {
   });
 });
 
+describe("14th round: undoing a replan before its tick", () => {
+  it("does not take the focus back to the replan button", async () => {
+    // Monday 17:00: here replanning does move something, so there is a version to undo.
+    const evening = Date.UTC(2026, 10, 2, 20);
+    render(<App fixedNow={evening} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    const undo = await screen.findByLabelText("Deshacer: reacomodar la semana");
+    undo.focus();
+    fireEvent.click(undo);
+    await act(() => new Promise((r) => setTimeout(r, 700)));
+    expect(document.activeElement).not.toBe(screen.getByLabelText("Reacomodar semana"));
+    expect(document.activeElement).not.toBe(document.body);
+  });
+});
+
 describe("14th round: «Deshacer» of «Hoy no almuerzo»", () => {
   it("puts the focus on the meal that came back", async () => {
     render(<App fixedNow={MON} initial={(now) => ({ ...demoData(now), events: [] })} />);
