@@ -5,16 +5,14 @@ import { useToast } from "./Toast.js";
 
 export type CheckInStatus = "done" | "missed" | "partial";
 
-const SAID: Record<CheckInStatus, string> = {
-  done: "Anotado como hecho.",
-  partial: "Anotado como parcial.",
-  missed: SKIPPED_TOAST,
-};
-const CORRECTED: Record<CheckInStatus, string> = {
-  done: "Corregido: ahora figura como hecho.",
-  partial: "Corregido: ahora figura como parcial.",
-  missed: "Corregido: ahora figura como no hecho.",
-};
+/** What the notice says: the answer, or that it was corrected. */
+function said(status: CheckInStatus, corrects: boolean): string {
+  if (status === "done")
+    return corrects ? "Corregido: ahora figura como hecho." : "Anotado como hecho.";
+  if (status === "partial")
+    return corrects ? "Corregido: ahora figura como parcial." : "Anotado como parcial.";
+  return corrects ? "Corregido: ahora figura como no hecho." : SKIPPED_TOAST;
+}
 
 /**
  * Answers how a block went, and says so with a notice that offers «Deshacer» (SPEC §14).
@@ -47,7 +45,7 @@ export function useCheckIn(onUndone?: (blockId: string) => void) {
         unitIds: status === "missed" ? [] : (opts.unitIds ?? []),
       },
     });
-    toast.show((corrects ? CORRECTED : SAID)[status], {
+    toast.show(said(status, corrects), {
       ...(status === "missed" && !corrects ? { roy: "hombros" as const } : {}),
       undo: () => {
         dispatch({ type: "undoCheckIn", blockId: block.id });

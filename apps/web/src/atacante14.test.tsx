@@ -18,11 +18,18 @@ const MON = zonedInstant(TIMEZONE, "2026-11-02", 8 * 60);
 const base = (): AppData =>
   seedHistory({ ...demoData(LATER), preferences: { holidaysOff: false } }, LATER);
 
-let store: ReturnType<typeof useStore> | undefined;
+/** What a test needs to be there: fails with a name instead of casting. */
+function need<T>(x: T | null | undefined, what = "something"): T {
+  if (x === null || x === undefined) throw new Error(`missing ${what}`);
+  return x;
+}
+
+const seen: { store?: ReturnType<typeof useStore> } = {};
 const Probe = () => {
-  store = useStore();
+  seen.store = useStore();
   return null;
 };
+const current = () => need(seen.store, "the store");
 const settle = () =>
   act(async () => {
     await new Promise((r) => setTimeout(r, 30));
@@ -31,7 +38,7 @@ const settle = () =>
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("critical.mode", "demo");
-  store = undefined;
+  seen.store = undefined;
 });
 afterEach(() => {
   cleanup();
@@ -40,52 +47,67 @@ afterEach(() => {
 });
 
 function sheetOf(d: AppData, blockId: string) {
-  const b = d.plan.find((x) => x.id === blockId);
-  if (!b) throw new Error("no block");
+  const b = need(
+    d.plan.find((x) => x.id === blockId),
+    "block",
+  );
   render(
     <StoreProvider initial={() => d} persist={false} fixedNow={LATER}>
       <ToastProvider>
         <Probe />
         <BlockSheet
           item={{ kind: "block", id: b.id, start: b.start, end: b.end, block: b }}
-          onClose={() => {}}
+          onClose={vi.fn()}
         />
       </ToastProvider>
     </StoreProvider>,
   );
   return b;
 }
-const done = (taskId: string) => doneMinutes((store as ReturnType<typeof useStore>).data, taskId);
-const logOf = (blockId: string) => store?.data.checkIns.filter((c) => c.blockId === blockId) ?? [];
+const done = (taskId: string) => doneMinutes(current().data, taskId);
+const logOf = (blockId: string) => current().data.checkIns.filter((c) => c.blockId === blockId);
+const press = (name: string | RegExp) => fireEvent.click(screen.getByRole("button", { name }));
+
+/** The pill of a block of `d`, by the label the week gives it. */
+const pillOf = (d: AppData, blockId: string) => {
+  const b = need(d.plan.find((x) => x.id === blockId));
+  const title = d.tasks.find((t) => t.id === b.taskId)?.title;
+  const label = `${title}, ${weekdayShort(TIMEZONE, b.start)} ${time(TIMEZONE, b.start)}`;
+  return need(
+    screen
+      .getAllByRole("button")
+      .find((p) => (p.getAttribute("aria-label") ?? "").startsWith(label)),
+    "pill",
+  );
+};
 
 describe("14th round: answering a block from its sheet", () => {
   const pendingBlock = () => {
     const d = base();
-    const b = pendingConfirmations(d, LATER)[0];
-    if (!b) throw new Error("the seeded history leaves blocks to answer");
+    const b = need(pendingConfirmations(d, LATER).at(0), "a block to answer");
     return { d, b };
   };
 
   it("«✓ Hecho» says so and «Deshacer» takes it back", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
-    fireEvent.click(screen.getByRole("button", { name: "✓ Hecho" }));
+    press("✓ Hecho");
     expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
     expect(logOf(b.id)).toHaveLength(1);
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    press("Deshacer");
     expect(logOf(b.id)).toHaveLength(0);
   });
 
   it("«✗ No» and «Guardar parcial» also say so and undo", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
-    fireEvent.click(screen.getByRole("button", { name: "✗ No" }));
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    press("✗ No");
+    press("Deshacer");
     expect(logOf(b.id)).toHaveLength(0);
-    fireEvent.click(screen.getByRole("button", { name: "◐ Parcial" }));
-    fireEvent.click(screen.getByRole("button", { name: "Guardar parcial" }));
+    press("◐ Parcial");
+    press("Guardar parcial");
     expect(screen.getByText("Anotado como parcial.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    press("Deshacer");
     expect(logOf(b.id)).toHaveLength(0);
   });
 
@@ -93,18 +115,18 @@ describe("14th round: answering a block from its sheet", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
     const before = done(b.taskId);
-    fireEvent.click(screen.getByRole("button", { name: "✓ Hecho" }));
+    press("✓ Hecho");
     const afterDone = done(b.taskId);
     expect(afterDone).toBeGreaterThan(before);
     expect(screen.getByText(/Ya registrado/)).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Corregir" }));
-    fireEvent.click(screen.getByRole("button", { name: "✗ No" }));
+    press("Corregir");
+    press("✗ No");
     // Nothing is erased: the log has both, and the latest one is what counts.
     expect(logOf(b.id).map((c) => c.status)).toEqual(["done", "missed"]);
     expect(done(b.taskId)).toBe(before);
     expect(screen.getByText(/no lo hice/)).toBeTruthy();
     // «Deshacer» of the correction brings the first answer back.
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    press("Deshacer");
     expect(logOf(b.id)).toHaveLength(1);
     expect(done(b.taskId)).toBe(afterDone);
     expect(screen.getByText(/hecho ✓/)).toBeTruthy();
@@ -112,22 +134,13 @@ describe("14th round: answering a block from its sheet", () => {
 
   it("the bubble stops asking «Marcar cómo te fue» once the block is registered", () => {
     const d = base();
-    const answered = d.checkIns[0];
-    const open = pendingConfirmations(d, LATER).at(-1);
-    if (!answered || !open) throw new Error("seed");
+    const answered = need(d.checkIns.at(0), "a check-in");
+    const open = need(pendingConfirmations(d, LATER).at(-1), "a block to answer");
     render(<App fixedNow={LATER} initial={() => d} />);
-    const pillOf = (blockId: string) => {
-      const b = d.plan.find((x) => x.id === blockId);
-      const title = d.tasks.find((t) => t.id === b?.taskId)?.title;
-      const label = `${title}, ${weekdayShort(TIMEZONE, b?.start as number)} ${time(TIMEZONE, b?.start as number)}`;
-      return [...document.querySelectorAll<HTMLElement>(".pill.planned")].find((p) =>
-        (p.getAttribute("aria-label") ?? "").startsWith(label),
-      ) as HTMLElement;
-    };
-    fireEvent.click(pillOf(open.id));
+    fireEvent.click(pillOf(d, open.id));
     expect(screen.getByText("Marcar cómo te fue ›")).toBeTruthy();
-    fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
-    fireEvent.click(pillOf(answered.blockId));
+    fireEvent.click(need(screen.getAllByLabelText("Cerrar").at(0)));
+    fireEvent.click(pillOf(d, answered.blockId));
     expect(screen.queryByText("Marcar cómo te fue ›")).toBeNull();
     expect(screen.getByText("Ver detalle ›")).toBeTruthy();
   });
@@ -142,30 +155,28 @@ describe("14th round: answering a block from its sheet", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    const first = screen.getAllByRole("button", { name: /^Hice una parte:/ })[0] as HTMLElement;
-    const label = first.getAttribute("aria-label");
+    const first = need(screen.getAllByRole("button", { name: /^Hice una parte:/ }).at(0));
+    const label = need(first.getAttribute("aria-label"));
     fireEvent.click(first);
-    fireEvent.click(screen.getByRole("button", { name: "◐ Parcial" }));
-    fireEvent.click(screen.getByRole("button", { name: "Guardar parcial" }));
+    press("◐ Parcial");
+    press("Guardar parcial");
     expect(screen.getByText("Anotado como parcial.")).toBeTruthy();
     const undo = screen.getByRole("button", { name: "Deshacer" });
     undo.focus();
     fireEvent.click(undo);
     await settle();
-    expect(screen.getAllByRole("button", { name: /^Hice una parte:/ })[0]).toBeTruthy();
-    expect(screen.getAllByLabelText(label as string)).toHaveLength(1);
+    expect(screen.getAllByLabelText(label)).toHaveLength(1);
     expect(document.activeElement).not.toBe(document.body);
   });
 });
 
 describe("14th round: dragging says the real reason", () => {
-  const pins = () => (JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData).pins;
-
   it("after the deadline, not «no hay un hueco libre»", () => {
-    vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
-      this: HTMLElement,
+    // Day columns 50 px wide and 1000 px tall from x = 0 (Monday the 2nd), as in edit.test.
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
     ) {
-      const date = this.dataset?.date;
+      const date = this.getAttribute("data-date");
       const i = date ? Number(date.slice(8)) - 2 : 0;
       return date
         ? ({
@@ -179,9 +190,15 @@ describe("14th round: dragging says the real reason", () => {
         : ({ left: 0, right: 30, top: 100, bottom: 160, width: 30, height: 60 } as DOMRect);
     });
     const fresh = reducer(demoData(MON), { type: "refresh", now: MON });
-    const block = fresh.plan
-      .filter((b) => b.start > MON && fresh.activities.find((a) => a.id === b.activityId)?.academic)
-      .sort((a, b) => a.start - b.start)[0] as AppData["plan"][number];
+    const block = need(
+      fresh.plan
+        .filter(
+          (b) => b.start > MON && fresh.activities.find((a) => a.id === b.activityId)?.academic,
+        )
+        .sort((a, b) => a.start - b.start)
+        .at(0),
+      "an upcoming study block",
+    );
     const d: AppData = {
       ...fresh,
       tasks: fresh.tasks.map((t) =>
@@ -190,16 +207,13 @@ describe("14th round: dragging says the real reason", () => {
     };
     render(<App fixedNow={MON} initial={() => d} />);
     fireEvent.click(screen.getByLabelText("Modo edición"));
-    const title = d.tasks.find((t) => t.id === block.taskId)?.title;
-    const label = `${title}, ${weekdayShort(TIMEZONE, block.start)} ${time(TIMEZONE, block.start)}`;
-    const pill = [...document.querySelectorAll<HTMLElement>(".pill.planned.movable")].find((p) =>
-      (p.getAttribute("aria-label") ?? "").startsWith(label),
-    ) as HTMLElement;
+    const pill = pillOf(d, block.id);
     // Thursday's column (x 150–200): long after the deadline.
     fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 1 });
     fireEvent.pointerMove(pill, { clientX: 170, clientY: 500, pointerId: 1 });
     fireEvent.pointerUp(pill, { clientX: 170, clientY: 500, pointerId: 1 });
-    expect(pins() ?? []).toHaveLength(0);
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins ?? []).toHaveLength(0);
     expect(screen.getAllByText("Después de la entrega no").length).toBeGreaterThan(0);
     expect(screen.queryByText(/No hay un hueco libre/)).toBeNull();
   });
@@ -216,12 +230,11 @@ describe("14th round: skip link and landmark", () => {
     expect(document.activeElement?.closest("nav.tabs")).toBeTruthy();
   });
 
-  it("the screens live in a <main>, and the tab bar stays outside it", () => {
+  it("the screens live in one main landmark, and the tab bar stays outside it", () => {
     render(<App fixedNow={MON} initial={demoData} />);
-    const main = document.querySelector("main");
-    expect(main).toBeTruthy();
-    expect(main?.querySelector(".week-wrap")).toBeTruthy();
-    expect(main?.querySelector("nav.tabs")).toBeNull();
+    const main = need(document.querySelector("main"), "main");
+    expect(main.querySelector(".week-wrap")).toBeTruthy();
+    expect(main.querySelector("nav.tabs")).toBeNull();
     expect(document.querySelectorAll("main")).toHaveLength(1);
   });
 });
@@ -253,10 +266,7 @@ describe("14th round: «Reacomodar semana» with nothing to change", () => {
 describe("14th round: «Deshacer» of «Hoy no almuerzo»", () => {
   it("puts the focus on the meal that came back", async () => {
     render(<App fixedNow={MON} initial={(now) => ({ ...demoData(now), events: [] })} />);
-    const lunch = () =>
-      [...document.querySelectorAll<HTMLElement>(".pill.meal")].find((p) =>
-        /^Almuerzo, lun 13:00/.test(p.getAttribute("aria-label") ?? ""),
-      ) as HTMLElement;
+    const lunch = () => screen.getByRole("button", { name: /^Almuerzo, lun 13:00/ });
     fireEvent.click(lunch());
     fireEvent.click(screen.getByText("Hoy no almuerzo"));
     const undo = screen.getByRole("button", { name: "Deshacer" });
