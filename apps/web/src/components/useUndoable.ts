@@ -1,6 +1,6 @@
 import type { Activity } from "../engine.js";
 import type { AppData, AppTask, Proposal } from "../model.js";
-import { snapshotOf, useStore } from "../store.js";
+import { settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
 type Doing = Parameters<ReturnType<typeof useStore>["dispatch"]>[0];
@@ -34,7 +34,9 @@ export function useUndoable(onBack?: (key: string) => void) {
     opts: { tasks?: readonly AppTask[]; key?: string } = {},
   ) => {
     const before = snapshotOf(data, keys, opts.tasks);
-    dispatch(doing);
+    dispatch(doing, (after) => {
+      settleSnapshot(before, after);
+    });
     toast.show(message, {
       undo: () => {
         dispatch({ type: "restoreState", before });

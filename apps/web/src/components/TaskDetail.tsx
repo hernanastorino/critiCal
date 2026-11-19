@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
-import { type RecurrenceChange, snapshotOf, useStore } from "../store.js";
+import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
 import { useModal } from "./modal.js";
@@ -87,7 +87,9 @@ export function TaskDetail({
       // come back exactly as they were. The records go with the task in the database (the
       // cascade) and come back as new rows, so nothing is written twice.
       const before = snapshotOf(data, GONE_KEYS, [task]);
-      dispatch({ type: "recurrence", taskId: task.id, change });
+      dispatch({ type: "recurrence", taskId: task.id, change }, (after) =>
+        settleSnapshot(before, after),
+      );
       toast.show(
         change === "deleteAll"
           ? `${task.title} eliminada, con lo registrado`

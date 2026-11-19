@@ -133,7 +133,10 @@ export type Action =
   | { type: "deleteActivity"; activityId: string; now: number }
   /** Takes back a `deleteActivity`: what it removed, as it was. */
   | { type: "restoreActivity"; removed: RemovedActivity; now: number }
-  /** Takes back an answer of the inbox («Deshacer»): puts the parts it changed as they were. */
+  /**
+   * Takes back an answer («Deshacer»): puts back only what the answer touched, entity by
+   * entity, and leaves what was added or edited since.
+   */
   | { type: "restoreState"; before: Snapshot; now: number }
   | { type: "savePlace"; place: Place; now: number }
   | { type: "deletePlace"; placeId: string; now: number }
@@ -239,8 +242,10 @@ export interface RemovedActivity {
 export interface Snapshot {
   /** Tasks put back one by one (what was added or edited since stays). */
   tasks?: AppTask[];
-  /** Parts of the data put back whole. */
+  /** Parts of the data as they were before the answer. */
   keys?: Partial<AppData>;
+  /** The same parts right after the answer: what it touched is what differs from `keys`. */
+  after?: { tasks?: AppTask[]; keys: Partial<AppData> };
 }
 
 /** The parts `keys` of `data` as they are now (a missing one stays missing). */
@@ -253,6 +258,117 @@ export function snapshotOf(
     tasks: [...tasks],
     keys: Object.fromEntries(keys.map((k) => [k, data[k]])) as Partial<AppData>,
   };
+}
+
+/** Fills in how the parts of `snap` stand right after the answer (`next` is the data then). */
+export function settleSnapshot(snap: Snapshot, next: AppData): void {
+  const ids = new Set((snap.tasks ?? []).map((t) => t.id));
+  snap.after = {
+    tasks: next.tasks.filter((t) => ids.has(t.id)),
+    keys: Object.fromEntries(
+      Object.keys(snap.keys ?? {}).map((k) => [k, next[k as keyof AppData]]),
+    ),
+  };
+}
+
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+const keyOf = (e: unknown) =>
+  e && typeof e === "object" && typeof (e as { id?: unknown }).id === "string"
+    ? (e as { id: string }).id
+    : JSON.stringify(e);
+
+const DROP = Symbol("drop");
+
+type Entries<T> = { b: Map<string, T>; a: Map<string, T>; c: Map<string, T> };
+
+/** Entry `k` is gone now: back if the answer removed it, not if it went since. */
+function goneNow<T>(k: string, { b, a }: Entries<T>): T | symbol {
+  const was = b.get(k);
+  return was !== undefined && !a.has(k) ? was : DROP;
+}
+
+/** Entry `k` was not there before: it goes if the answer added it and it is as it left it. */
+function newOne<T>(k: string, { a, c }: Entries<T>): T | symbol {
+  const cur = c.get(k) as T;
+  return a.has(k) && same(cur, a.get(k)) ? DROP : cur;
+}
+
+/** Entry `k` was there before and is now: back to what it was if the answer changed it. */
+function stillThere<T>(k: string, { b, a, c }: Entries<T>): T {
+  const was = b.get(k) as T;
+  const mid = a.get(k);
+  const cur = c.get(k) as T;
+  return mid !== undefined && !same(was, mid) && same(cur, mid) ? was : cur;
+}
+
+/** What stands for entry `k` once the answer is taken back (`DROP`: none). */
+function pick<T>(k: string, e: Entries<T>, only?: ReadonlySet<string>): T | symbol {
+  if (only && !only.has(k)) return e.c.has(k) ? (e.c.get(k) as T) : DROP;
+  if (!e.c.has(k)) return goneNow(k, e);
+  return e.b.has(k) ? stillThere(k, e) : newOne(k, e);
+}
+
+/**
+ * `now` with what the answer changed taken back: what it removed comes back, what it
+ * edited returns to its earlier version, what it added goes, and anything else (made or
+ * edited since) stays. `only` limits it to those entries.
+ */
+function mergeBack<T>(now: T[], before: T[], after: T[], only?: ReadonlySet<string>): T[] {
+  const by = (list: T[]) => new Map(list.map((e) => [keyOf(e), e]));
+  const entries = { b: by(before), a: by(after), c: by(now) };
+  // What there was before keeps its order; what is new since goes after.
+  const keys = new Set([...entries.b.keys(), ...entries.c.keys()]);
+  return [...keys].map((k) => pick(k, entries, only)).filter((e): e is T => e !== DROP);
+}
+
+type Records = AppData["checkIns"];
+
+/**
+ * The records never go: those the answer removed (with their silo) come back once their
+ * silo is back and the block has none; those it added are taken back with a new record.
+ */
+function restoreRecords(data: AppData, old: Records, mine: Records, now: number): AppData {
+  const added = mine.filter((c) => !old.some((o) => o.id === c.id));
+  const gone = old.filter((o) => !mine.some((c) => c.id === o.id));
+  const tasks = new Set(data.tasks.map((t) => t.id));
+  const blocks = new Set(data.checkIns.map((c) => c.blockId));
+  let out = {
+    ...data,
+    checkIns: [
+      ...data.checkIns,
+      ...gone.filter((c) => tasks.has(c.taskId) && !blocks.has(c.blockId)),
+    ],
+  };
+  for (const c of added.reverse()) out = apply(out, { type: "undoCheckIn", id: c.id, now });
+  return out;
+}
+
+/** The whole of `data` with the parts of `snap` put back (see `restoreState`). */
+function restoreSnapshot(data: AppData, snap: Snapshot, now: number): AppData {
+  const after = snap.after;
+  // The answer made no change (or its result is not known): nothing to take back.
+  if (!after) return data;
+  const next: Record<string, unknown> = { ...data };
+  const was = (snap.keys ?? {}) as Record<string, unknown>;
+  const mid = after.keys as Record<string, unknown>;
+  for (const k of Object.keys(was).filter((x) => x !== "checkIns")) {
+    const cur = (data as unknown as Record<string, unknown>)[k];
+    if (!Array.isArray(was[k]) && !Array.isArray(mid[k])) {
+      next[k] = same(cur, mid[k]) ? was[k] : cur;
+      continue;
+    }
+    const list = Array.isArray(cur) ? cur : [];
+    const merged = mergeBack(list, (was[k] as unknown[]) ?? [], (mid[k] as unknown[]) ?? []);
+    // A part that was missing stays missing while it has nothing in it.
+    next[k] = merged.length === 0 && was[k] === undefined ? undefined : merged;
+  }
+  if (snap.tasks?.length) {
+    const only = new Set(snap.tasks.map((t) => t.id));
+    next.tasks = mergeBack(next.tasks as AppTask[], snap.tasks, after.tasks ?? [], only);
+  }
+  const out = next as unknown as AppData;
+  const old = was.checkIns as Records | undefined;
+  return old ? restoreRecords(out, old, (mid.checkIns as Records | undefined) ?? [], now) : out;
 }
 
 /** Everything that goes when the activity `id` is deleted (to put it back on undo). */
@@ -279,6 +395,13 @@ function withoutFutureBlocks(data: AppData, task: AppTask, now: number): AppData
   if (isPlannable(task, now)) return data;
   const stays = (b: { taskId: string; start: number }) => b.taskId !== task.id || b.start <= now;
   return { ...data, plan: data.plan.filter(stays), pins: (data.pins ?? []).filter(stays) };
+}
+
+/** `reducer`, telling the action's `onAfter` (if any) how the data stands right after it. */
+function withAfter(data: AppData, action: Action): AppData {
+  const next = reducer(data, action);
+  (action as { onAfter?: (after: AppData) => void }).onAfter?.(next);
+  return next;
 }
 
 /** Applies `action` and records a plan version for the ones that can be undone. */
@@ -810,15 +933,9 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
-    case "restoreState": {
-      const back = new Map((action.before.tasks ?? []).map((t) => [t.id, t]));
-      // The snapshot was a settled state: it is put back as it was, not planned again.
-      return {
-        ...data,
-        ...action.before.keys,
-        tasks: action.before.keys?.tasks ?? data.tasks.map((t) => back.get(t.id) ?? t),
-      };
-    }
+    case "restoreState":
+      // A settled state put back as it was, not planned again.
+      return restoreSnapshot(data, action.before, now);
     case "restoreActivity": {
       const { activity, index, tasks, checkIns, pins } = action.removed;
       // Back only once, and never over something made since with the same id.
@@ -1343,7 +1460,8 @@ export function resetDemo(): void {
 interface Store {
   data: AppData;
   now: number;
-  dispatch: (a: DistributiveOmit<Action, "now">) => void;
+  /** `onAfter` gets the data right after the action (to know what it touched). */
+  dispatch: (a: DistributiveOmit<Action, "now">, onAfter?: (after: AppData) => void) => void;
   pending: ReturnType<typeof pendingConfirmations>;
   decisions: Decisions;
   /** The current plan's verdict (feasibility, per-task deficits). */
@@ -1393,7 +1511,7 @@ export function StoreProvider({
   // The unrefreshed seed is the baseline for persistence, so whatever the first
   // refresh adds (imported tasks and activities, the plan) gets written too.
   const [seed] = useState(() => initial(now));
-  const [data, raw] = useReducer(reducer, seed, (s) => reducer(s, { type: "refresh", now }));
+  const [data, raw] = useReducer(withAfter, seed, (s) => reducer(s, { type: "refresh", now }));
   useEffect(() => {
     raw({ type: "refresh", now });
   }, [now]);
@@ -1459,11 +1577,11 @@ export function StoreProvider({
     return {
       data,
       now,
-      dispatch: (a) => {
+      dispatch: (a, onAfter) => {
         // Until the effect above hands it to a save, the edit lives only in memory. An
         // action that changes nothing runs no effect, so the hold also lapses.
         hold("edit", true, 1000);
-        raw({ ...a, now: fixedNow ?? Date.now() } as Action);
+        raw(Object.assign({ ...a, now: fixedNow ?? Date.now() }, { onAfter }) as Action);
       },
       pending,
       get decisions() {
