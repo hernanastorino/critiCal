@@ -29,6 +29,7 @@ jobs:
       !github.event.pull_request.draft &&
       github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: staging
     steps:
       - uses: actions/checkout@v7
@@ -63,7 +64,27 @@ jobs:
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
           fi
-      - run: npx playwright install --with-deps webkit
+      - name: Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+      - name: Install Playwright WebKit
+        timeout-minutes: 12
+        env:
+          CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
+        run: |
+          # The download has hung for 10+ minutes before: bound each attempt and retry once.
+          if [ "$CACHE_HIT" = "true" ]; then
+            cmd="npx playwright install-deps webkit"
+          else
+            cmd="npx playwright install --with-deps webkit"
+          fi
+          timeout 300 $cmd || { echo "First attempt failed or timed out, retrying"; timeout 300 $cmd; }
       - name: E2E against the preview
         run: npm run e2e
         env:
