@@ -39,24 +39,24 @@ describe("decisions do not stand in the way of a tap", () => {
       </StoreProvider>,
     );
     await settle();
-    const s = store as ReturnType<typeof useStore>;
-    const block = s.data.plan.find((b) => b.start > MON);
-    expect(block).toBeDefined();
+    const s = store;
+    const block = s?.data.plan.find((b) => b.start > MON);
+    if (!s || !block) throw new Error("no plan");
     const t0 = performance.now();
-    act(() =>
-      s.dispatch({
-        type: "pin",
-        blockId: (block as { id: string }).id,
-        start: (block as { start: number }).start + 1_800_000,
-      }),
-    );
+    act(() => {
+      s.dispatch({ type: "pin", blockId: block.id, start: block.start + 1_800_000 });
+    });
     const tap = performance.now() - t0;
-    // Working the decisions out takes ~700 ms here; the plan alone ~100 ms.
-    expect(tap).toBeLessThan(600);
     await settle();
-    const now = store as ReturnType<typeof useStore>;
+    const now = store;
+    if (!now) throw new Error("no store");
     const r = refreshPlan(now.data, MON);
+    const t1 = performance.now();
     const dec = decisions(r.input, r.result, { data: now.data, now: MON });
+    const working = performance.now() - t1;
+    // The tap used to include working the decisions out (~700 ms here, plan ~100 ms): now
+    // it is the plan alone, so it takes less than the decisions do (machine-independent).
+    expect(tap).toBeLessThan(working);
     expect(now.decisions.options.map((o) => o.id)).toEqual(dec.options.map((o) => o.id));
     expect(now.inboxCount).toBeGreaterThanOrEqual(
       (dec.options.length > 0 ? 1 : 0) + dec.recommendations.length,
