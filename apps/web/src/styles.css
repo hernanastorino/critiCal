@@ -589,7 +589,7 @@ textarea {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
-.snack.short {
+.snack.alert {
   background: var(--critical);
   color: #fff;
 }

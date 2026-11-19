@@ -714,6 +714,7 @@ export function Routines() {
           <button
             key={r.id}
             type="button"
+            data-task={h.id}
             className="check routine-row"
             aria-label={`${r.name}, ${h.sessionsPerWeek} por semana de ${h.sessionMinutes} min${h.paused ? ", pausada" : ""}: editar, pausar o eliminar`}
             onClick={() => setDetail(h)}
@@ -732,6 +733,7 @@ export function Routines() {
         <TaskDetail
           task={detail}
           onClose={() => setDetail(null)}
+          onGone={() => nameField.current?.focus()}
           onEdit={() => {
             setEditing(detail);
             setDetail(null);

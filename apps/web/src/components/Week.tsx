@@ -271,9 +271,11 @@ export function Week({
   const [open, setOpen] = useState<Item | null>(null);
 
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const flash = (message: string, undo?: () => void, version?: PlanVersion) => {
-    toaster.show(message, { undo, tag: version });
+  const flash = (message: string, undo?: () => void, version?: PlanVersion, tone?: "alert") => {
+    toaster.show(message, { undo, tag: version, tone });
   };
+  /** A move or a drop that cannot be: the only notices drawn in red. */
+  const refuse = (message: string) => flash(message, undefined, undefined, "alert");
 
   /**
    * A pin just made, to tell right away if it puts a minimum out of reach, which pins it
@@ -340,7 +342,7 @@ export function Week({
         `Con esto no llegás: faltan ${worse.map((s) => `${hours(s.minutes)} de ${titleOfTask(s.taskId)}`).join(", ")}`,
     ].filter(Boolean);
     // The pin itself saved the latest plan version.
-    if (said.length > 0) flash(said.join(" · "), w.undo, latest);
+    if (said.length > 0) flash(said.join(" · "), w.undo, latest, "alert");
   });
 
   /** Pins `block` at `start`, offering to put it back if that breaks a minimum. */
@@ -574,16 +576,16 @@ export function Week({
   const keyMove = (b: PlanBlock, step: number) => {
     const start = b.start + step;
     const day = localParts(tz, start).date;
-    if (day < today) return flash("Ese día ya pasó");
-    if (!dates.includes(day)) return flash("Fuera de la semana que se ve");
-    if (start <= now) return flash("Ese horario ya pasó");
+    if (day < today) return refuse("Ese día ya pasó");
+    if (!dates.includes(day)) return refuse("Fuera de la semana que se ve");
+    if (start <= now) return refuse("Ese horario ya pasó");
     const minutes = (b.end - b.start) / MINUTE;
     const { busy, earliest, latest, bounds } = landingLimits(day, b.id);
     const target = (start - zonedInstant(tz, day, 0)) / MINUTE;
     const sameDay = day === localParts(tz, b.start).date;
     // Within its day the exact slot is the only candidate, so its refusal says why.
     const why = sameDay ? moveRefusal(bounds, target, minutes) : null;
-    if (why) return flash(why);
+    if (why) return refuse(why);
     const minute = keyboardLanding(
       target,
       minutes,
@@ -596,7 +598,7 @@ export function Week({
       (m) => !mealOverPin(data, now, b, zonedInstant(tz, day, m)),
     );
     if (minute === null) {
-      return flash(
+      return refuse(
         moveRefusal(bounds, target, minutes) ??
           "Ahí hay algo fijo o una comida y no queda un hueco libre",
       );
@@ -670,7 +672,7 @@ export function Week({
     const target = mealLanding(m, x, y, d.grab);
     if (!target) {
       const over = dayUnder(x);
-      if (over && over !== m.date) flash("Una comida se mueve solo dentro de su día");
+      if (over && over !== m.date) refuse("Una comida se mueve solo dentro de su día");
       return null;
     }
     const start = zonedInstant(tz, target.date, target.minute);
@@ -736,7 +738,7 @@ export function Week({
     const target = landing(x, y - d.grab, d.minutes, block.id);
     if (!target) {
       const why = whyNotHere(x, y - d.grab, d.minutes, block.id);
-      if (why) flash(why);
+      if (why) refuse(why);
       return null;
     }
     return pinAt(block, zonedInstant(tz, target.date, target.minute));

@@ -100,6 +100,7 @@ export function Silos() {
             <button
               type="button"
               key={t.id}
+              data-task={t.id}
               className="silo off"
               aria-label={`${t.title}: desactivado`}
               onClick={() => setDetail(t)}
@@ -173,6 +174,7 @@ export function Silos() {
         <TaskDetail
           task={detail}
           onClose={() => setDetail(null)}
+          onGone={() => titleRef.current?.focus()}
           onEdit={() => {
             setEditing(detail);
             setDetail(null);

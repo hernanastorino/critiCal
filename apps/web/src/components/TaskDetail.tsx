@@ -2,11 +2,14 @@ import { useRef, useState } from "react";
 import { dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
-import { type RecurrenceChange, useStore } from "../store.js";
+import { type RecurrenceChange, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
+
+/** What deleting a silo may change, to put back exactly on «Deshacer». */
+const GONE_KEYS = ["tasks", "checkIns", "plan", "pins", "applied"] as const;
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 export const MAX_TOPICS = 500;
@@ -56,10 +59,13 @@ export function TaskDetail({
   task,
   onEdit,
   onClose,
+  onGone,
 }: {
   task: AppTask;
   onEdit: () => void;
   onClose: () => void;
+  /** Where the focus goes once the silo is deleted (its row is gone). */
+  onGone?: () => void;
 }) {
   const { data, now, dispatch } = useStore();
   const toast = useToast();
@@ -76,6 +82,34 @@ export function TaskDetail({
   const [ask, setAsk] = useState<"off" | "delete" | null>(null);
   const live = data.tasks.find((t) => t.id === task.id) ?? task;
   const repeat = (change: RecurrenceChange) => {
+    if (change === "deleteAll" || change === "endFromToday") {
+      // Taken at the tap, with «Deshacer» (SPEC §14): the task, its records, blocks and pins
+      // come back exactly as they were. The records go with the task in the database (the
+      // cascade) and come back as new rows, so nothing is written twice.
+      const before = snapshotOf(data, GONE_KEYS, [task]);
+      dispatch({ type: "recurrence", taskId: task.id, change });
+      toast.show(
+        change === "deleteAll"
+          ? `${task.title} eliminada, con lo registrado`
+          : `${task.title} eliminada de hoy en adelante`,
+        {
+          undo: () => {
+            dispatch({ type: "restoreState", before });
+            requestAnimationFrame(() =>
+              document.querySelector<HTMLElement>(`[data-task="${CSS.escape(task.id)}"]`)?.focus(),
+            );
+          },
+        },
+      );
+      setAsk(null);
+      onClose();
+      // The row that opened this is gone: focus goes where the caller says.
+      requestAnimationFrame(() => {
+        const at = document.activeElement;
+        if (!at || at === document.body || !at.isConnected) onGone?.();
+      });
+      return;
+    }
     dispatch({ type: "recurrence", taskId: task.id, change });
     setAsk(null);
     if (change !== "resume") onClose();

@@ -94,21 +94,83 @@ export function standingCheckIns(data: AppData): CheckIn[] {
 }
 
 /**
- * A record that only repeats an earlier answer of its block (what «Deshacer» writes back)
- * or retires it: it is not a new answer, so it is not news (no celebration).
+ * A record that only repeats an earlier answer of its block, written by «Deshacer» (it
+ * says so: `origin`), or that retires it: it is not a new answer, so it is not news (no
+ * celebration). The same answer given again by hand is news.
  */
-export function isUndoCopy(data: AppData, c: CheckIn): boolean {
-  if (c.status === "retired") return true;
-  return data.checkIns.some(
-    (o) =>
-      o.id !== c.id &&
-      o.blockId === c.blockId &&
-      (o.createdAt < c.createdAt || (o.createdAt === c.createdAt && o.id < c.id)) &&
-      o.status === c.status &&
-      o.minutesDone === c.minutesDone &&
-      o.unitIds.length === c.unitIds.length &&
-      o.unitIds.every((id) => c.unitIds.includes(id)),
-  );
+export function isUndoCopy(_data: AppData, c: CheckIn): boolean {
+  return c.status === "retired" || c.origin === "undo";
+}
+
+/** The oldest standing record's date that declares each part, per task. */
+function declaredBy(data: AppData): Map<string, Map<string, number>> {
+  const declared = new Map<string, Map<string, number>>();
+  for (const c of standingCheckIns(data)) {
+    const mine = declared.get(c.taskId) ?? new Map<string, number>();
+    for (const id of c.unitIds) {
+      const at = mine.get(id);
+      if (at === undefined || c.createdAt < at) mine.set(id, c.createdAt);
+    }
+    declared.set(c.taskId, mine);
+  }
+  return declared;
+}
+
+/**
+ * Data from before `doneByHand` (a done part with the field unset) gets it as the migration
+ * did: done and declared by no standing record means marked by hand. The dates stay as
+ * they are. Returns `data` itself when there is nothing to say.
+ */
+export function withHandMarks(data: AppData): AppData {
+  const declared = declaredBy(data);
+  let moved = false;
+  const tasks = data.tasks.map((t) => {
+    if (!t.units.some((u) => u.doneAt !== undefined && u.doneByHand === undefined)) return t;
+    moved = true;
+    const mine = declared.get(t.id);
+    return {
+      ...t,
+      units: t.units.map((u) =>
+        u.doneAt !== undefined && u.doneByHand === undefined
+          ? { ...u, doneByHand: !mine?.has(u.id) }
+          : u,
+      ),
+    };
+  });
+  return moved ? { ...data, tasks } : data;
+}
+
+/**
+ * The parts brought in line with what stands: a part is done when it was marked by hand
+ * or when the standing record of some block declares it. Its date is the hand mark's, or
+ * the oldest standing record's that declares it. Returns `data` itself when nothing
+ * changes.
+ */
+export function settleUnits(data: AppData): AppData {
+  const declared = declaredBy(withHandMarks(data));
+  let moved = false;
+  const tasks = withHandMarks(data).tasks.map((t) => {
+    const mine = declared.get(t.id);
+    let touched = false;
+    const units = t.units.map((u) => {
+      const record = mine?.get(u.id);
+      const byHand = u.doneAt !== undefined && u.doneByHand === true;
+      const doneAt = byHand ? u.doneAt : record;
+      const doneByHand = byHand ? true : doneAt !== undefined ? false : undefined;
+      if (doneAt === u.doneAt && doneByHand === u.doneByHand) return u;
+      touched = true;
+      const { doneAt: _d, doneByHand: _h, ...rest } = u;
+      return {
+        ...rest,
+        ...(doneAt !== undefined && { doneAt }),
+        ...(doneByHand !== undefined && { doneByHand }),
+      };
+    });
+    if (!touched) return t;
+    moved = true;
+    return { ...t, units };
+  });
+  return moved ? { ...data, tasks } : data;
 }
 
 /** When the block a check-in is about starts: the week it belongs to, not when it was logged. */

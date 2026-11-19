@@ -280,10 +280,13 @@ describe("7. Bandeja: el foco después de «Deshacer»", () => {
 });
 
 describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
-  /** Parcial Cálculo II with study already logged, as in the tester's demo. */
+  /**
+   * Parcial Cálculo II with study already logged, as in the tester's demo. The record
+   * declares a part, so it counts as done (SPEC §3): the figures are those of 17th round.
+   */
   const scenario = (study: number) => {
     const base = reducer(demoData(NOW), { type: "refresh", now: NOW });
-    return {
+    const withStudy = {
       ...base,
       checkIns: [
         {
@@ -298,9 +301,10 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
         },
       ],
     };
+    return reducer(withStudy, { type: "refresh", now: NOW });
   };
 
-  it.each([240, 270])("what it offers, choosing it leaves no target short (%i)", (study) => {
+  it.each([330, 390])("what it offers, choosing it leaves no target short (%i)", (study) => {
     const d = scenario(study);
     const r = refreshPlan(d, NOW);
     expect(r.result.feasible).toBe(true);
@@ -313,7 +317,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
   });
 
   it("is not offered when choosing it would change nothing", () => {
-    const d = scenario(240);
+    const d = scenario(330);
     const r = refreshPlan(d, NOW);
     // The target is short, but the parts hold what is left: a lower estimate cuts nothing.
     expect(r.result.status.some((s) => s.targetDeficit > 0)).toBe(true);
@@ -322,7 +326,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
   });
 
   it("the card of a target option does not claim the minimums were the problem", () => {
-    const d = scenario(270);
+    const d = scenario(390);
     render(
       <StoreProvider initial={() => d} persist={false} fixedNow={NOW}>
         <ToastProvider>

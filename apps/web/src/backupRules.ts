@@ -191,6 +191,7 @@ const checkInTests: Test[] = [
   // A missed block did no work.
   ["status", (v, x) => v !== "missed" || x?.minutesDone === 0],
   ["createdAt", instant],
+  ["origin", opt((v) => v === "undo")],
   ["factor", opt(between(1, Number.MAX_SAFE_INTEGER))],
   ["unitIds", arrayOf(str)],
 ];

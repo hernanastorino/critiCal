@@ -164,6 +164,7 @@ const unitRules = (): Rule[] => [
   ],
   ["weight", opt(int(0, 100)), "tiene una parte con un peso que no es un entero de 0 a 100"],
   ["doneAt", opt(instant), "tiene una parte con una fecha de hecho que no es válida"],
+  ["doneByHand", opt(bool), "tiene una parte con un dato de «marcada a mano» que no es sí o no"],
 ];
 
 const taskRules = (): Rule[] => [
@@ -235,6 +236,7 @@ const checkInRules = (): Rule[] => [
     "tiene partes con identificadores que no son texto",
   ],
   ["createdAt", instant, "tiene una fecha que no es válida"],
+  ["origin", opt(oneOf("undo")), "tiene un origen que no es «undo»"],
 ];
 
 const checkInsProblem: Check = (d) =>

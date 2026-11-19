@@ -90,6 +90,8 @@ export function Shell({
         <a
           className="skip-link"
           href="#tabs"
+          // Safari does not reach a link with Tab unless it says so.
+          tabIndex={0}
           onClick={(e) => {
             e.preventDefault();
             document

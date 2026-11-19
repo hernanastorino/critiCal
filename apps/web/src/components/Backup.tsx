@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
-import { type AppData, type CheckIn, CRITICAL } from "../model.js";
+import { type AppData, CRITICAL } from "../model.js";
 import { standingCheckIns } from "../planning.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
@@ -19,29 +19,31 @@ export function downloadJson(data: AppData, now: number) {
 }
 
 /**
- * The backup's tasks with the units the newer check-ins completed kept completed, including
- * units added after the backup (taken from the current copy of the task). Only the records
- * that stand mark parts: one a later correction replaced, or an undo retired, does not.
+ * What an import makes of the file over the current copy: the file's data, plus the check-ins
+ * made after the backup (as long as their task is in it) and the units they declare that the
+ * file does not have (added after the backup, taken from the current copy). The parts need no
+ * care here: `refresh` settles them as the hand marks of the file plus what the records that
+ * stand declare, so a part a later correction took back stays open.
  */
-export function withNewerUnits(file: AppData, newer: CheckIn[], current: AppData) {
-  const kept = new Set(newer.map((c) => c.id));
-  const standing = standingCheckIns({ ...file, checkIns: [...file.checkIns, ...newer] }).filter(
-    (c) => kept.has(c.id),
+export function importCandidate(file: AppData, current: AppData): AppData {
+  // Check-ins are an append-only log: the ones made after the backup stay.
+  const inBackup = new Set(file.tasks.map((t) => t.id));
+  const inFile = new Set(file.checkIns.map((c) => c.id));
+  const newer = current.checkIns.filter((c) => inBackup.has(c.taskId) && !inFile.has(c.id));
+  const standing = new Set(
+    standingCheckIns({ ...file, checkIns: [...file.checkIns, ...newer] }).map((c) => c.id),
   );
-  return file.tasks.map((t) => {
-    const done = new Map<string, number>();
-    for (const c of standing)
-      if (c.taskId === t.id) for (const u of c.unitIds) done.set(u, c.createdAt);
-    if (done.size === 0) return t;
-    const now = current.tasks.find((x) => x.id === t.id);
-    const added = (now?.units ?? []).filter(
-      (u) => done.has(u.id) && !t.units.some((x) => x.id === u.id),
+  const tasks = file.tasks.map((t) => {
+    const declared = new Set(
+      newer.filter((c) => c.taskId === t.id && standing.has(c.id)).flatMap((c) => c.unitIds),
     );
-    const units = [...t.units, ...added].map((u) =>
-      done.has(u.id) && !u.doneAt ? { ...u, doneAt: done.get(u.id) } : u,
-    );
-    return { ...t, units };
+    const mine = current.tasks.find((x) => x.id === t.id);
+    const added = (mine?.units ?? [])
+      .filter((u) => declared.has(u.id) && !t.units.some((x) => x.id === u.id))
+      .map(({ doneAt: _d, doneByHand: _h, ...u }) => u);
+    return added.length ? { ...t, units: [...t.units, ...added] } : t;
   });
+  return { ...file, tasks, checkIns: [...file.checkIns, ...newer] };
 }
 
 /** Download everything as JSON, or replace everything with a downloaded file. */
@@ -60,20 +62,12 @@ export function Backup() {
       setMessage({ text: parsed.error, error: true });
       return;
     }
-    // Check-ins are an append-only log: the ones made after the backup stay, as long as
-    // their task is in it.
-    const inBackup = new Set(parsed.data.tasks.map((t) => t.id));
-    const inFile = new Set(parsed.data.checkIns.map((c) => c.id));
-    const newer = data.checkIns.filter((c) => inBackup.has(c.taskId) && !inFile.has(c.id));
-    const tasks = withNewerUnits(parsed.data, newer, data);
     // The file may come from another account: the data is this account's now (and the
     // ids of what the import makes are seeded by its owner).
-    const { owner: _theirs, ...theirs } = parsed.data;
+    const { owner: _theirs, ...theirs } = importCandidate(parsed.data, data);
     const candidate = {
       ...theirs,
       ...(data.owner !== undefined ? { owner: data.owner } : {}),
-      tasks,
-      checkIns: [...parsed.data.checkIns, ...newer],
     };
     // A dry run on exactly what will be stored: anything the checks missed fails here,
     // not in the app, and the result itself is what replaces the data.

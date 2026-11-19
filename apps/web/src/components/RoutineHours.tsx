@@ -43,7 +43,7 @@ function Pair({
           <span>{side === "from" ? "Desde" : "Hasta"}</span>
           <input
             inputMode="numeric"
-            placeholder={side === "from" ? "7" : "19:30"}
+            placeholder={side === "from" ? "7:00" : "19:30"}
             aria-label={`${side === "from" ? "Desde" : "Hasta"}${name ? `, ${name}` : ""}`}
             value={side === "from" ? value.from : value.to}
             aria-invalid={bad(side) ? true : undefined}

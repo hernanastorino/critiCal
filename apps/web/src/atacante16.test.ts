@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { withNewerUnits } from "./components/Backup.js";
+import { importCandidate } from "./components/Backup.js";
 import { diffData, loadData } from "./data.js";
 import { emptyData, TIMEZONE } from "./demo.js";
 import { MINUTE, zonedInstant } from "./engine.js";
 import type { AppData, AppTask, CheckIn } from "./model.js";
 import { isUndoCopy, latestCheckIns, standingCheckIns } from "./planning.js";
+import { refresh } from "./refresh.js";
 import { reducer } from "./store.js";
 
 const MON = zonedInstant(TIMEZONE, "2026-11-03", 17 * 60 + 50);
@@ -166,10 +167,10 @@ describe("16th round: importing a backup", () => {
     const d2 = answer(d1, "b1", "missed");
     // The backup was taken before both; the current copy has them as newer records.
     const file = base();
-    const tasks = withNewerUnits(file, d2.checkIns, d2);
-    expect(tasks[0]?.units.every((u) => !u.doneAt)).toBe(true);
+    const out = refresh(importCandidate(file, d2), clock);
+    expect(out.tasks[0]?.units.every((u) => !u.doneAt)).toBe(true);
     // A record that stands still marks.
-    const marked = withNewerUnits(file, d1.checkIns, d1);
-    expect(marked[0]?.units.find((u) => u.id === "p1")?.doneAt).toBeDefined();
+    const marked = refresh(importCandidate(file, d1), clock);
+    expect(marked.tasks[0]?.units.find((u) => u.id === "p1")?.doneAt).toBeDefined();
   });
 });
