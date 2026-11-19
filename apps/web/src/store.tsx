@@ -293,12 +293,72 @@ function newOne<T>(k: string, { a, c }: Entries<T>): T | symbol {
   return a.has(k) && same(cur, a.get(k)) ? DROP : cur;
 }
 
-/** Entry `k` was there before and is now: back to what it was if the answer changed it. */
+const isRecord = (x: unknown): x is Record<string, unknown> =>
+  !!x && typeof x === "object" && !Array.isArray(x);
+
+/** The fields of an entry that the answer changed (`was` against `mid`). */
+function changedFields(was: Record<string, unknown>, mid: Record<string, unknown>): string[] {
+  return [...new Set([...Object.keys(was), ...Object.keys(mid)])].filter(
+    (f) => !same(was[f], mid[f]),
+  );
+}
+
+/**
+ * Entry `k` was there before and is now: each field the answer changed goes back to what
+ * it was, unless someone changed it again since (that one stays with the newer value).
+ */
 function stillThere<T>(k: string, { b, a, c }: Entries<T>): T {
   const was = b.get(k) as T;
   const mid = a.get(k);
   const cur = c.get(k) as T;
-  return mid !== undefined && !same(was, mid) && same(cur, mid) ? was : cur;
+  if (mid === undefined) return cur;
+  if (!isRecord(was) || !isRecord(mid) || !isRecord(cur)) {
+    return !same(was, mid) && same(cur, mid) ? was : cur;
+  }
+  const out: Record<string, unknown> = { ...cur };
+  for (const f of changedFields(was, mid).filter((x) => same(cur[x], mid[x]))) {
+    if (was[f] === undefined) delete out[f];
+    else out[f] = was[f];
+  }
+  return out as T;
+}
+
+const FIELD_NAMES: Record<string, string> = {
+  title: "el nombre",
+  name: "el nombre",
+  activityId: "la materia",
+  kind: "el tipo",
+  deadline: "la fecha",
+  status: "el estado",
+};
+
+/** What an answer's «Deshacer» could not put back, as a list for the notice (empty: all). */
+export function leftAfterUndo(data: AppData, snap: Snapshot): string[] {
+  const after = snap.after;
+  if (!after) return [];
+  const left: string[] = [];
+  const check = (was: unknown[], mid: unknown[], cur: unknown[]) => {
+    const by = (list: unknown[]) => new Map(list.map((e) => [keyOf(e), e]));
+    const [b, a, c] = [by(was), by(mid), by(cur)];
+    for (const [k, w] of b) {
+      const [m, n] = [a.get(k), c.get(k)];
+      if (!isRecord(w) || !isRecord(m) || !isRecord(n)) continue;
+      const fields = changedFields(w, m).filter((f) => !same(n[f], w[f]));
+      if (fields.length === 0) continue;
+      const who = String(n.title ?? n.name ?? "").trim();
+      const what = fields.map((f) => FIELD_NAMES[f] ?? f).join(", ");
+      left.push(who ? `${what} de «${who}»` : what);
+    }
+  };
+  const have = data as unknown as Record<string, unknown>;
+  for (const [k, was] of Object.entries(snap.keys ?? {})) {
+    const mid = (after.keys as Record<string, unknown>)[k];
+    if (Array.isArray(was) && Array.isArray(mid) && Array.isArray(have[k])) {
+      check(was, mid, have[k] as unknown[]);
+    }
+  }
+  if (snap.tasks?.length) check(snap.tasks, after.tasks ?? [], data.tasks);
+  return [...new Set(left)];
 }
 
 /** What stands for entry `k` once the answer is taken back (`DROP`: none). */

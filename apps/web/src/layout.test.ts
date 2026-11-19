@@ -7,6 +7,21 @@ import { describe, expect, it } from "vitest";
 // flush with the bottom of the phone screen.
 const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
 
+describe("week bar with large text (200 %)", () => {
+  it("lets the range title break in two lines instead of running over the arrows", () => {
+    const h1 = css.match(/\n\.week-nav h1\.range \{([^}]*)\}/)?.[1] ?? "";
+    expect(h1).toContain("white-space: normal;");
+    expect(h1).toContain("overflow-wrap: anywhere;");
+  });
+
+  it("lets the days shrink so the last one never leaves the screen", () => {
+    const week = css.match(/\n\.week \{([^}]*)\}/)?.[1] ?? "";
+    expect(week).toContain("repeat(7, minmax(0, 1fr))");
+    expect(week).toMatch(/grid-template-columns: min\(2rem, \d+vw\)/);
+    expect(css.match(/\n\.day-head \{([^}]*)\}/)?.[1]).toContain("min-width: 0;");
+  });
+});
+
 describe("tab bar", () => {
   it("is fixed to the bottom edge and pads for the home indicator", () => {
     const tabs = css.match(/\n\.tabs \{([^}]*)\}/)?.[1] ?? "";
