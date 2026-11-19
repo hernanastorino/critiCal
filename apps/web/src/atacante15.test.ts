@@ -69,7 +69,8 @@ const undo = (d: AppData, blockId: string) =>
   reducer(d, { type: "undoCheckIn", blockId, now: tick() });
 const unit = (d: AppData, id: string) =>
   d.tasks.find((t) => t.id === "t")?.units.find((u) => u.id === id);
-const left = (d: AppData) => progress(d, MON).find((p) => p.task.id === "t")?.remainingMinutes;
+const left = (d: AppData) =>
+  progress(d, MON).find((p) => p.task.id === "t")?.remainingMinutes ?? -1;
 
 describe("15th round: the parts follow the standing record", () => {
   it("correcting «Hecho (p1)» to «No» reopens p1 and Faltan is as before", () => {
@@ -77,7 +78,7 @@ describe("15th round: the parts follow the standing record", () => {
     const before = left(d0);
     const d1 = answer(d0, "b1", "done", ["p1"]);
     expect(unit(d1, "p1")?.doneAt).toBeDefined();
-    expect(left(d1)).toBeLessThan(before as number);
+    expect(left(d1)).toBeLessThan(before);
     const d2 = answer(d1, "b1", "missed");
     expect(unit(d2, "p1")?.doneAt).toBeUndefined();
     expect(left(d2)).toBe(before);
