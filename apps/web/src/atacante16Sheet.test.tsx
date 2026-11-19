@@ -31,7 +31,7 @@ afterEach(() => {
 });
 
 describe("16th round: correcting keeps the parts the record declares", () => {
-  it("Hecho (p1) → Corregir → Parcial without touching the parts: p1 stays done", async () => {
+  it("Hecho (p1) → Corregir → Parcial without touching the parts: p1 stays done", () => {
     const d0 = seedHistory({ ...demoData(LATER), preferences: { holidaysOff: false } }, LATER);
     const b = need(pendingConfirmations(d0, LATER).at(0));
     const d: AppData = {
