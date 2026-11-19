@@ -64,6 +64,7 @@ import {
   routinesBack,
   standingCheckIns,
   weekStart,
+  withHandMarks,
 } from "./planning.js";
 import { refresh } from "./refresh.js";
 import {
@@ -284,7 +285,7 @@ function withoutFutureBlocks(data: AppData, task: AppTask, now: number): AppData
 export function reducer(data: AppData, action: Action): AppData {
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
-  const base = routinesBack(rekeySpots(data), action.now);
+  const base = routinesBack(rekeySpots(withHandMarks(data)), action.now);
   const next = rekeySpots(versioned(base, action, apply(base, action)));
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
@@ -305,7 +306,9 @@ function reopenUnits(units: Unit[], ids: readonly string[] = []) {
   const back = new Set(ids.filter((id) => units.some((u) => u.id === id && u.doneAt)));
   return {
     ids: back,
-    units: back.size ? units.map((u) => (back.has(u.id) ? { ...u, doneAt: undefined } : u)) : units,
+    units: back.size
+      ? units.map((u) => (back.has(u.id) ? { ...u, doneAt: undefined, doneByHand: undefined } : u))
+      : units,
   };
 }
 
@@ -319,33 +322,12 @@ function stampAfter(data: AppData, blockId: string, now: number): number {
 }
 
 /**
- * Adds a record to the log and brings the parts in line with the records that stand: the
- * parts it declares get marked, and a part a record marked that no standing record
- * declares any more is open again. A part is marked by a record only when some record of
- * the task declares it with that very date; a mark made by hand (a «llevo hechos» topic,
- * which no record declares) is never touched. Records are never edited.
+ * Adds a record to the log. The parts follow from the records that stand and from the hand
+ * marks (`settleUnits`, run by `refresh`): a part a correction no longer declares is open
+ * again unless it was marked by hand. Records are never edited.
  */
 function withRecord(data: AppData, record: CheckIn): AppData {
-  const checkIns = [...data.checkIns, record];
-  const mine = checkIns.filter((c) => c.taskId === record.taskId);
-  const declared = new Set(standingCheckIns({ ...data, checkIns }).flatMap((c) => c.unitIds));
-  const markedByRecord = (u: Unit) =>
-    mine.some((c) => c.createdAt === u.doneAt && c.unitIds.includes(u.id));
-  const tasks = data.tasks.map((t) =>
-    t.id !== record.taskId
-      ? t
-      : {
-          ...t,
-          units: t.units.map((u) => {
-            if (record.unitIds.includes(u.id) && record.status !== "retired")
-              return u.doneAt === undefined ? { ...u, doneAt: record.createdAt } : u;
-            if (u.doneAt !== undefined && !declared.has(u.id) && markedByRecord(u))
-              return { ...u, doneAt: undefined };
-            return u;
-          }),
-        },
-  );
-  return { ...data, tasks, checkIns };
+  return { ...data, checkIns: [...data.checkIns, record] };
 }
 
 /** The data after `action`, planned again where it changes the plan. */
@@ -380,7 +362,12 @@ function apply(data: AppData, action: Action): AppData {
       // first one. Either way what stands is derived from the records.
       const back: CheckIn =
         before && before.status !== "retired"
-          ? { ...before, id: newId(), createdAt: stampAfter(data, gone.blockId, now) }
+          ? {
+              ...before,
+              id: newId(),
+              origin: "undo",
+              createdAt: stampAfter(data, gone.blockId, now),
+            }
           : {
               id: newId(),
               blockId: gone.blockId,
@@ -388,6 +375,7 @@ function apply(data: AppData, action: Action): AppData {
               status: "retired",
               minutesDone: 0,
               unitIds: [],
+              origin: "undo",
               createdAt: stampAfter(data, gone.blockId, now),
             };
       return refresh(withRecord(data, back), now);
@@ -651,12 +639,15 @@ function apply(data: AppData, action: Action): AppData {
           id: newId(),
           title: `Tema ${i + 1}`,
           estimateMinutes: each,
-          doneAt: i < (action.topicsDone ?? 0) ? now : undefined,
+          ...(i < (action.topicsDone ?? 0) && { doneAt: now, doneByHand: true }),
         }));
       }
       const marked = new Set(action.unitIds ?? []);
       const newlyDone = units.filter((u) => !u.doneAt && marked.has(u.id)).map((u) => u.id);
-      units = units.map((u) => (marked.has(u.id) && !u.doneAt ? { ...u, doneAt: now } : u));
+      // Marked here and declared by the record this makes just below: not by hand.
+      units = units.map((u) =>
+        marked.has(u.id) && !u.doneAt ? { ...u, doneAt: now, doneByHand: false } : u,
+      );
       const reopened = reopenUnits(units, action.reopenUnitIds);
       units = reopened.units;
       let next: AppData = {
@@ -667,8 +658,9 @@ function apply(data: AppData, action: Action): AppData {
       // (the log only grows), so after a reload it is still open.
       for (const c of standingCheckIns(data)) {
         if (c.taskId !== task.id || !c.unitIds.some((id) => reopened.ids.has(id))) continue;
+        const { origin: _origin, ...answer } = c;
         next = withRecord(next, {
-          ...c,
+          ...answer,
           id: newId(),
           unitIds: c.unitIds.filter((id) => !reopened.ids.has(id)),
           createdAt: stampAfter(next, c.blockId, now),

@@ -26,7 +26,18 @@ export interface Unit {
   id: string;
   title: string;
   estimateMinutes: number;
+  /**
+   * When it counts as done. A part is done when it was marked by hand (`doneByHand`) or
+   * when a standing check-in declares it; then this is the hand mark's date or the
+   * oldest standing record's (derived: `settleUnits`).
+   */
   doneAt?: number;
+  /**
+   * Marked by hand (a topic that was already done, no record declares it). `false`: it
+   * is done because records declare it. Unset on data from before this field: it is read
+   * with the migration rule (done and no standing record declares it: by hand).
+   */
+  doneByHand?: boolean;
   /** How much it weighs in the exam, 0–100 (e.g. % of the grade). */
   weight?: number;
   /** Left out to make the rest fit: not studied, not counted as missing. */
@@ -133,6 +144,8 @@ export interface CheckIn {
   minutesDone: number;
   unitIds: string[];
   createdAt: number;
+  /** «undo»: written by «Deshacer» (a copy of the earlier answer): not news, no celebration. */
+  origin?: "undo";
   /**
    * Block time per study minute when it was recorded (breaks included; see blockFactor).
    * Missing on older check-ins, which had no breaks: 1.

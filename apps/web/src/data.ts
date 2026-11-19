@@ -116,6 +116,8 @@ export function rowsToData(r: {
             title: u.title as string,
             estimateMinutes: u.estimate_minutes as number,
             doneAt: u.done_at ? ms(u.done_at as string) : undefined,
+            // Rows from before the column read as unset: the migration rule applies.
+            doneByHand: u.done_by_hand === undefined || !u.done_at ? undefined : !!u.done_by_hand,
             weight: (u.weight as number | null) ?? undefined,
             skipped: (u.skipped as boolean) || undefined,
           })),
@@ -130,6 +132,7 @@ export function rowsToData(r: {
         minutesDone: c.minutes_done as number,
         unitIds: (c.unit_ids as string[]) ?? [],
         createdAt: ms(c.created_at as string),
+        origin: c.origin === "undo" ? "undo" : undefined,
         factor: (c.block_factor as number | null) ?? undefined,
       }),
     ),
@@ -474,6 +477,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         estimate_minutes: u.estimateMinutes,
         position: i,
         done_at: u.doneAt ? iso(u.doneAt) : null,
+        done_by_hand: !!u.doneAt && u.doneByHand === true,
         weight: u.weight ?? null,
         skipped: !!u.skipped,
       })),
@@ -525,6 +529,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         unit_ids: c.unitIds,
         created_at: iso(c.createdAt),
         block_factor: c.factor ?? null,
+        origin: c.origin ?? null,
       })),
     });
   }
