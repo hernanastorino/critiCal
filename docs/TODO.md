@@ -28,6 +28,10 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 - **Producción**: https://critical-cal.vercel.app (la PWA cachea: para probar una versión nueva, actualizá el service worker y recargá). Modo demo: «Probar con datos de ejemplo».
 - **Límites de uso**: al 90 % del límite de 5 h, dejar este archivo al día y cortar; al 90 % del semanal, frenar y avisar. Las tareas programadas de relevo arrancan en modo de permisos por defecto y se traban pidiendo permisos: si se usan, configurarlas en modo Auto desde la app.
 
+### Errores: Better Stack, no Sentry (desde el 2026-11-18)
+
+El usuario no puede entrar a Sentry. Los errores van a **Better Stack Errors** (equipo `t637956`, aplicación «critiCal», id `2842817`, host `s2842817.us-west-2a.betterstackdata.com`), que acepta el SDK de Sentry: la variable sigue llamándose `VITE_SENTRY_DSN` (config, no secreta) y el código no cambió. Donde abajo dice «Sentry», leé Better Stack: los issues se miran en https://errors.betterstack.com/team/t637956/applications/2842817 (o con su API o su servidor MCP). Si `errors.betterstack.com` no abre, el bloqueador de DNS del usuario lo tapa (resuelve a `0.0.0.0`): pedile que lo desactive o lo permita.
+
 ### Vigilar Sentry desde la cuenta nueva
 
 En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada hora). **Recién cuando el usuario confirmó que la frenó** (ver §0 punto 2), creá en la cuenta nueva una tarea equivalente (herramienta de tareas programadas de Claude Code, cada hora, en **modo de permisos Auto**, si no se traba pidiendo permisos) con este prompt, resumido:
@@ -201,13 +205,13 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 
 Un PR por tema, con la SPEC actualizada en el mismo PR:
 
-1. Comidas cuando te levantás tarde: partir del commit `90daf71` (rama `claude/atacante-main-90daf71`), rebasado sobre `main`, y actualizar §5.1.
-2. Horarios válidos por rutina y por día de la semana (inicio y fin), en el formulario de Rutinas, el modelo, el motor y el respaldo.
-3. Rutina creada a mitad de semana: proporcional a los días que quedan.
+1. ✅ Comidas cuando te levantás tarde (#142).
+2. ✅ Horarios válidos por rutina y por día (#146). Falta: un día «sin horario válido» y la franja en feriados con rutina prestada.
+3. ✅ Rutina creada a mitad de semana, proporcional y redondeando hacia arriba (#147).
 4. Una tarea que no entra ni sola no marca críticos a las demás.
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
-6. Ajustes → Hoy: «Me levanté» no puede ser futura.
-7. CSP completa en modo `Content-Security-Policy-Report-Only` (con dónde reportar), y obligatoria cuando no reporte nada roto.
+6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
+7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Falta: revisar los reportes unos días con uso real y pasarla a `Content-Security-Policy`.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
