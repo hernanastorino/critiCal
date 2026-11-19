@@ -132,7 +132,10 @@ export function CheckInForm({
   const [partial, setPartial] = useState(false);
   const [percent, setPercent] = useState(50);
   const [units, setUnits] = useState<string[]>([]);
-  const pendingUnits = task?.units.filter((u) => !u.doneAt) ?? [];
+  // Correcting offers what the standing record declares even though it is done, and starts
+  // with it ticked: changing the answer does not drop the parts by omission.
+  const declared = answered?.unitIds ?? [];
+  const pendingUnits = task?.units.filter((u) => !u.doneAt || declared.includes(u.id)) ?? [];
 
   const send = (status: "done" | "missed" | "partial") => {
     if (!task) return;
@@ -175,7 +178,10 @@ export function CheckInForm({
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            onClick={() => setCorrecting(true)}
+            onClick={() => {
+              setUnits(declared);
+              setCorrecting(true);
+            }}
           >
             Corregir
           </button>

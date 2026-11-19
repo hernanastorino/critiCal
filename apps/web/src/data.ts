@@ -214,12 +214,23 @@ export function rowsToData(r: {
   };
 }
 
+/** Rows the server returns per request (`max_rows` in supabase/config.toml). */
+const PAGE = 1000;
+
 export async function loadData(client: SupabaseClient): Promise<AppData> {
-  const all = async (table: string, order?: string) => {
-    const query = client.from(table).select("*");
-    const { data, error } = await (order ? query.order(order) : query);
-    if (error) throw error;
-    return (data ?? []) as Row[];
+  // The server returns at most `max_rows` (1000) per request: past that the newest rows
+  // would be lost, and for check-ins those are the corrections. A full first page means
+  // there may be more, so the rest is asked by range until a page comes back short.
+  const all = async (table: string, order: string[]) => {
+    const query = () => order.reduce((q, col) => q.order(col), client.from(table).select("*"));
+    const rows: Row[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const { data, error } = await (from === 0 ? query() : query().range(from, from + PAGE - 1));
+      if (error) throw error;
+      const page = (data ?? []) as Row[];
+      rows.push(...page);
+      if (page.length < PAGE) return rows;
+    }
   };
   const [
     settings,
@@ -243,17 +254,17 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
         if (r.error) throw r.error;
         return r.data as Row | null;
       }),
-    all("activities"),
-    all("tasks"),
-    all("task_units"),
+    all("activities", ["id"]),
+    all("tasks", ["id"]),
+    all("task_units", ["id"]),
     // The newest record of a block is the one that stands: oldest first.
-    all("check_ins", "created_at"),
-    all("calendar_events"),
-    all("day_overrides"),
-    all("plan_blocks"),
-    all("calendars"),
-    all("places"),
-    all("travel_times"),
+    all("check_ins", ["created_at", "id"]),
+    all("calendar_events", ["source", "external_id"]),
+    all("day_overrides", ["date"]),
+    all("plan_blocks", ["id"]),
+    all("calendars", ["source", "external_id"]),
+    all("places", ["id"]),
+    all("travel_times", ["from_place", "to_place"]),
   ]);
   return rowsToData({
     settings,

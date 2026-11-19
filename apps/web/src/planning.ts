@@ -93,6 +93,24 @@ export function standingCheckIns(data: AppData): CheckIn[] {
   return data.checkIns.filter((c) => last.get(c.blockId) === c && c.status !== "retired");
 }
 
+/**
+ * A record that only repeats an earlier answer of its block (what «Deshacer» writes back)
+ * or retires it: it is not a new answer, so it is not news (no celebration).
+ */
+export function isUndoCopy(data: AppData, c: CheckIn): boolean {
+  if (c.status === "retired") return true;
+  return data.checkIns.some(
+    (o) =>
+      o.id !== c.id &&
+      o.blockId === c.blockId &&
+      (o.createdAt < c.createdAt || (o.createdAt === c.createdAt && o.id < c.id)) &&
+      o.status === c.status &&
+      o.minutesDone === c.minutesDone &&
+      o.unitIds.length === c.unitIds.length &&
+      o.unitIds.every((id) => c.unitIds.includes(id)),
+  );
+}
+
 /** When the block a check-in is about starts: the week it belongs to, not when it was logged. */
 export function blockStartOf(data: AppData, c: CheckIn): number {
   return data.plan.find((b) => b.id === c.blockId)?.start ?? c.createdAt;

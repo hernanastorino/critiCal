@@ -4,7 +4,7 @@ import { diffData, rowsToData } from "./data.js";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
 import { MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
 import type { AppData, AppTask, CheckIn } from "./model.js";
-import { doneMinutes, progress, standingCheckIns, weekStart } from "./planning.js";
+import { doneMinutes, latestCheckIns, progress, standingCheckIns, weekStart } from "./planning.js";
 import { reducer } from "./store.js";
 import { plannedVsDone } from "./week-review.js";
 
@@ -66,7 +66,7 @@ const answer = (d: AppData, blockId: string, status: Status, unitIds: string[] =
     now: tick(),
   });
 const undo = (d: AppData, blockId: string) =>
-  reducer(d, { type: "undoCheckIn", blockId, now: tick() });
+  reducer(d, { type: "undoCheckIn", id: latestCheckIns(d).get(blockId)?.id ?? "", now: tick() });
 const unit = (d: AppData, id: string) =>
   d.tasks.find((t) => t.id === "t")?.units.find((u) => u.id === id);
 const left = (d: AppData) =>
@@ -164,7 +164,7 @@ describe("15th round: undoing only adds records", () => {
 
   it("undoing twice by the same record does nothing more", () => {
     const d1 = answer(base(), "b1", "done", ["p1"]);
-    const id = d1.checkIns[0]?.id;
+    const id = d1.checkIns[0]?.id ?? "";
     const d2 = reducer(d1, { type: "undoCheckIn", id, now: clock + 1 });
     expect(reducer(d2, { type: "undoCheckIn", id, now: clock + 2 })).toBe(d2);
     expect(undo(d2, "b1")).toBe(d2);

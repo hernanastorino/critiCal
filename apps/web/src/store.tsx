@@ -96,7 +96,7 @@ export type Action =
    * Takes the newest check-in of a block back, e.g. on «Deshacer». The log only grows, so
    * it adds a record: the earlier answer again, or «retired» when there was none.
    */
-  | { type: "undoCheckIn"; id?: string; blockId?: string; now: number }
+  | { type: "undoCheckIn"; id: string; now: number }
   | { type: "override"; override: DayOverride; now: number }
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
@@ -309,19 +309,6 @@ function reopenUnits(units: Unit[], ids: readonly string[] = []) {
   };
 }
 
-/**
- * A part taken back is no longer in what was recorded either, so a backup (which marks
- * parts from the records) does not mark it again.
- */
-function withoutUnitIds(checkIns: CheckIn[], taskId: string, ids: ReadonlySet<string>) {
-  if (ids.size === 0) return checkIns;
-  return checkIns.map((c) =>
-    c.taskId === taskId && c.unitIds.some((id) => ids.has(id))
-      ? { ...c, unitIds: c.unitIds.filter((id) => !ids.has(id)) }
-      : c,
-  );
-}
-
 const byDate = (a: CheckIn, b: CheckIn) =>
   a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 
@@ -333,15 +320,17 @@ function stampAfter(data: AppData, blockId: string, now: number): number {
 
 /**
  * Adds a record to the log and brings the parts in line with the records that stand: the
- * parts it declares get marked, and a part an earlier record marked that no standing
- * record declares any more is open again. A mark made by hand (its date is not the date
- * of any record) is never touched.
+ * parts it declares get marked, and a part a record marked that no standing record
+ * declares any more is open again. A part is marked by a record only when some record of
+ * the task declares it with that very date; a mark made by hand (a «llevo hechos» topic,
+ * which no record declares) is never touched. Records are never edited.
  */
 function withRecord(data: AppData, record: CheckIn): AppData {
   const checkIns = [...data.checkIns, record];
   const mine = checkIns.filter((c) => c.taskId === record.taskId);
   const declared = new Set(standingCheckIns({ ...data, checkIns }).flatMap((c) => c.unitIds));
-  const stamps = new Set(mine.map((c) => c.createdAt));
+  const markedByRecord = (u: Unit) =>
+    mine.some((c) => c.createdAt === u.doneAt && c.unitIds.includes(u.id));
   const tasks = data.tasks.map((t) =>
     t.id !== record.taskId
       ? t
@@ -350,7 +339,7 @@ function withRecord(data: AppData, record: CheckIn): AppData {
           units: t.units.map((u) => {
             if (record.unitIds.includes(u.id) && record.status !== "retired")
               return u.doneAt === undefined ? { ...u, doneAt: record.createdAt } : u;
-            if (u.doneAt !== undefined && stamps.has(u.doneAt) && !declared.has(u.id))
+            if (u.doneAt !== undefined && !declared.has(u.id) && markedByRecord(u))
               return { ...u, doneAt: undefined };
             return u;
           }),
@@ -379,15 +368,9 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(withRecord(data, checkIn), now);
     }
     case "undoCheckIn": {
-      // By block it takes back the newest answer: after a correction, that one. It must
-      // still be the newest of its block, so a repeated «Deshacer» does nothing more.
+      // It must still be the newest of its block, so a repeated «Deshacer» does nothing more.
       const newest = latestCheckIns(data);
-      const gone =
-        action.id !== undefined
-          ? data.checkIns.find((c) => c.id === action.id)
-          : action.blockId !== undefined
-            ? newest.get(action.blockId)
-            : undefined;
+      const gone = data.checkIns.find((c) => c.id === action.id);
       if (!gone || gone.status === "retired" || newest.get(gone.blockId) !== gone) return data;
       const before = data.checkIns
         .filter((c) => c.blockId === gone.blockId)
@@ -676,12 +659,25 @@ function apply(data: AppData, action: Action): AppData {
       units = units.map((u) => (marked.has(u.id) && !u.doneAt ? { ...u, doneAt: now } : u));
       const reopened = reopenUnits(units, action.reopenUnitIds);
       units = reopened.units;
-      const tasks = data.tasks.map((t) => (t.id === task.id ? { ...t, units } : t));
-      const kept = withoutUnitIds(data.checkIns, task.id, reopened.ids);
+      let next: AppData = {
+        ...data,
+        tasks: data.tasks.map((t) => (t.id === task.id ? { ...t, units } : t)),
+      };
+      // A part a standing record declares is taken back with a correction of that record
+      // (the log only grows), so after a reload it is still open.
+      for (const c of standingCheckIns(data)) {
+        if (c.taskId !== task.id || !c.unitIds.some((id) => reopened.ids.has(id))) continue;
+        next = withRecord(next, {
+          ...c,
+          id: newId(),
+          unitIds: c.unitIds.filter((id) => !reopened.ids.has(id)),
+          createdAt: stampAfter(next, c.blockId, now),
+        });
+      }
       const checkIns =
         action.minutes > 0 || newlyDone.length > 0
           ? [
-              ...kept,
+              ...next.checkIns,
               {
                 id: newId(),
                 blockId: `manual@${now}`,
@@ -693,8 +689,8 @@ function apply(data: AppData, action: Action): AppData {
                 factor: checkInFactor(data, task.id),
               },
             ]
-          : kept;
-      return refresh({ ...data, tasks, checkIns }, now);
+          : next.checkIns;
+      return refresh({ ...next, checkIns }, now);
     }
     case "pin": {
       const block = data.plan.find((b) => b.id === action.blockId);

@@ -1,7 +1,8 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
-import { type AppData, CRITICAL } from "../model.js";
+import { type AppData, type CheckIn, CRITICAL } from "../model.js";
+import { standingCheckIns } from "../planning.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
@@ -15,6 +16,32 @@ export function downloadJson(data: AppData, now: number) {
   a.download = `critical-${localParts(data.settings.timezone, now).date}.json`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * The backup's tasks with the units the newer check-ins completed kept completed, including
+ * units added after the backup (taken from the current copy of the task). Only the records
+ * that stand mark parts: one a later correction replaced, or an undo retired, does not.
+ */
+export function withNewerUnits(file: AppData, newer: CheckIn[], current: AppData) {
+  const kept = new Set(newer.map((c) => c.id));
+  const standing = standingCheckIns({ ...file, checkIns: [...file.checkIns, ...newer] }).filter(
+    (c) => kept.has(c.id),
+  );
+  return file.tasks.map((t) => {
+    const done = new Map<string, number>();
+    for (const c of standing)
+      if (c.taskId === t.id) for (const u of c.unitIds) done.set(u, c.createdAt);
+    if (done.size === 0) return t;
+    const now = current.tasks.find((x) => x.id === t.id);
+    const added = (now?.units ?? []).filter(
+      (u) => done.has(u.id) && !t.units.some((x) => x.id === u.id),
+    );
+    const units = [...t.units, ...added].map((u) =>
+      done.has(u.id) && !u.doneAt ? { ...u, doneAt: done.get(u.id) } : u,
+    );
+    return { ...t, units };
+  });
 }
 
 /** Download everything as JSON, or replace everything with a downloaded file. */
@@ -38,22 +65,7 @@ export function Backup() {
     const inBackup = new Set(parsed.data.tasks.map((t) => t.id));
     const inFile = new Set(parsed.data.checkIns.map((c) => c.id));
     const newer = data.checkIns.filter((c) => inBackup.has(c.taskId) && !inFile.has(c.id));
-    // Units those check-ins completed stay completed, including units added after the
-    // backup (taken from the current copy of the task).
-    const tasks = parsed.data.tasks.map((t) => {
-      const done = new Map<string, number>();
-      for (const c of newer)
-        if (c.taskId === t.id) for (const u of c.unitIds) done.set(u, c.createdAt);
-      if (done.size === 0) return t;
-      const current = data.tasks.find((x) => x.id === t.id);
-      const added = (current?.units ?? []).filter(
-        (u) => done.has(u.id) && !t.units.some((x) => x.id === u.id),
-      );
-      const units = [...t.units, ...added].map((u) =>
-        done.has(u.id) && !u.doneAt ? { ...u, doneAt: done.get(u.id) } : u,
-      );
-      return { ...t, units };
-    });
+    const tasks = withNewerUnits(parsed.data, newer, data);
     // The file may come from another account: the data is this account's now (and the
     // ids of what the import makes are seeded by its owner).
     const { owner: _theirs, ...theirs } = parsed.data;
