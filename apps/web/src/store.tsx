@@ -1378,10 +1378,44 @@ export function StoreProvider({
   // Leaving the demo (signing in instead) discards it, and with it what it was holding.
   useEffect(() => () => hold("demo", false), []);
 
-  const store = useMemo<Store>(() => {
+  // The decisions replan once per option (~35 ms each in the demo): they are worked out
+  // when something asks (the Bandeja) or, for the counter, right after the paint, never
+  // inside the render a tap waits for.
+  const plan = useMemo(() => {
     const r = refreshPlan(data, now);
+    let cached: Decisions | undefined;
+    return {
+      r,
+      peek: () => cached,
+      get: () => {
+        cached ??= decisions(r.input, r.result, { data, now });
+        return cached;
+      },
+    };
+  }, [data, now]);
+  const counted = useRef<number | null>(null);
+  const [settled, setSettled] = useState(plan);
+  useEffect(() => {
+    if (plan.peek()) {
+      setSettled(plan);
+      return;
+    }
+    const id = setTimeout(() => {
+      plan.get();
+      setSettled(plan);
+    }, 0);
+    return () => clearTimeout(id);
+  }, [plan]);
+
+  const store = useMemo<Store>(() => {
+    const r = plan.r;
     const pending = pendingConfirmations(data, now);
-    const d = decisions(r.input, r.result, { data, now });
+    // Until the decisions of this plan are known the count of the last ones stays; only
+    // the very first render (nothing to keep) works them out at once.
+    const asked =
+      (settled === plan ? plan.get() : plan.peek()) ??
+      (counted.current === null ? plan.get() : undefined);
+    if (asked) counted.current = (asked.options.length > 0 ? 1 : 0) + asked.recommendations.length;
     // Signed in, the server times event addresses by itself; the demo has no server.
     const where = unlocated(data, visibleEvents(data), now).map((u) =>
       persist ? { ...u, lookup: false } : u,
@@ -1399,7 +1433,9 @@ export function StoreProvider({
         raw({ ...a, now: fixedNow ?? Date.now() } as Action);
       },
       pending,
-      decisions: d,
+      get decisions() {
+        return plan.get();
+      },
       result: r.result,
       unlocated: where,
       pinShort,
@@ -1419,11 +1455,10 @@ export function StoreProvider({
         pending.length +
         data.proposals.length +
         // «No llegás a todo» is one decision, whatever its options.
-        (d.options.length > 0 ? 1 : 0) +
-        d.recommendations.length +
+        (counted.current ?? 0) +
         data.tasks.filter((t) => t.needsReview && t.status === "active").length,
     };
-  }, [data, now, fixedNow, persist]);
+  }, [data, now, fixedNow, persist, plan, settled]);
 
   return <StoreContext.Provider value={store}>{children}</StoreContext.Provider>;
 }
