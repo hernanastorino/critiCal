@@ -206,6 +206,16 @@ export function Week({
   const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
   const replanRef = useRef<HTMLButtonElement>(null);
+  /**
+   * A replan under way: the undo version it started from, and whether one came out of it
+   * (the store adds a version only when the replan moved something).
+   */
+  const replanWatch = useRef<{ from: PlanVersion | undefined; changed: boolean } | null>(null);
+  const lastVersion = data.planHistory?.at(-1);
+  useEffect(() => {
+    const w = replanWatch.current;
+    if (w && lastVersion !== w.from) w.changed = true;
+  }, [lastVersion]);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const undoRef = useRef<HTMLButtonElement>(null);
   const editRef = useRef<HTMLButtonElement>(null);
@@ -282,13 +292,15 @@ export function Week({
     if (tag && tag !== latest) toaster.clear(tag);
   }, [toaster, latest]);
   /** What a meal change says once the store shows it: the toast carries its undo. */
-  const mealSaid = useRef<string | null>(null);
-  const sayMeal = (said: string) => {
-    mealSaid.current = said;
+  const mealSaid = useRef<{ said: string; at?: number } | null>(null);
+  /** `at`: where the meal was, so «Deshacer» gives the focus back to it. */
+  const sayMeal = (said: string, at?: number) => {
+    mealSaid.current = { said, at };
   };
   useEffect(() => {
-    const said = mealSaid.current;
-    if (!said) return;
+    const heard = mealSaid.current;
+    if (!heard) return;
+    const { said, at } = heard;
     mealSaid.current = null;
     flash(
       said,
@@ -296,6 +308,15 @@ export function Week({
         toaster.clear();
         // Only this change: if another one came after (this screen may be gone), nothing.
         dispatch({ type: "undoPlan", only: latest });
+        // The notice that held the focus goes away: the meal that came back (or the
+        // title) takes it, never the page.
+        if (at !== undefined)
+          requestAnimationFrame(() =>
+            (
+              document.querySelector<HTMLElement>(`.pill.meal[data-at="${at}"]:not(.skipped)`) ??
+              titleRef.current
+            )?.focus(),
+          );
       },
       latest,
     );
@@ -491,6 +512,19 @@ export function Week({
   /** What the ghost and the loupe are drawn with: the block's color, or the meals'. */
   const dragColor = draggedBlock ? colorOf(draggedBlock) : drag?.meal ? "var(--meal)" : undefined;
 
+  /** The day columns as drawn now, to find the day and time under a finger. */
+  const columns = () =>
+    [...document.querySelectorAll<HTMLElement>("[data-date]")].map((el) => {
+      const r = el.getBoundingClientRect();
+      return {
+        date: el.dataset.date as string,
+        left: r.left,
+        right: r.right,
+        top: r.top,
+        bottom: r.bottom,
+      };
+    });
+
   /**
    * Snapped landing slot under the finger, moved off what is fixed: busy events that are
    * not flexible, and blocks already under way. Plan blocks, pins and flexible events
@@ -498,24 +532,7 @@ export function Week({
    */
   const landing = (x: number, y: number, minutes: number, blockId: string) => {
     const slot = data.settings.slotMinutes;
-    const spot = dropTarget(
-      [...document.querySelectorAll<HTMLElement>("[data-date]")].map((el) => {
-        const r = el.getBoundingClientRect();
-        return {
-          date: el.dataset.date as string,
-          left: r.left,
-          right: r.right,
-          top: r.top,
-          bottom: r.bottom,
-        };
-      }),
-      x,
-      y,
-      startMin,
-      endMin,
-      minutes,
-      slot,
-    );
+    const spot = dropTarget(columns(), x, y, startMin, endMin, minutes, slot);
     if (!spot) return null;
     const { busy, earliest, latest } = landingLimits(spot.date, blockId);
     const minute = nearestFree(spot.minute, minutes, busy, slot, earliest, latest);
@@ -717,20 +734,28 @@ export function Week({
   const drop = (block: PlanBlock, d: Drag, x: number, y: number) => {
     const target = landing(x, y - d.grab, d.minutes, block.id);
     if (!target) {
-      const why = whyNotHere(x);
+      const why = whyNotHere(x, y - d.grab, d.minutes, block.id);
       if (why) flash(why);
       return null;
     }
     return pinAt(block, zonedInstant(tz, target.date, target.minute));
   };
 
-  /** Why a block cannot land on the day under `x`; nothing when it is not over a day. */
-  const whyNotHere = (x: number) => {
+  /**
+   * Why a block cannot land on the day under `x`: the same reasons a key move gives (after
+   * the deadline, outside the study hours), else that nothing fixed leaves room.
+   * Nothing when it is not over a day.
+   */
+  const whyNotHere = (x: number, y: number, minutes: number, blockId: string) => {
     const date = dayUnder(x);
     if (!date) return null;
-    return date < today
-      ? "No se puede mover a un día que ya pasó"
-      : "No hay un hueco libre ahí: probá otra hora u otro día";
+    if (date < today) return "No se puede mover a un día que ya pasó";
+    const spot = dropTarget(columns(), x, y, startMin, endMin, minutes, data.settings.slotMinutes);
+    const bounds = spot ? boundsOf(spot.date, blockId) : null;
+    return (
+      (bounds && spot ? moveRefusal(bounds, spot.minute, minutes) : null) ??
+      "No hay un hueco libre ahí: probá otra hora u otro día"
+    );
   };
 
   // While dragging: the plan's blocks under the landing spot, which it will move.
@@ -821,10 +846,19 @@ export function Week({
               // Emptied first, so a second replan in the same minute is announced again.
               setSpoken("");
               setReplanning(true);
+              const run = { from: data.planHistory?.at(-1), changed: false };
+              replanWatch.current = run;
               dispatch({ type: "replanWeek" });
               const at = now;
               replanTimer.current = setTimeout(() => {
                 setReplanning(false);
+                // Nothing moved: say so, and no tick for a change that did not happen.
+                if (!run.changed) {
+                  flash("Ya estaba acomodada");
+                  setSpoken("Ya estaba acomodada");
+                  replanRef.current?.focus();
+                  return;
+                }
                 setReplanned(true);
                 setSpoken(`Semana reacomodada · ${time(tz, at)}`);
                 replanTimer.current = setTimeout(() => setReplanned(false), DONE_MS);
@@ -1433,6 +1467,8 @@ function BubbleCard({
       (item.run ?? [b]).map((x) => data.tasks.find((t) => t.id === x.taskId)?.title ?? "Bloque"),
     ),
   ].join(" · ");
+  // Already registered: the sheet offers to correct it, not to mark how it went.
+  const unanswered = (item.run ?? [b]).some((x) => !data.checkIns.some((c) => c.blockId === x.id));
   return (
     <BubbleDialog
       label={titles}
@@ -1463,7 +1499,9 @@ function BubbleCard({
           </p>
         )}
         {isPinned(b) && item.start <= now && <p>📌 Fijado por vos</p>}
-        <p className="more">{item.end <= now ? "Marcar cómo te fue ›" : "Ver detalle ›"}</p>
+        <p className="more">
+          {item.end <= now && unanswered ? "Marcar cómo te fue ›" : "Ver detalle ›"}
+        </p>
       </button>
       {isPinned(b) && item.start > now && !item.run && (
         <div className="bubble-pin">
@@ -1552,8 +1590,8 @@ function MealCard({
   bubble: MealBubble;
   onClose: () => void;
   onSettings: () => void;
-  /** Tells what was done (the app offers its «Deshacer»). */
-  onSaid: (said: string) => void;
+  /** Tells what was done (the app offers its «Deshacer»); `at` is where the meal was. */
+  onSaid: (said: string, at?: number) => void;
 }) {
   const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
@@ -1590,7 +1628,7 @@ function MealCard({
       ...choice,
     });
     onClose();
-    onSaid(said);
+    onSaid(said, meal.at.start);
   };
   return (
     <BubbleDialog

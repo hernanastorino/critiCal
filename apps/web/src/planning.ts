@@ -72,9 +72,18 @@ export function blockFactor(activity: Activity | undefined): number {
   return study > 0 && rest > 0 ? (study + rest) / study : 1;
 }
 
+/**
+ * The check-ins that count: the log only grows (SPEC §3), so a correction is a newer
+ * check-in of the same block, and it is the one that stands.
+ */
+export function standingCheckIns(data: AppData): CheckIn[] {
+  const last = new Map(data.checkIns.map((c) => [c.blockId, c]));
+  return data.checkIns.filter((c) => last.get(c.blockId) === c);
+}
+
 /** Minutes really worked on a task, from check-ins. */
 export function doneMinutes(data: AppData, taskId: string, since = 0): number {
-  return data.checkIns
+  return standingCheckIns(data)
     .filter((c) => c.taskId === taskId && c.createdAt >= since)
     .reduce((sum, c) => sum + c.minutesDone, 0);
 }
@@ -91,7 +100,7 @@ export function checkInFactor(data: AppData, taskId: string): number | undefined
 }
 
 function samples(data: AppData) {
-  return data.checkIns
+  return standingCheckIns(data)
     .filter((c) => c.status !== "missed")
     .flatMap((c) => {
       const task = data.tasks.find((t) => t.id === c.taskId);
@@ -180,7 +189,7 @@ export function progress(data: AppData, now: number): TaskProgress[] {
         };
       }
       // Estimates are study time and check-ins block time (breaks included then).
-      const done = data.checkIns
+      const done = standingCheckIns(data)
         .filter((c) => c.taskId === task.id)
         .reduce((sum, c) => sum + studyMinutes(c), 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
@@ -834,7 +843,7 @@ export function applyOption(
     const done =
       task.kind === "habit"
         ? 0
-        : data.checkIns
+        : standingCheckIns(data)
             .filter((c) => c.taskId === task.id)
             .reduce((s, c) => s + studyMinutes(c), 0);
     const previewed = Math.max(0, Math.round(next.minRemainingMinutes / k) + Math.ceil(done));

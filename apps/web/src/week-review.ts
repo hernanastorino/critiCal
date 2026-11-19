@@ -2,7 +2,7 @@
 import { addDays, localParts, MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
 import { holidaysBetween } from "./holidays.js";
 import type { AppData } from "./model.js";
-import { blockFactor, studyMinutes, weekStart } from "./planning.js";
+import { blockFactor, standingCheckIns, studyMinutes, weekStart } from "./planning.js";
 
 const DAY = 1440 * MINUTE;
 
@@ -73,7 +73,7 @@ export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
   const ended = data.plan.filter((b) => b.start >= since && b.end <= now);
   for (const b of ended) row(b.taskId).planned += (b.end - b.start) / MINUTE / factorOf(data, b);
   const counted = new Set(ended.map((b) => b.id));
-  for (const c of data.checkIns) {
+  for (const c of standingCheckIns(data)) {
     // No upper bound: the screen's clock ticks once a minute, so what was just logged is
     // stamped a little after it.
     if (c.createdAt < since) continue;

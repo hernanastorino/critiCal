@@ -344,7 +344,8 @@ function apply(data: AppData, action: Action): AppData {
       return refresh({ ...data, tasks, checkIns: [...data.checkIns, checkIn] }, now);
     }
     case "undoCheckIn": {
-      const gone = data.checkIns.find(
+      // By block it takes back the latest answer: after a correction, that one.
+      const gone = data.checkIns.findLast(
         (c) =>
           (action.id !== undefined && c.id === action.id) ||
           (action.blockId !== undefined && c.blockId === action.blockId),
@@ -1536,9 +1537,17 @@ function undoMove(moves: AppData["movedEvents"], record: AppliedDecision) {
   ];
 }
 
+/** Whether a replan moved anything: the plan, the plans B waiting or their hold. */
+export function replanChanged(before: AppData, after: AppData): boolean {
+  const view = (d: AppData) => JSON.stringify([d.plan, d.proposals, d.tentativeHoldUntil]);
+  return view(before) !== view(after);
+}
+
 function versioned(data: AppData, action: Action, next: AppData): AppData {
   const label = VERSIONED[action.type];
   if (!label || next === data) return next;
+  // A replan that changed nothing has nothing to undo.
+  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
   const now = action.now;
   const version: PlanVersion = {
     at: now,

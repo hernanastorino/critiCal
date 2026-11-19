@@ -11,7 +11,6 @@ import {
   onlyNoFitLeft,
   optionPromise,
   REPLANNED_TOAST,
-  SKIPPED_TOAST,
   STILL_SHORT,
 } from "../friendly.js";
 import { lateNight } from "../lateNight.js";
@@ -29,6 +28,7 @@ import { RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
+import { useCheckIn } from "./useCheckIn.js";
 import { useInboxAnswers } from "./useUndoable.js";
 
 const EAT: Record<MealKind, string> = {
@@ -133,25 +133,11 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
   // The list reflows after each answer: a second tap right after lands on the next item.
   const lastAnswer = useRef(0);
+  const answer = useCheckIn(setRestored);
   const quick = (b: PlanBlock, status: "done" | "missed") => {
     if (Date.now() - lastAnswer.current < ANSWER_GUARD_MS) return;
     lastAnswer.current = Date.now();
-    dispatch({
-      type: "checkIn",
-      checkIn: {
-        blockId: b.id,
-        taskId: b.taskId,
-        status,
-        minutesDone: status === "done" ? (b.end - b.start) / MINUTE : 0,
-        unitIds: [],
-      },
-    });
-    const undo = () => {
-      dispatch({ type: "undoCheckIn", blockId: b.id });
-      setRestored(b.id);
-    };
-    if (status === "missed") toast.show(SKIPPED_TOAST, { roy: "hombros", undo });
-    else toast.show("Anotado como hecho.", { undo });
+    answer(b, status);
   };
 
   return (
@@ -582,6 +568,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
       {open && (
         <BlockSheet
           item={{ kind: "block", id: open.id, start: open.start, end: open.end, block: open }}
+          onUndone={setRestored}
           onClose={() => {
             keepFocus.rearm();
             setOpen(null);

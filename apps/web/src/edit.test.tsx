@@ -237,6 +237,13 @@ describe("pins", () => {
   });
 });
 
+/** Another change to the plan (a key move of a block still planned): the last undo goes stale. */
+function changePlanAgain() {
+  const pill = document.querySelector(".pill.planned.movable") as HTMLElement;
+  pill.focus();
+  fireEvent.keyDown(pill, { key: "ArrowDown" });
+}
+
 describe("edit mode", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -582,8 +589,8 @@ describe("edit mode", () => {
     fireEvent.pointerMove(pill, { clientX: x, clientY: y, pointerId: 7 });
     fireEvent.pointerUp(pill, { clientX: x, clientY: y, pointerId: 7 });
     expect(screen.getByRole("button", { name: "Deshacer" })).toBeTruthy();
-    // A replan after it: its undo would take back the replan, not the drop.
-    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    // Another change after it: its undo would take back that one, not the drop.
+    changePlanAgain();
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
   });
 
@@ -638,7 +645,7 @@ describe("edit mode", () => {
       screen.getByText(/Quedó sobre Paseo #flex: revisá el choque en la Bandeja/),
     ).toBeTruthy();
     // Its undo goes too once the plan changes again.
-    fireEvent.click(screen.getByLabelText("Reacomodar semana"));
+    changePlanAgain();
     expect(screen.queryByRole("button", { name: "Deshacer" })).toBeNull();
   });
 
@@ -862,7 +869,16 @@ describe("plan history", () => {
     expect(back.pins).toEqual(d.pins ?? []);
     expect(back.planHistory).toEqual([]);
     let many = d;
-    for (let i = 0; i < 25; i++) many = reducer(many, { type: "replanWeek", now: NOW });
+    let id = block.id;
+    for (let i = 0; i < 25; i++) {
+      many = reducer(many, {
+        type: "pin",
+        blockId: id,
+        start: block.start + (i + 1) * 1_800_000,
+        now: NOW,
+      });
+      id = many.pins?.at(-1)?.id ?? id;
+    }
     expect(many.planHistory).toHaveLength(20);
   });
 });

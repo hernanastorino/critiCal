@@ -4,15 +4,19 @@ import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { isPinned, progress } from "../planning.js";
 import { useStore } from "../store.js";
 import { useModal } from "./modal.js";
+import { useCheckIn } from "./useCheckIn.js";
 import type { Item } from "./Week.js";
 
 export function BlockSheet({
   item,
   onClose,
+  onUndone,
   returnTo,
 }: {
   item: Item;
   onClose: () => void;
+  /** After «Deshacer» of an answer given here: whoever lists the block puts it back. */
+  onUndone?: (blockId: string) => void;
   /** Where focus goes on closing when what opened it is gone. */
   returnTo?: () => HTMLElement | null;
 }) {
@@ -38,9 +42,9 @@ export function BlockSheet({
         {item.kind === "event" ? (
           <EventDetail item={item} />
         ) : item.run ? (
-          <BlockRun run={item.run} onDone={onClose} />
+          <BlockRun run={item.run} onDone={onClose} onUndone={onUndone} />
         ) : (
-          <CheckInForm block={item.block} onDone={onClose} />
+          <CheckInForm block={item.block} onDone={onClose} onUndone={onUndone} />
         )}
       </div>
     </>
@@ -48,7 +52,15 @@ export function BlockSheet({
 }
 
 /** Blocks drawn as one pill: each with its own details and actions. */
-function BlockRun({ run, onDone }: { run: PlanBlock[]; onDone: () => void }) {
+function BlockRun({
+  run,
+  onDone,
+  onUndone,
+}: {
+  run: PlanBlock[];
+  onDone: () => void;
+  onUndone?: (blockId: string) => void;
+}) {
   return (
     <>
       <p className="meta">{run.length} bloques seguidos</p>
@@ -58,7 +70,7 @@ function BlockRun({ run, onDone }: { run: PlanBlock[]; onDone: () => void }) {
           className={i > 0 ? "run-block" : undefined}
           aria-label={`Bloque ${i + 1}`}
         >
-          <CheckInForm block={b} onDone={onDone} />
+          <CheckInForm block={b} onDone={onDone} onUndone={onUndone} />
         </section>
       ))}
     </>
@@ -98,12 +110,23 @@ function EventDetail({ item }: { item: Extract<Item, { kind: "event" }> }) {
   );
 }
 
-export function CheckInForm({ block, onDone }: { block: PlanBlock; onDone: () => void }) {
+export function CheckInForm({
+  block,
+  onDone,
+  onUndone,
+}: {
+  block: PlanBlock;
+  onDone: () => void;
+  onUndone?: (blockId: string) => void;
+}) {
   const { data, now, dispatch } = useStore();
+  const answer = useCheckIn(onUndone);
   const tz = data.settings.timezone;
   const task = data.tasks.find((t) => t.id === block.taskId);
   const activity = data.activities.find((a) => a.id === block.activityId);
-  const answered = data.checkIns.find((c) => c.blockId === block.id);
+  // The newest answer stands: a correction is a later check-in of the same block.
+  const answered = data.checkIns.findLast((c) => c.blockId === block.id);
+  const [correcting, setCorrecting] = useState(false);
   const p = progress(data, now).find((x) => x.task.id === block.taskId);
   const length = (block.end - block.start) / MINUTE;
   const [partial, setPartial] = useState(false);
@@ -113,18 +136,11 @@ export function CheckInForm({ block, onDone }: { block: PlanBlock; onDone: () =>
 
   const send = (status: "done" | "missed" | "partial") => {
     if (!task) return;
-    const minutesDone =
-      status === "done" ? length : status === "partial" ? Math.round((length * percent) / 100) : 0;
-    dispatch({
-      type: "checkIn",
-      checkIn: {
-        blockId: block.id,
-        taskId: task.id,
-        status,
-        minutesDone,
-        unitIds: status === "missed" ? [] : units,
-      },
+    answer(block, status, {
+      minutesDone: Math.round((length * percent) / 100),
+      unitIds: units,
     });
+    setCorrecting(false);
     onDone();
   };
 
@@ -144,16 +160,27 @@ export function CheckInForm({ block, onDone }: { block: PlanBlock; onDone: () =>
         </p>
       )}
 
-      {answered ? (
-        <p className="meta">
-          Ya registrado:{" "}
-          {answered.status === "done"
-            ? "hecho ✓"
-            : answered.status === "missed"
-              ? "no lo hice ✗"
-              : `parcial (${hours(answered.minutesDone)})`}
-        </p>
-      ) : block.start > now ? (
+      {answered && !correcting ? (
+        <>
+          <p className="meta">
+            Ya registrado:{" "}
+            {answered.status === "done"
+              ? "hecho ✓"
+              : answered.status === "missed"
+                ? "no lo hice ✗"
+                : `parcial (${hours(answered.minutesDone)})`}
+          </p>
+          {/* The log only grows: a correction is a new answer, the old one stays in it. */}
+          <button
+            type="button"
+            className="btn"
+            style={{ width: "100%" }}
+            onClick={() => setCorrecting(true)}
+          >
+            Corregir
+          </button>
+        </>
+      ) : !answered && block.start > now ? (
         <>
           <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
           {isPinned(block) && (
