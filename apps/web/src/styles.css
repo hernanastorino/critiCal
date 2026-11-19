@@ -219,6 +219,8 @@ textarea {
   display: flex;
   align-items: center;
   flex: none;
+  /* Room for the arrow's focus ring, so it does not touch the title (large text). */
+  gap: 4px;
 }
 
 .header .week-nav .icon-btn {
@@ -1166,17 +1168,20 @@ input[type="radio"]:disabled {
   font-weight: 600;
 }
 
+/* In pixels, not rem: the tab bar keeps its size with large text, and a badge that grew with
+   it would cover the icon (which moves up as the label grows). It sits at the icon's corner. */
 .badge {
   position: absolute;
-  top: 8px;
-  left: calc(50% + 6px);
+  top: 3px;
+  left: calc(50% + 8px);
   min-width: 18px;
   height: 18px;
   padding: 0 5px;
   border-radius: 9px;
   background: var(--critical);
   color: #fff;
-  font-size: 0.6875rem;
+  font-size: 11px;
+  line-height: 1;
   font-weight: 700;
   display: grid;
   place-items: center;

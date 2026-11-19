@@ -32,7 +32,7 @@ import {
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppEvent, AppTask, CheckIn, Proposal } from "./model.js";
+import type { AppData, AppEvent, AppTask, CheckIn, Proposal, Unit } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -135,6 +135,29 @@ export function withHandMarks(data: AppData): AppData {
           ? { ...u, doneByHand: !mine?.has(u.id) }
           : u,
       ),
+    };
+  });
+  return moved ? { ...data, tasks } : data;
+}
+
+/**
+ * A file's parts that say «done, not by hand» when no standing record of its own declares
+ * them (a record corrected or edited out of the file): they would reopen on their own, so
+ * they are read as marked by hand, the way a part with no field is. Returns `data` itself
+ * when there is nothing to say.
+ */
+export function withOrphanMarks(data: AppData): AppData {
+  const declared = declaredBy(data);
+  let moved = false;
+  const orphan = (u: Unit, mine?: Map<string, number>) =>
+    u.doneAt !== undefined && u.doneByHand === false && !mine?.has(u.id);
+  const tasks = data.tasks.map((t) => {
+    const mine = declared.get(t.id);
+    if (!t.units.some((u) => orphan(u, mine))) return t;
+    moved = true;
+    return {
+      ...t,
+      units: t.units.map((u) => (orphan(u, mine) ? { ...u, doneByHand: true } : u)),
     };
   });
   return moved ? { ...data, tasks } : data;
