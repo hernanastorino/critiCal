@@ -63,10 +63,11 @@ Ninguna. Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punt
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                        | Qué falta                                             |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                    | **No mergear** hasta que el usuario lo pida.          |
-| Ciclo del agente atacante sobre `main`                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
+| Qué                                                                                                      | Estado                                                                        | Qué falta                                                                                                  |
+| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                 | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                    | **No mergear** hasta que el usuario lo pida.                                                               |
+| Ciclo del agente atacante sobre `main`                                                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                      |
+| PR #162 `claude/bandeja-hora-futura` (TODO §5.6 punto 8: la tarjeta de la Bandeja no acepta hora futura) | Abierto el 2026-11-20, CI corriendo al cortar (uso semanal al 95 %)           | Si CI y Codacy están en verde y no hay hilos, mergear (squash). Falta la prueba en el simulador de iPhone. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
