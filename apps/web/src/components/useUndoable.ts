@@ -45,7 +45,9 @@ export function useUndoable(onBack?: (key: string) => void) {
           const left = leftAfterUndo(now, before);
           if (said || left.length === 0) return;
           said = true;
-          queueMicrotask(() => toast.show(`No se pudo deshacer todo: quedó ${left.join("; ")}`));
+          queueMicrotask(() => {
+            toast.show(`No se pudo deshacer todo: quedó ${left.join("; ")}`);
+          });
         });
         if (opts.key) onBack?.(opts.key);
       },
