@@ -73,12 +73,12 @@ export function Silos() {
       >
         <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
           <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>
-            <CountUp value={total} format={hours} />
+            <CountUp value={total} />
           </span>
           <div className="fill" style={{ height: `${ratio * 100}%` }} />
           {p.remainingMinutes > 0 && (
             <span className="left">
-              <CountUp value={p.remainingMinutes} format={hours} />
+              <CountUp value={p.remainingMinutes} />
             </span>
           )}
         </div>
@@ -162,8 +162,7 @@ export function Silos() {
                 <div key={r.taskId} style={{ display: "contents" }}>
                   <span>{r.title}</span>
                   <span className="meta" style={{ margin: 0 }}>
-                    <CountUp value={r.done} format={hours} /> de{" "}
-                    <CountUp value={r.planned} format={hours} />
+                    <CountUp value={r.done} /> de <CountUp value={r.planned} />
                   </span>
                   <div className="track" style={{ ["--c" as string]: r.color }}>
                     <div

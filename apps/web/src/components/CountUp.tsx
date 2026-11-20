@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { hours } from "../format.js";
 
 /** How long a number takes to count to its new value. */
 export const COUNT_MS = 450;
@@ -51,9 +52,7 @@ export function useCountUp(value: number): number {
   return shown;
 }
 
-/** A number of minutes as `format` writes it, counting when it changes. */
-type Format = (minutes: number) => string;
-
-export function CountUp({ value, format }: { value: number; format: Format }) {
-  return <>{format(useCountUp(value))}</>;
+/** A number of minutes written as hours («9h30»), counting when it changes. */
+export function CountUp({ value }: { value: number }) {
+  return <>{hours(useCountUp(value))}</>;
 }
