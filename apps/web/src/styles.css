@@ -284,6 +284,8 @@ textarea {
 }
 
 .icon-btn {
+  /* Holds its 44 px touch area (see «Touch targets»). */
+  position: relative;
   width: 36px;
   height: 36px;
   display: grid;
@@ -2073,6 +2075,9 @@ textarea:focus-visible {
   position: relative;
 }
 
+/* The header's tools and week arrows are drawn narrower (40 and 28 px) so they fit next to
+   the range at 320 px: their area still reaches 44. */
+.icon-btn::before,
 .btn.small::before,
 /* ::after, not ::before: a coloured card's title already draws its dot with ::before. */
 .card > button.title::after,

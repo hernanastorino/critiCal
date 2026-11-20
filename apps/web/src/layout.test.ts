@@ -22,6 +22,15 @@ describe("week bar with large text (200 %)", () => {
   });
 });
 
+describe("touch targets (SPEC §14)", () => {
+  it("the header's narrow icons grow their tappable area to 44 px", () => {
+    const rule = css.match(/\n([^{}]*\.sheet-close::before) \{([^}]*)\}/);
+    expect(rule?.[1]).toContain(".icon-btn::before");
+    expect(rule?.[2]).toContain("width: max(100%, 44px);");
+    expect(rule?.[2]).toContain("height: max(100%, 44px);");
+  });
+});
+
 describe("tab bar", () => {
   it("is fixed to the bottom edge and pads for the home indicator", () => {
     const tabs = css.match(/\n\.tabs \{([^}]*)\}/)?.[1] ?? "";
