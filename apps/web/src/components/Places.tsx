@@ -14,6 +14,7 @@ import {
 } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
@@ -151,7 +152,8 @@ export function Places() {
           <div key={p.id} id={`place-${p.id}`} tabIndex={-1} className="check place-row">
             <span style={{ flex: 1, minWidth: 0 }}>
               <span className="place-name">
-                {p.isHome ? "🏠 " : ""}
+                {p.isHome && <Marks.home />}
+                {p.isHome ? " " : ""}
                 {p.name}
               </span>
               {p.aliases.length > 0 && (

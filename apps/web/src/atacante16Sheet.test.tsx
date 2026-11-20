@@ -62,7 +62,7 @@ describe("16th round: correcting keeps the parts the record declares", () => {
     const store = () => need(seen.store);
     const units = () => store().data.tasks.find((t) => t.id === b.taskId)?.units ?? [];
     fireEvent.click(screen.getByLabelText(/Tema uno/));
-    press("✓ Hecho");
+    press("Hecho");
     expect(units().find((u) => u.id === "u1")?.doneAt).toBeDefined();
     const left = progress(store().data, LATER).find(
       (p) => p.task.id === b.taskId,
@@ -70,7 +70,7 @@ describe("16th round: correcting keeps the parts the record declares", () => {
     press("Corregir");
     // Offered although done, and ticked from the start.
     expect(screen.getByRole("checkbox", { name: /Tema uno/ })).toHaveProperty("checked", true);
-    press("◐ Parcial");
+    press("Parcial");
     press("Guardar parcial");
     expect(units().find((u) => u.id === "u1")?.doneAt).toBeDefined();
     const after = progress(store().data, LATER).find(

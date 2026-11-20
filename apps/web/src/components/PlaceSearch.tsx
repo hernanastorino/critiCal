@@ -2,6 +2,7 @@ import { useId, useState } from "react";
 import type { Place } from "../model.js";
 import { searchPlaces } from "../places.js";
 import { useStore } from "../store.js";
+import { Marks } from "./icons.js";
 
 /**
  * A search box over the saved places that suggests matches as you type, like a web
@@ -41,7 +42,8 @@ export function PlaceSearch({ label, onPick }: { label: string; onPick: (place: 
               }}
             >
               <span>
-                {p.isHome ? "🏠 " : ""}
+                {p.isHome && <Marks.home />}
+                {p.isHome ? " " : ""}
                 {p.name}
               </span>
               {p.address && <span className="meta">{p.address}</span>}

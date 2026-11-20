@@ -813,6 +813,12 @@ textarea {
   text-align: center;
 }
 
+/* An icon next to text (Marks in icons.tsx): sized with the text and sitting on its line. */
+.mark {
+  flex: none;
+  vertical-align: -0.1875em;
+}
+
 /* Stacked full-width buttons (and rows of them) need air between them. */
 .btn + .btn,
 .btn + .row,

@@ -3,6 +3,7 @@ import { zonedInstant } from "../engine.js";
 import { dayAndTime, dayDate, hours } from "../format.js";
 import { useStore } from "../store.js";
 import { weekPlan, weekToPlan } from "../week-review.js";
+import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
@@ -49,7 +50,7 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
         aria-label="Planificación semanal"
       >
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
-          ✕
+          <Marks.close />
         </button>
         <h2 tabIndex={-1}>Planificación semanal</h2>
         <p className="meta">

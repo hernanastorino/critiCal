@@ -90,23 +90,23 @@ describe("14th round: answering a block from its sheet", () => {
     return { d, b };
   };
 
-  it("«✓ Hecho» says so and «Deshacer» takes it back", () => {
+  it("«Hecho» says so and «Deshacer» takes it back", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
-    press("✓ Hecho");
+    press("Hecho");
     expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
     expect(standsOf(b.id)).toHaveLength(1);
     press("Deshacer");
     expect(standsOf(b.id)).toHaveLength(0);
   });
 
-  it("«✗ No» and «Guardar parcial» also say so and undo", () => {
+  it("«No» and «Guardar parcial» also say so and undo", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
-    press("✗ No");
+    press("No");
     press("Deshacer");
     expect(standsOf(b.id)).toHaveLength(0);
-    press("◐ Parcial");
+    press("Parcial");
     press("Guardar parcial");
     expect(screen.getByText("Anotado como parcial.")).toBeTruthy();
     press("Deshacer");
@@ -117,12 +117,12 @@ describe("14th round: answering a block from its sheet", () => {
     const { d, b } = pendingBlock();
     sheetOf(d, b.id);
     const before = done(b.taskId);
-    press("✓ Hecho");
+    press("Hecho");
     const afterDone = done(b.taskId);
     expect(afterDone).toBeGreaterThan(before);
     expect(screen.getByText(/Ya registrado/)).toBeTruthy();
     press("Corregir");
-    press("✗ No");
+    press("No");
     // Nothing is erased: the log has both, and the latest one is what counts.
     expect(logOf(b.id).map((c) => c.status)).toEqual(["done", "missed"]);
     expect(done(b.taskId)).toBe(before);
@@ -160,7 +160,7 @@ describe("14th round: answering a block from its sheet", () => {
     const first = need(screen.getAllByRole("button", { name: /^Hice una parte:/ }).at(0));
     const label = need(first.getAttribute("aria-label"));
     fireEvent.click(first);
-    press("◐ Parcial");
+    press("Parcial");
     press("Guardar parcial");
     expect(screen.getByText("Anotado como parcial.")).toBeTruthy();
     const undo = screen.getByRole("button", { name: "Deshacer" });

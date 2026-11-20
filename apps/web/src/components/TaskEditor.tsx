@@ -25,6 +25,7 @@ import {
   typedHours,
 } from "../taskForm.js";
 import { focusFirstInvalid } from "./fields.js";
+import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
@@ -354,7 +355,7 @@ export function TaskEditor({
         aria-label={task ? "Editar" : "Nueva actividad"}
       >
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
-          ✕
+          <Marks.close />
         </button>
         <h2>{task ? "Editar" : "Nueva"}</h2>
         <div className="row" style={{ marginBottom: 12 }}>
@@ -559,7 +560,7 @@ export function TaskEditor({
                     aria-label={`Quitar ${u.title}`}
                     onClick={() => setUnits(units.filter((x) => x.id !== u.id))}
                   >
-                    ✕
+                    <Marks.close />
                   </button>
                 </div>
               ))}

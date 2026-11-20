@@ -51,7 +51,9 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-Ninguna. Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
+Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
+
+- El ícono de critiCal (`CriticalIcon`, arriba a la izquierda y en el ícono de la app) es relleno y la SPEC §14 pide íconos de línea. ¿Se pasa a línea de 2 px, o el logo queda relleno como excepción por ser la marca?
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
@@ -109,7 +111,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 1. ✅ **Mensajes y esperas**: hecho (#89: `Loading`, `Notice`, skeletons, errores con salida), ver §6.
 2. **Formularios y botones**: ayuda bajo los campos no obvios, botones con verbo concreto, cada sección termina con una acción, nada pedido dos veces, estados vacíos útiles.
 3. **Consistencia visual**:
-   - Íconos de línea de 2 px desde `icons.tsx`, sin emojis como íconos de interfaz. Quedan en algunos componentes y el ícono de critiCal es relleno.
+   - ✅ Íconos de línea de 2 px desde `icons.tsx`, sin emojis como íconos de interfaz (PR de `claude/iconos-de-linea`). Falta el ícono de critiCal, que es relleno: pregunta en §1.1.
    - Espaciados y radios desde los tokens de `styles.css`.
    - Toques de 44 pt.
    - Números de silos que se animan con cifras tabulares.

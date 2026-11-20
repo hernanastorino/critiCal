@@ -99,9 +99,9 @@ describe("app", () => {
   it("records a partial check-in with units", () => {
     renderApp();
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
-    fireEvent.click(screen.getAllByText("◐")[0] as HTMLElement);
+    fireEvent.click(screen.getAllByLabelText(/^Hice una parte:/)[0] as HTMLElement);
     fireEvent.click(screen.getByLabelText(/Práctico 4/));
-    fireEvent.click(screen.getByText("◐ Parcial"));
+    fireEvent.click(screen.getByRole("button", { name: "Parcial" }));
     fireEvent.change(screen.getByRole("slider"), { target: { value: "70" } });
     fireEvent.click(screen.getByText("Guardar parcial"));
     expect(screen.getAllByLabelText(/^Hecho:/)).toHaveLength(1);

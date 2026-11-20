@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 const base = {
   width: 22,
   height: 22,
@@ -91,6 +93,30 @@ const line = (d: string) => () => (
     <path d={d} />
   </svg>
 );
+
+/**
+ * Small marks inside buttons and next to text (in place of emoji or ✓ ✗ ✕ glyphs): the same
+ * 2px round line, sized with the text (1.125em) and nudged onto its baseline.
+ */
+const mark = (d: string, extra?: ReactNode) => () => (
+  <svg {...base} className="mark" width="1.125em" height="1.125em" aria-hidden="true">
+    <path d={d} />
+    {extra}
+  </svg>
+);
+
+export const Marks = {
+  close: mark("M6 6l12 12M18 6L6 18"),
+  done: mark("M5 12.5l4.5 4.5L19 7.5"),
+  missed: mark("M7 7l10 10M17 7L7 17"),
+  // Half a circle filled: the «hice una parte» answer.
+  partial: mark(
+    "M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18z",
+    <path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor" />,
+  ),
+  pinned: mark("M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"),
+  home: mark("M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-6h4v6"),
+};
 
 export const SettingsIcons = {
   sun: line(

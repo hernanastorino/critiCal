@@ -5,6 +5,7 @@ import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning
 import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
+import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 
@@ -149,7 +150,7 @@ export function TaskDetail({
       />
       <div ref={sheet} className="sheet" role="dialog" aria-modal="true" aria-label={task.title}>
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
-          ✕
+          <Marks.close />
         </button>
         <h2>{task.title}</h2>
         <p className="meta">

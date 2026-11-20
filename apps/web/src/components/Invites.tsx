@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useSync } from "../Connected.js";
 import { errorMessage } from "../monitoring.js";
+import { Marks } from "./icons.js";
 import { Section } from "./Section.js";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -76,7 +77,7 @@ export function Invites() {
         <div key={e} className="check">
           <span style={{ flex: 1 }}>{e}</span>
           <button type="button" aria-label={`Quitar ${e}`} onClick={() => void remove(e)}>
-            ✕
+            <Marks.close />
           </button>
         </div>
       ))}

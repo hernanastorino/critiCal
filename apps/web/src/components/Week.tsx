@@ -44,6 +44,7 @@ import {
   CriticalIcon,
   EditIcon,
   GearIcon,
+  Marks,
   ReplanIcon,
   UndoIcon,
 } from "./icons.js";
@@ -362,7 +363,7 @@ export function Week({
       before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
       note:
         freed.length > 0
-          ? `${freed.map((p) => `📌 ${titleOfTask(p.taskId)}`).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`
+          ? `${freed.map((p) => titleOfTask(p.taskId)).join(", ")} ${freed.length > 1 ? "volvieron" : "volvió"} al plan`
           : undefined,
       flexible: flexible?.kind === "event" ? flexible.event.title : undefined,
       undo: () => {
@@ -1502,14 +1503,20 @@ function BubbleCard({
             )}
           </p>
         )}
-        {isPinned(b) && item.start <= now && <p>📌 Fijado por vos</p>}
+        {isPinned(b) && item.start <= now && (
+          <p>
+            <Marks.pinned /> Fijado por vos
+          </p>
+        )}
         <p className="more">
           {item.end <= now && unanswered ? "Marcar cómo te fue ›" : "Ver detalle ›"}
         </p>
       </button>
       {isPinned(b) && item.start > now && !item.run && (
         <div className="bubble-pin">
-          <span>📌 Fijado por vos</span>
+          <span>
+            <Marks.pinned /> Fijado por vos
+          </span>
           <button type="button" className="btn small" onClick={() => onRelease(b.id)}>
             Soltar
           </button>

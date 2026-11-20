@@ -14,7 +14,7 @@ import { Calendars, describe, healthy } from "./Calendars.js";
 import { Problem, useFocusInvalid } from "./fields.js";
 import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
-import { ChevronLeft, ChevronRight, SettingsIcons as I } from "./icons.js";
+import { ChevronLeft, ChevronRight, SettingsIcons as I, Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { Notifications } from "./Notifications.js";
 import { Places } from "./Places.js";
@@ -465,7 +465,7 @@ export function Settings({
         aria-label={current ? current.title : "Ajustes"}
       >
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
-          ✕
+          <Marks.close />
         </button>
 
         <div className="settings-list" hidden={!!page} inert={!!page}>

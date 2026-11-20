@@ -37,6 +37,7 @@ import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { Problem } from "./fields.js";
+import { Marks } from "./icons.js";
 import { useKeepFocus } from "./inboxFocus.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
@@ -351,7 +352,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {clashes.map(({ pin, event, moveTo }) => (
           <div key={pin.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
             <div className="title">
-              📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
+              <Marks.pinned /> {titleOf(pin)} · {dayAndTime(tz, pin.start)}
             </div>
             <p className="meta">
               {moveTo
@@ -396,7 +397,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               {pinShort.pins.map((pin) => (
                 <div key={pin.id} className="check">
                   <span style={{ flex: 1 }}>
-                    📌 {titleOf(pin)} · {dayAndTime(tz, pin.start)}
+                    <Marks.pinned /> {titleOf(pin)} · {dayAndTime(tz, pin.start)}
                   </span>
                   <button
                     type="button"
@@ -552,7 +553,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 aria-label={`Hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => quick(b, "done")}
               >
-                ✓
+                <Marks.done />
               </button>
               <button
                 type="button"
@@ -560,7 +561,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 aria-label={`Hice una parte: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => setOpen(b)}
               >
-                ◐
+                <Marks.partial />
               </button>
               <button
                 type="button"
@@ -568,7 +569,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 aria-label={`No hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
                 onClick={() => quick(b, "missed")}
               >
-                ✗
+                <Marks.missed />
               </button>
             </div>
           </div>
