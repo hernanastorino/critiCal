@@ -14,7 +14,10 @@ export function countStep(from: number, to: number, t: number): number {
 function still(): boolean {
   if (import.meta.env.MODE === "test") return true;
   if (typeof requestAnimationFrame !== "function") return true;
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+  return (
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches
+  );
 }
 
 /**
@@ -41,12 +44,16 @@ export function useCountUp(value: number): number {
       if (t < 1) frame = requestAnimationFrame(tick);
     };
     frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+    };
   }, [value]);
   return shown;
 }
 
 /** A number of minutes as `format` writes it, counting when it changes. */
-export function CountUp({ value, format }: { value: number; format: (n: number) => string }) {
+type Format = (minutes: number) => string;
+
+export function CountUp({ value, format }: { value: number; format: Format }) {
   return <>{format(useCountUp(value))}</>;
 }
