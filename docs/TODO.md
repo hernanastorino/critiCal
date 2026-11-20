@@ -51,9 +51,7 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-Las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
-
-- La tarjeta «¿A qué hora te levantaste?» de la Bandeja no valida hora futura (la SPEC lo limita a Ajustes → Hoy). ¿Se quiere el mismo límite en la Bandeja? (13.ª vuelta, §5.3.)
+Ninguna. Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
@@ -65,12 +63,11 @@ Las del 2026-11-18 están respondidas en la SPEC §18 punto 11 y sus tareas en �
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                                                                              | Estado                                                                                                                                                                                                                               | Qué falta                                                                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                                         | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                                                                                                                           | **No mergear** hasta que el usuario lo pida.                                                                        |
-| Ciclo del agente atacante sobre `main`                                                                                                           | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias                                                                                                                                                        | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                               |
-| PR #158 `claude/ci-playwright-cache` (cache de navegadores de Playwright y reintento en la instalación, para que `e2e`/`preview` no se cuelguen) | Abierto, CI corriendo al cortar (2026-11-19)                                                                                                                                                                                         | Revisar CI y Codacy; si están en verde, mergear. Comprobar en una segunda corrida que el log diga «Cache restored». |
-| Rama `claude/atacante-vuelta19` (sin PR)                                                                                                         | **A medio hacer**: cabecera de la semana con letra al 200 % (la flecha pisa el título) y Deshacer que revierte por campo (tras «Juntar» o «Materia / Rutina» y una edición de lo mismo, hoy queda a medias y avisa que deshizo todo) | Terminar: correr la suite, revisar `atacante19.test.ts`, capturas al 100/150/200 %, `docs/TODO.md` y abrir el PR.   |
+| Qué                                                                      | Estado                                                                                                                                                                                                                               | Qué falta                                                                                                         |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                                                                                                                                                                           | **No mergear** hasta que el usuario lo pida.                                                                      |
+| Ciclo del agente atacante sobre `main`                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias                                                                                                                                                        | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                             |
+| Rama `claude/atacante-vuelta19` (sin PR)                                 | **A medio hacer**: cabecera de la semana con letra al 200 % (la flecha pisa el título) y Deshacer que revierte por campo (tras «Juntar» o «Materia / Rutina» y una edición de lo mismo, hoy queda a medias y avisa que deshizo todo) | Terminar: correr la suite, revisar `atacante19.test.ts`, capturas al 100/150/200 %, `docs/TODO.md` y abrir el PR. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -232,6 +229,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
 6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
 7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Falta: revisar los reportes unos días con uso real y pasarla a `Content-Security-Policy`.
+8. Tarjeta «¿A qué hora te levantaste?» de la Bandeja (`LateNightCard`, `Inbox.tsx`): rechazar una hora que todavía no pasó, con el mismo mensaje y validación que Ajustes → Hoy («Todavía no son las HH:MM.», `awakeProblem`).
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
@@ -241,7 +239,8 @@ Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry si
   - Prueba en producción en modo demo y en el simulador de iPhone (todo se probó solo en local con WebKit de Playwright y jsdom): hoja de bloque con Hecho/Parcial/No/Corregir y su Deshacer, Bandeja (Deshacer de cada acción), Rutinas con «Distinto según el día», comidas al levantarse tarde, letra grande y tema oscuro.
   - Con cuenta real (nunca probado contra Supabase): importar un respaldo de otra cuenta o del demo (ids nuevos), Deshacer después de guardar (registro `retired` / `origin: "undo"`, que no reaparezca al recargar), carga paginada con más de 1000 registros.
   - Better Stack (`errors.betterstack.com`, aplicación «critiCal»): que no aparezcan errores nuevos tras el uso real, y revisar los reportes «CSP: …» unos días; si no hay nada roto, pasar la CSP a `Content-Security-Policy` (TODO §5.6 punto 7).
-  - El bloqueador de DNS del usuario tapa `errors.betterstack.com`; volver a activarlo cuando no haga falta entrar.
+  - CI: #158 (cache de Playwright) mergeado el 2026-11-19; comprobar en una corrida que el log diga «Cache restored».
+  - Pi-hole del usuario: `*.betterstackdata.com` (envío de errores) está permitido. `errors.betterstack.com` (el panel) puede seguir bloqueado: si no abre, pedile que lo permita.
 
 - Arreglos de las capturas del 2026-11-18 (SPEC §18.10), mergeados el 2026-11-18: #124 materias que volvían, #127 avisos arriba, #128 Roy al doble, #123 fecha de un silo, #126 «Editar» de lugares, #125 bloques seguidos en una píldora (incluye ocultar la barra de Vercel en los E2E del preview, que tapaba el cierre de la hoja). Falta la vuelta del atacante, la prueba en producción en modo demo y revisar Sentry.
 - #111 Arreglos visuales (SPEC §18.9): mergeado el 2026-11-17. Falta la prueba en el simulador de iPhone (se probó en el navegador a 375×812), la prueba en producción en modo demo y revisar Sentry.
