@@ -12,6 +12,7 @@ import {
 } from "../planning.js";
 import { useStore } from "../store.js";
 import { plannedVsDone } from "../week-review.js";
+import { CountUp } from "./CountUp.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -71,9 +72,15 @@ export function Silos() {
         onClick={() => setDetail(p.task)}
       >
         <div className={`tank ${level}`} style={{ ["--c" as string]: color }}>
-          <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>{hours(total)}</span>
+          <span className={`total${ratio > 0.85 ? " on-fill" : ""}`}>
+            <CountUp value={total} format={hours} />
+          </span>
           <div className="fill" style={{ height: `${ratio * 100}%` }} />
-          {p.remainingMinutes > 0 && <span className="left">{hours(p.remainingMinutes)}</span>}
+          {p.remainingMinutes > 0 && (
+            <span className="left">
+              <CountUp value={p.remainingMinutes} format={hours} />
+            </span>
+          )}
         </div>
         <span className="name">{p.task.title}</span>
         <span className={`due${overdue ? " overdue" : ""}`}>
@@ -155,7 +162,8 @@ export function Silos() {
                 <div key={r.taskId} style={{ display: "contents" }}>
                   <span>{r.title}</span>
                   <span className="meta" style={{ margin: 0 }}>
-                    {hours(r.done)} de {hours(r.planned)}
+                    <CountUp value={r.done} format={hours} /> de{" "}
+                    <CountUp value={r.planned} format={hours} />
                   </span>
                   <div className="track" style={{ ["--c" as string]: r.color }}>
                     <div

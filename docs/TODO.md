@@ -113,7 +113,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
    - ✅ Íconos de línea de 2 px desde `icons.tsx`, sin emojis como íconos de interfaz (PR de `claude/iconos-de-linea`). Falta el ícono de critiCal, que es relleno: pregunta en §1.1.
    - Espaciados y radios desde los tokens de `styles.css`.
    - ✅ Toques de 44 pt: todo lo que se dibuja más chico (píldoras de la semana, botones chicos, cerrar, íconos de la cabecera) tiene un área invisible de 44 px.
-   - Números de silos que se animan con cifras tabulares.
+   - ✅ Números de silos que se animan con cifras tabulares (`CountUp`: cuentan hasta el valor nuevo en 450 ms; con «reducir movimiento» saltan).
 4. **Interacción y animaciones**:
    - Transiciones con resorte, con fundido si el sistema pide reducir movimiento.
    - Respuesta optimista con reversión y aviso.
