@@ -31,6 +31,16 @@ describe("touch targets (SPEC §14)", () => {
   });
 });
 
+describe("buttons with large text", () => {
+  it("keep their words whole and let a row of them wrap", () => {
+    const btn = css.match(/\n\.btn \{([^}]*)\}/)?.[1] ?? "";
+    expect(btn).toContain("overflow-wrap: break-word;");
+    expect(css).toContain(
+      ".sheet .row:not(.fields),\n.card .row:not(.fields) {\n  flex-wrap: wrap;",
+    );
+  });
+});
+
 describe("tab bar", () => {
   it("is fixed to the bottom edge and pads for the home indicator", () => {
     const tabs = css.match(/\n\.tabs \{([^}]*)\}/)?.[1] ?? "";

@@ -264,7 +264,7 @@ export function CheckInForm({
                     }
                   />
                   {u.title}{" "}
-                  <span className="meta" style={{ margin: 0 }}>
+                  <span className="meta" style={{ margin: 0, whiteSpace: "nowrap" }}>
                     {hours(u.estimateMinutes)}
                   </span>
                 </label>
