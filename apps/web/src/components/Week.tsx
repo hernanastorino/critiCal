@@ -1288,7 +1288,8 @@ export function Week({
               setBubble(null);
               // The block gets a new id: focus goes to the pinned one, not to the page.
               setFocusId(pinAt(block, block.start));
-              flash("Fijado acá · el resto se acomoda alrededor");
+              // The same «Deshacer» as a drag: a pinned block goes back to the plan.
+              flash("Fijado acá · el resto se acomoda alrededor", watch.current?.undo);
             }}
           />
         </>

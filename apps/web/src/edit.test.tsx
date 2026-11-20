@@ -737,6 +737,11 @@ describe("edit mode", () => {
     expect(document.querySelector(".bubble")).toBeNull();
     expect(screen.getByLabelText(/, fijado/)).toBeTruthy();
     expect(screen.getByText(/Fijado acá/)).toBeTruthy();
+    // The notice offers «Deshacer», like a drag: the block goes back to the plan.
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(screen.queryByLabelText(/, fijado/)).toBeNull();
+    const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
+    expect(saved.pins ?? []).toEqual([]);
   });
 
   describe("long-press outside edit mode", () => {
