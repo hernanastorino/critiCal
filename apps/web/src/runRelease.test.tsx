@@ -15,7 +15,8 @@ const HOUR = 60 * MINUTE;
 /** Three pinned blocks in a row, tomorrow: one of task A, then two of task B. */
 function setup() {
   const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
-  const [a, b] = d.tasks.filter((t) => t.status === "active");
+  const a = d.tasks.find((t) => t.status === "active");
+  const b = d.tasks.find((t) => t.status === "active" && t.id !== a?.id);
   if (!a || !b) throw new Error("two tasks needed");
   const at = NOW + 24 * HOUR;
   const block = (task: typeof a, start: number, hours: number): PlanBlock => ({
@@ -25,17 +26,18 @@ function setup() {
     start,
     end: start + hours * HOUR,
   });
-  const run = [block(a, at, 1), block(b, at + HOUR, 1.5), block(b, at + 2.5 * HOUR, 1)];
+  const first = block(a, at, 1);
+  const run = [first, block(b, at + HOUR, 1.5), block(b, at + 2.5 * HOUR, 1)];
   const data: AppData = {
     ...d,
     pins: run,
     plan: [...run, ...d.plan.filter((x) => x.end <= at || x.start >= at + 3.5 * HOUR)],
   };
-  return { data, run, a, b };
+  return { data, run, first, a, b };
 }
 
 function open() {
-  const { data, run, a, b } = setup();
+  const { data, run, first, a, b } = setup();
   let saved: AppData | undefined;
   let closed = false;
   render(
@@ -48,7 +50,7 @@ function open() {
       }}
     >
       <BlockSheet
-        item={{ kind: "block", id: "run", start: 0, end: 0, block: run[0] as PlanBlock, run }}
+        item={{ kind: "block", id: "run", start: 0, end: 0, block: first, run }}
         onClose={() => {
           closed = true;
         }}
@@ -66,9 +68,9 @@ describe("a run of pinned blocks in the sheet", () => {
     expect(within(sheet).getAllByRole("heading", { name: b.title })).toHaveLength(1);
     // The third block is B again: a large time range, named for VoiceOver with its task.
     const third = within(sheet).getByRole("region", { name: "Bloque 3" });
-    expect(within(third).getByRole("heading").getAttribute("aria-label")).toMatch(
-      new RegExp(`^${b.title}, \\d\\d:\\d\\d a \\d\\d:\\d\\d$`),
-    );
+    const label = within(third).getByRole("heading").getAttribute("aria-label") ?? "";
+    expect(label.startsWith(`${b.title}, `)).toBe(true);
+    expect(label.slice(b.title.length + 2)).toMatch(/^\d\d:\d\d a \d\d:\d\d$/);
     expect(third.textContent).not.toMatch(/Faltan|Bloque planificado/);
   });
 
@@ -79,9 +81,9 @@ describe("a run of pinned blocks in the sheet", () => {
     expect(screen.getByRole("button", { name: "Soltar todo" })).toBeTruthy();
   });
 
-  it("«Soltar todo» frees every block of the run at once", async () => {
+  it("«Soltar todo» frees every block of the run at once", () => {
     const { run, saved, closed } = open();
-    await act(async () => {
+    act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Soltar todo" }));
     });
     const ids = new Set(run.map((x) => x.id));
@@ -90,10 +92,10 @@ describe("a run of pinned blocks in the sheet", () => {
     expect(closed()).toBe(true);
   });
 
-  it("«Soltar» frees only its own block", async () => {
+  it("«Soltar» frees only its own block", () => {
     const { run, saved } = open();
     const second = screen.getByRole("region", { name: "Bloque 2" });
-    await act(async () => {
+    act(() => {
       fireEvent.click(within(second).getByRole("button", { name: "Soltar" }));
     });
     expect(saved()?.pins?.map((p) => p.id)).toEqual([run[0]?.id, run[2]?.id]);

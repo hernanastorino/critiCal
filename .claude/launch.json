@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev", "-w", "@critical/web", "--", "--port", "5173", "--strictPort"],
       "port": 5173
+    },
+    {
+      "name": "web-main",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vite", "E:/Proyectos_Personales/critiCal/.claude/worktrees/atacante-main/apps/web", "--port", "5179", "--strictPort"],
+      "port": 5179
     }
   ]
 }
