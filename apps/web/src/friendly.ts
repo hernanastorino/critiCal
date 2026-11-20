@@ -9,7 +9,7 @@ export const SKIPPED_TOAST = "Anotado, sin culpa. Reacomodo lo que falta.";
 
 /** A meal that fits nowhere: it stays where it was, on top of something fixed. */
 export const mealNoRoom = (from: string, to: string, at: string) =>
-  `Entre las ${from} y las ${to} todo está ocupado por eventos fijos o bloques 📌: ni un bocado de lugar. Quedó a las ${at}, encima de lo que hay. Dejala ahí, tocala en la semana para moverla a cualquier hora, o elegí «Hoy no».`;
+  `Entre las ${from} y las ${to} todo está ocupado por eventos fijos o bloques fijados: ni un bocado de lugar. Quedó a las ${at}, encima de lo que hay. Dejala ahí, tocala en la semana para moverla a cualquier hora, o elegí «Hoy no».`;
 
 /** An option that still does not reach every minimum: say what to do next. */
 export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opción o aflojá un mínimo.";

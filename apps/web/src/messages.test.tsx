@@ -31,12 +31,12 @@ group("sync messages", () => {
 });
 
 group("sheets", () => {
-  it("close with the ✕ button", () => {
+  it("close with the × button", () => {
     localStorage.setItem("critical.mode", "demo");
     render(<App fixedNow={Date.UTC(2026, 10, 2, 20)} initial={demoData} />);
     fireEvent.click(screen.getByLabelText("Ajustes"));
     const close = document.querySelector(".sheet-close") as HTMLElement;
-    expect(close.textContent).toContain("✕");
+    expect(close.querySelector("svg.mark")).toBeTruthy();
     fireEvent.click(close);
     expect(screen.queryByRole("dialog")).toBeNull();
   });

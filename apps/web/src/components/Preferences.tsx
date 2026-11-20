@@ -321,9 +321,9 @@ export function WeekSettings() {
       </p>
       <p className="meta">
         Siempre hay lugar para comer y nunca va estudio encima de una comida. Si un evento fijo o un
-        bloque 📌 cae a esa hora, la comida se corre sola al hueco más cercano, hasta 1 h 30 antes o
-        después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja avisa. Con
-        duración 0 no hay esa comida (la merienda viene en 0).
+        bloque fijado cae a esa hora, la comida se corre sola al hueco más cercano, hasta 1 h 30
+        antes o después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja
+        avisa. Con duración 0 no hay esa comida (la merienda viene en 0).
       </p>
       {dirty && <Unsaved />}
       <button

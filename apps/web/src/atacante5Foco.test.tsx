@@ -56,7 +56,7 @@ describe("focus never falls to the page", () => {
     const first = parts[0] as HTMLElement;
     first.focus();
     fireEvent.click(first);
-    fireEvent.click(screen.getByRole("button", { name: "◐ Parcial" }));
+    fireEvent.click(screen.getByRole("button", { name: "Parcial" }));
     fireEvent.click(screen.getByRole("button", { name: "Guardar parcial" }));
     await settle();
     expect(screen.queryByRole("dialog")).toBeNull();

@@ -3,6 +3,7 @@ import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
+import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { useCheckIn } from "./useCheckIn.js";
 import type { Item } from "./Week.js";
@@ -37,7 +38,7 @@ export function BlockSheet({
       />
       <div ref={sheet} className="sheet" role="dialog" aria-modal="true">
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
-          ✕
+          <Marks.close />
         </button>
         {item.kind === "event" ? (
           <EventDetail item={item} />
@@ -254,13 +255,13 @@ export function CheckInForm({
           ) : (
             <div className="row">
               <button type="button" className="btn done" onClick={() => send("done")}>
-                ✓ Hecho
+                <Marks.done /> Hecho
               </button>
               <button type="button" className="btn" onClick={() => setPartial(true)}>
-                ◐ Parcial
+                <Marks.partial /> Parcial
               </button>
               <button type="button" className="btn missed" onClick={() => send("missed")}>
-                ✗ No
+                <Marks.missed /> No
               </button>
             </div>
           )}
