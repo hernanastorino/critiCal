@@ -2550,3 +2550,8 @@ label.check {
   padding-top: 16px;
   border-top: 1px solid var(--line, rgba(128, 128, 128, 0.3));
 }
+
+/* «Soltar todo» closes the run, apart from the last block's own «Soltar». */
+.sheet .btn.run-release {
+  margin-top: 24px;
+}
