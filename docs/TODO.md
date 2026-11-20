@@ -63,11 +63,10 @@ Ninguna. Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punt
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                                      | Estado                                                                        | Qué falta                                                                                                  |
-| -------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                 | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                    | **No mergear** hasta que el usuario lo pida.                                                               |
-| Ciclo del agente atacante sobre `main`                                                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                      |
-| PR #162 `claude/bandeja-hora-futura` (TODO §5.6 punto 8: la tarjeta de la Bandeja no acepta hora futura) | Abierto el 2026-11-20, CI corriendo al cortar (uso semanal al 95 %)           | Si CI y Codacy están en verde y no hay hilos, mergear (squash). Falta la prueba en el simulador de iPhone. |
+| Qué                                                                      | Estado                                                                        | Qué falta                                             |
+| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                    | **No mergear** hasta que el usuario lo pida.          |
+| Ciclo del agente atacante sobre `main`                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -116,7 +115,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 4. **Interacción y animaciones**:
    - Transiciones con resorte, con fundido si el sistema pide reducir movimiento.
    - Respuesta optimista con reversión y aviso.
-   - **Deshacer en vez de confirmar**, por ejemplo «Reiniciar demo», que hoy borra todo sin Deshacer.
+   - ✅ **Deshacer en vez de confirmar**: «Reiniciar demo» ya tiene Deshacer. El único `confirm` que queda es al cerrar sesión con cambios sin guardar, que no se pueden recuperar.
    - Gestos: deslizar un bloque para marcarlo y deslizar para cambiar de día o semana, siempre con su botón equivalente.
    - Háptica como extra.
 5. ✅ **Accesibilidad**: hecha (#84: contraste AA, letra del sistema en `rem`, foco, diálogos, etiquetas, orden de lectura), ver §6.
@@ -208,7 +207,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Lo que sigue: Roy (§1) y Dependabot (§1); el resto de §5.1 (Formularios y botones, Consistencia visual, Interacción y animaciones, Primer uso guiado), un PR por grupo; ómnibus (§15) y Bun (§18.8), los dos grandes (partirlos).
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Roy (§1) y Dependabot ya están (`Roy.tsx`, `.github/dependabot.yml`). Lo que sigue: el resto de §5.1 (Formularios y botones, Consistencia visual, Interacción y animaciones, Primer uso guiado), un PR por grupo; ómnibus (§15) y Bun (§18.8), los dos grandes (partirlos).
 
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + **Roy** (escalera de Jacob toon 3D, estilo A · Madera pintada, elegido; animación por caso en SPEC §18.1) como personaje y animación de carga. Implementarlo enchufándolo al `<Loading>` de la sesión `esperas-errores`. Textos y esperas: sesión hija `esperas-errores`.
 2. Hecho (#80, validado en producción). Queda: arrastrar comidas como a los bloques.
@@ -226,7 +225,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 1. ✅ Comidas cuando te levantás tarde (#142).
 2. ✅ Horarios válidos por rutina y por día (#146). Falta: un día «sin horario válido» y la franja en feriados con rutina prestada.
 3. ✅ Rutina creada a mitad de semana, proporcional y redondeando hacia arriba (#147).
-4. Una tarea que no entra ni sola no marca críticos a las demás.
+4. ✅ Una tarea que no entra ni sola no marca críticos a las demás (#150).
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
 6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
 7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Falta: revisar los reportes unos días con uso real y pasarla a `Content-Security-Policy`.
@@ -236,7 +235,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
+- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
   - Prueba en producción en modo demo y en el simulador de iPhone (todo se probó solo en local con WebKit de Playwright y jsdom): hoja de bloque con Hecho/Parcial/No/Corregir y su Deshacer, Bandeja (Deshacer de cada acción), Rutinas con «Distinto según el día», comidas al levantarse tarde, letra grande y tema oscuro.
   - Con cuenta real (nunca probado contra Supabase): importar un respaldo de otra cuenta o del demo (ids nuevos), Deshacer después de guardar (registro `retired` / `origin: "undo"`, que no reaparezca al recargar), carga paginada con más de 1000 registros.
   - Better Stack (`errors.betterstack.com`, aplicación «critiCal»): que no aparezcan errores nuevos tras el uso real, y revisar los reportes «CSP: …» unos días; si no hay nada roto, pasar la CSP a `Content-Security-Policy` (TODO §5.6 punto 7).
