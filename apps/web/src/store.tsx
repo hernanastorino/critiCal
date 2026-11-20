@@ -108,6 +108,8 @@ export type Action =
   | { type: "replanWeek"; now: number }
   | { type: "pin"; blockId: string; start: number; now: number }
   | { type: "unpin"; blockId: string; now: number }
+  /** «Soltar todo» on a run of blocks: one replan for all of them. */
+  | { type: "unpinAll"; blockIds: string[]; now: number }
   | { type: "recurrence"; taskId: string; change: RecurrenceChange; now: number }
   | {
       type: "logProgress";
@@ -937,6 +939,11 @@ function apply(data: AppData, action: Action): AppData {
         { ...data, pins, plan: data.plan.filter((b) => b.id !== action.blockId) },
         now,
       );
+    }
+    case "unpinAll": {
+      const gone = new Set(action.blockIds);
+      const pins = (data.pins ?? []).filter((p) => !gone.has(p.id));
+      return refresh({ ...data, pins, plan: data.plan.filter((b) => !gone.has(b.id)) }, now);
     }
     case "replanWeek": {
       // Start over from now: keep history and the block in progress, drop the rest.

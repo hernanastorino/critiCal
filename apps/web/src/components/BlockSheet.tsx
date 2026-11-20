@@ -52,7 +52,10 @@ export function BlockSheet({
   );
 }
 
-/** Blocks drawn as one pill: each with its own details and actions. */
+/**
+ * Blocks drawn as one pill, each with its own actions. A task's details go once, on its first
+ * block; the next blocks of the same task show only their hours, large.
+ */
 function BlockRun({
   run,
   onDone,
@@ -62,6 +65,10 @@ function BlockRun({
   onDone: () => void;
   onUndone?: (blockId: string) => void;
 }) {
+  const { data, now, dispatch } = useStore();
+  const answered = new Set(standingCheckIns(data).map((c) => c.blockId));
+  // The ones «Soltar» would free one by one: pinned, still ahead and not answered.
+  const releasable = run.filter((b) => isPinned(b) && b.start > now && !answered.has(b.id));
   return (
     <>
       <p className="meta">{run.length} bloques seguidos</p>
@@ -71,9 +78,27 @@ function BlockRun({
           className={i > 0 ? "run-block" : undefined}
           aria-label={`Bloque ${i + 1}`}
         >
-          <CheckInForm block={b} onDone={onDone} onUndone={onUndone} />
+          <CheckInForm
+            block={b}
+            onDone={onDone}
+            onUndone={onUndone}
+            hoursOnly={i > 0 && run[i - 1]?.taskId === b.taskId}
+          />
         </section>
       ))}
+      {releasable.length > 1 && (
+        <button
+          type="button"
+          className="btn run-release"
+          style={{ width: "100%" }}
+          onClick={() => {
+            dispatch({ type: "unpinAll", blockIds: releasable.map((b) => b.id) });
+            onDone();
+          }}
+        >
+          Soltar todo
+        </button>
+      )}
     </>
   );
 }
@@ -115,10 +140,13 @@ export function CheckInForm({
   block,
   onDone,
   onUndone,
+  hoursOnly = false,
 }: {
   block: PlanBlock;
   onDone: () => void;
   onUndone?: (blockId: string) => void;
+  /** Another block of the task just above: its hours, large, instead of the details. */
+  hoursOnly?: boolean;
 }) {
   const { data, now, dispatch } = useStore();
   const answer = useCheckIn(onUndone);
@@ -150,12 +178,23 @@ export function CheckInForm({
 
   return (
     <>
-      <h2>{task?.title ?? "Bloque"}</h2>
-      <p className="meta">
-        {activity?.name} · {dayAndTime(tz, block.start)} – {time(tz, block.end)} ({hours(length)})
-        {task?.deadline && ` · entrega ${dayMonth(tz, task.deadline)}`}
-      </p>
-      {p && (
+      {hoursOnly ? (
+        <h2
+          aria-label={`${task?.title ?? "Bloque"}, ${time(tz, block.start)} a ${time(tz, block.end)}`}
+        >
+          {time(tz, block.start)} – {time(tz, block.end)}{" "}
+          <span className="meta">({hours(length)})</span>
+        </h2>
+      ) : (
+        <>
+          <h2>{task?.title ?? "Bloque"}</h2>
+          <p className="meta">
+            {activity?.name} · {dayAndTime(tz, block.start)} – {time(tz, block.end)} (
+            {hours(length)}){task?.deadline && ` · entrega ${dayMonth(tz, task.deadline)}`}
+          </p>
+        </>
+      )}
+      {p && !hoursOnly && (
         <p className="meta">
           Faltan <b>{hours(p.remainingMinutes)}</b> (mínimo {hours(p.minRemainingMinutes)}).{" "}
           {block.level === "critical" && (
@@ -189,7 +228,9 @@ export function CheckInForm({
         </>
       ) : !answered && block.start > now ? (
         <>
-          <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
+          {!hoursOnly && (
+            <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
+          )}
           {isPinned(block) && (
             <button
               type="button"
@@ -200,7 +241,7 @@ export function CheckInForm({
                 onDone();
               }}
             >
-              Soltar (que el plan decida dónde va)
+              Soltar
             </button>
           )}
         </>
