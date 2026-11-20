@@ -132,7 +132,6 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 - **20.ª vuelta del agente atacante** (2026-11-20, en segundo plano sobre `main` local después de #164, solo modo demo; sin Altas ni Medias). Arregladas en el PR de la vuelta: con letra al 200 % los botones Hecho / Parcial / No ya no se cortan a mitad de palabra (las filas de botones de hojas y tarjetas pasan a otra línea) y la duración de una parte («3 h») no se parte. No arregladas (Bajas):
   - El aviso «Corregido: …» con letra al 200 % ocupa 4 líneas y tapa la barra de arriba mientras dura.
   - Con letra grande, la grilla de la semana (píldoras, íconos, horas) no crece.
-  - Mover una comida: la validación mira solo el inicio («entre las 09:00 y las 23:00»); un almuerzo de 1 h a las 22:30 termina 23:30, encima de la noche.
   - Tras tocar un bloque y cerrar su burbuja, el bloque queda con el aro de seleccionado un rato.
   - Las dos opciones de «No llegás a todo · elegí» usan el mismo dibujo de Roy y ocupan mucho alto; cuando desaparecen solas (el plan ya alcanza) no se avisa.
   - Para confirmar: «Reacomodar hoy» con levantada 11:00 y un bloque 10–12 sin responder dibuja un bloque angosto y uno diminuto pegados.
