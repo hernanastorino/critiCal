@@ -1,6 +1,6 @@
 import type { Activity } from "../engine.js";
 import type { AppData, AppTask, Proposal } from "../model.js";
-import { settleSnapshot, snapshotOf, useStore } from "../store.js";
+import { leftAfterUndo, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
 type Doing = Parameters<ReturnType<typeof useStore>["dispatch"]>[0];
@@ -39,7 +39,16 @@ export function useUndoable(onBack?: (key: string) => void) {
     });
     toast.show(message, {
       undo: () => {
-        dispatch({ type: "restoreState", before });
+        let said = false;
+        dispatch({ type: "restoreState", before }, (now) => {
+          // Runs inside the reducer (and may run twice): the notice waits for it to end.
+          const left = leftAfterUndo(now, before);
+          if (said || left.length === 0) return;
+          said = true;
+          queueMicrotask(() => {
+            toast.show(`No se pudo deshacer todo: quedó ${left.join("; ")}`);
+          });
+        });
         if (opts.key) onBack?.(opts.key);
       },
     });
