@@ -813,6 +813,15 @@ textarea {
   font-weight: 600;
   background: var(--glass);
   text-align: center;
+  /* Sheets and cards break long names anywhere; a button's words stay whole unless one
+     alone is wider than the line («Parcial», not «Parci/al», with large text). */
+  overflow-wrap: break-word;
+}
+
+/* With large text the buttons of a row go on to a second line instead of squeezing. */
+.sheet .row:not(.fields),
+.card .row:not(.fields) {
+  flex-wrap: wrap;
 }
 
 /* An icon next to text (Marks in icons.tsx): sized with the text and sitting on its line. */
