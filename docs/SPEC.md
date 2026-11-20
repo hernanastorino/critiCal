@@ -181,7 +181,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 - **Íconos**: todos de línea de 2px, con extremos redondeados y del mismo tamaño, desde `icons.tsx`; los emojis no se usan como íconos de interfaz (sí en los datos, como «📚 Plan» o `📝`). ✅ Botones y marcas con íconos de línea (`Marks` en `icons.tsx`: cerrar, hecho, parcial, no, fijado, casa); un test impide volver a dibujarlos con emojis o ✓ ✗ ✕ ◐. Los ✓ dentro de una frase quedan como texto. Falta: el ícono de critiCal, que es relleno (pregunta en TODO §1.1).
 - **Escala de diseño**: espaciados múltiplos de 4/8, pocas medidas de texto y radios fijos, todo desde los tokens de `styles.css`, sin valores sueltos.
 - ✅ **Toques y bordes de iPhone**: zonas táctiles de al menos 44pt y safe areas respetadas. Lo que se dibuja más chico (píldoras, botones chicos, cerrar, íconos de la cabecera) agranda su área con un `::before` invisible, sin moverse. La barra de pestañas queda pegada al borde de abajo, como está.
-- **Números que se animan**: las horas de los silos y los totales cuentan hasta el valor nuevo al cambiar, con números tabulares para que no salten.
+- ✅ **Números que se animan** (`CountUp`: silos y «planificado vs. hecho»; con «reducir movimiento» saltan al valor): las horas de los silos y los totales cuentan hasta el valor nuevo al cambiar, con números tabulares para que no salten.
 - **Filtros**: si alguna vez hay filtros, siempre con un botón «Limpiar filtros».
 
 ### Interacción y animaciones
