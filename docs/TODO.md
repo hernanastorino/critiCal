@@ -141,7 +141,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
   - Baja (`api/travel`): la cola de geocodificación es global (un usuario puede demorar a los demás).
   - Baja (`api/account`): ignora el error de `google_channels`.
 - **13.ª vuelta del agente atacante sobre `main`** (2026-11-19, después de #150; sin Altas). Arregladas en el PR de la vuelta: la Media (franja de rutina que no cae en la grilla de 30 min: formulario, respaldo y motivo de la Bandeja) y las Bajas de «Distinto según el día» pegado al botón y de los hábitos del respaldo sin `createdAt`. Quedan:
-  - Baja: la tarjeta «¿A qué hora te levantaste?» de la Bandeja no valida hora futura (la SPEC lo limita a Ajustes → Hoy). Pregunta para el usuario en §1.1.
+  - Baja: la tarjeta «¿A qué hora te levantaste?» de la Bandeja no validaba hora futura: arreglado (TODO §5.6 punto 8).
   - Baja: `/api/csp-report` es público: permite inyectar texto en el rastreador, su `limiter` es por instancia y acepta `chunked` sin `content-length`.
   - ✅ Baja (rendimiento de #150): `schedule` corre una vez más por cada tarea con déficit para ver si entra sola, y `options.ts` llama a `schedule` muchas veces. Medido con la demo + 5 rutinas imposibles: el plan tarda ~100 ms y las decisiones de la Bandeja ~850 ms. Se memoizó el chequeo por tarea mientras la tarea y el resto del input sean los mismos objetos (~15 % menos); el grueso es el costo de cada `schedule` de la demo (unos 35 ms por corrida), no el chequeo. Si molesta, bajar la cantidad de corridas de `options.ts`. Resuelto: las decisiones ya no se calculan dentro del render de cada toque; se calculan al pedirlas (Bandeja) o, para el contador, justo después de pintar.
 - **12.ª vuelta del agente atacante sobre `main`** (2026-11-18, después de #139/#140):
@@ -229,7 +229,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
 6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
 7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Falta: revisar los reportes unos días con uso real y pasarla a `Content-Security-Policy`.
-8. Tarjeta «¿A qué hora te levantaste?» de la Bandeja (`LateNightCard`, `Inbox.tsx`): rechazar una hora que todavía no pasó, con el mismo mensaje y validación que Ajustes → Hoy («Todavía no son las HH:MM.», `awakeProblem`).
+8. ✅ Tarjeta «¿A qué hora te levantaste?» de la Bandeja: no acepta una hora que todavía no pasó («Todavía no son las HH:MM.»), ni siquiera la supuesta si todavía no llegó.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 

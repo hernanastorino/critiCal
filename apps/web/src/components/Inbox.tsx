@@ -1,8 +1,23 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
-import { type Activity, MEAL_RANGE, type MealKind, MINUTE, type PlanBlock } from "../engine.js";
-import { dayAndTime, dayDate, hhmmToMinutes, hours, minutesToHhmm, time } from "../format.js";
+import {
+  type Activity,
+  localParts,
+  MEAL_RANGE,
+  type MealKind,
+  MINUTE,
+  type PlanBlock,
+} from "../engine.js";
+import {
+  dayAndTime,
+  dayDate,
+  hhmmToMinutes,
+  hours,
+  minutesToHhmm,
+  parseClock,
+  time,
+} from "../format.js";
 import {
   FREE_TODAY,
   mealNoRoom,
@@ -21,6 +36,7 @@ import { hoursTooShort } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
 import { BlockSheet } from "./BlockSheet.js";
+import { Problem } from "./fields.js";
 import { useKeepFocus } from "./inboxFocus.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
@@ -695,9 +711,11 @@ function WhereCard({
 
 /** After a late night: when did you get up? Until answered the plan assumes your usual sleep. */
 function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight>> }) {
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
   const [wake, setWake] = useState(minutesToHhmm(late.assumedWake));
+  const [problem, setProblem] = useState<string | null>(null);
+  const errorId = useId();
   return (
     <div className="card">
       <div className="title">¿A qué hora te levantaste?</div>
@@ -708,13 +726,28 @@ function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight
       <div className="row fields">
         <label className="field" style={{ flex: 1, marginBottom: 0 }}>
           <span>Me levanté a las</span>
-          <input type="time" value={wake} onChange={(e) => setWake(e.target.value)} />
+          <input
+            type="time"
+            value={wake}
+            aria-invalid={problem ? true : undefined}
+            aria-describedby={problem ? errorId : undefined}
+            onChange={(e) => {
+              setWake(e.target.value);
+              setProblem(null);
+            }}
+          />
         </label>
         <button
           type="button"
           className="btn small"
           disabled={!wake}
           onClick={() => {
+            // Like Ajustes → Hoy: the card asks about today, so it cannot be later than now.
+            const woke = parseClock(wake);
+            if (woke !== null && woke > localParts(tz, now).minuteOfDay) {
+              setProblem(`Todavía no son las ${minutesToHhmm(woke)}.`);
+              return;
+            }
             const own = data.overrides.find((o) => o.date === late.date);
             dispatch({
               type: "override",
@@ -725,6 +758,7 @@ function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight
           Listo
         </button>
       </div>
+      <Problem id={errorId} text={problem} />
     </div>
   );
 }

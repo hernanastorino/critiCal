@@ -153,7 +153,7 @@ describe("late nights", () => {
       <StoreProvider
         initial={() => data([party])}
         persist={false}
-        fixedNow={morning}
+        fixedNow={at("2026-11-04", "11:00")}
         onChange={(_, next) => {
           saved = next;
         }}
@@ -171,5 +171,39 @@ describe("late nights", () => {
     expect(screen.queryByText("¿A qué hora te levantaste?")).toBeNull();
     // The answer typed is the one saved, not the assumed 09:30.
     expect(saved?.overrides.find((o) => o.date === "2026-11-04")?.wake).toBe(10 * 60 + 15);
+  });
+
+  it("does not take a wake-up that has not happened yet", async () => {
+    let saved: AppData | undefined;
+    render(
+      <StoreProvider
+        initial={() => data([party])}
+        persist={false}
+        fixedNow={morning}
+        onChange={(_, next) => {
+          saved = next;
+        }}
+      >
+        <Inbox />
+      </StoreProvider>,
+    );
+    const field = screen.getByLabelText("Me levanté a las") as HTMLInputElement;
+    // The assumed 09:30 is still ahead at 07:30, and so is anything typed after now.
+    for (const typed of ["09:30", "07:31"]) {
+      fireEvent.change(field, { target: { value: typed } });
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+      });
+      expect(screen.getByRole("alert").textContent).toBe(`Todavía no son las ${typed}.`);
+      expect(field.getAttribute("aria-invalid")).toBe("true");
+      expect(saved?.overrides.some((o) => o.date === "2026-11-04")).not.toBe(true);
+    }
+    // Typing again clears the notice; a time already past is saved.
+    fireEvent.change(field, { target: { value: "07:30" } });
+    expect(screen.queryByRole("alert")).toBeNull();
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    });
+    expect(saved?.overrides.find((o) => o.date === "2026-11-04")?.wake).toBe(7 * 60 + 30);
   });
 });
