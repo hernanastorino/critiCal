@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { BlockSheet } from "./components/BlockSheet.js";
+import { ToastProvider } from "./components/Toast.js";
 import { demoData } from "./demo.js";
 import { MINUTE, type PlanBlock } from "./engine.js";
 import type { AppData } from "./model.js";
@@ -99,5 +100,35 @@ describe("a run of pinned blocks in the sheet", () => {
       fireEvent.click(within(second).getByRole("button", { name: "Soltar" }));
     });
     expect(saved()?.pins?.map((p) => p.id)).toEqual([run[0]?.id, run[2]?.id]);
+  });
+});
+
+describe("«Soltar todo» is one step back (21.ª vuelta)", () => {
+  it("one «Deshacer» of the week brings every block of the run back, pinned", () => {
+    const { data, run } = setup();
+    const ids = run.map((b) => b.id);
+    const freed = reducer(data, { type: "unpinAll", blockIds: ids, now: NOW });
+    expect(freed.pins?.some((p) => ids.includes(p.id))).toBe(false);
+    const back = reducer(freed, { type: "undoPlan", now: NOW });
+    expect(back.pins?.map((p) => p.id).sort()).toEqual([...ids].sort());
+  });
+
+  it("says so with its own «Deshacer»", () => {
+    const { data, run, first } = setup();
+    render(
+      <StoreProvider initial={() => data} persist={false} fixedNow={NOW}>
+        <ToastProvider>
+          <BlockSheet
+            item={{ kind: "block", id: "run", start: 0, end: 0, block: first, run }}
+            onClose={() => {}}
+          />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Soltar todo" }));
+    });
+    expect(screen.getByText("Soltaste 3 bloques · el plan los reacomodó")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Deshacer" })).toBeTruthy();
   });
 });

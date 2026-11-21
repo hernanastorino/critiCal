@@ -129,6 +129,7 @@ Las decisiones ya están en la SPEC: GTFS del STM, caché semanal en el servidor
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante, no reproducidos como bugs)
 
+- **21.ª vuelta del agente atacante** (2026-11-21, en segundo plano sobre `main` local después de #171, solo modo demo; sin Altas). Arregladas en el PR de la vuelta: la Media de «Soltar todo» (no guardaba versión del plan: el Deshacer de la semana deshacía los fijados anteriores; ahora se deshace de una vez y avisa con su propio «Deshacer»), una rutina con «No» todos los días ya no se guarda («la rutina no iría nunca») y el nombre de la rutina ya no se parte letra por letra junto a una descripción larga. No reproducida: la otra Media (horas de una rutina en Silos; era el silo de al lado). Bajas sin arreglar: «Fijar acá» no se ofrece en los bloques de hoy (sin explicación) y el desfase de la hoja de detalle mientras anima.
 - **20.ª vuelta del agente atacante** (2026-11-20, en segundo plano sobre `main` local después de #164, solo modo demo; sin Altas ni Medias). Arregladas en el PR de la vuelta: con letra al 200 % los botones Hecho / Parcial / No ya no se cortan a mitad de palabra (las filas de botones de hojas y tarjetas pasan a otra línea) y la duración de una parte («3 h») no se parte. No arregladas (Bajas):
   - El aviso «Corregido: …» con letra al 200 % ocupa 4 líneas y tapa la barra de arriba mientras dura.
   - Con letra grande, la grilla de la semana (píldoras, íconos, horas) no crece.

@@ -5,6 +5,7 @@ import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
+import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
 import type { Item } from "./Week.js";
 
@@ -66,6 +67,7 @@ function BlockRun({
   onUndone?: (blockId: string) => void;
 }) {
   const { data, now, dispatch } = useStore();
+  const toast = useToast();
   const answered = new Set(standingCheckIns(data).map((c) => c.blockId));
   // The ones «Soltar» would free one by one: pinned, still ahead and not answered.
   const releasable = run.filter((b) => isPinned(b) && b.start > now && !answered.has(b.id));
@@ -93,6 +95,11 @@ function BlockRun({
           style={{ width: "100%" }}
           onClick={() => {
             dispatch({ type: "unpinAll", blockIds: releasable.map((b) => b.id) });
+            toast.show(`Soltaste ${releasable.length} bloques · el plan los reacomodó`, {
+              undo: () => {
+                dispatch({ type: "undoPlan" });
+              },
+            });
             onDone();
           }}
         >

@@ -297,3 +297,14 @@ describe("«No ese día» (decidido el 2026-11-20)", () => {
     expect(screen.getByLabelText("Desde, domingo").hasAttribute("disabled")).toBe(true);
   });
 });
+
+describe("every day «No» (21.ª vuelta)", () => {
+  it("is not saved: the routine would never go", () => {
+    const form = emptyHoursForm();
+    form.perDay = true;
+    form.days = form.days.map(() => ({ from: "", to: "", off: true }));
+    const read = readHours(form);
+    expect(read.hours).toBeUndefined();
+    expect(read.problems.map((p) => p.text).join(" ")).toMatch(/todos los días/);
+  });
+});

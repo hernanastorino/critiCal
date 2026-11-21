@@ -220,6 +220,7 @@ export type Action =
 const VERSIONED: Partial<Record<Action["type"], string>> = {
   pin: "mover o fijar un bloque",
   unpin: "soltar un bloque",
+  unpinAll: "soltar varios bloques",
   replanWeek: "reacomodar la semana",
   override: "ajustar el día",
   acceptProposal: "aceptar un cambio propuesto",
