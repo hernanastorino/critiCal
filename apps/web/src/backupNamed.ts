@@ -399,6 +399,11 @@ const travelMinutesTests: Test[] = [
   ["key", text],
 ];
 
+const tripMinutesTests: Test[] = [
+  ["minutes", int(0, 1440)],
+  ["start", instant],
+];
+
 /** How an optional top-level key is read: a list or an object of entries, or one value. */
 type Kind = "list" | "record" | "value";
 /** Optional top-level keys: `[key, kind, valid entry, what it is, for the notice]`. */
@@ -410,6 +415,7 @@ const extras: Extra[] = [
   ["planHistory", "list", shape(versionTests), "versiones del historial del plan"],
   ["eventTravel", "record", shape(travelMinutesTests), "traslados guardados de eventos"],
   ["tripModes", "record", oneOf("car", "bus"), "formas de llegar elegidas para un evento"],
+  ["tripMinutes", "record", shape(tripMinutesTests), "minutos de ómnibus de un evento"],
   ["mealChoices", "list", shape(mealDayTests), "comidas cambiadas"],
   ["movedEvents", "list", shape(movedTests), "eventos movidos"],
   ["tentativeSeen", "list", shape(tentativeTests), "eventos tentativos"],
