@@ -45,6 +45,30 @@ const quiet: ToastApi = { show: () => {}, clear: () => {}, current: null, setPin
 
 export const useToast = () => useContext(Ctx) ?? quiet;
 
+/** Text larger than this share of the default (16 px) counts as large (SPEC §18.12). */
+export const LARGE_TEXT = 1.5;
+
+/** Whether the system text size (Dynamic Type on iOS) is large: the root font past 150 %. */
+export function useLargeText(): boolean {
+  const read = () =>
+    typeof window !== "undefined" &&
+    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16 * LARGE_TEXT;
+  const [big, setBig] = useState(read);
+  useEffect(() => {
+    // The size changes in the system settings, away from the app: check on coming back.
+    const check = () => {
+      setBig(read());
+    };
+    window.addEventListener("resize", check);
+    document.addEventListener("visibilitychange", check);
+    return () => {
+      window.removeEventListener("resize", check);
+      document.removeEventListener("visibilitychange", check);
+    };
+  }, []);
+  return big;
+}
+
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [current, setCurrent] = useState<Toast | null>(null);
   const [pinned, setPinned] = useState<ReactNode>(null);
@@ -83,6 +107,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [current, startTimer]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
+  const big = useLargeText();
   const release = (which: { current: boolean }) => {
     which.current = false;
     if (current && !(hover.current || focus.current)) startTimer(current);
@@ -94,8 +119,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       <div className="snacks">
         <div role="status">{pinned}</div>
       </div>
-      {/* The notice at the very top, so it never covers a row being edited (SPEC §18.10). */}
-      <div className="toasts">
+      {/* The notice at the very top, so it never covers a row being edited (SPEC §18.10).
+          With large text it goes down above the tab bar instead (SPEC §18.12): three or four
+          lines at the top would cover the week's bar. */}
+      <div className={big ? "toasts low" : "toasts"}>
         {/* Its own region: a new notice is announced alone, not with the standing summary. */}
         <div role="status">
           {current && (
