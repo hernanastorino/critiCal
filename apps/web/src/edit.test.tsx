@@ -321,7 +321,7 @@ describe("edit mode", () => {
     expect(document.querySelector(".bubble")).toBeTruthy();
     fireEvent.click(screen.getAllByLabelText("Cerrar")[0] as HTMLElement);
 
-    fireEvent.click(screen.getByText("Listo"));
+    fireEvent.click(screen.getByText("Terminar edición"));
     expect(document.querySelector(".week.editing")).toBeNull();
   });
 

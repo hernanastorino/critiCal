@@ -143,7 +143,7 @@ describe("weekly review", () => {
     fireEvent.click(screen.getByText("Probar con datos de ejemplo"));
     expect(await screen.findByRole("dialog", { name: "Planificación semanal" })).toBeTruthy();
     expect(screen.getByText("Críticos de la semana")).toBeTruthy();
-    fireEvent.click(screen.getByText("Listo"));
+    fireEvent.click(screen.getByText("Cerrar resumen"));
     expect(screen.queryByRole("dialog", { name: "Planificación semanal" })).toBeNull();
   });
 });

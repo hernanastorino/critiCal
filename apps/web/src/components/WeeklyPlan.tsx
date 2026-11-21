@@ -105,7 +105,7 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
           </button>
         )}
         <button type="button" className="btn primary" style={{ width: "100%" }} onClick={onClose}>
-          Listo
+          Cerrar resumen
         </button>
       </div>
     </>

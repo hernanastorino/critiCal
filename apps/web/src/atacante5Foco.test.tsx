@@ -63,10 +63,10 @@ describe("focus never falls to the page", () => {
     expect(document.activeElement).not.toBe(document.body);
   });
 
-  it("after «Listo» of the edit mode", async () => {
+  it("after «Terminar edición» of the edit mode", async () => {
     render(<App fixedNow={NOW} initial={demoData} />);
     fireEvent.click(screen.getByRole("button", { name: /Modo edición/ }));
-    const done = screen.getByRole("button", { name: "Listo" });
+    const done = screen.getByRole("button", { name: "Terminar edición" });
     done.focus();
     fireEvent.click(done);
     await settle();

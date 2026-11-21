@@ -934,7 +934,7 @@ export function Week({
               requestAnimationFrame(() => editRef.current?.focus());
             }}
           >
-            Listo
+            Terminar edición
           </button>
         </div>
       )}
