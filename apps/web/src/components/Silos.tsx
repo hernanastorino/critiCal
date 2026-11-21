@@ -101,6 +101,13 @@ export function Silos() {
         </h1>
       </div>
       <div className="scroll">
+        {items.length === 0 && off.length === 0 && (
+          // An empty screen says what goes here and where to start (SPEC §14).
+          <p className="empty">
+            Acá van tus entregas, parciales y rutinas: cada silo muestra cuánto te falta. Creá la
+            primera con «Nueva».
+          </p>
+        )}
         <div className="silos">
           {items.map(silo)}
           {off.map((t) => (
