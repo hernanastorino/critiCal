@@ -314,7 +314,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 className="btn primary"
                 onClick={() => dispatch({ type: "review", taskId: t.id, keep: true })}
               >
-                OK
+                Planificar así
               </button>
             </div>
           </div>
@@ -756,7 +756,7 @@ function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight
             });
           }}
         >
-          Listo
+          Guardar hora
         </button>
       </div>
       <Problem id={errorId} text={problem} />

@@ -166,7 +166,7 @@ describe("late nights", () => {
     expect(field.value).toBe("09:30");
     fireEvent.change(field, { target: { value: "10:15" } });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar hora" }));
     });
     expect(screen.queryByText("¿A qué hora te levantaste?")).toBeNull();
     // The answer typed is the one saved, not the assumed 09:30.
@@ -192,7 +192,7 @@ describe("late nights", () => {
     for (const typed of ["09:30", "07:31"]) {
       fireEvent.change(field, { target: { value: typed } });
       await act(async () => {
-        fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+        fireEvent.click(screen.getByRole("button", { name: "Guardar hora" }));
       });
       expect(screen.getByRole("alert").textContent).toBe(`Todavía no son las ${typed}.`);
       expect(field.getAttribute("aria-invalid")).toBe("true");
@@ -202,7 +202,7 @@ describe("late nights", () => {
     fireEvent.change(field, { target: { value: "07:30" } });
     expect(screen.queryByRole("alert")).toBeNull();
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+      fireEvent.click(screen.getByRole("button", { name: "Guardar hora" }));
     });
     expect(saved?.overrides.find((o) => o.date === "2026-11-04")?.wake).toBe(7 * 60 + 30);
   });
