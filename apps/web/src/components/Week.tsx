@@ -51,6 +51,7 @@ import {
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 import { useEditEscape } from "./useEditEscape.js";
+import { useSwipe } from "./useSwipe.js";
 
 /**
  * The plan's blocks as the week draws them: those of one activity that touch are one pill,
@@ -207,6 +208,11 @@ export function Week({
   /** The last long-press drop: the click right after it, on that block, is not a tap. */
   const dropped = useRef<{ ids: string[] }>({ ids: [] });
   const weekRef = useRef<HTMLDivElement>(null);
+  useSwipe(weekRef, {
+    enabled: !editing && !drag?.active,
+    onNext: () => setOffset((o) => o + 1),
+    onPrev: () => setOffset((o) => o - 1),
+  });
   const replanRef = useRef<HTMLButtonElement>(null);
   /**
    * A replan under way: the undo version it started from, and whether one came out of it
