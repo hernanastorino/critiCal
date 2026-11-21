@@ -48,16 +48,18 @@ export const useToast = () => useContext(Ctx) ?? quiet;
 /** Text larger than this share of the default (16 px) counts as large (SPEC §18.12). */
 export const LARGE_TEXT = 1.5;
 
-/** Whether the system text size (Dynamic Type on iOS) is large: the root font past 150 %. */
+/** Whether the root font is past 150 % (the system text size: Dynamic Type on iOS). */
+const largeNow = () =>
+  typeof window !== "undefined" &&
+  Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16 * LARGE_TEXT;
+
+/** Whether the system text size is large, kept up to date. */
 export function useLargeText(): boolean {
-  const read = () =>
-    typeof window !== "undefined" &&
-    Number.parseFloat(getComputedStyle(document.documentElement).fontSize) > 16 * LARGE_TEXT;
-  const [big, setBig] = useState(read);
+  const [big, setBig] = useState(largeNow);
   useEffect(() => {
     // The size changes in the system settings, away from the app: check on coming back.
     const check = () => {
-      setBig(read());
+      setBig(largeNow());
     };
     window.addEventListener("resize", check);
     document.addEventListener("visibilitychange", check);
