@@ -28,6 +28,7 @@ interface State {
   noTravel?: string[];
   spots?: Spot[];
   eventTravel?: AppData["eventTravel"];
+  tripModes?: AppData["tripModes"];
   mealChoices?: AppData["mealChoices"];
   notSubjects?: string[];
   removedSubjects?: string[];
@@ -188,6 +189,7 @@ export function rowsToData(r: {
         lat: (p.lat as number) ?? undefined,
         lon: (p.lon as number) ?? undefined,
         isHome: (p.is_home as boolean) || undefined,
+        travelMode: p.travel_mode === "bus" ? "bus" : undefined,
       }),
     ),
     travelTimes: (r.travelTimes ?? []).map(
@@ -201,6 +203,7 @@ export function rowsToData(r: {
     noTravel: state.noTravel,
     spots: state.spots,
     eventTravel: state.eventTravel,
+    tripModes: state.tripModes,
     mealChoices: state.mealChoices,
     notSubjects: state.notSubjects,
     removedSubjects: state.removedSubjects,
@@ -357,6 +360,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.noTravel,
       prev.spots,
       prev.eventTravel,
+      prev.tripModes,
       prev.mealChoices,
       prev.notSubjects,
       prev.removedSubjects,
@@ -376,6 +380,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.noTravel,
       next.spots,
       next.eventTravel,
+      next.tripModes,
       next.mealChoices,
       next.notSubjects,
       next.removedSubjects,
@@ -400,6 +405,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             noTravel: next.noTravel,
             spots: next.spots,
             eventTravel: next.eventTravel,
+            tripModes: next.tripModes,
             mealChoices: next.mealChoices,
             notSubjects: next.notSubjects,
             removedSubjects: next.removedSubjects,
@@ -559,6 +565,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         lat: p.lat ?? null,
         lon: p.lon ?? null,
         is_home: !!p.isHome,
+        travel_mode: p.travelMode ?? "car",
       })),
     });
   }

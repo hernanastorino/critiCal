@@ -42,6 +42,7 @@ import type {
   PlanVersion,
   Preferences,
   Spot,
+  TravelMode,
   Unit,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, undoable } from "./model.js";
@@ -169,6 +170,8 @@ export type Action =
     }
   /** Minutes kept for one event (after «Eliminar lugar») changed, or forgotten (`null`). */
   | { type: "eventTravelMinutes"; eventId: string; minutes: number | null; now: number }
+  /** How to get to one event just that once; null goes back to the place's own mode. */
+  | { type: "tripMode"; eventId: string; mode: TravelMode | null; now: number }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
   /**
@@ -1402,6 +1405,16 @@ function apply(data: AppData, action: Action): AppData {
           key: eventTravel[action.eventId]?.key ?? eventSpotKey(event),
         };
       return refresh({ ...data, eventTravel }, now);
+    }
+    case "tripMode": {
+      const tripModes = { ...data.tripModes };
+      if (action.mode === null) delete tripModes[action.eventId];
+      else if (!data.events.some((e) => e.id === action.eventId)) return data;
+      else tripModes[action.eventId] = action.mode;
+      return refresh(
+        { ...data, tripModes: Object.keys(tripModes).length ? tripModes : undefined },
+        now,
+      );
     }
     case "restoreSpot": {
       const eventTravel = { ...data.eventTravel };

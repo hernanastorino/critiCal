@@ -3,7 +3,7 @@ import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import { BACKUP_TEXT_MAX, NAME_MAX } from "../limits.js";
-import { CRITICAL, newId, type Place, type Spot } from "../model.js";
+import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
 import {
   keepableEvents,
   keptTravel,
@@ -447,9 +447,10 @@ function PlaceForm({
     address: place.address ?? "",
     aliases: place.aliases.join(", "),
     isHome: !!place.isHome,
+    travelMode: (place.travelMode ?? "car") as TravelMode,
   });
   const [form, setForm, saved, dirty] = useDraft(`place:${place.id}`, fresh);
-  const { name, address, aliases, isHome } = form;
+  const { name, address, aliases, isHome, travelMode } = form;
   const setName = (v: string) => setForm({ ...form, name: v });
   const setAddress = (v: string) => setForm({ ...form, address: v });
   const setAliases = (v: string) => setForm({ ...form, aliases: v });
@@ -512,6 +513,26 @@ function PlaceForm({
           placeholder="FING, Facultad"
         />
       </label>
+      <fieldset className="field mode-set">
+        <legend>Cómo llegar ahí (por defecto)</legend>
+        <div className="day-chips">
+          {(["car", "bus"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              className={`chip${travelMode === m ? " on" : ""}`}
+              aria-pressed={travelMode === m}
+              onClick={() => setForm({ ...form, travelMode: m })}
+            >
+              {m === "car" ? "Auto" : "Ómnibus"}
+            </button>
+          ))}
+        </div>
+        <span className="meta">
+          En cada evento lo podés cambiar solo esa vez. Los horarios de ómnibus cubren Montevideo,
+          Canelones y San José.
+        </span>
+      </fieldset>
       <label className="check">
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>
@@ -549,6 +570,7 @@ function PlaceForm({
                     a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
                 ),
               isHome: isHome || undefined,
+              travelMode: travelMode === "bus" ? "bus" : undefined,
             });
           }}
         >

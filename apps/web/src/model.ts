@@ -236,6 +236,8 @@ export interface AppData {
    * the event's `spotKey` then: if the event moves elsewhere, the minutes no longer apply.
    */
   eventTravel?: Record<string, EventTravel>;
+  /** How to get to one event, just that once (SPEC §15); without an entry, the place's mode. */
+  tripModes?: Record<string, TravelMode>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
@@ -277,6 +279,9 @@ export interface EventTravel {
   key: string;
 }
 
+/** How a trip is made: by car (the driving times) or by bus (SPEC §15). */
+export type TravelMode = "car" | "bus";
+
 /** A saved place (home, facu, gym…), matched against event locations and titles. */
 export interface Place {
   id: string;
@@ -288,6 +293,8 @@ export interface Place {
   lat?: number;
   lon?: number;
   isHome?: boolean;
+  /** Default way to get there (SPEC §15); missing = car. */
+  travelMode?: TravelMode;
 }
 
 /** Driving minutes between two places; manual times win over computed ones. */

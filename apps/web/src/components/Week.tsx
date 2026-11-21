@@ -37,6 +37,7 @@ import { blockRuns } from "../runs.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
+import { EventTrip } from "./EventTrip.js";
 import { FirstSteps } from "./FirstSteps.js";
 import {
   CheckIcon,
@@ -1479,6 +1480,7 @@ function BubbleCard({
           {item.event.location && <p>{item.event.location}</p>}
           <p className="more">Abrir evento ›</p>
         </button>
+        <EventTrip event={item.event} />
       </BubbleDialog>
     );
   }
