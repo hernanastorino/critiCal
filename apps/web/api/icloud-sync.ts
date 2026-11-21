@@ -110,7 +110,7 @@ export async function syncICloudFor(
         calendars.map((c) => c.url),
       );
     }
-    await user.from("calendars").upsert(
+    const saved = await user.from("calendars").upsert(
       calendars.map((c) => ({
         source: "icloud",
         external_id: c.url,
@@ -118,6 +118,7 @@ export async function syncICloudFor(
         color: c.color ?? null,
       })),
     );
+    if (saved.error) throw saved.error;
 
     const rows = [];
     const fetched = new Set<string>();

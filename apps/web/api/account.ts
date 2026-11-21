@@ -84,10 +84,12 @@ async function revokeGoogle(
     if (e instanceof SyncError) return e;
     throw e;
   }
-  const { data: channels } = await admin
+  const { data: channels, error: channelsError } = await admin
     .from("google_channels")
     .select("id, resource_id")
     .eq("user_id", uid);
+  // Unknown channels are not «none»: they would keep pushing to a deleted account.
+  if (channelsError) throw channelsError;
   for (const c of (channels ?? []) as { id: string; resource_id: string }[]) {
     await stopChannel(token, c.id, c.resource_id).catch(() => undefined);
   }

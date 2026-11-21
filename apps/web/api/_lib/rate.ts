@@ -11,18 +11,29 @@ interface Hits {
   dayStart: number;
 }
 
+/** Bound the memory: first whoever's day is over, then the least recently used. */
+const MAX_USERS = 1000;
+function evict(users: Map<string, Hits>, now: number) {
+  for (const [k, v] of users) if (now - v.dayStart >= DAY) users.delete(k);
+  for (const k of users.keys()) {
+    if (users.size <= MAX_USERS) break;
+    users.delete(k);
+  }
+}
+
 export function limiter(perMinute: number, perDay: number) {
   const users = new Map<string, Hits>();
   return {
     /** Counts one request; false when the user is over either budget. */
     take(user: string, now = Date.now()): boolean {
-      // Bound the memory: forget everyone when the table grows (one person's app).
-      if (users.size > 1000) users.clear();
       let h = users.get(user);
       if (!h || now - h.dayStart >= DAY) {
         h = { recent: [], day: 0, dayStart: now };
-        users.set(user, h);
       }
+      // Most recently used last, so the first key is always the one to forget.
+      users.delete(user);
+      users.set(user, h);
+      if (users.size > MAX_USERS) evict(users, now);
       h.recent = h.recent.filter((t) => now - t < MINUTE);
       if (h.recent.length >= perMinute || h.day >= perDay) return false;
       h.recent.push(now);

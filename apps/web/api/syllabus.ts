@@ -125,6 +125,10 @@ export async function handle(req: Request, env: Env, now = Date.now()): Promise<
   const pdf = typeof body.pdf === "string" ? body.pdf : "";
   if (!pdf) return json({ ok: false, error: "missing_pdf" }, 400);
   if ((pdf.length * 3) / 4 > MAX_PDF_BYTES) return json({ ok: false, error: "too_large" }, 413);
+  // Checked before the budget: «%PDF» is "JVBE" in base64, and junk is no reading.
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(pdf) || !pdf.startsWith("JVBE")) {
+    return json({ ok: false, error: "invalid_pdf" }, 400);
+  }
   if (!reads.take(caller.uid, now)) return tooMany();
   const year = new Date(now).getUTCFullYear();
   const request = JSON.stringify({

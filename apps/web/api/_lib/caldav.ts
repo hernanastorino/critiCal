@@ -3,10 +3,12 @@
 // both Deno and Vitest can load it.
 
 export const ICLOUD = "https://caldav.icloud.com/";
+/** The longest one CalDAV request (headers and body) may take before it is given up. */
+export const DAV_TIMEOUT_MS = 15_000;
 
 export class DavError extends Error {
   constructor(
-    readonly code: "icloud_auth_failed" | "icloud_unreachable",
+    readonly code: "icloud_auth_failed" | "icloud_unreachable" | "icloud_timeout",
     readonly status?: number,
   ) {
     super(code);
@@ -152,24 +154,36 @@ export async function dav(
     if (parsed.protocol !== "https:" || !/(^|\.)icloud\.com$/.test(parsed.hostname)) {
       throw new DavError("icloud_unreachable");
     }
-    const res = await fetcher(target, {
-      method,
-      redirect: "manual",
-      headers: {
-        Authorization: auth,
-        Depth: depth,
-        "Content-Type": "application/xml; charset=utf-8",
-      },
-      body,
-    });
+    let res: Response;
+    let text: string | undefined;
+    try {
+      res = await fetcher(target, {
+        method,
+        redirect: "manual",
+        signal: AbortSignal.timeout(DAV_TIMEOUT_MS),
+        headers: {
+          Authorization: auth,
+          Depth: depth,
+          "Content-Type": "application/xml; charset=utf-8",
+        },
+        body,
+      });
+      if (res.status === 207) text = await res.text();
+    } catch (e) {
+      // A server that does not answer in time is a clear error of its own, not a hang.
+      if (e instanceof Error && (e.name === "TimeoutError" || e.name === "AbortError")) {
+        throw new DavError("icloud_timeout");
+      }
+      throw e;
+    }
     if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
       target = new URL(res.headers.get("location") as string, target).toString();
       continue;
     }
     if (res.status === 401 || res.status === 403)
       throw new DavError("icloud_auth_failed", res.status);
-    if (res.status !== 207) throw new DavError("icloud_unreachable", res.status);
-    return { xml: await res.text(), url: target };
+    if (text === undefined) throw new DavError("icloud_unreachable", res.status);
+    return { xml: text, url: target };
   }
   throw new DavError("icloud_unreachable", 310);
 }

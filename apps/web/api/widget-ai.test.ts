@@ -262,20 +262,37 @@ describe("syllabus", () => {
     });
   });
 
+  it("refuses what is not a base64 PDF before spending the budget or calling Gemini", async () => {
+    const fetched = vi.fn(async () => answer(good));
+    vi.stubGlobal("fetch", fetched);
+    // Valid base64 of «hello», of «<html>», and not base64 at all.
+    for (const pdf of ["aGVsbG8=", "PGh0bWw+", "%PDF-1.4", "JVBERi0=!!", "JVBE Ri0="]) {
+      const res = await syllabus.handle(bearer("jwt", { pdf }), env, NOW);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toEqual({ ok: false, error: "invalid_pdf" });
+    }
+    expect(fetched).not.toHaveBeenCalled();
+    for (let i = 0; i < 5; i++) {
+      expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env, NOW)).status).toBe(
+        200,
+      );
+    }
+  });
+
   it("uses only the forced model when GEMINI_MODEL is set", async () => {
     const calls: string[] = [];
     vi.stubGlobal("fetch", async (url: string) => {
       calls.push(String(url).split("/models/")[1] ?? "");
       return new Response("busy", { status: 429 });
     });
-    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+    const res = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), {
       ...env,
       geminiModel: "gemini-x",
     });
     expect(await res.json()).toEqual({ ok: false, error: "gemini_busy" });
     expect(calls).toEqual(["gemini-x:generateContent"]);
     vi.stubGlobal("fetch", async () => new Response("not found", { status: 404 }));
-    const gone = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+    const gone = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), {
       ...env,
       geminiModel: "gemini-old",
     });
@@ -340,16 +357,17 @@ describe("syllabus", () => {
     const big = "A".repeat(4_100_000);
     expect((await syllabus.handle(bearer("jwt", { pdf: big }), env)).status).toBe(413);
     expect(
-      (await syllabus.handle(bearer("jwt", { pdf: "x" }), { ...env, geminiKey: undefined })).status,
+      (await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), { ...env, geminiKey: undefined }))
+        .status,
     ).toBe(503);
     vi.stubGlobal("fetch", async () => new Response("busy", { status: 503 }));
-    expect(await (await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).json()).toEqual({
+    expect(await (await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env)).json()).toEqual({
       ok: false,
       error: "gemini_busy",
     });
     vi.stubGlobal("fetch", async () => new Response("bad key", { status: 400 }));
-    expect((await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).status).toBe(502);
-    expect(await (await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).json()).toEqual({
+    expect((await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env)).status).toBe(502);
+    expect(await (await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env)).json()).toEqual({
       ok: false,
       error: "gemini_error",
       status: 400,
@@ -357,7 +375,7 @@ describe("syllabus", () => {
     vi.stubGlobal("fetch", async () =>
       Response.json({ candidates: [{ content: { parts: [{ text: "no json" }] } }] }),
     );
-    expect(await (await syllabus.handle(bearer("jwt", { pdf: "x" }), env)).json()).toEqual({
+    expect(await (await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env)).json()).toEqual({
       ok: false,
       error: "unreadable",
     });
@@ -460,7 +478,7 @@ describe("own Gemini key", () => {
       used.push((init.headers as Record<string, string>)["x-goog-api-key"] ?? "");
       return new Response("busy", { status: 503 });
     });
-    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), env);
+    const res = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env);
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ ok: false, error: "key_failed" });
     expect(used).toEqual([]);
@@ -476,10 +494,10 @@ describe("own Gemini key", () => {
       keys.push((init.headers as Record<string, string>)["x-goog-api-key"] ?? "");
       return new Response("busy", { status: 503 });
     });
-    await syllabus.handle(bearer("jwt", { pdf: "x" }), env);
+    await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), env);
     expect(keys.every((k) => k === "own-key")).toBe(true);
     // Their key works even when the app has none.
-    const res = await syllabus.handle(bearer("jwt", { pdf: "x" }), {
+    const res = await syllabus.handle(bearer("jwt", { pdf: "JVBERi0=" }), {
       ...env,
       geminiKey: undefined,
     });

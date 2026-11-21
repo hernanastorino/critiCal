@@ -14,12 +14,13 @@ interface Row {
 }
 let rows: Row[] = [];
 let failReads = false;
+let failKey = false;
 
 const admin = {
   auth: { getUser: async () => ({ data: { user: { id: "u1" } }, error: null }) },
   rpc: async (name: string, args: { p_key?: string }) => ({
     data: name === "check_cron_key" ? args.p_key === "good-key" : true,
-    error: null,
+    error: name === "check_cron_key" && failKey ? new Error("db down") : null,
   }),
   from: () => ({
     select: (cols: string) => {
@@ -333,6 +334,18 @@ describe("the weekly import", () => {
     expect((await call({}, { "x-cron-key": "good-key" }, { url: "u" } as never)).status).toBe(503);
   });
 
+  it("answers 500, not 401, when the key check itself fails", async () => {
+    failKey = true;
+    try {
+      vi.spyOn(console, "error").mockImplementation(() => undefined);
+      const res = await cron({});
+      expect(res.status).toBe(500);
+      expect(await res.json()).toEqual({ ok: false, error: "transit_failed" });
+    } finally {
+      failKey = false;
+    }
+  });
+
   it("imports each source on its own: one failing keeps the other", async () => {
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     vi.stubGlobal(
@@ -395,5 +408,21 @@ describe("request budget", () => {
     l.refund("a");
     l.refund("nobody");
     expect(l.take("a", t + 86_400_002)).toBe(true);
+  });
+
+  it("forgets only the least recently used people when the table grows", () => {
+    const l = limiter(1, 5);
+    const t = 1_000_000;
+    // «busy» is over its minute budget; if the table were cleared it would get a new one.
+    expect(l.take("busy", t)).toBe(true);
+    expect(l.take("busy", t + 1)).toBe(false);
+    for (let i = 0; i < 999; i++) l.take(`u${i}`, t + 2);
+    // Asking again makes «busy» recent, so «u0» is now the oldest.
+    expect(l.take("busy", t + 3)).toBe(false);
+    l.take("u999", t + 4);
+    // Over the cap: only the oldest went, not everyone.
+    expect(l.take("busy", t + 5)).toBe(false);
+    expect(l.take("u1", t + 5)).toBe(false);
+    expect(l.take("u0", t + 5)).toBe(true);
   });
 });

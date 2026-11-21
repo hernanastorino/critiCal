@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
 let owner = false;
+let channelsError: Error | null = null;
 const channels = [{ id: "ch1", resource_id: "r1" }];
 
 function query(table: string) {
   const data = table === "google_channels" ? channels : null;
-  const result = { data, error: null };
+  const result = {
+    data,
+    error: table === "google_channels" ? channelsError : null,
+  };
   const chain = Promise.resolve(result) as unknown as Promise<typeof result> &
     Record<string, unknown>;
   for (const m of ["select", "eq"]) chain[m] = () => chain;
@@ -70,6 +74,7 @@ function stubGoogle(token: Response = Response.json({ access_token: "at" })) {
 
 beforeEach(() => {
   owner = false;
+  channelsError = null;
   rpc.mockReset();
   rpc.mockImplementation(async (name: string) =>
     name === "get_oauth_token" ? { data: "refresh", error: null } : { data: null, error: null },
@@ -155,6 +160,17 @@ describe("account", () => {
     const res = await handle(req({ action: "delete" }), env);
     expect(res.status).toBe(500);
     expect(rpc).not.toHaveBeenCalledWith("delete_account", expect.anything());
+  });
+
+  it("deletes nothing when the push channels cannot be listed", async () => {
+    const calls = stubGoogle();
+    channelsError = new Error("db down");
+    vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const res = await handle(req({ action: "delete" }), env);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ ok: false, error: "failed" });
+    expect(rpc).not.toHaveBeenCalledWith("delete_account", expect.anything());
+    expect(calls.some((c) => c.includes("oauth2.googleapis.com/revoke"))).toBe(false);
   });
 
   it("works without a Google connection", async () => {
