@@ -18,6 +18,8 @@
   --critical-ink: #c0171f;
   --warn-ink: #7a4d00;
   --ok-ink: #0b7236;
+  /* Blue text (action-sheet options): 5.9:1 on white. */
+  --link-ink: #0b5fd1;
   /* Focus ring: ≥3:1 on both the page and the colored blocks (WCAG 1.4.11), plus a halo. */
   --focus: #0a4fc4;
   --focus-halo: #ffffff;
@@ -67,6 +69,7 @@
     --critical-ink: #ff7a80;
     --warn-ink: #f5b84a;
     --ok-ink: #4cd98a;
+    --link-ink: #6aa8ff;
     --focus: #8ab8ff;
     --focus-halo: #12141a;
   }
@@ -1945,7 +1948,7 @@ input[type="datetime-local"] {
   padding: var(--space-4) var(--space-4);
   border: 0;
   background: var(--surface);
-  color: #0a72ff;
+  color: var(--link-ink);
   font: inherit;
   font-size: var(--text-l);
 }

@@ -749,8 +749,14 @@ export function Routines() {
             ref={nameField}
             value={name}
             maxLength={60}
-            aria-invalid={blank ? true : undefined}
-            aria-describedby={blank ? "routine-blank-error" : undefined}
+            aria-invalid={blank || (repeated && name.trim()) ? true : undefined}
+            aria-describedby={
+              blank
+                ? "routine-blank-error"
+                : repeated && name.trim()
+                  ? "routine-name-error"
+                  : undefined
+            }
             onChange={(e) => {
               setName(e.target.value);
               setNameTried(false);
