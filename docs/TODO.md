@@ -51,9 +51,7 @@ Nunca aprobar entornos de producción, cambiar secretos de Vercel o Supabase, ca
 
 ### 1.1 Preguntas y decisiones pendientes del usuario
 
-Las del 2026-11-18 y 2026-11-19 están respondidas en la SPEC §18 punto 11 y sus tareas en §5.6.
-
-- El ícono de critiCal (`CriticalIcon`, arriba a la izquierda y en el ícono de la app) es relleno y la SPEC §14 pide íconos de línea. ¿Se pasa a línea de 2 px, o el logo queda relleno como excepción por ser la marca?
+Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 puntos 11 y 12; sus tareas en §5.6 y §5.7.
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
@@ -240,6 +238,17 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
 7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Falta: revisar los reportes unos días con uso real y pasarla a `Content-Security-Policy`.
 8. ✅ Tarjeta «¿A qué hora te levantaste?» de la Bandeja: no acepta una hora que todavía no pasó («Todavía no son las HH:MM.»), ni siquiera la supuesta si todavía no llegó.
+
+### 5.7 Decisiones del 2026-11-21 para implementar (SPEC §18 punto 12)
+
+Un PR por tema, en este orden:
+
+1. «Fijar acá» también en un bloque de hoy que no empezó.
+2. Avisos abajo con letra grande (más de 150 %).
+3. Grilla con letra grande: horas y días crecen con tope.
+4. «No llegás a todo · elegí»: Roy en miniatura, una pose por opción, y aviso cuando las opciones se van solas.
+5. Deslizar a los costados en la Semana para cambiar de semana.
+6. Lo que queda de §5.1 (transiciones, primer uso guiado, espaciados) y después ómnibus (§5.2).
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
