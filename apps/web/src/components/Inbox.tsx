@@ -118,7 +118,8 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   useEffect(() => {
     const before = hadOptions.current;
     hadOptions.current = optionCount;
-    if (before > 0 && optionCount === 0 && !chose.current && plan.feasible) {
+    // Never over another notice (an «Ignorar» that made the plan fit keeps its «Deshacer»).
+    if (before > 0 && optionCount === 0 && !chose.current && plan.feasible && !toast.current) {
       toast.show(OPTIONS_GONE);
     }
     if (optionCount === 0) chose.current = false;
