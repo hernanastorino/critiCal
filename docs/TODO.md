@@ -63,10 +63,12 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                      | Estado                                                                        | Qué falta                                             |
-| ------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B) | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                    | **No mergear** hasta que el usuario lo pida.          |
-| Ciclo del agente atacante sobre `main`                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
+| Qué                                                                                                                                      | Estado                                                                             | Qué falta                                                                                                                                                                                                    |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                                 | Borrador, **atrasado**: `main` cambió `Settings.tsx` (#69)                         | **No mergear** hasta que el usuario lo pida.                                                                                                                                                                 |
+| Ciclo del agente atacante sobre `main`                                                                                                   | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias      | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                                                                                                                        |
+| PR #180 `claude/deslizar-semana` (deslizar para cambiar de semana, §5.7.5) y PR #182 `claude/primeros-pasos` (primer uso guiado, §5.1.6) | Abiertos al cortar (2026-11-21 ~04:00), CI corriendo tras aplastarlos sobre `main` | Si CI y Codacy están en verde y no hay hilos, mergear (squash). Si Codacy sigue mostrando hallazgos de commits viejos (ya corregidos), aplastar la rama en un commit sobre `origin/main` y volver a empujar. |
+| Sesión hija «Ómnibus: interfaz» (`omnibus-ui`, rama `claude/omnibus-ui…`, SPEC §15)                                                      | Frenada esperando una respuesta del usuario dentro de esa sesión                   | Cuando abra su PR: revisar CI, Codacy y la migración (si agregó columna a `places`) y mergear. No mergear antes de que el usuario la destrabe.                                                               |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -243,18 +245,18 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 
 Un PR por tema, en este orden:
 
-1. «Fijar acá» también en un bloque de hoy que no empezó.
-2. Avisos abajo con letra grande (más de 150 %).
-3. Grilla con letra grande: horas y días crecen con tope.
-4. «No llegás a todo · elegí»: Roy en miniatura, una pose por opción, y aviso cuando las opciones se van solas.
-5. Deslizar a los costados en la Semana para cambiar de semana.
-6. Lo que queda de §5.1 (transiciones, primer uso guiado, espaciados) y después ómnibus (§5.2).
+1. ✅ «Fijar acá» también en bloques seguidos (#176; uno suelto de hoy ya se podía).
+2. ✅ Avisos abajo con letra grande (#177).
+3. ✅ Grilla con letra grande: horas y días con tope de 175 % (#178).
+4. ✅ «Elegí»: Roy chico con pose por opción y aviso al desaparecer (#179).
+5. Deslizar a los costados en la Semana para cambiar de semana (PR #180, ver §1).
+6. §5.1: ✅ transiciones (#181), ✅ espaciados (#183), primer uso guiado (PR #182). Ómnibus (§5.2): interfaz en la sesión hija `omnibus-ui`.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #164 íconos de línea, #165 «Soltar todo» en bloques seguidos, #166 toques de 44 pt en la cabecera, #167 20.ª vuelta (botones con letra grande), #168 «Fijar acá» con Deshacer, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
+- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #164 íconos de línea, #165 «Soltar todo» en bloques seguidos, #166 toques de 44 pt en la cabecera, #167 20.ª vuelta (botones con letra grande), #168 «Fijar acá» con Deshacer, #170 números que cuentan, #171 «No ese día», #172 botones con verbo, #173 Silos vacío, #174 21.ª vuelta, #176–#179 y #181 (decisiones del 21-11 y resorte), #183 escala de tokens, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
   - Prueba en producción en modo demo y en el simulador de iPhone (todo se probó solo en local con WebKit de Playwright y jsdom): hoja de bloque con Hecho/Parcial/No/Corregir y su Deshacer, Bandeja (Deshacer de cada acción), Rutinas con «Distinto según el día», comidas al levantarse tarde, letra grande y tema oscuro.
   - Con cuenta real (nunca probado contra Supabase): importar un respaldo de otra cuenta o del demo (ids nuevos), Deshacer después de guardar (registro `retired` / `origin: "undo"`, que no reaparezca al recargar), carga paginada con más de 1000 registros.
   - Better Stack (`errors.betterstack.com`, aplicación «critiCal»): que no aparezcan errores nuevos tras el uso real, y revisar los reportes «CSP: …» unos días; si no hay nada roto, pasar la CSP a `Content-Security-Policy` (TODO §5.6 punto 7).
