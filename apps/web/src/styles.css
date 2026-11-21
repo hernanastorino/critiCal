@@ -513,6 +513,13 @@ textarea {
   z-index: 2;
 }
 
+/* The ring of a selected block goes away at once when its bubble closes, not fading out. */
+.pill:not(.selected) {
+  transition:
+    background-color 0.25s,
+    opacity 0.25s;
+}
+
 .week.critical-mode .pill {
   background: var(--glass-strong);
   box-shadow: none;
@@ -607,14 +614,24 @@ textarea {
   gap: var(--space-2);
 }
 
-/* Large text: the notice goes above the tab bar, not over the week's bar (SPEC §18.12). */
+/* Large text: the notice goes above the tab bar, not over the week's bar (SPEC §18.12). It sits
+   in the same column as the standing summary, over it, so they stack and never overlap. */
+.snacks.stacked {
+  right: 12px;
+}
+
+/* The summary keeps clear of the round button; the notice above it takes the full width. */
+.snacks.stacked > [role="status"] {
+  padding-right: 64px;
+}
+
 .toasts.low {
-  top: auto;
-  bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
+  position: static;
+  align-self: stretch;
 }
 
 @media (min-width: 720px) {
-  .toasts {
+  .toasts:not(.low) {
     left: auto;
     width: 380px;
   }
@@ -770,6 +787,9 @@ textarea {
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: 0 var(--space-4) calc(var(--space-4) + var(--safe-b));
   animation: up 0.3s var(--spring);
+  /* The spring overshoots upwards: this keeps what shows under the sheet the sheet's own colour
+     instead of a gap, so it does not look out of place while it settles. */
+  box-shadow: 0 48px 0 0 var(--surface);
 }
 
 /* Stays at the top while the sheet scrolls, with the grabber: there is always a way out. */
