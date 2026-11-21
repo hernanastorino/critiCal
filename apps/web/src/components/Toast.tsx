@@ -114,6 +114,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     which.current = false;
     if (current && !(hover.current || focus.current)) startTimer(current);
   };
+  // It can sit over a button: tapping it (not its «Deshacer») puts it away.
+  const tapAway = (e: React.MouseEvent) => {
+    if (!(e.target instanceof Element && e.target.closest("button"))) setCurrent(null);
+  };
+  const takeFocus = (e: React.FocusEvent<HTMLElement>) => {
+    focus.current = true;
+    const from = e.relatedTarget;
+    if (!(from instanceof HTMLElement && e.currentTarget.contains(from))) {
+      cameFrom.current = from instanceof HTMLElement ? from : null;
+    }
+  };
+  const undo = (was: Toast) => {
+    const back = cameFrom.current;
+    was.undo?.();
+    // The notice goes away with the focus on it: back to where it was.
+    setTimeout(() => {
+      if (back?.isConnected && !back.closest("[inert]")) back.focus();
+    }, 0);
+    // The undo may show a notice of its own: only this one goes.
+    setCurrent((c) => (c === was ? null : c));
+  };
   const noticeBox = (
     <div className={big ? "toasts low" : "toasts"}>
       {/* Its own region: a new notice is announced alone, not with the standing summary. */}
@@ -125,41 +146,18 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <div
             ref={box}
             className={`snack${current.tone === "alert" ? " alert" : ""}`}
-            // It can sit over a button: tapping it (not its «Deshacer») puts it away.
-            onClick={(e) => {
-              if (!(e.target instanceof Element && e.target.closest("button"))) setCurrent(null);
-            }}
+            onClick={tapAway}
             onPointerEnter={() => {
               hover.current = true;
             }}
             onPointerLeave={() => release(hover)}
-            onFocus={(e) => {
-              focus.current = true;
-              const from = e.relatedTarget;
-              if (!(from instanceof HTMLElement && e.currentTarget.contains(from))) {
-                cameFrom.current = from instanceof HTMLElement ? from : null;
-              }
-            }}
+            onFocus={takeFocus}
             onBlur={() => release(focus)}
           >
             {current.roy && <Roy anim={current.roy} size={56} maxWidth={72} once />}
             <span>{current.message}</span>
             {current.undo && (
-              <button
-                type="button"
-                className="btn small snack-btn"
-                onClick={() => {
-                  const was = current;
-                  const back = cameFrom.current;
-                  was.undo?.();
-                  // The notice goes away with the focus on it: back to where it was.
-                  setTimeout(() => {
-                    if (back?.isConnected && !back.closest("[inert]")) back.focus();
-                  }, 0);
-                  // The undo may show a notice of its own: only this one goes.
-                  setCurrent((c) => (c === was ? null : c));
-                }}
-              >
+              <button type="button" className="btn small snack-btn" onClick={() => undo(current)}>
                 Deshacer
               </button>
             )}

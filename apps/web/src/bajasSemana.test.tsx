@@ -26,6 +26,7 @@ afterEach(() => {
 const css = readFileSync(resolve(__dirname, "styles.css"), "utf8");
 const rule = (selector: string) =>
   css
+    .replace(/\/\*[\s\S]*?\*\//g, "")
     .split("}")
     .find((b) => b.split("{")[0]?.trim() === selector)
     ?.split("{")[1] ?? "";
