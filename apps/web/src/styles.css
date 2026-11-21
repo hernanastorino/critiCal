@@ -1,4 +1,7 @@
 :root {
+  /* Sheets and notices come in with a small overshoot (SPEC §14, «transiciones con resorte»);
+     with «reduce motion» they only fade in. */
+  --spring: cubic-bezier(0.2, 0.9, 0.3, 1.12);
   --bg: #f3f3f4;
   --surface: #ffffff;
   --glass: rgba(120, 120, 128, 0.18);
@@ -740,7 +743,7 @@ textarea {
   background: var(--surface);
   border-radius: 22px 22px 0 0;
   padding: 0 18px calc(18px + var(--safe-b));
-  animation: up 0.22s ease-out;
+  animation: up 0.3s var(--spring);
 }
 
 /* Stays at the top while the sheet scrolls, with the grabber: there is always a way out. */
@@ -789,7 +792,7 @@ textarea {
 }
 
 .sheet.settling {
-  transition: transform 0.2s ease-out;
+  transition: transform 0.25s var(--spring);
 }
 
 .sheet h2 {
@@ -800,6 +803,12 @@ textarea {
 @keyframes up {
   from {
     transform: translateY(40px);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
     opacity: 0;
   }
 }
@@ -1781,7 +1790,7 @@ input[type="datetime-local"] {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: up 0.22s ease-out;
+  animation: up 0.3s var(--spring);
 }
 
 .action-group {
@@ -2593,4 +2602,17 @@ label.check {
 /* «Soltar todo» closes the run, apart from the last block's own «Soltar». */
 .sheet .btn.run-release {
   margin-top: 24px;
+}
+
+/* «Reduce motion»: sheets and action sheets fade in instead of sliding up (SPEC §14).
+   Last in the file, so it wins over each sheet's own animation. */
+@media (prefers-reduced-motion: reduce) {
+  .sheet,
+  .action-sheet {
+    animation: fade-in 0.15s ease-out;
+  }
+
+  .sheet.settling {
+    transition: none;
+  }
 }

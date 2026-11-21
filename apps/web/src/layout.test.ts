@@ -53,6 +53,15 @@ describe("buttons with large text", () => {
   });
 });
 
+describe("sheets come in (SPEC §14)", () => {
+  it("with a spring, and only fade with «reduce motion»", () => {
+    expect(css).toContain("--spring: cubic-bezier(");
+    expect(css.match(/\n\.sheet \{([^}]*)\}/)?.[1]).toContain("animation: up 0.3s var(--spring);");
+    const reduced = css.slice(css.lastIndexOf("@media (prefers-reduced-motion: reduce)"));
+    expect(reduced).toContain(".action-sheet {\n    animation: fade-in");
+  });
+});
+
 describe("tab bar", () => {
   it("is fixed to the bottom edge and pads for the home indicator", () => {
     const tabs = css.match(/\n\.tabs \{([^}]*)\}/)?.[1] ?? "";
