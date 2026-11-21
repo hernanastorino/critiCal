@@ -575,6 +575,12 @@ textarea {
   gap: 6px;
 }
 
+/* Large text: the notice goes above the tab bar, not over the week's bar (SPEC §18.12). */
+.toasts.low {
+  top: auto;
+  bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
+}
+
 @media (min-width: 720px) {
   .toasts {
     left: auto;
