@@ -343,3 +343,14 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - **Se mantiene como está**: el bloqueo del zoom y del pellizco (decisión de #15, aunque no cumpla WCAG 1.4.4); «Nada de estudio desde» posterior a acostarse pasada la medianoche no se valida; partes de más de 24 h (hasta 1000 h); un cambio que la base rechaza se descarta en la base, queda en el dispositivo hasta recargar y se avisa.
 
 **Orden** (decidido): primero los cortos (6 barra de arriba, 5 silos, 3 superpuestos, 4 eliminar lugar); después 2 comidas y 7 empezar más tarde; después 1 (camino infeliz y mascota) junto con el resto del §14; al final los ómnibus (§15) y 8 Bun y Rust.
+
+**12. Decisiones del 2026-11-21** (respuestas del usuario antes de dejar trabajar solo de noche):
+
+- **Ícono de critiCal**: queda relleno, como excepción a «íconos de línea» de §14 por ser la marca.
+- **Avisos con letra grande**: con la letra del sistema grande (más de 150 %), los avisos van abajo, sobre la barra de pestañas, para no tapar la barra de arriba. Con letra normal siguen arriba.
+- **Gestos**: deslizar a los costados en la Semana cambia de semana (las flechas siguen). Marcar un bloque sigue siendo con un toque: deslizar un bloque choca con arrastrarlo.
+- **«Fijar acá» en un bloque de hoy**: se ofrece si el bloque todavía no empezó; uno en curso o pasado, no.
+- **Grilla con letra grande**: crecen los números de las horas y los nombres y números de los días, con tope; las píldoras siguen del ancho de su columna.
+- **«No llegás a todo · elegí»**: Roy en miniatura junto al título de cada opción, en una pose distinta por opción (reemplaza a «Roy al doble» del punto 10); y cuando las opciones se van solas porque el plan ya alcanza, un aviso lo dice («Ya no hace falta elegir: el plan alcanza»).
+- **Orden de trabajo**: primero lo que queda de §14 (gestos, transiciones, primer uso guiado, espaciados) y las Bajas del atacante; después ómnibus (§15), datos y servidor primero.
+- **CSP**: queda en «solo reportar» hasta que el usuario revise los reportes «CSP: …» en Better Stack.
