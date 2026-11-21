@@ -238,6 +238,11 @@ export interface AppData {
   eventTravel?: Record<string, EventTravel>;
   /** How to get to one event, just that once (SPEC §15); without an entry, the place's mode. */
   tripModes?: Record<string, TravelMode>;
+  /**
+   * Door-to-door minutes of the bus to one event (SPEC §15), as `/api/transit` last said,
+   * with the start they were worked out for: if the event moves, the figure no longer applies.
+   */
+  tripMinutes?: Record<string, { minutes: number; start: number }>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */

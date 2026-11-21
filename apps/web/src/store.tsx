@@ -172,6 +172,7 @@ export type Action =
   | { type: "eventTravelMinutes"; eventId: string; minutes: number | null; now: number }
   /** How to get to one event just that once; null goes back to the place's own mode. */
   | { type: "tripMode"; eventId: string; mode: TravelMode | null; now: number }
+  | { type: "tripMinutes"; eventId: string; minutes: number | null; start?: number; now: number }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
   /**
@@ -1413,6 +1414,24 @@ function apply(data: AppData, action: Action): AppData {
       else tripModes[action.eventId] = action.mode;
       return refresh(
         { ...data, tripModes: Object.keys(tripModes).length ? tripModes : undefined },
+        now,
+      );
+    }
+    case "tripMinutes": {
+      const tripMinutes = { ...data.tripMinutes };
+      const event = data.events.find((e) => e.id === action.eventId);
+      if (action.minutes === null) delete tripMinutes[action.eventId];
+      else if (!event || !Number.isFinite(action.minutes) || action.minutes < 0) return data;
+      // An answer for a start the event no longer has is stale.
+      else if (action.start !== undefined && action.start !== event.start) return data;
+      else {
+        const minutes = Math.min(1440, Math.round(action.minutes));
+        const was = tripMinutes[action.eventId];
+        if (was?.minutes === minutes && was.start === event.start) return data;
+        tripMinutes[action.eventId] = { minutes, start: event.start };
+      }
+      return refresh(
+        { ...data, tripMinutes: Object.keys(tripMinutes).length ? tripMinutes : undefined },
         now,
       );
     }

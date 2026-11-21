@@ -173,11 +173,42 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
   });
 }
 
+/** Whether the trip to this event is by bus: its own choice, else its saved place's. */
+export const goesByBus = (data: AppData, e: AppEvent): boolean => {
+  const place = placeOfEvent(data, e);
+  const home_ = home(data);
+  if (!place || !home_ || place.id === home_.id) return false;
+  return (data.tripModes?.[e.id] ?? place.travelMode) === "bus";
+};
+
+/**
+ * The bus trip's door-to-door minutes the plan reserves for this event (SPEC §15): the
+ * figure `/api/transit` gave for the event's current start. Undefined when the trip is by
+ * car or no figure was saved yet, and the plan then keeps the driving minutes.
+ */
+export function busMinutes(data: AppData, e: AppEvent): number | undefined {
+  const saved = data.tripMinutes?.[e.id];
+  if (!saved || saved.start !== e.start || !goesByBus(data, e)) return undefined;
+  return saved.minutes;
+}
+
+/** Upcoming events going by bus that have no usable bus figure: the plan drives for them. */
+export const busWithoutMinutes = (data: AppData, events: readonly AppEvent[], now: number) =>
+  events.filter(
+    (e) =>
+      e.busy && !e.allDay && e.end > now && goesByBus(data, e) && busMinutes(data, e) === undefined,
+  );
+
 export function travelOptions(data: AppData): TravelOptions | undefined {
   const start = home(data);
   if (!start) return undefined;
   const places = data.places ?? [];
+  const byId = new Map(data.events.map((e) => [e.id, e]));
   return {
+    tripMinutes: (event) => {
+      const own = byId.get(event.id);
+      return own && own.start === event.start ? busMinutes(data, own) : undefined;
+    },
     home: start.id,
     resolvePlace: (location) =>
       (location.startsWith(EVENT) ? location : undefined) ??

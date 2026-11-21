@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { placeMode, planRequestFor, stepsOf, summaryOf, tripOf, unlocatedEnd } from "../busTrip.js";
 import { useSync } from "../Connected.js";
 import type { AppEvent, TravelMode } from "../model.js";
+import { busMinutes } from "../places.js";
 import { planBus } from "../remote.js";
 import { useStore } from "../store.js";
 import { hhmm, type PlanOk, type PlanResponse, type TransitOption } from "../transit.js";
@@ -49,6 +50,15 @@ export function EventTrip({ event }: { event: AppEvent }) {
     };
   }, [client, key]);
 
+  // The plan reserves the bus's minutes (SPEC §15): the best option's, door to door, kept
+  // with the event so the engine never needs the network.
+  const answered = result?.for === key ? result.res : null;
+  const minutes = answered?.ok ? answered.options[0]?.totalMinutes : undefined;
+  useEffect(() => {
+    if (minutes === undefined) return;
+    dispatch({ type: "tripMinutes", eventId: event.id, minutes, start: event.start });
+  }, [minutes, event.id, event.start, dispatch]);
+
   // A trip already made is history; one with no saved place or home has nothing to choose.
   if (!trip || event.end <= now) return null;
   const choose = (mode: TravelMode) => {
@@ -58,7 +68,7 @@ export function EventTrip({ event }: { event: AppEvent }) {
       mode: mode === placeMode(trip.place) ? null : mode,
     });
   };
-  const answer = result?.for === key ? result.res : null;
+  const answer = answered;
   const missing = unlocatedEnd(trip);
 
   return (
@@ -104,6 +114,9 @@ export function EventTrip({ event }: { event: AppEvent }) {
           home={trip.from.name}
           place={trip.place.name}
         />
+      )}
+      {trip.mode === "bus" && busMinutes(data, event) === undefined && (
+        <p className="meta">Todavía no tengo los minutos del ómnibus: el plan usa los del auto.</p>
       )}
     </div>
   );

@@ -29,6 +29,7 @@ interface State {
   spots?: Spot[];
   eventTravel?: AppData["eventTravel"];
   tripModes?: AppData["tripModes"];
+  tripMinutes?: AppData["tripMinutes"];
   mealChoices?: AppData["mealChoices"];
   notSubjects?: string[];
   removedSubjects?: string[];
@@ -204,6 +205,7 @@ export function rowsToData(r: {
     spots: state.spots,
     eventTravel: state.eventTravel,
     tripModes: state.tripModes,
+    tripMinutes: state.tripMinutes,
     mealChoices: state.mealChoices,
     notSubjects: state.notSubjects,
     removedSubjects: state.removedSubjects,
@@ -361,6 +363,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.spots,
       prev.eventTravel,
       prev.tripModes,
+      prev.tripMinutes,
       prev.mealChoices,
       prev.notSubjects,
       prev.removedSubjects,
@@ -381,6 +384,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.spots,
       next.eventTravel,
       next.tripModes,
+      next.tripMinutes,
       next.mealChoices,
       next.notSubjects,
       next.removedSubjects,
@@ -406,6 +410,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             spots: next.spots,
             eventTravel: next.eventTravel,
             tripModes: next.tripModes,
+            tripMinutes: next.tripMinutes,
             mealChoices: next.mealChoices,
             notSubjects: next.notSubjects,
             removedSubjects: next.removedSubjects,
@@ -623,7 +628,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
 }
 
 /**
- * Ids per delete. They travel in the URL (`id=in.(…)`), and a long list is refused
+ * Ids per delete. They travel in the URL (`id=in.(â€¦)`), and a long list is refused
  * (414); the browser reports that like a lost connection. Plan block ids are ~50 chars.
  */
 export const DELETE_BATCH = 40;
@@ -644,7 +649,7 @@ async function deleteIn(
   }
 }
 
-/** Parents first: activities → tasks → units/blocks. */
+/** Parents first: activities â†’ tasks â†’ units/blocks. */
 const WRITE_ORDER = [
   "settings",
   "calendars",
