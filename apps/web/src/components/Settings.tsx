@@ -11,6 +11,7 @@ import { useStore } from "../store.js";
 import { Account } from "./Account.js";
 import { Backup } from "./Backup.js";
 import { Calendars, describe, healthy } from "./Calendars.js";
+import { resumeFirstSteps } from "./FirstSteps.js";
 import { Problem, useFocusInvalid } from "./fields.js";
 import { GeminiKey } from "./GeminiKey.js";
 import { Invites } from "./Invites.js";
@@ -582,6 +583,17 @@ export function Settings({
                       <span className="settings-label">Política de privacidad</span>
                       <ChevronRight />
                     </a>
+                  )}
+                  {g.label === "Cuenta" && sync && (
+                    <Row
+                      icon={I.flag}
+                      label="Primeros pasos"
+                      onClick={() => {
+                        // The guide comes back on the week (SPEC §14).
+                        resumeFirstSteps();
+                        onClose();
+                      }}
+                    />
                   )}
                   {g.label === "Cuenta" && onReset && (
                     <Row icon={I.repeat} label="Reiniciar demo" onClick={onReset} />

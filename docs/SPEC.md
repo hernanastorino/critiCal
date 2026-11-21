@@ -201,7 +201,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Primer uso guiado
 
-- La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes.
+- La primera vez, un recorrido corto con progreso visible: conectar Google → crear la primera materia o entrega → ver el primer plan. Se puede saltar y retomar desde Ajustes. ✅ Implementado (`FirstSteps.tsx`): tarjeta «Primeros pasos · N de 3» arriba de la Semana, solo con cuenta; conectar Google cuenta como paso hecho (gradiente de meta); «Saltar por ahora» la guarda en el dispositivo y Ajustes → Cuenta → «Primeros pasos» la vuelve a mostrar.
 
 ## 15. Traslados en ómnibus (Montevideo y Canelones) — datos y servidor ✅, interfaz pendiente
 
