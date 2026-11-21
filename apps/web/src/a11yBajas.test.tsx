@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Routines } from "./components/Preferences.js";
@@ -9,6 +8,14 @@ import { clearDrafts } from "./drafts.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { StoreProvider, useStore } from "./store.js";
+
+const raw = (glob: Record<string, string>) => Object.values(glob)[0] ?? "";
+const css = raw(
+  import.meta.glob<string>("./styles.css", { query: "?raw", import: "default", eager: true }),
+);
+const html = raw(
+  import.meta.glob<string>("../index.html", { query: "?raw", import: "default", eager: true }),
+);
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 let latest: AppData | undefined;
@@ -26,14 +33,13 @@ const inside = (ui: React.ReactNode) =>
     </ToastProvider>,
   );
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(() => {
   cleanup();
   clearDrafts();
 });
-
-const css = readFileSync(new URL("./styles.css", import.meta.url), "utf8");
-const html = readFileSync(new URL("../index.html", import.meta.url), "utf8");
 
 const channel = (v: number) => {
   const c = v / 255;
@@ -46,27 +52,28 @@ const luminance = (hex: string) => {
   );
 };
 const contrast = (a: string, b: string) => {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
-  return ((hi as number) + 0.05) / ((lo as number) + 0.05);
+  const [x, y] = [luminance(a), luminance(b)];
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 };
 
 describe("contraste AA del texto azul", () => {
-  const token = (block: string) =>
-    css.match(new RegExp(`${block}[^}]*?--link-ink: (#[0-9a-f]{6})`))?.[1];
+  const light = css.match(/:root \{[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ?? "";
+  const dark =
+    css.match(/prefers-color-scheme: dark\) \{\s*:root \{[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ??
+    "";
 
   it("the action sheet options use a blue that is at least 4.5:1 on its surface, light and dark", () => {
     expect(css).not.toMatch(/#0a72ff/i);
     expect(css).toMatch(/\.action \{[^}]*color: var\(--link-ink\)/);
-    expect(contrast(token(":root") as string, "#ffffff")).toBeGreaterThanOrEqual(4.5);
-    expect(
-      contrast(token("prefers-color-scheme: dark\\) \\{\\s*:root \\{") as string, "#1c1f27"),
-    ).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(light, "#ffffff")).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(dark, "#1c1f27")).toBeGreaterThanOrEqual(4.5);
   });
 });
 
 describe("zoom", () => {
   it("the viewport does not block pinch zoom", () => {
     const viewport = html.match(/<meta name="viewport" content="([^"]*)"/)?.[1] ?? "";
+    expect(viewport).toContain("width=device-width");
     expect(viewport).not.toMatch(/maximum-scale|user-scalable/);
   });
 });
@@ -74,7 +81,7 @@ describe("zoom", () => {
 describe("nombre repetido: el campo lo dice", () => {
   it("Rutinas marks the field and points it at the message", () => {
     inside(<Routines />);
-    const taken = (latest as AppData).activities.find((a) => a.kind === "rutina")?.name ?? "";
+    const taken = latest?.activities.find((a) => a.kind === "rutina")?.name ?? "";
     fireEvent.change(screen.getByLabelText("Rutina"), { target: { value: taken } });
     const field = screen.getByLabelText("Rutina");
     const alert = screen.getByRole("alert");
@@ -84,7 +91,7 @@ describe("nombre repetido: el campo lo dice", () => {
 
   it("Semestre marks the field and points it at the message", () => {
     inside(<Semester />);
-    const taken = (latest as AppData).activities[0]?.name ?? "";
+    const taken = latest?.activities[0]?.name ?? "";
     fireEvent.change(screen.getByLabelText("Materia"), { target: { value: taken } });
     const field = screen.getByLabelText("Materia");
     const alert = screen.getByRole("alert");
