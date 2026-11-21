@@ -284,8 +284,14 @@ export function Semester() {
                 ref={subjectField}
                 value={subject}
                 maxLength={60}
-                aria-invalid={nameProblem ? true : undefined}
-                aria-describedby={nameProblem ? "semester-blank-error" : undefined}
+                aria-invalid={nameProblem || (repeated && subject.trim()) ? true : undefined}
+                aria-describedby={
+                  nameProblem
+                    ? "semester-blank-error"
+                    : repeated && subject.trim()
+                      ? "semester-name-error"
+                      : undefined
+                }
                 onChange={(e) => {
                   setSubject(e.target.value);
                   setNameTried(false);
