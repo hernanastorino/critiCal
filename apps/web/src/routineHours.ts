@@ -139,6 +139,12 @@ export function readHours(
       if (read.range) days[d.weekday] = read.range;
     }
   }
+  // Every day «No»: the routine would never go.
+  if (form.perDay && HOURS_DAYS.every((d) => form.days[d.weekday]?.off))
+    problems.push({
+      field: "days-off",
+      text: "Marcaste «No» todos los días: la rutina no iría nunca. Dejá al menos un día.",
+    });
   if (problems.length) return { hours: undefined, problems };
   const hasDays = Object.keys(days).length > 0;
   if (!all.range && !hasDays) return { hours: undefined, problems };

@@ -720,7 +720,8 @@ export function Routines() {
             onClick={() => setDetail(h)}
           >
             <span className="swatch" style={{ background: r.color }} />
-            <span style={{ flex: 1 }}>{r.name}</span>
+            {/* A long description wraps; the name never shrinks to a letter per line. */}
+            <span style={{ flex: 1, minWidth: "35%" }}>{r.name}</span>
             <span className="meta" style={{ margin: 0 }}>
               {h.paused ? "pausada · " : ""}
               {h.sessionsPerWeek}× {h.sessionMinutes} min
