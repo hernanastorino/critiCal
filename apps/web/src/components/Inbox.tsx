@@ -7,6 +7,7 @@ import {
   MEAL_RANGE,
   type MealKind,
   MINUTE,
+  type OptionKind,
   type PlanBlock,
 } from "../engine.js";
 import {
@@ -41,7 +42,7 @@ import { Marks } from "./icons.js";
 import { useKeepFocus } from "./inboxFocus.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
-import { RoyLine } from "./Roy.js";
+import { type RoyAnim, RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -75,6 +76,22 @@ const noFitKind = (t: AppTask, activities: Activity[], slot: number): NoFitKind 
   return activity?.kind === "rutina" ? "routine" : "habit";
 };
 
+/** Said when the options to choose from go away by themselves: the plan fits again. */
+export const OPTIONS_GONE = "Ya no hace falta elegir: el plan alcanza";
+
+/** Roy, small, in a pose of its own for each kind of option (SPEC §18.12). */
+const OPTION_POSE: Record<OptionKind, RoyAnim> = {
+  drop: "desarmado",
+  "lower-minimum": "oruga",
+  proportional: "cascada",
+  "use-free-time": "puente",
+  "minimum-only": "oruga",
+  "move-event": "vayvuelve",
+  "minimum-viable": "oruga",
+  prioritize: "cascada",
+  "start-earlier": "reposo",
+};
+
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
 export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
@@ -94,6 +111,18 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   });
   // Tasks that fit nowhere even alone: the Bandeja names them as the cause.
   const noFits = decisions.impossible.flatMap((id) => data.tasks.filter((t) => t.id === id));
+  // Options that go away by themselves (the plan fits now) are said, not just dropped.
+  const optionCount = decisions.options.length;
+  const hadOptions = useRef(optionCount);
+  const chose = useRef(false);
+  useEffect(() => {
+    const before = hadOptions.current;
+    hadOptions.current = optionCount;
+    if (before > 0 && optionCount === 0 && !chose.current && plan.feasible) {
+      toast.show(OPTIONS_GONE);
+    }
+    if (optionCount === 0) chose.current = false;
+  }, [optionCount, plan.feasible, toast]);
   const late = lateNight(data, now);
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
@@ -455,7 +484,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
                 <div className="title">{o.label}</div>
-                <RoyLine anim="puente" big>
+                <RoyLine anim={OPTION_POSE[o.kind]} size={48}>
                   {optionPromise(
                     o,
                     plan.feasible,
@@ -473,6 +502,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                   className="btn small"
                   aria-label={`Elegir: ${o.label}`}
                   onClick={() => {
+                    chose.current = true;
                     dispatch({ type: "applyOption", optionId: o.id });
                     toast.show(REPLANNED_TOAST, { roy: "festejo" });
                   }}
