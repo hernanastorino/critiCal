@@ -4,7 +4,7 @@ import { Connected } from "./Connected.js";
 import { Celebrations } from "./components/Celebrations.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
-import { Settings } from "./components/Settings.js";
+import { type PageId, Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
 import { ToastProvider, useToast } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
@@ -69,7 +69,7 @@ export function Shell({
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
   /** Ajustes open, on its list (`true`) or on one screen. */
-  const [settings, setSettings] = useState<boolean | "week">(false);
+  const [settings, setSettings] = useState<boolean | PageId>(false);
   /** Planificación semanal was opened from the Ajustes list: closing it goes back there. */
   const [weeklyFromSettings, setWeeklyFromSettings] = useState(false);
   /** A day to open the week on, picked from the inbox. */

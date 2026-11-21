@@ -37,6 +37,7 @@ import { blockRuns } from "../runs.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
+import { FirstSteps } from "./FirstSteps.js";
 import {
   CheckIcon,
   ChevronLeft,
@@ -49,6 +50,7 @@ import {
   UndoIcon,
 } from "./icons.js";
 import { useModal } from "./modal.js";
+import type { PageId } from "./Settings.js";
 import { useToast } from "./Toast.js";
 import { useEditEscape } from "./useEditEscape.js";
 
@@ -171,7 +173,7 @@ export function Week({
 }: {
   day?: string;
   /** Opens Ajustes, on one of its screens if given. */
-  onSettings: (page?: "week") => void;
+  onSettings: (page?: PageId) => void;
 }) {
   const { data, now, result, pinShort, clashes, dispatch } = useStore();
   const tz = data.settings.timezone;
@@ -918,6 +920,7 @@ export function Week({
         </div>
       </div>
 
+      <FirstSteps onSettings={(page) => onSettings(page)} />
       {editing && (
         <div className="edit-banner">
           <span role="status">

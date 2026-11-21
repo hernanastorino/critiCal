@@ -119,7 +119,7 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
    - Gestos: deslizar un bloque para marcarlo y deslizar para cambiar de día o semana, siempre con su botón equivalente.
    - Háptica como extra.
 5. ✅ **Accesibilidad**: hecha (#84: contraste AA, letra del sistema en `rem`, foco, diálogos, etiquetas, orden de lectura), ver §6.
-6. **Primer uso guiado**: recorrido corto (conectar Google → primera materia o entrega → primer plan) que se puede saltar y retomar desde Ajustes.
+6. ✅ **Primer uso guiado** (`FirstSteps.tsx`, falta verlo con una cuenta real): recorrido corto (conectar Google → primera materia o entrega → primer plan) que se puede saltar y retomar desde Ajustes.
 
 ### 5.2 Traslados en ómnibus (§15)
 
