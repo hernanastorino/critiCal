@@ -21,6 +21,7 @@ const MAX_BYTES = 3_000_000;
 const ERRORS: Record<string, string> = {
   server_not_configured: "Falta la clave de Gemini en el servidor: cargá la tuya en Ajustes.",
   too_large: "El PDF es muy grande (máximo 3 MB).",
+  invalid_pdf: "Ese archivo no parece un PDF. Probá con otro.",
   gemini_busy:
     "Gemini está saturado o sin cuota gratis por hoy. Tocá «Reintentar» en un rato, o cargá tu propia clave en Ajustes.",
   model_unavailable:

@@ -20,7 +20,9 @@ function query(table: string) {
   chain.maybeSingle = () => Promise.resolve(result);
   chain.upsert = (payload: unknown) => {
     writes.push({ table, op: "upsert", payload });
-    return Promise.resolve({ error: null });
+    return Promise.resolve({
+      error: failTables.has(`${table}:upsert`) ? new Error("db down") : null,
+    });
   };
   chain.update = (payload: unknown) => {
     writes.push({ table, op: "update", payload });
@@ -351,6 +353,37 @@ describe("icloud-sync: a failed read is not «no hay»", () => {
     expect(res.status).toBe(500);
     expect(await res.json()).toEqual({ connected: false, error: "sync_failed" });
     expect(fetched).toHaveBeenCalledTimes(1);
+  });
+
+  it("a calendar list that could not be saved is a failed sync", async () => {
+    log();
+    reports();
+    failTables.clear();
+    failTables.add("calendars:upsert");
+    rpc.mockResolvedValue({
+      data: JSON.stringify({ appleId: "a", appPassword: "b" }),
+      error: null,
+    });
+    tables.settings = { data: { timezone: "UTC" } };
+    const ms = (body: string) =>
+      new Response(`<multistatus xmlns="DAV:">${body}</multistatus>`, { status: 207 });
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      if (url === "https://caldav.icloud.com/")
+        return ms(
+          "<response><current-user-principal><href>/1/p/</href></current-user-principal></response>",
+        );
+      if (url.endsWith("/1/p/"))
+        return ms("<response><calendar-home-set><href>/1/</href></calendar-home-set></response>");
+      if (init.method === "PROPFIND") {
+        return ms(
+          "<response><href>/1/cal/</href><propstat><prop><displayname>P</displayname><resourcetype><calendar/></resourcetype></prop><status>HTTP/1.1 200 OK</status></propstat></response>",
+        );
+      }
+      return new Response("{}");
+    });
+    const res = await icloud(req("good"), env);
+    expect(res.status).toBe(500);
+    expect(await res.json()).toEqual({ connected: false, error: "sync_failed" });
   });
 
   it("disconnect says so when the events or calendars could not be deleted", async () => {

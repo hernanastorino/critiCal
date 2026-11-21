@@ -4,6 +4,10 @@ import type { AppData, Proposal } from "../src/model.js";
 const rpc = vi.fn();
 const rows: Record<string, unknown[]> = {};
 const failing = new Set<string>();
+/** Tables whose list reads and updates answer with an error. */
+const failList = new Set<string>();
+/** Tables whose updates answer with an error. */
+const failUpdates = new Set<string>();
 const ops: { table: string; op: string; payload?: unknown }[] = [];
 const auth = {
   getUser: vi.fn(),
@@ -36,9 +40,19 @@ function query(table: string) {
         return Promise.resolve({ error: null });
       },
     }),
+    gte: () => chain,
+    update: (payload: unknown) => {
+      ops.push({ table, op: "update", payload });
+      return {
+        eq: () => Promise.resolve({ error: failUpdates.has(table) ? new Error("db") : null }),
+      };
+    },
     // biome-ignore lint/suspicious/noThenProperty: a thenable query builder, like supabase-js.
     then: (ok: (r: unknown) => unknown) =>
-      Promise.resolve({ data: filtered, error: null }).then(ok),
+      Promise.resolve({
+        data: failList.has(table) ? null : filtered,
+        error: failList.has(table) ? new Error("db") : null,
+      }).then(ok),
   };
   return chain;
 }
@@ -69,7 +83,7 @@ const { handle: webhook, byChannel, byIp } = await import("./google-webhook.js")
 const { handle: cron } = await import("./cron.js");
 const { actAs, readEnv } = await import("./_lib/server.js");
 const { newProposal } = await import("./_lib/replan.js");
-const { watchCalendars } = await import("./_lib/google-run.js");
+const { watchCalendars, openGoogle, mirrorPlan } = await import("./_lib/google-run.js");
 
 const env = {
   url: "https://x.supabase.co",
@@ -90,6 +104,8 @@ beforeEach(() => {
   serverSync.mockReset();
   ops.length = 0;
   failing.clear();
+  failList.clear();
+  failUpdates.clear();
   for (const k of Object.keys(rows)) delete rows[k];
   rows.google_channels = [{ id: "ch1", user_id: "u1", secret: "s3cret" }];
 });
@@ -400,5 +416,70 @@ describe("push channels", () => {
     expect(stopped.sort()).toEqual(["gone", "old"]);
     const left = (rows.google_channels as { calendar_id: string }[]).map((r) => r.calendar_id);
     expect(left.sort()).toEqual(["a", "b", "c"]);
+  });
+});
+
+describe("database errors in the Google steps", () => {
+  const now = Date.UTC(2026, 10, 4);
+  const admin = { from: query, rpc };
+  const caller = (a: unknown = admin) => ({ uid: "u1", user: { from: query }, admin: a }) as never;
+
+  it("an unreadable token is an error, not «never connected»", async () => {
+    rpc.mockResolvedValue({ data: null, error: new Error("vault down") });
+    await expect(openGoogle(caller(), env)).rejects.toThrow("vault down");
+    rpc.mockResolvedValue({ data: null, error: null });
+    expect(await openGoogle(caller(), env)).toBeNull();
+  });
+
+  it("does not open duplicate channels when the stored ones cannot be listed", async () => {
+    const fetched = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetched);
+    failList.add("google_channels");
+    const s = { token: "t", timeZone: "UTC", caller: caller() };
+    await expect(watchCalendars(s, ["a"], "https://app", now)).rejects.toThrow("db");
+    expect(fetched).not.toHaveBeenCalled();
+  });
+
+  it("does not stop channels it could not list after watching", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const fetched = vi.fn(async () => new Response(null, { status: 204 }));
+    vi.stubGlobal("fetch", fetched);
+    // The first listing works; the one after watching fails.
+    let reads = 0;
+    const flaky = {
+      from: (table: string) => {
+        if (table === "google_channels" && ++reads === 2) failList.add(table);
+        return query(table);
+      },
+    };
+    const s = { token: "t", timeZone: "UTC", caller: caller(flaky) };
+    rows.google_channels = [];
+    await expect(watchCalendars(s, [], "https://app", now)).rejects.toThrow("db");
+    expect(fetched).not.toHaveBeenCalled();
+  });
+
+  it("a plan event whose id cannot be saved fails instead of being created again", async () => {
+    const block = {
+      id: "b1",
+      task_id: "t1",
+      start_at: new Date(now + 3_600_000).toISOString(),
+      end_at: new Date(now + 7_200_000).toISOString(),
+      level: 1,
+      google_event_id: null,
+      tasks: { title: "Estudiar" },
+    };
+    rows.settings = [{ google_plan_calendar: "plan" }];
+    rows.plan_blocks = [block];
+    vi.stubGlobal("fetch", async (url: string, init: RequestInit = {}) => {
+      if (init.method === "POST") return Response.json({ id: "ev1" });
+      if (url.includes("/events?")) return Response.json({ items: [] });
+      return Response.json({});
+    });
+    const plan = { id: "plan", summary: "📚 Plan", backgroundColor: "#0b8043" };
+    const s = { token: "t", timeZone: "UTC", caller: caller() };
+    const ok = await mirrorPlan(s, now, plan);
+    expect(ok.planCreated).toBe(1);
+    failUpdates.add("plan_blocks");
+    await expect(mirrorPlan(s, now, plan)).rejects.toThrow("db");
   });
 });

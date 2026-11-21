@@ -127,6 +127,22 @@ describe("caldav", () => {
     expect(docs[1]).toBe("BEGIN:VCALENDAR");
   });
 
+  it("gives every request a deadline and names a timeout", async () => {
+    let signal: AbortSignal | null | undefined;
+    const slow: Fetch = async (_url, init) => {
+      signal = init.signal;
+      throw new DOMException("The operation timed out", "TimeoutError");
+    };
+    await expect(discover(slow, auth)).rejects.toMatchObject({ code: "icloud_timeout" });
+    expect(signal).toBeInstanceOf(AbortSignal);
+    expect(signal?.aborted).toBe(false);
+    // Other network failures are still not mistaken for a timeout.
+    const down: Fetch = async () => {
+      throw new TypeError("fetch failed");
+    };
+    await expect(discover(down, auth)).rejects.toBeInstanceOf(TypeError);
+  });
+
   it("tells a rejected password apart from other failures", async () => {
     await expect(discover(fakeFetch(401), auth)).rejects.toMatchObject({
       code: "icloud_auth_failed",

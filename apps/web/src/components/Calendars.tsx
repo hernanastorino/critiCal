@@ -23,6 +23,7 @@ const MESSAGES: Record<string, string> = {
   icloud_auth_failed:
     "iCloud rechazó el Apple ID o la contraseña de app. Usá el mail principal del Apple ID y una contraseña específica de app recién creada.",
   icloud_unreachable: "No llego a iCloud. Revisá el internet y tocá «Sincronizar ahora».",
+  icloud_timeout: "iCloud tardó demasiado en responder. Tocá «Sincronizar ahora» en un rato.",
   missing_credentials: "Completá el Apple ID y la contraseña de app.",
   sync_failed: SYNC_FAILED,
 };

@@ -44,10 +44,12 @@ export async function openGoogle(
     });
     if (error) throw error;
   }
-  const { data: refresh } = await admin.rpc("get_oauth_token", {
+  const { data: refresh, error: readError } = await admin.rpc("get_oauth_token", {
     p_user: uid,
     p_provider: "google",
   });
+  // Unreadable is not «never connected».
+  if (readError) throw readError;
   if (!refresh) return null;
   return {
     caller,
@@ -182,7 +184,12 @@ export async function mirrorPlan(
       method: "POST",
       body: JSON.stringify(eventFor(b)),
     });
-    await user.from("plan_blocks").update({ google_event_id: ev.id }).eq("id", b.id);
+    // Without the id the next run would create the event again.
+    const { error } = await user
+      .from("plan_blocks")
+      .update({ google_event_id: ev.id })
+      .eq("id", b.id);
+    if (error) throw error;
   }
   for (const b of diff.update) {
     // Unchanged events are left alone: rewriting every block each run hits Google's quota.
@@ -217,10 +224,12 @@ export async function watchCalendars(
   now: number,
 ): Promise<void> {
   const { uid, admin } = s.caller;
-  const { data } = await admin
+  const { data, error: listError } = await admin
     .from("google_channels")
     .select("id, calendar_id, resource_id, expires_at")
     .eq("user_id", uid);
+  // Not knowing the channels would open duplicates of every one.
+  if (listError) throw listError;
   const rows = (data ?? []) as ChannelRow[];
   const wanted = new Set(calendarIds);
   const fresh = new Set(
@@ -250,10 +259,11 @@ export async function watchCalendars(
   }
   // Superseded and unwanted channels.
   const keepIds = new Set<string>();
-  const { data: after } = await admin
+  const { data: after, error: afterError } = await admin
     .from("google_channels")
     .select("id, calendar_id, resource_id, expires_at")
     .eq("user_id", uid);
+  if (afterError) throw afterError;
   const newest = new Map<string, ChannelRow>();
   for (const r of (after ?? []) as ChannelRow[]) {
     const prev = newest.get(r.calendar_id);
