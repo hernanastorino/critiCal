@@ -68,3 +68,43 @@ describe("blocks of the week", () => {
     expect(css.match(/\n\.pill \{([^}]*)\}/)?.[1]).toContain("min-height: 6px;");
   });
 });
+
+describe("design scale (SPEC §14)", () => {
+  const root = css.match(/^:root \{([^}]*)\}/)?.[1] ?? "";
+
+  it("defines the spacing, radius and text tokens in :root", () => {
+    for (const name of [
+      "--space-0",
+      "--space-1",
+      "--space-2",
+      "--space-3",
+      "--space-4",
+      "--space-5",
+      "--space-6",
+      "--space-7",
+      "--radius-xs",
+      "--radius-s",
+      "--radius-m",
+      "--radius-l",
+      "--radius-xl",
+      "--radius-xxl",
+      "--radius-pill",
+      "--text-2xs",
+      "--text-xs",
+      "--text-s",
+      "--text-m",
+      "--text-l",
+      "--text-xl",
+      "--text-2xl",
+      "--text-3xl",
+    ]) {
+      expect(root, name).toContain(`${name}:`);
+    }
+  });
+
+  it("has no loose px border-radius outside :root", () => {
+    const rest = css.replace(/^:root \{[^}]*\}/, "");
+    const loose = rest.match(/border-radius:[^;]*\d+px[^;]*;/g) ?? [];
+    expect(loose).toEqual([]);
+  });
+});
