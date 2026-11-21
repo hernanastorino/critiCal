@@ -281,7 +281,7 @@ export interface PlacePair {
 }
 
 /** The saved place an event is held at: its address first, else what its title names. */
-function placeOfEvent(data: AppData, e: AppEvent): Place | undefined {
+export function placeOfEvent(data: AppData, e: AppEvent): Place | undefined {
   const places = data.places ?? [];
   const location = addressOf(e);
   if (skipped(data, location ?? e.title)) return undefined;

@@ -260,6 +260,7 @@ const placeRules = (): Rule[] => [
   ["aliases", shortStrings, `tiene alias que no son texto de hasta ${BACKUP_TEXT_MAX} caracteres`],
   ["address", opt(text), "tiene una dirección que no es texto"],
   ["isHome", opt(bool), "tiene un dato de «es mi casa» que no es sí o no"],
+  ["travelMode", opt(oneOf("car", "bus")), "tiene una forma de llegar que no es auto ni ómnibus"],
 ];
 
 export const arrayOf =
@@ -408,6 +409,7 @@ const extras: Extra[] = [
   ["applied", "list", shape(decisionTests), "decisiones que se pueden deshacer"],
   ["planHistory", "list", shape(versionTests), "versiones del historial del plan"],
   ["eventTravel", "record", shape(travelMinutesTests), "traslados guardados de eventos"],
+  ["tripModes", "record", oneOf("car", "bus"), "formas de llegar elegidas para un evento"],
   ["mealChoices", "list", shape(mealDayTests), "comidas cambiadas"],
   ["movedEvents", "list", shape(movedTests), "eventos movidos"],
   ["tentativeSeen", "list", shape(tentativeTests), "eventos tentativos"],

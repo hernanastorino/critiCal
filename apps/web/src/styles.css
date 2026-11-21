@@ -727,6 +727,33 @@ textarea {
   color: var(--ink-soft);
 }
 
+.bubble-trip {
+  padding: 4px 14px 12px;
+  font-size: 0.8125rem;
+  color: var(--ink-soft);
+}
+
+.mode-set,
+.bubble-trip-head {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.bubble-trip-head .day-chips {
+  margin: 4px 0 6px;
+}
+
+.bubble-trip .meta {
+  margin: 4px 0;
+}
+
+.bus-steps {
+  margin: 4px 0;
+  padding-left: 1.25rem;
+}
+
 .bubble h3 {
   margin: 0 0 var(--space-0);
   font-size: var(--text-l);
