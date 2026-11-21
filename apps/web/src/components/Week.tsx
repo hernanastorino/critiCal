@@ -1291,6 +1291,14 @@ export function Week({
               // The same «Deshacer» as a drag: a pinned block goes back to the plan.
               flash("Fijado acá · el resto se acomoda alrededor", watch.current?.undo);
             }}
+            onPinRun={(run) => {
+              setBubble(null);
+              dispatch({ type: "pinAll", blockIds: run.map((x) => x.id) });
+              flash(`Fijaste ${run.length} bloques · el resto se acomoda alrededor`, () => {
+                toaster.clear();
+                dispatch({ type: "undoPlan" });
+              });
+            }}
           />
         </>
       )}
@@ -1430,6 +1438,7 @@ function BubbleCard({
   onOpen,
   onRelease,
   onPin,
+  onPinRun,
   onClose,
 }: {
   bubble: Bubble;
@@ -1437,6 +1446,8 @@ function BubbleCard({
   onOpen: () => void;
   onRelease: (blockId: string) => void;
   onPin: (block: PlanBlock) => void;
+  /** «Fijar acá» on a run: every block of it, where it is. */
+  onPinRun: (run: PlanBlock[]) => void;
 }) {
   const { data, now } = useStore();
   const tz = data.settings.timezone;
@@ -1527,6 +1538,20 @@ function BubbleCard({
         <div className="bubble-pin">
           <span>Lo puso el plan</span>
           <button type="button" className="btn small" onClick={() => onPin(b)}>
+            Fijar acá
+          </button>
+        </div>
+      )}
+      {item.run && item.start > now && !item.run.some(isPinned) && (
+        <div className="bubble-pin">
+          <span>Los puso el plan</span>
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => {
+              if (item.run) onPinRun(item.run);
+            }}
+          >
             Fijar acá
           </button>
         </div>

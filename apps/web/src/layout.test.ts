@@ -14,6 +14,18 @@ describe("week bar with large text (200 %)", () => {
     expect(h1).toContain("overflow-wrap: anywhere;");
   });
 
+  it("lets day names and hours grow with the text, up to 175 % (SPEC §18.12)", () => {
+    expect(css.match(/\n\.day-head \{([^}]*)\}/)?.[1]).toContain(
+      "font-size: min(0.6875rem, 19px);",
+    );
+    expect(css.match(/\n\.day-head b \{([^}]*)\}/)?.[1]).toContain(
+      "font-size: min(0.9375rem, 26px);",
+    );
+    expect(css.match(/\n\.hours span \{([^}]*)\}/)?.[1]).toContain(
+      "font-size: min(0.5625rem, 16px);",
+    );
+  });
+
   it("lets the days shrink so the last one never leaves the screen", () => {
     const week = css.match(/\n\.week \{([^}]*)\}/)?.[1] ?? "";
     expect(week).toContain("repeat(7, minmax(0, 1fr))");
