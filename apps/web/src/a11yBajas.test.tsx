@@ -54,13 +54,14 @@ afterEach(() => {
 });
 
 describe("contraste AA del texto azul", () => {
-  const light = css.match(/:root {[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ?? "";
+  const light = css.match(/:root \{[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ?? "";
   const dark =
-    css.match(/prefers-color-scheme: dark) {s*:root {[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ?? "";
+    css.match(/prefers-color-scheme: dark\) \{\s*:root \{[^}]*?--link-ink: (#[0-9a-f]{6})/)?.[1] ??
+    "";
 
   it("the action sheet options use a blue that is at least 4.5:1 on its surface, light and dark", () => {
     expect(css).not.toMatch(/#0a72ff/i);
-    expect(css).toMatch(/.action {[^}]*color: var(--link-ink)/);
+    expect(css).toMatch(/\.action \{[^}]*color: var\(--link-ink\)/);
     expect(contrast(light, "#ffffff")).toBeGreaterThanOrEqual(4.5);
     expect(contrast(dark, "#1c1f27")).toBeGreaterThanOrEqual(4.5);
   });
