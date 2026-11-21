@@ -294,6 +294,6 @@ describe("«No ese día» (decidido el 2026-11-20)", () => {
     renderRoutines();
     fireEvent.click(screen.getByLabelText("Distinto según el día"));
     fireEvent.click(screen.getByLabelText("No ese día: domingo"));
-    expect((screen.getByLabelText("Desde, domingo") as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByLabelText("Desde, domingo").hasAttribute("disabled")).toBe(true);
   });
 });
