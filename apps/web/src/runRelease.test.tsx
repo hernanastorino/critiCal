@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { BlockSheet } from "./components/BlockSheet.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData } from "./demo.js";
@@ -120,7 +120,7 @@ describe("«Soltar todo» is one step back (21.ª vuelta)", () => {
         <ToastProvider>
           <BlockSheet
             item={{ kind: "block", id: "run", start: 0, end: 0, block: first, run }}
-            onClose={() => {}}
+            onClose={vi.fn()}
           />
         </ToastProvider>
       </StoreProvider>,
