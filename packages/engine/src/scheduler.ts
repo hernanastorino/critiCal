@@ -422,11 +422,17 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
   };
 }
 
-/** Whether a slot is inside the task's valid hours of its day (always, with none set). */
+/**
+ * Whether a slot is inside the task's valid hours of its day (always, with none set). The
+ * day is the one it is planned as: a holiday that borrows Sunday's routine uses Sunday's.
+ */
 function insideHours(task: Task, slot: Slot, slotMinutes: number): boolean {
   const hours = task.validHours;
   if (!hours) return true;
-  const range = hours.days?.[weekdayOf(slot.date)] ?? hours.all;
+  const own = hours.days?.[slot.weekday ?? weekdayOf(slot.date)];
+  // «No ese día»: the routine does not go on this day.
+  if (own === null) return false;
+  const range = own ?? hours.all;
   return !range || (slot.minuteOfDay >= range.start && slot.minuteOfDay + slotMinutes <= range.end);
 }
 

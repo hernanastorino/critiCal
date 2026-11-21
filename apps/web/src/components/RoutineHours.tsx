@@ -17,6 +17,7 @@ function Pair({
   field,
   errorId,
   onEnter,
+  canBeOff = false,
 }: {
   label?: string;
   name: string;
@@ -26,6 +27,8 @@ function Pair({
   field: string;
   errorId: string;
   onEnter?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
+  /** A day of its own can be «No ese día»: the routine does not go that day. */
+  canBeOff?: boolean;
 }) {
   const bad = (side: "from" | "to") => problems.some((p) => p.field === `${field}-${side}`);
   const set = (side: "from" | "to", v: string) => {
@@ -45,7 +48,8 @@ function Pair({
             inputMode="numeric"
             placeholder={side === "from" ? "7:00" : "19:30"}
             aria-label={`${side === "from" ? "Desde" : "Hasta"}${name ? `, ${name}` : ""}`}
-            value={side === "from" ? value.from : value.to}
+            value={value.off ? "" : side === "from" ? value.from : value.to}
+            disabled={value.off}
             aria-invalid={bad(side) ? true : undefined}
             aria-describedby={bad(side) ? errorId : undefined}
             onKeyDown={onEnter}
@@ -55,6 +59,19 @@ function Pair({
           />
         </label>
       ))}
+      {canBeOff && (
+        <label className="day-off">
+          <input
+            type="checkbox"
+            checked={!!value.off}
+            aria-label={`No ese día: ${name}`}
+            onChange={(e) => {
+              onChange({ ...value, off: e.target.checked });
+            }}
+          />
+          <span aria-hidden="true">No</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -106,7 +123,7 @@ export function RoutineHours({
       {form.perDay && (
         <>
           <p className="meta" style={{ margin: "0 0 4px" }}>
-            Un día vacío usa el horario de arriba.
+            Un día vacío usa el horario de arriba. «No»: ese día la rutina no va.
           </p>
           {HOURS_DAYS.map((d) => (
             <Pair
@@ -121,6 +138,7 @@ export function RoutineHours({
               field={`day-${d.weekday}`}
               errorId={errorId}
               onEnter={onEnter}
+              canBeOff
             />
           ))}
         </>

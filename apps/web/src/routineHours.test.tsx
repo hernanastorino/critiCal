@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { edited, errorOf, NOW, roundTrip } from "./atacante11Kit.js";
+import { validHoursOk } from "./backupNamed.js";
 import { Routines } from "./components/Preferences.js";
 import { TaskEditor } from "./components/TaskEditor.js";
 import { diffData, rowsToData } from "./data.js";
@@ -259,5 +260,40 @@ describe("routineHours helpers", () => {
     expect(readHours(form).hours).toEqual(hours);
     expect(describeHours(hours)).toBe("07:00 a 19:00 (con 1 día distinto)");
     expect(readHours(emptyHoursForm()).hours).toBeUndefined();
+  });
+});
+
+describe("«No ese día» (decidido el 2026-11-20)", () => {
+  const hours: ValidHours = { all: { start: 1020, end: 1140 }, days: { 0: null } };
+
+  it("is read from the form as null and comes back as a ticked day", () => {
+    const form = formOfHours(hours);
+    expect(form.perDay).toBe(true);
+    expect(form.days[0]).toMatchObject({ off: true });
+    expect(readHours(form).hours).toEqual(hours);
+  });
+
+  it("is said in the routine's row", () => {
+    expect(describeHours(hours)).toBe("17:00 a 19:00 · no el domingo");
+    expect(describeHours({ days: { 1: null, 0: null } })).toBe("no el lunes ni el domingo");
+  });
+
+  it("an off day ignores what is typed in its hours", () => {
+    const form = emptyHoursForm();
+    form.perDay = true;
+    form.days[3] = { from: "25", to: "", off: true };
+    expect(readHours(form)).toEqual({ hours: { days: { 3: null } }, problems: [] });
+  });
+
+  it("a backup with an off day is valid", () => {
+    expect(validHoursOk(hours, {})).toBe(true);
+    expect(validHoursOk({ days: { 7: null } }, {})).toBe(false);
+  });
+
+  it("the editor has a «No» for each day of its own", () => {
+    renderRoutines();
+    fireEvent.click(screen.getByLabelText("Distinto según el día"));
+    fireEvent.click(screen.getByLabelText("No ese día: domingo"));
+    expect((screen.getByLabelText("Desde, domingo") as HTMLInputElement).disabled).toBe(true);
   });
 });

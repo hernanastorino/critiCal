@@ -96,14 +96,17 @@ const hoursRange = (r: unknown) =>
   int(0, 1440)(r.end, r) &&
   (r.end as number) > (r.start as number);
 
-/** A routine's valid hours: a range for every day and ranges for weekdays 0 to 6. */
+/** A routine's valid hours: a range for every day and ranges (or null) for weekdays 0 to 6. */
 export const validHoursOk: Ok = (v) =>
   isRec(v) &&
   Object.keys(v).every((k) => k === "all" || k === "days") &&
   (v.all === undefined || hoursRange(v.all)) &&
   (v.days === undefined ||
     (isRec(v.days) &&
-      Object.entries(v.days).every(([k, r]) => /^[0-6]$/.test(k) && hoursRange(r))));
+      Object.entries(v.days).every(
+        // null: «No ese día».
+        ([k, r]) => /^[0-6]$/.test(k) && (r === null || hoursRange(r)),
+      )));
 
 const activityRules = (): Rule[] => [
   [
