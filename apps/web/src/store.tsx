@@ -53,6 +53,7 @@ import {
   decisions,
   endOfDay,
   endOfWeek,
+  isPinned,
   isRunning,
   latestCheckIns,
   missedMeals,
@@ -107,6 +108,8 @@ export type Action =
   | { type: "review"; taskId: string; keep: boolean; now: number }
   | { type: "replanWeek"; now: number }
   | { type: "pin"; blockId: string; start: number; now: number }
+  /** «Fijar acá» on a run of blocks: each one pinned where it is, one replan for all. */
+  | { type: "pinAll"; blockIds: string[]; now: number }
   | { type: "unpin"; blockId: string; now: number }
   /** «Soltar todo» on a run of blocks: one replan for all of them. */
   | { type: "unpinAll"; blockIds: string[]; now: number }
@@ -221,6 +224,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   pin: "mover o fijar un bloque",
   unpin: "soltar un bloque",
   unpinAll: "soltar varios bloques",
+  pinAll: "fijar varios bloques",
   replanWeek: "reacomodar la semana",
   override: "ajustar el día",
   acceptProposal: "aceptar un cambio propuesto",
@@ -885,6 +889,25 @@ function apply(data: AppData, action: Action): AppData {
       const gone = new Set([block.id, ...covered.map((p) => p.id)]);
       return refresh(
         { ...data, pins: [...rest, moved], plan: data.plan.filter((b) => !gone.has(b.id)) },
+        now,
+      );
+    }
+    case "pinAll": {
+      // Only blocks still ahead and not pinned yet; each stays where the plan put it.
+      const ahead = data.plan.filter(
+        (b) => action.blockIds.includes(b.id) && b.start > now && !isPinned(b),
+      );
+      if (ahead.length === 0) return data;
+      const moved = ahead.map((b) => pinBlock(b, b.start));
+      const taken = new Set((data.pins ?? []).map((p) => p.id));
+      if (moved.some((m) => taken.has(m.id))) return data;
+      const gone = new Set(ahead.map((b) => b.id));
+      return refresh(
+        {
+          ...data,
+          pins: [...(data.pins ?? []), ...moved],
+          plan: data.plan.filter((b) => !gone.has(b.id)),
+        },
         now,
       );
     }
