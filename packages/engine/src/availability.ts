@@ -18,10 +18,14 @@ export interface Slot {
   soft: boolean;
   /** Minutes since the logical day's midnight. */
   minuteOfDay: number;
+  /** The weekday it is planned as (a holiday's borrowed one), 0 = Sunday. */
+  weekday?: number;
 }
 
 interface DayWindow {
   date: string;
+  /** The weekday whose routine it follows (a holiday may borrow another's). */
+  weekday: number;
   midnight: number;
   awake: Interval[];
   /** Preferred meal times; placed around fixed events by `placeMeal`. */
@@ -33,7 +37,8 @@ interface DayWindow {
 
 function dayWindow(settings: Settings, date: string, override?: DayOverride): DayWindow {
   const tz = settings.timezone;
-  const base = settings.week[override?.asWeekday ?? weekdayOf(date)];
+  const weekday = override?.asWeekday ?? weekdayOf(date);
+  const base = settings.week[weekday];
   if (!base) throw new Error(`No settings for weekday of ${date}`);
   const wake = override?.wake ?? base.wake;
   const rawBed = override?.bed ?? base.bed;
@@ -44,6 +49,7 @@ function dayWindow(settings: Settings, date: string, override?: DayOverride): Da
   const bedAt = zonedInstant(tz, date, bed);
   return {
     date,
+    weekday,
     midnight: zonedInstant(tz, date, 0),
     awake: [{ start: plannableAt, end: bedAt }],
     meals: base.meals.flatMap((m) => {
@@ -269,6 +275,7 @@ export function buildSlots(
           date,
           soft: start >= window.freeFrom,
           minuteOfDay: (start - window.midnight) / MINUTE,
+          weekday: window.weekday,
         });
         start += step;
       }

@@ -76,4 +76,48 @@ describe("valid hours of a routine", () => {
     expect(r.blocks).toHaveLength(0);
     expect(r.status[0]?.minDeficit).toBe(360);
   });
+
+  it("«No ese día»: never on that weekday, the sessions go to the other days", () => {
+    // Six sessions, one a day at most, and Sunday off: Monday to Saturday.
+    const r = run({ all: { start: hm(17), end: hm(19) }, days: { 0: null } });
+    expect(r.status[0]?.minDeficit).toBe(0);
+    expect(r.blocks.some((b) => clock(b).weekday === 0)).toBe(false);
+    expect(new Set(r.blocks.map((b) => clock(b).weekday)).size).toBe(6);
+  });
+
+  it("only one day left, and it is off: nothing is placed and it is said", () => {
+    const off = { 0: null, 1: null, 2: null, 3: null, 4: null, 5: null, 6: null };
+    const r = run({ days: off });
+    expect(r.blocks).toHaveLength(0);
+    expect(r.status[0]?.minDeficit).toBe(360);
+  });
+
+  it("a holiday planned as a Sunday uses Sunday's hours", () => {
+    // Wednesday 2026-11-04 borrows Sunday's routine: the routine goes 08:00–09:00 then.
+    const r = schedule({
+      now,
+      horizonEnd,
+      settings,
+      overrides: [{ date: "2026-11-04", asWeekday: 0 }],
+      activities: [activity("correr", { academic: false, maxSessionMinutes: 180 })],
+      tasks: [
+        task("correr", "correr", horizonEnd, {
+          remainingMinutes: 360,
+          minRemainingMinutes: 360,
+          sessionMinutes: 60,
+          maxPerDayMinutes: 60,
+          validHours: {
+            all: { start: hm(17), end: hm(19) },
+            days: { 0: { start: hm(8), end: hm(9) } },
+          },
+        }),
+      ],
+      events: [],
+    } satisfies ScheduleInput);
+    const wednesday = r.blocks.filter(
+      (b) => localParts(settings.timezone, b.start).date === "2026-11-04",
+    );
+    expect(wednesday.length).toBeGreaterThan(0);
+    for (const b of wednesday) expect(clock(b)).toMatchObject({ from: hm(8), to: hm(9) });
+  });
 });

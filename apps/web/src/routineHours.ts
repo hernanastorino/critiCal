@@ -5,6 +5,8 @@ import { minutesToHhmm, parseClock } from "./format.js";
 export interface HoursField {
   from: string;
   to: string;
+  /** «No ese día»: the routine does not go on this day (only for a day of its own). */
+  off?: boolean;
 }
 
 /** The form of a routine's valid hours: one franja for every day, and optional days of their own. */
@@ -124,10 +126,14 @@ export function readHours(
 ): { hours: ValidHours | undefined; problems: HoursProblem[] } {
   const all = readField(form.all, "all", "", sessionMinutes, slot);
   const problems = [...all.problems.map((p) => ({ ...p, text: cap(p.text) }))];
-  const days: Partial<Record<number, MinuteRange>> = {};
+  const days: Partial<Record<number, MinuteRange | null>> = {};
   if (form.perDay) {
     for (const d of HOURS_DAYS) {
       const f = form.days[d.weekday] ?? EMPTY;
+      if (f.off) {
+        days[d.weekday] = null;
+        continue;
+      }
       const read = readField(f, `day-${d.weekday}`, `El ${d.name}: `, sessionMinutes, slot);
       problems.push(...read.problems.map((p) => ({ ...p, text: cap(p.text) })));
       if (read.range) days[d.weekday] = read.range;
@@ -157,7 +163,8 @@ export function formOfHours(hours: ValidHours | undefined): HoursForm {
   if (!hours) return form;
   if (hours.all) form.all = text(hours.all);
   for (const [weekday, range] of Object.entries(hours.days ?? {})) {
-    if (range) form.days[Number(weekday)] = text(range);
+    if (range === null) form.days[Number(weekday)] = { ...EMPTY, off: true };
+    else if (range) form.days[Number(weekday)] = text(range);
   }
   form.perDay = Object.keys(hours.days ?? {}).length > 0;
   return form;
@@ -170,15 +177,24 @@ const span = (r: MinuteRange) =>
       ? `desde las ${clock(r.start)}`
       : `${clock(r.start)} a ${clock(r.end)}`;
 
-/** A franja in words, for the routine's row: «17:00 a 19:00», or «hasta las 19:00». */
+/**
+ * A franja in words, for the routine's row: «17:00 a 19:00», «hasta las 19:00», and the days
+ * it does not go: «17:00 a 19:00 · no el domingo».
+ */
 export function describeHours(hours: ValidHours | undefined): string {
   if (!hours) return "";
-  const days = Object.keys(hours.days ?? {}).length;
+  const entries = Object.entries(hours.days ?? {});
+  const days = entries.filter(([, r]) => r).length;
+  const off = HOURS_DAYS.filter((d) => hours.days?.[d.weekday] === null).map((d) => `el ${d.name}`);
   const all = hours.all ? span(hours.all) : "";
-  if (days === 0) return all;
-  return all
-    ? `${all} (${days === 1 ? "con 1 día distinto" : `con ${days} días distintos`})`
-    : "según el día";
+  const ranged =
+    days === 0
+      ? all
+      : all
+        ? `${all} (${days === 1 ? "con 1 día distinto" : `con ${days} días distintos`})`
+        : "según el día";
+  const not = off.length > 0 ? `no ${off.join(" ni ")}` : "";
+  return [ranged, not].filter(Boolean).join(" · ");
 }
 
 /** Whether every day's franja is too short for a session on the grid (a day with none is unlimited). */
@@ -190,7 +206,10 @@ export function hoursTooShort(
   if (!hours) return false;
   const own = new Map(Object.entries(hours.days ?? {}));
   return [0, 1, 2, 3, 4, 5, 6].every((w) => {
-    const r = own.get(String(w)) ?? hours.all;
+    const day = own.get(String(w));
+    // «No ese día» holds no session either.
+    if (day === null) return true;
+    const r = day ?? hours.all;
     return !!r && !franjaHolds(r, sessionMinutes, slot);
   });
 }

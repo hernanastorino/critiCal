@@ -232,7 +232,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 Un PR por tema, con la SPEC actualizada en el mismo PR:
 
 1. ✅ Comidas cuando te levantás tarde (#142).
-2. ✅ Horarios válidos por rutina y por día (#146). Falta: un día «sin horario válido» y la franja en feriados con rutina prestada.
+2. ✅ Horarios válidos por rutina y por día (#146), con «No ese día» y la franja del día prestado en feriados (decidido y hecho el 2026-11-20).
 3. ✅ Rutina creada a mitad de semana, proporcional y redondeando hacia arriba (#147).
 4. ✅ Una tarea que no entra ni sola no marca críticos a las demás (#150).
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).

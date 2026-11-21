@@ -824,6 +824,22 @@ textarea {
   flex-wrap: wrap;
 }
 
+/* «No ese día» at the end of a day's franja: a checkbox and its short word. */
+.day-off {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-end;
+  min-height: 44px;
+  font-size: 0.875rem;
+  color: var(--ink-soft);
+}
+
+/* The hours of a day that is «No ese día» do not count: they fade. */
+.routine-hours input:disabled {
+  opacity: 0.35;
+}
+
 /* An icon next to text (Marks in icons.tsx): sized with the text and sitting on its line. */
 .mark {
   flex: none;

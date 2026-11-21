@@ -95,7 +95,8 @@ export type StartAfter = { date: string } | { daysBefore: number } | { now: true
  */
 export interface ValidHours {
   all?: MinuteRange;
-  days?: Partial<Record<number, MinuteRange>>;
+  /** A day's own range; `null`: not that day («No ese día»). Missing: `all`. */
+  days?: Partial<Record<number, MinuteRange | null>>;
 }
 
 export interface Activity {
