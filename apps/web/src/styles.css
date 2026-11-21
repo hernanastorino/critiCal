@@ -2161,10 +2161,11 @@ textarea:focus-visible {
 }
 
 /* A whole row that is a label (a part, a day's calendar) is tappable at 44: the extra
-   padding is taken back with the negative margin, so the rows do not move. */
+   padding is taken back with the negative margin, so the rows do not move.
+   44 px row: 22 px box + 2 × 11 px, kept literal (touch-target exception, see :root). */
 label.check {
-  padding: var(--space-3) 0;
-  margin: calc(var(--space-1) * -1) 0;
+  padding: 11px 0;
+  margin: -3px 0;
 }
 
 @media (forced-colors: active) {
