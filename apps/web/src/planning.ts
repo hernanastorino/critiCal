@@ -663,23 +663,34 @@ export function freezeMeals(data: AppData, now: number): AppData {
   const last = data.mealsFrozenThrough;
   if (last !== undefined && last >= yesterday) return data;
   const first = last === undefined ? addDays(today, -FREEZE_FIRST_DAYS) : addDays(last, 1);
-  const start = first < addDays(today, -FREEZE_MAX_DAYS) ? addDays(today, -FREEZE_MAX_DAYS) : first;
+  const earliest = addDays(today, -FREEZE_MAX_DAYS);
   let runs = [...(data.mealRuns ?? [])];
-  for (let date = start; date <= yesterday; date = addDays(date, 1)) {
-    const midnight = zonedInstant(tz, date, 0);
-    const meals = workedMealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0));
-    const weekday = weekdayOf(date);
-    for (const m of meals) {
-      if (!m.at || !m.kind || m.date !== date) continue;
-      const startMin = Math.round((m.at.start - midnight) / MINUTE);
-      const endMin = Math.round((m.at.end - midnight) / MINUTE);
-      const standing = runs.find((r) => r.meal === m.kind && r.weekday === weekday && !r.to);
-      if (standing && standing.start === startMin && standing.end === endMin) continue;
-      runs = runs.map((r) => (r === standing ? { ...r, to: addDays(date, -1) } : r));
-      runs.push({ meal: m.kind, weekday, from: date, start: startMin, end: endMin });
-    }
+  for (let date = first < earliest ? earliest : first; date <= yesterday; date = addDays(date, 1)) {
+    runs = freezeDay(data, now, date, runs);
   }
   return { ...data, mealRuns: runs, mealsFrozenThrough: yesterday };
+}
+
+/** `runs` with the meals of `date` written in (see `freezeMeals`). */
+function freezeDay(data: AppData, now: number, date: string, runs: MealRun[]): MealRun[] {
+  const tz = data.settings.timezone;
+  const midnight = zonedInstant(tz, date, 0);
+  const weekday = weekdayOf(date);
+  let out = runs;
+  for (const m of workedMealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0))) {
+    if (!m.at || !m.kind || m.date !== date) continue;
+    const start = Math.round((m.at.start - midnight) / MINUTE);
+    const end = Math.round((m.at.end - midnight) / MINUTE);
+    out = withRun(out, { meal: m.kind, weekday, from: date, start, end });
+  }
+  return out;
+}
+
+/** `runs` with `run` standing from its date: the open run of its series closes the day before. */
+function withRun(runs: MealRun[], run: MealRun): MealRun[] {
+  const standing = runs.find((r) => r.meal === run.meal && r.weekday === run.weekday && !r.to);
+  if (standing?.start === run.start && standing.end === run.end) return runs;
+  return [...runs.map((r) => (r === standing ? { ...r, to: addDays(run.from, -1) } : r)), run];
 }
 
 /**
