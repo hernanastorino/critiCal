@@ -6,11 +6,13 @@ import type { AppData, AppEvent, Place, TravelMode } from "./model.js";
 import { home, placeOfEvent } from "./places.js";
 import {
   type BusLeg,
+  type Coords,
   type DayType,
   dayTypeOf,
   hhmm,
   inArea,
   type PlanRequest,
+  parseHhmm,
   type TransitOption,
   type WalkLeg,
 } from "./transit.js";
@@ -51,29 +53,51 @@ export function unlocatedEnd(trip: EventTrip): "from" | "to" | "area" | null {
     : "area";
 }
 
+/** A holiday runs with the Sunday schedule. */
+const scheduleDay = (at: { year: number; date: string }): DayType =>
+  uruguayHolidays(at.year).some((h) => h.date === at.date) ? 3 : dayTypeOf(at.date);
+
+const coordsOf = (p: Place): Coords | null =>
+  p.lat == null || p.lon == null ? null : { lat: p.lat, lon: p.lon };
+
+/** Which way of the trip: home → event (`there`) or event → home (`back`). */
+export type Way = "there" | "back";
+
 /**
- * The request for the bus that gets home → event done by the event's start. A holiday
- * runs with the Sunday schedule. `maxTransfers` stays unset: the server decides.
+ * The request for the bus of one way. There: home → event, be there by the event's start.
+ * Back: event → home, leaving when the event ends. A holiday runs with the Sunday
+ * schedule. `maxTransfers` stays unset: the server decides.
  */
-export function planRequestFor(trip: EventTrip, event: AppEvent, tz: string): PlanRequest | null {
-  const { lat: fromLat, lon: fromLon } = trip.from;
-  const { lat: toLat, lon: toLon } = trip.place;
-  if (fromLat == null || fromLon == null || toLat == null || toLon == null) return null;
-  const from = { lat: fromLat, lon: fromLon };
-  const to = { lat: toLat, lon: toLon };
-  if (!inArea(from) || !inArea(to)) return null;
-  const at = localParts(tz, event.start);
-  const holiday = uruguayHolidays(at.year).some((h) => h.date === at.date);
-  const dayType: DayType = holiday ? 3 : dayTypeOf(at.date);
+export function planRequestFor(
+  trip: EventTrip,
+  event: AppEvent,
+  tz: string,
+  way: Way = "there",
+): PlanRequest | null {
+  const from = coordsOf(way === "there" ? trip.from : trip.place);
+  const to = coordsOf(way === "there" ? trip.place : trip.from);
+  if (!from || !to || !inArea(from) || !inArea(to)) return null;
+  const at = localParts(tz, way === "there" ? event.start : event.end);
+  const dayType = scheduleDay(at);
   return {
     action: "plan",
     from,
     to,
     date: at.date,
     time: hhmm(at.minuteOfDay),
-    mode: "arrive",
+    mode: way === "there" ? "arrive" : "depart",
     dayType,
   };
+}
+
+/**
+ * The minutes the plan reserves for a way (SPEC §15). There: door to door. Back: from the
+ * moment the event ends to arriving home, so the wait for the bus is counted.
+ */
+export function wayMinutes(option: TransitOption, way: Way, request: PlanRequest): number {
+  if (way === "there") return option.totalMinutes;
+  const from = parseHhmm(request.time) ?? option.leaveMin;
+  return Math.max(0, option.arriveMin - from);
 }
 
 export interface BusStep {
