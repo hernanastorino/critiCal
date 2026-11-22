@@ -74,6 +74,14 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras. Confirmado el 2026-11-18: sigue por materia. «Faltan» muestra las partes que quedan sin el ratio; el ratio solo ajusta lo que se planifica.
 9. **Ajuste por desvelo**: después de un evento nocturno, la bandeja pregunta a qué hora me levanté en vez de asumir el horario normal.
 
+### El pasado no se recalcula (regla general, decidida el 2026-11-22)
+
+Nada anterior a la hora actual se recalcula ni se reescribe: ni el algoritmo de eventos, ni las comidas (lugar y horario), ni los parciales, pruebas o entregas pasadas, ni los bloques y el tiempo ya registrado. El plan solo mueve lo que queda desde ahora.
+
+- **Comidas**: cuando una comida termina, se guarda dónde y cuándo estuvo (`mealLog` en el estado de `settings`, por usuario; en modo demo, en el almacenamiento local). Los días pasados leen eso en vez de recalcular, aunque después cambien la rutina, los eventos o los lugares. Se conserva un par de meses.
+- **Rutinas**: solo reparten el tiempo que queda. Una rutina de 3 veces por semana creada un sábado pide 1 sesión entre sábado y domingo (`sessionsThisWeek`); nunca se agrega lo «atrasado» de los días que ya pasaron.
+- **Única excepción**: si se borra un evento de iCloud o de Google Calendar, el evento desaparece (y su tarea de origen deja de planificarse), pero el tiempo adjudicado y el progreso que realmente se dedicó a él quedan: los registros de avance nunca se borran.
+
 ## 6. Traslados (auto)
 
 - Origen: ubicación del evento anterior si terminó hace < 2 h; si no, casa. En huecos largos evalúa volver a casa.

@@ -31,6 +31,7 @@ interface State {
   tripModes?: AppData["tripModes"];
   tripMinutes?: AppData["tripMinutes"];
   mealChoices?: AppData["mealChoices"];
+  mealLog?: AppData["mealLog"];
   notSubjects?: string[];
   removedSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
@@ -207,6 +208,7 @@ export function rowsToData(r: {
     tripModes: state.tripModes,
     tripMinutes: state.tripMinutes,
     mealChoices: state.mealChoices,
+    mealLog: state.mealLog,
     notSubjects: state.notSubjects,
     removedSubjects: state.removedSubjects,
     movedEvents: state.movedEvents,
@@ -365,6 +367,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.tripModes,
       prev.tripMinutes,
       prev.mealChoices,
+      prev.mealLog,
       prev.notSubjects,
       prev.removedSubjects,
       prev.movedEvents,
@@ -386,6 +389,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.tripModes,
       next.tripMinutes,
       next.mealChoices,
+      next.mealLog,
       next.notSubjects,
       next.removedSubjects,
       next.movedEvents,
@@ -412,6 +416,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             tripModes: next.tripModes,
             tripMinutes: next.tripMinutes,
             mealChoices: next.mealChoices,
+            mealLog: next.mealLog,
             notSubjects: next.notSubjects,
             removedSubjects: next.removedSubjects,
             movedEvents: next.movedEvents,

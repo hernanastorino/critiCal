@@ -32,7 +32,7 @@ import {
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppEvent, AppTask, CheckIn, Proposal, Unit } from "./model.js";
+import type { AppData, AppEvent, AppTask, CheckIn, MealLogEntry, Proposal, Unit } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -576,11 +576,36 @@ export function wakingDay(data: AppData, now: number, date: string) {
   return { wake, bed: rawBed <= wake ? rawBed + 1440 : rawBed };
 }
 
+/** How long the meal log is kept (days back from today). */
+const MEAL_LOG_DAYS = 60;
+
 /**
  * Where each meal between `from` and `to` happens: at its time unless a fixed event,
  * its travel or a block pinned by hand is there, then at the closest free time.
+ * A meal that is already over is not worked out again (SPEC §5): the log says where it
+ * was, and what the log does not have (data from before it) is worked out as before.
  */
 export function mealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
+  const worked = workedMealTimes(data, now, from, to);
+  const log = data.mealLog;
+  if (!log?.length) return worked;
+  const over = (m: MealTime) => !!m.at && m.at.end <= now;
+  const logged = (m: Pick<MealTime, "date" | "kind">) =>
+    log.some((l) => l.date === m.date && l.kind === m.kind);
+  // The log wins over anything worked out for a meal already over...
+  const kept = worked.filter((m) => !(logged(m) && (over(m) || m.at === null)));
+  // ...and brings back the ones the plan would not show now (skipped, moved away since).
+  const back = log
+    .filter((l) => l.end <= now && l.end > from && l.start < to)
+    .map((l): MealTime => {
+      const at = { start: l.start, end: l.end };
+      const was = worked.find((m) => m.date === l.date && m.kind === l.kind);
+      return { date: l.date, kind: l.kind, preferred: was?.preferred ?? at, at, latest: l.start };
+    });
+  return [...kept, ...back].sort((a, b) => (a.at?.start ?? 0) - (b.at?.start ?? 0));
+}
+
+function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
   const events = plannerEvents(data);
   const travel = travelOptions(data);
   const busy = [
@@ -598,6 +623,30 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
     busy,
     events,
   );
+}
+
+/**
+ * The log with every meal that ended since (today and yesterday, as far back as a
+ * running app could have missed) written down as it was shown. Meals already in the log
+ * stay as they are; entries past the keeping time go.
+ */
+export function withMealLog(data: AppData, now: number): AppData {
+  const tz = data.settings.timezone;
+  const today = localParts(tz, now).date;
+  const since = zonedInstant(tz, addDays(today, -1), 0);
+  // As worked out for now, not through the log: that is what was on screen.
+  const fresh = workedMealTimes(data, now, since, now);
+  const log = data.mealLog ?? [];
+  const known = new Set(log.map((l) => `${l.date}|${l.kind}`));
+  const added = fresh.flatMap((m): MealLogEntry[] =>
+    m.at && m.kind && m.at.end <= now && !known.has(`${m.date}|${m.kind}`)
+      ? [{ date: m.date, kind: m.kind, start: m.at.start, end: m.at.end }]
+      : [],
+  );
+  const oldest = addDays(today, -MEAL_LOG_DAYS);
+  const kept = log.filter((l) => l.date >= oldest);
+  if (added.length === 0 && kept.length === log.length) return data;
+  return { ...data, mealLog: [...kept, ...added] };
 }
 
 /**

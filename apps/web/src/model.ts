@@ -3,6 +3,7 @@ import type {
   CalendarEvent,
   DayOverride,
   MealChoice,
+  MealKind,
   PlanBlock,
   Settings,
   StartAfter,
@@ -247,6 +248,11 @@ export interface AppData {
   tripMinutes?: Record<string, { minutes: number; start: number; back?: number }>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
+  /**
+   * Where and when each meal was once it was over: the past is not planned again (SPEC §5),
+   * so past days show this instead of working the meals out anew.
+   */
+  mealLog?: MealLogEntry[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */
@@ -459,4 +465,12 @@ export interface PlanVersion {
   freeTimeUntil?: number;
   relaxContextUntil?: number;
   tentativeHoldUntil?: number;
+}
+
+/** A meal that already happened: its day (the wake-up date), kind and the time it took place. */
+export interface MealLogEntry {
+  date: string;
+  kind: MealKind;
+  start: number;
+  end: number;
 }
