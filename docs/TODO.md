@@ -55,6 +55,8 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
+- **Borradores de formularios** (pendiente, anotado el 2026-11-22): ¿se guarda el borrador de un formulario abierto o se pide confirmar antes de descartarlo? Lo esperan dos Bajas del atacante: recargar con un formulario abierto lo pierde y vuelve a la Semana (23.ª vuelta) y Escape descarta sin aviso el formulario de un silo nuevo (24.ª vuelta, 4.ª Baja).
+
 ## 0. Antes de empezar algo nuevo
 
 1. **Terminá lo que está en curso.** Mirá la tabla de abajo y `gh pr list --state open`. Un PR abierto se termina (CI, Codacy, merge) antes de abrir otro, salvo los pausados a pedido del usuario (como el #68), que no frenan nada y siguen sin mergearse.
@@ -133,11 +135,16 @@ Datos, servidor e interfaz mergeados (la interfaz en #185: modo por lugar, colum
 
 Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186–#188, #194–#197): lo vigente se arregló y lo que ya no pasaba quedó fijado con tests (el detalle de cada ítem está en la descripción de cada PR). Queda:
 
-- **23.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #206, solo modo demo; sin Altas). Arreglada en el PR de la vuelta: la Media del doble toque (el segundo toque, tras cerrar una hoja con «Guardar avance» o «Eliminar», caía en lo de abajo: la barra de pestañas o la fila siguiente; ahora un toque real en los 400 ms siguientes a cerrar una hoja, fuera de otra hoja abierta, se descarta). Para confirmar (Media dudosa): Ajustes → Planificación semanal un domingo dice «Ninguno: hay margen en todo» y «dom 0h» con un Parcial que vence el martes (¿resume la semana que termina hoy?). Bajas:
+- **Decisiones del usuario del 2026-11-22** (ya implementadas; SPEC §5 y §7):
+  - **El pasado nunca se recalcula** (#210). Única excepción: un evento externo (Google/iCloud) borrado deja de mostrarse y su tarea pasa a «dropped», pero se conserva el tiempo dedicado registrado.
+  - **Casa única y solo por el interruptor «Mi casa»** (#209): el nombre «Casa» no la sugiere por texto; con una casa marcada no se ofrece marcar otra.
+  - **Comidas guardadas por tramos** (comida × día de la semana, tabla `meal_runs`, #210): al abrir se congelan los días hasta ayer, así los días pasados muestran dónde estuvo cada comida.
+- **24.ª vuelta** (2026-11-22, en segundo plano sobre `main` local con #208 y #209, solo modo demo): **sin Altas ni Medias**. Bajas 1–3 arregladas en #211 (Planificación semanal dice de qué semana es; Silos dice «la semana próxima» tras planearla; casa sin dirección avisa «Tu casa no tiene dirección»). La 4.ª (Escape descarta sin aviso el formulario de un silo nuevo) espera la decisión de borradores (§1.1).
+- **23.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #206, solo modo demo; sin Altas). Arreglada en el PR de la vuelta: la Media del doble toque (el segundo toque, tras cerrar una hoja con «Guardar avance» o «Eliminar», caía en lo de abajo: la barra de pestañas o la fila siguiente; ahora un toque real en los 400 ms siguientes a cerrar una hoja, fuera de otra hoja abierta, se descarta). La Media dudosa (Planificación semanal un domingo resumía la semana que terminaba ese día) se resolvió en #208: la planificación es siempre de la semana próxima. Bajas:
   - Los mensajes de validación que aparecen o se van corren el botón o el campo que ibas a tocar (Rutinas, Materias).
   - Buscador de Ajustes sin resultados: la hoja se achica y un toque donde estaba el campo cae en el fondo y cierra Ajustes.
   - Escape no cierra Ajustes con el foco en un `<input type="time">` (a propósito: el selector nativo se cierra primero; hay que salir con Tab).
-  - Recargar con un formulario abierto pierde el borrador y vuelve a la Semana.
+  - Recargar con un formulario abierto pierde el borrador y vuelve a la Semana (espera la decisión de borradores, §1.1).
   - Notificaciones en demo: las casillas se pueden tocar aunque no funcionan sin cuenta.
   - Tema claro: la hoja de Ajustes deja ver la semana a través del fondo.
   - Un aviso tapa los botones de la cabecera unos segundos.
@@ -145,8 +152,6 @@ Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186
 - **22.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #199, solo modo demo; sin Altas). Las tres Medias (doble «Guardar» en Silos → Nueva duplica, doble Deshacer tras «Fijar acá», lugar en ómnibus sin dirección) y dos Bajas (nombre accesible de silos archivados, hojas cerradas sin `inert`) se arreglaron en #204; las de letra grande y avisos largos, en #205. Queda:
   - No probado: tema claro, lector de pantalla real, Tab completo, arrastrar con precisión, Rutinas extremas, tarjeta de un evento con Auto/Ómnibus, recargar a mitad de un formulario, silos con partes.
 - **No se arreglan (decisiones, a revisar por el usuario si quiere)**:
-  - Un lugar llamado «Casa» se reconoce dentro de «Casa de la abuela Marta» (#196: un lugar se reconoce por su nombre como palabra; salida: guardar el lugar largo, gana el nombre más largo).
-  - Días pasados muestran las comidas recalculadas (#195: no se guarda dónde estuvo cada comida; habría que persistirlo por día).
   - Borradores de Ajustes con fecha cambiada desde otro dispositivo (#90/#197: caso muy raro).
   - `/api/csp-report`: el `limiter` es por instancia (#197: un tope compartido necesita Redis/KV).
   - Las copias de Deshacer anteriores a la migración siguen sin `origin` (18.ª, B1) y un cliente viejo en caché contra la base nueva (18.ª, B2, transitorio).
@@ -192,6 +197,8 @@ Un PR por tema, en este orden:
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
+
+- **Trabajo del 2026-11-22, mergeado**: #206 (TODO), #207 (23.ª vuelta), #208 Planificación semanal siempre sobre la semana próxima (Silos y widget pasan a la siguiente una vez planeada; `settings.weekPlannedFor`, sin migración), #209 casa solo por el interruptor (una sola casa), #210 el pasado no se recalcula (migración `meal_runs`), #211 Bajas de la 24.ª vuelta. Falta: confirmar que el Deploy aplicó `meal_runs` en staging y producción, prueba en producción en modo demo (Planificación semanal un domingo, comidas de días pasados tras cambiar los horarios, formulario de lugar con casa ya marcada) y revisar Better Stack.
 
 - **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #164 íconos de línea, #165 «Soltar todo» en bloques seguidos, #166 toques de 44 pt en la cabecera, #167 20.ª vuelta (botones con letra grande), #168 «Fijar acá» con Deshacer, #170 números que cuentan, #171 «No ese día», #172 botones con verbo, #173 Silos vacío, #174 21.ª vuelta, #176–#183 (decisiones del 21-11, resorte, escala de tokens, deslizar semana, primeros pasos), #185 ómnibus: interfaz (migración `places_travel_mode`, aplicada por el Deploy del 2026-11-21), #186–#188 Bajas de servidor, Semana y accesibilidad, #190 el plan reserva el tiempo del ómnibus, #193 ómnibus: vuelta y rutas habituales, #194–#197 Bajas viejas, #198 ayuda bajo los campos, #199 reversión de lo rechazado por la base, #201 buscador de Ajustes, #202 Bun (primer Deploy con Bun en verde, demo en producción sin errores), #204–#205 22.ª vuelta, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
   - Prueba en producción en modo demo y en el simulador de iPhone (todo se probó solo en local con WebKit de Playwright y jsdom): «Primeros pasos» con cuenta nueva, tarjeta de ómnibus de un evento con lugar, zoom con dos dedos en iPhone, hoja de bloque con Hecho/Parcial/No/Corregir y su Deshacer, Bandeja (Deshacer de cada acción), Rutinas con «Distinto según el día», comidas al levantarse tarde, letra grande y tema oscuro.
