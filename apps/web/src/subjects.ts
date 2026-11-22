@@ -102,6 +102,25 @@ export const validRoutine = (times: number, minutes: number) =>
   Math.round(minutes) <= 360 &&
   Math.round(times) * Math.round(minutes) <= 40 * 60;
 
+/**
+ * A habit as Rutinas allows it: up to 14 sessions a week, 6 h a time and 40 h a week. The weekly
+ * study of a materia may be bigger (up to 168 sessions): when the materia becomes a routine its
+ * habit is fitted to those limits, so the backup it goes into can be imported back.
+ */
+export function fitRoutine(t: AppTask): AppTask {
+  const { sessionsPerWeek: times, sessionMinutes: minutes } = t;
+  if (t.kind !== "habit" || times === undefined || minutes === undefined) return t;
+  if (validRoutine(times, minutes)) return t;
+  const fitTimes = Math.max(1, Math.min(14, Math.round(times)));
+  const fitMinutes = Math.max(1, Math.min(360, Math.round(minutes), Math.floor(2400 / fitTimes)));
+  return {
+    ...t,
+    sessionsPerWeek: fitTimes,
+    sessionMinutes: fitMinutes,
+    minMinutes: Math.min(t.minMinutes, fitTimes * fitMinutes),
+  };
+}
+
 /** Title of a materia's weekly study silo (Inicio de cuatrimestre uses it too). */
 export const studyTitle = (a: Activity) => `Estudio ${a.name}`;
 

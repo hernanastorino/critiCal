@@ -241,6 +241,8 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
   // Blank means none; at most a whole week.
   const hoursOk =
     !studies || weekly.trim() === "" || (isFigure(weekly) && hours >= 0 && hours <= 168);
+  // Something above zero that rounds to no minute would be dropped without a word.
+  const hoursTiny = hoursOk && studies && weekly.trim() !== "" && hours > 0 && hours * 60 < 1;
   // Two «Nadar» would be told apart by nothing (adding one is refused the same way).
   const repeated = data.activities.some((a) => a.id !== activity.id && sameName(a.name, form.name));
   const maxSession = clampMinutes(form.max, 30, 480) ?? activity.maxSessionMinutes;
@@ -364,7 +366,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
-              invalid={!hoursOk}
+              invalid={!hoursOk || hoursTiny}
               errorId={`${key}-hours-error`}
               value={weekly}
               onChange={(e) => setWeekly(e.target.value)}
@@ -372,7 +374,13 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           )}
           <Problem
             id={`${key}-hours-error`}
-            text={hoursOk ? null : "El estudio semanal va de 0 a 168 h."}
+            text={
+              hoursOk
+                ? hoursTiny
+                  ? "Menos de 1 minuto a la semana no se planea: poné 0 para no estudiar o al menos 0,02 h."
+                  : null
+                : "El estudio semanal va de 0 a 168 h."
+            }
           />
           {activity.kind !== "rutina" && (
             <>
@@ -402,9 +410,11 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             type="button"
             className="btn primary"
             style={{ width: "100%", marginTop: 10 }}
-            aria-disabled={!hoursOk || problem || startAfter === null ? true : undefined}
+            aria-disabled={
+              !hoursOk || hoursTiny || problem || startAfter === null ? true : undefined
+            }
             onClick={(e) => {
-              if (!hoursOk || problem || startAfter === null) {
+              if (!hoursOk || hoursTiny || problem || startAfter === null) {
                 focusFirstInvalid(e.currentTarget.parentElement);
                 return;
               }
