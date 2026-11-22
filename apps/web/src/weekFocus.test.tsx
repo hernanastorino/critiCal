@@ -125,6 +125,8 @@ describe("Silos y widget: la semana en curso hasta planear la siguiente", () => 
       const d = data();
       return { ...d, settings: { ...d.settings, weekPlannedFor: "2026-11-23" } };
     };
+    localStorage.clear();
+    localStorage.setItem("critical.mode", "demo");
     render(<App fixedNow={SUNDAY} initial={planned} />);
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     expect(screen.getByLabelText(/^Gym: faltan .*, la semana próxima$/)).toBeTruthy();
