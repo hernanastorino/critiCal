@@ -568,7 +568,7 @@ export function Settings({
       label="Primeros pasos"
       onClick={() => {
         // The guide comes back on the week (SPEC §14).
-        resumeFirstSteps();
+        resumeFirstSteps(data.owner);
         onClose();
       }}
     />
