@@ -53,6 +53,10 @@ export function unlocatedEnd(trip: EventTrip): "from" | "to" | "area" | null {
     : "area";
 }
 
+/** A holiday runs with the Sunday schedule. */
+const scheduleDay = (at: { year: number; date: string }): DayType =>
+  uruguayHolidays(at.year).some((h) => h.date === at.date) ? 3 : dayTypeOf(at.date);
+
 const coordsOf = (p: Place): Coords | null =>
   p.lat == null || p.lon == null ? null : { lat: p.lat, lon: p.lon };
 
@@ -74,8 +78,7 @@ export function planRequestFor(
   const to = coordsOf(way === "there" ? trip.place : trip.from);
   if (!from || !to || !inArea(from) || !inArea(to)) return null;
   const at = localParts(tz, way === "there" ? event.start : event.end);
-  const holiday = uruguayHolidays(at.year).some((h) => h.date === at.date);
-  const dayType: DayType = holiday ? 3 : dayTypeOf(at.date);
+  const dayType = scheduleDay(at);
   return {
     action: "plan",
     from,
