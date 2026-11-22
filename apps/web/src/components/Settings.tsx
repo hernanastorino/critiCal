@@ -203,6 +203,34 @@ function Row({
   );
 }
 
+/** What a screen reader hears after each keystroke in the search. */
+const matches = (n: number) =>
+  n === 0 ? "Ningún ajuste coincide" : n === 1 ? "1 ajuste coincide" : `${n} ajustes coinciden`;
+
+/** The search's answer: the matching rows, or that there are none. */
+function Results({
+  rows,
+  query,
+  onClear,
+}: {
+  rows: ReactNode[];
+  query: string;
+  onClear: () => void;
+}) {
+  return (
+    <section aria-label="Resultados">
+      {rows.length ? (
+        <div className="settings-group">{rows}</div>
+      ) : (
+        <p className="meta">No hay ningún ajuste con «{query.trim()}».</p>
+      )}
+      <button type="button" className="btn small" onClick={onClear}>
+        {rows.length ? "Limpiar búsqueda" : "Ver todos los ajustes"}
+      </button>
+    </section>
+  );
+}
+
 /** Whether this account owns the app (it alone sees Invitaciones). */
 function useOwner(): boolean {
   const client = useSync()?.client;
@@ -620,25 +648,10 @@ export function Settings({
             />
           </div>
           <p id={resultsId} className="sr-only" aria-live="polite">
-            {found
-              ? found.length === 0
-                ? "Ningún ajuste coincide"
-                : found.length === 1
-                  ? "1 ajuste coincide"
-                  : `${found.length} ajustes coinciden`
-              : ""}
+            {found ? matches(found.length) : ""}
           </p>
           {found ? (
-            <section aria-label="Resultados">
-              {found.length ? (
-                <div className="settings-group">{found.map((e) => e.row)}</div>
-              ) : (
-                <p className="meta">No hay ningún ajuste con «{query.trim()}».</p>
-              )}
-              <button type="button" className="btn small" onClick={clearSearch}>
-                {found.length ? "Limpiar búsqueda" : "Ver todos los ajustes"}
-              </button>
-            </section>
+            <Results rows={found.map((e) => e.row)} query={query} onClear={clearSearch} />
           ) : (
             <>
               <Notices onOpen={open} />
