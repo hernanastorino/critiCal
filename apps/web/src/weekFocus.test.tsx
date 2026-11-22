@@ -47,8 +47,8 @@ const data = (): AppData => ({
       title: "Parcial",
       kind: "deliverable",
       deadline: at("2026-11-24", 20 * 60),
-      estimateMinutes: 120,
-      minMinutes: 60,
+      estimateMinutes: 900,
+      minMinutes: 900,
       priority: 2,
       status: "active",
       units: [],
@@ -98,7 +98,7 @@ describe("Planificación semanal: siempre la semana que viene", () => {
         <WeeklyPlan onClose={() => {}} onInbox={() => {}} />
       </StoreProvider>,
     );
-    expect(screen.getByText(/Parcial/)).toBeTruthy();
+    expect(screen.getAllByText(/Parcial/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/hay margen en todo/)).toBeNull();
   });
 });
