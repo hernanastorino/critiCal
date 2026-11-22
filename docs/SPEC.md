@@ -80,6 +80,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 - Prioridad: lugares guardados (tiempos manuales) → OpenRouteService perfil auto (plan gratis) con caché por par de lugares.
 - Geocodificación: Nominatim (OSM), una vez por lugar, cacheada.
 - Evento sin ubicación: se intenta por título contra lugares guardados; si no, pregunta en la bandeja.
+- **Mi casa y reconocimiento de lugares**: la casa sale **solo** del interruptor «Mi casa» del lugar, nunca de que se llame «Casa». Hay **una sola**: al crear un lugar se pregunta si es tu casa solo mientras no haya una; con una ya marcada el formulario no ofrece el interruptor y dice que la casa ya es X y que, para cambiarla, se desmarque allí (otras casas van como lugares aparte, p. ej. «Casa Punta del Este»). Una **ubicación** reconoce un lugar solo si es su nombre o un alias completos (sin importar mayúsculas ni tildes) o su dirección: un texto con más palabras es otro lugar («Casa de la abuela Marta» no es «Casa»). Un **título** sin ubicación sí puede mencionar el lugar entre otras palabras, pero «Casa de …» no lo toma. Que la casa aparezca sugerida en el buscador de lugares no la asigna: solo se asigna al elegirla.
 
 ## 7. Pantallas
 

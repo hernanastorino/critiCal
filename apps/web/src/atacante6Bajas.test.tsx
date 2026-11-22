@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { exportJson, parseBackup } from "./backup.js";
+import { PlaceSearch } from "./components/PlaceSearch.js";
 import { Places } from "./components/Places.js";
 import { Routines } from "./components/Preferences.js";
 import { Semester } from "./components/Semester.js";
@@ -214,27 +215,63 @@ describe("Hoy con horas imposibles", () => {
   });
 });
 
-describe("Es mi casa", () => {
+describe("Mi casa", () => {
   const casa: Place = { id: "casa", name: "Casa", aliases: [], isHome: true };
   const facu: Place = { id: "facu", name: "Facultad", aliases: [] };
 
-  it("says the new home and goes back with Deshacer", () => {
+  it("with a home already saved, another place cannot be marked: a clear note instead", () => {
     inside(<Places />, () => ({ ...demoData(NOW), places: [casa, facu] }));
     fireEvent.click(screen.getByRole("button", { name: "Editar Facultad" }));
-    fireEvent.click(screen.getByLabelText("Es mi casa"));
+    expect(screen.queryByLabelText("Mi casa")).toBeNull();
+    expect(screen.getByRole("note").textContent).toMatch(/Tu casa ya es Casa: hay una sola/);
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     });
-    expect(screen.getByText("Ahora tu casa es Facultad")).toBeTruthy();
-    expect(latest?.places?.find((p) => p.isHome)?.id).toBe("facu");
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     expect(latest?.places?.find((p) => p.isHome)?.id).toBe("casa");
+    expect(latest?.places?.filter((p) => p.isHome)).toHaveLength(1);
+  });
+
+  it("the home itself can be unmarked, and then another can take it", () => {
+    inside(<Places />, () => ({ ...demoData(NOW), places: [casa, facu] }));
+    fireEvent.click(screen.getByRole("button", { name: "Editar Casa" }));
+    fireEvent.click(screen.getByLabelText("Mi casa"));
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    });
+    expect(latest?.places?.some((p) => p.isHome)).toBe(false);
+    fireEvent.click(screen.getByRole("button", { name: "Editar Facultad" }));
+    expect(screen.getByLabelText("Mi casa")).toBeTruthy();
+  });
+
+  it("a new place asks «Mi casa» only while there is no home", () => {
+    inside(<Places />, () => ({ ...demoData(NOW), places: [casa] }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar lugar" }));
+    expect(screen.queryByLabelText("Mi casa")).toBeNull();
+  });
+
+  it("a new place does ask «Mi casa» when there is no home yet", () => {
+    inside(<Places />, () => ({ ...demoData(NOW), places: [facu] }));
+    fireEvent.click(screen.getByRole("button", { name: "Agregar lugar" }));
+    expect(screen.getByLabelText("Mi casa")).toBeTruthy();
+  });
+
+  it("suggesting the home in the search does not pick it until it is chosen", () => {
+    const picked: string[] = [];
+    inside(<PlaceSearch label="Lugar" onPick={(p) => picked.push(p.id)} />, () => ({
+      ...demoData(NOW),
+      places: [casa, facu],
+    }));
+    fireEvent.change(screen.getByLabelText("Lugar"), { target: { value: "casa" } });
+    expect(screen.getByRole("button", { name: /Casa/ })).toBeTruthy();
+    expect(picked).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: /Casa/ }));
+    expect(picked).toEqual(["casa"]);
   });
 
   it("says nothing when there was no other home", () => {
     inside(<Places />, () => ({ ...demoData(NOW), places: [{ ...facu }] }));
     fireEvent.click(screen.getByRole("button", { name: "Editar Facultad" }));
-    fireEvent.click(screen.getByLabelText("Es mi casa"));
+    fireEvent.click(screen.getByLabelText("Mi casa"));
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     });
