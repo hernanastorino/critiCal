@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
 import { type AppData, CRITICAL } from "../model.js";
-import { standingCheckIns } from "../planning.js";
+import { standingCheckIns, withOrphanMarks } from "../planning.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
@@ -43,7 +43,10 @@ export function importCandidate(file: AppData, current: AppData): AppData {
       .map(({ doneAt: _d, doneByHand: _h, ...u }) => u);
     return added.length ? { ...t, units: [...t.units, ...added] } : t;
   });
-  return { ...file, tasks, checkIns: [...file.checkIns, ...newer] };
+  // A part the file marks as declared by a record that neither the file nor the newer records
+  // have is read as marked by hand; one that a newer record declares is not an orphan.
+  const merged = { ...file, tasks, checkIns: [...file.checkIns, ...newer] };
+  return { ...merged, tasks: withOrphanMarks({ ...file, tasks }, merged).tasks };
 }
 
 /** Download everything as JSON, or replace everything with a downloaded file. */

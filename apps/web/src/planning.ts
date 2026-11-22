@@ -146,18 +146,21 @@ export function withHandMarks(data: AppData): AppData {
  * they are read as marked by hand, the way a part with no field is. Returns `data` itself
  * when there is nothing to say.
  */
-export function withOrphanMarks(data: AppData): AppData {
+export function withOrphanMarks(data: AppData, around: AppData = data): AppData {
   const declared = declaredBy(data);
+  // `around`: the same data with records made after the file, which also declare parts.
+  const declaredAround = declaredBy(around);
   let moved = false;
-  const orphan = (u: Unit, mine?: Map<string, number>) =>
-    u.doneAt !== undefined && u.doneByHand === false && !mine?.has(u.id);
+  const orphan = (u: Unit, mine?: Map<string, number>, near?: Map<string, number>) =>
+    u.doneAt !== undefined && u.doneByHand === false && !mine?.has(u.id) && !near?.has(u.id);
   const tasks = data.tasks.map((t) => {
     const mine = declared.get(t.id);
-    if (!t.units.some((u) => orphan(u, mine))) return t;
+    const near = declaredAround.get(t.id);
+    if (!t.units.some((u) => orphan(u, mine, near))) return t;
     moved = true;
     return {
       ...t,
-      units: t.units.map((u) => (orphan(u, mine) ? { ...u, doneByHand: true } : u)),
+      units: t.units.map((u) => (orphan(u, mine, near) ? { ...u, doneByHand: true } : u)),
     };
   });
   return moved ? { ...data, tasks } : data;

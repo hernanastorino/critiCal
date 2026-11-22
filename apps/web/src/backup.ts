@@ -10,7 +10,7 @@ import {
   UNIT_MINUTES_MIN,
 } from "./limits.js";
 import type { AppData } from "./model.js";
-import { withHandMarks, withOrphanMarks } from "./planning.js";
+import { withHandMarks } from "./planning.js";
 import { markLegacyStudy } from "./subjects.js";
 
 export { dayProblem };
@@ -177,7 +177,9 @@ export function parseBackup(
     e.title.length > BACKUP_TEXT_MAX ? { ...e, title: e.title.slice(0, BACKUP_TEXT_MAX) } : e,
   );
   // A file from before `doneByHand` is read with the migration's rule, against its own records.
-  const whole = withOrphanMarks(withHandMarks({ ...d, events }));
+  // Parts that say «declared by a record» when no record of the file declares them are read as
+  // by hand later, in `importCandidate`, once the records made after the backup are counted.
+  const whole = withHandMarks({ ...d, events });
   const marked = read.version < 2 ? markLegacyStudy(whole) : whole;
   const { account } = options;
   const data = account === undefined ? marked : ownedBy(marked, account);

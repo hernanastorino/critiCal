@@ -338,3 +338,34 @@ describe("travel", () => {
     expect(res.status).toBe(500);
   });
 });
+
+describe("la cola de geocodificación no la acapara una sola persona", () => {
+  it("una llamada a la vez por persona: la segunda en simultáneo responde 429 «busy»", async () => {
+    places = [{ id: "casa", address: "Casa 1", lat: -34.8, lon: -56.2, is_home: true }];
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    vi.stubGlobal("fetch", async (url: string) => {
+      if (String(url).includes("nominatim")) {
+        await gate;
+        return Response.json([{ lat: "-34.7", lon: "-56.3" }]);
+      }
+      return Response.json({
+        durations: [
+          [0, 600],
+          [600, 0],
+        ],
+      });
+    });
+    const first = handle(req({ spots: ["Anglo"] }), env, async () => {});
+    const second = await handle(req({ spots: ["Otro"] }), env, async () => {});
+    expect(second.status).toBe(429);
+    expect(await second.json()).toMatchObject({ ok: false, error: "busy" });
+    expect(second.headers.get("Retry-After")).toBe("5");
+    release();
+    expect((await first).status).toBe(200);
+    // Done: it can ask again (and the refused one did not use up its budget).
+    expect((await handle(req({ spots: ["Anglo"] }), env, async () => {})).status).toBe(200);
+  });
+});
