@@ -132,6 +132,6 @@ describe("Silos y widget: la semana en curso hasta planear la siguiente", () => 
       </StoreProvider>,
     );
     fireEvent.click(screen.getByText("Cerrar resumen"));
-    expect(seen.data?.settings.weekPlannedFor).toBe("2026-11-23");
+    expect((seen as { data?: AppData }).data?.settings.weekPlannedFor).toBe("2026-11-23");
   });
 });
