@@ -1,13 +1,41 @@
 // How to get to an event: car or bus (SPEC §15). For that event only; the default of
-// each place is set in «Lugares». With the bus, the line, the stop and the time it passes.
+// each place is set in «Lugares». With the bus, the line, the stop and the time it passes,
+// there and back, and the regular route kept for each way.
 import { useEffect, useRef, useState } from "react";
-import { placeMode, planRequestFor, stepsOf, summaryOf, tripOf, unlocatedEnd } from "../busTrip.js";
+import {
+  deleteRoute,
+  findRoute,
+  routeAnswer,
+  routeRow,
+  routeStale,
+  routesChanged,
+  saveRoute,
+  slotOf,
+} from "../busRoutes.js";
+import {
+  placeMode,
+  planRequestFor,
+  stepsOf,
+  summaryOf,
+  type EventTrip as Trip,
+  tripOf,
+  unlocatedEnd,
+  type Way,
+  wayMinutes,
+} from "../busTrip.js";
 import { useSync } from "../Connected.js";
 import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
-import { planBus } from "../remote.js";
+import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
-import { hhmm, type PlanOk, type PlanResponse, type TransitOption } from "../transit.js";
+import {
+  hhmm,
+  type PlanOk,
+  type PlanResponse,
+  type StaleReason,
+  type TransitOption,
+} from "../transit.js";
+import { useBusRoutes } from "../useBusRoutes.js";
 
 const MODES: { mode: TravelMode; label: string }[] = [
   { mode: "car", label: "Auto" },
@@ -23,6 +51,15 @@ const MESSAGES: Partial<Record<string, string>> = {
   unreachable: "No pude consultar los horarios: ¿hay conexión?",
 };
 
+const WAY_TITLE = { there: "Ida", back: "Vuelta" } as const;
+
+const STALE: Record<StaleReason, string> = {
+  feed: "Cambiaron los horarios de ómnibus desde que guardaste la ruta habitual.",
+  time: "El horario cambió desde que guardaste la ruta habitual.",
+  day: "La ruta habitual guardada no corre ese día.",
+  expired: "Los horarios de la ruta habitual ya vencieron.",
+};
+
 type Result = { for: string; res: PlanResponse } | null;
 
 /** The mode picker for an event held at a saved place, and the bus plan when it is the bus. */
@@ -31,34 +68,6 @@ export function EventTrip({ event }: { event: AppEvent }) {
   const sync = useSync();
   const tz = data.settings.timezone;
   const trip = tripOf(data, event);
-  const request = trip && trip.mode === "bus" && sync ? planRequestFor(trip, event, tz) : null;
-  // One key per question, so an answer is only shown for the question it answers.
-  const key = request ? JSON.stringify(request) : "";
-  const [result, setResult] = useState<Result>(null);
-  const client = sync?.client;
-  const asked = useRef(request);
-  asked.current = request;
-  useEffect(() => {
-    const question = asked.current;
-    if (!client || !question || !key) return;
-    let live = true;
-    void planBus(client, question).then((res) => {
-      if (live) setResult({ for: key, res });
-    });
-    return () => {
-      live = false;
-    };
-  }, [client, key]);
-
-  // The plan reserves the bus's minutes (SPEC §15): the best option's, door to door, kept
-  // with the event so the engine never needs the network.
-  const answered = result?.for === key ? result.res : null;
-  const minutes = answered?.ok ? answered.options[0]?.totalMinutes : undefined;
-  useEffect(() => {
-    if (minutes === undefined) return;
-    dispatch({ type: "tripMinutes", eventId: event.id, minutes, start: event.start });
-  }, [minutes, event.id, event.start, dispatch]);
-
   // A trip already made is history; one with no saved place or home has nothing to choose.
   if (!trip || event.end <= now) return null;
   const choose = (mode: TravelMode) => {
@@ -68,8 +77,6 @@ export function EventTrip({ event }: { event: AppEvent }) {
       mode: mode === placeMode(trip.place) ? null : mode,
     });
   };
-  const answer = answered;
-  const missing = unlocatedEnd(trip);
 
   return (
     <div className="bubble-trip">
@@ -105,20 +112,136 @@ export function EventTrip({ event }: { event: AppEvent }) {
           </button>
         </p>
       )}
-      {trip.mode === "bus" && (
-        <BusPlan
-          signedIn={!!sync}
-          missing={missing}
-          answer={answer}
-          waiting={!!request && !answer}
-          home={trip.from.name}
-          place={trip.place.name}
-        />
-      )}
+      {trip.mode === "bus" &&
+        (["there", "back"] as const).map((way) => (
+          <BusWay key={way} event={event} trip={trip} way={way} tz={tz} signedIn={!!sync} />
+        ))}
       {trip.mode === "bus" && busMinutes(data, event) === undefined && (
         <p className="meta">Todavía no tengo los minutos del ómnibus: el plan usa los del auto.</p>
       )}
     </div>
+  );
+}
+
+/** One way of the bus trip: its plan, and the regular route kept for it (SPEC §15). */
+function BusWay({
+  event,
+  trip,
+  way,
+  tz,
+  signedIn,
+}: {
+  event: AppEvent;
+  trip: Trip;
+  way: Way;
+  tz: string;
+  signedIn: boolean;
+}) {
+  const { dispatch } = useStore();
+  const client = useSync()?.client;
+  const routes = useBusRoutes(client);
+  const request = client ? planRequestFor(trip, event, tz, way) : null;
+  const slot = request ? slotOf(trip, event, tz, way, request) : null;
+  const route = slot ? findRoute(routes, slot) : undefined;
+
+  // A saved route is preferred while it still holds: the schedules it came from are the
+  // ones now, and it runs that day. The server is asked for the version only when there
+  // is a route; offline, the route is trusted (that is what it is kept for).
+  const [feed, setFeed] = useState<{ route: string; version: string | null } | null>(null);
+  const routeId = route?.id;
+  useEffect(() => {
+    if (!client || !routeId) return;
+    let live = true;
+    void busFeedVersion(client).then((version) => {
+      if (live) setFeed({ route: routeId, version });
+    });
+    return () => {
+      live = false;
+    };
+  }, [client, routeId]);
+  const checked = route && feed?.route === route.id ? feed : null;
+  const stale = route && request && checked ? routeStale(route, request, checked.version) : null;
+  const saved = route && request && checked && !stale ? route : undefined;
+  const asked = !request || saved || (route && !checked) ? null : request;
+
+  // One key per question, so an answer is only shown for the question it answers.
+  const key = asked ? JSON.stringify(asked) : "";
+  const [result, setResult] = useState<Result>(null);
+  const latest = useRef(asked);
+  latest.current = asked;
+  useEffect(() => {
+    const question = latest.current;
+    if (!client || !question || !key) return;
+    let live = true;
+    void planBus(client, question).then((res) => {
+      if (live) setResult({ for: key, res });
+    });
+    return () => {
+      live = false;
+    };
+  }, [client, key]);
+
+  const answer: PlanResponse | null = saved
+    ? routeAnswer(saved)
+    : key && result?.for === key
+      ? result.res
+      : null;
+
+  // The plan reserves the bus's minutes (SPEC §15), kept with the event so the engine
+  // never needs the network.
+  const best = answer?.ok ? answer.options[0] : undefined;
+  const minutes = best && request ? wayMinutes(best, way, request) : undefined;
+  useEffect(() => {
+    if (minutes === undefined) return;
+    dispatch({ type: "tripMinutes", eventId: event.id, minutes, way, start: event.start });
+  }, [minutes, way, event.id, event.start, dispatch]);
+
+  const [problem, setProblem] = useState<string | null>(null);
+  const keep = async () => {
+    if (!client || !slot || !best || !answer?.ok) return;
+    setProblem(null);
+    const row = routeRow(slot, best, answer, answer.dayType);
+    if (await saveRoute(client, row, route?.id)) routesChanged();
+    else setProblem("No pude guardar la ruta: probá de nuevo.");
+  };
+  const drop = async () => {
+    if (!client || !route) return;
+    setProblem(null);
+    if (await deleteRoute(client, route.id)) routesChanged();
+    else setProblem("No pude borrar la ruta: probá de nuevo.");
+  };
+
+  return (
+    <section className="bus-way" aria-label={WAY_TITLE[way]}>
+      <h4>{WAY_TITLE[way]}</h4>
+      <BusPlan
+        signedIn={signedIn}
+        missing={unlocatedEnd(trip)}
+        answer={answer}
+        waiting={!!request && !answer}
+        home={trip.from.name}
+        place={trip.place.name}
+      />
+      {saved && <p className="meta">Ruta habitual guardada: se usa sin consultar los horarios.</p>}
+      {route && stale && (
+        <p className="meta">{STALE[stale]} Esto es lo que dan los horarios de hoy.</p>
+      )}
+      {best && !saved && slot && (
+        <button type="button" className="btn small" onClick={() => void keep()}>
+          {route ? "Actualizar ruta habitual" : "Guardar como ruta habitual"}
+        </button>
+      )}
+      {saved && (
+        <button type="button" className="btn small" onClick={() => void drop()}>
+          Borrar ruta habitual
+        </button>
+      )}
+      {problem && (
+        <p className="meta" role="alert">
+          {problem}
+        </p>
+      )}
+    </section>
   );
 }
 

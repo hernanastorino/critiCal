@@ -241,8 +241,10 @@ export interface AppData {
   /**
    * Door-to-door minutes of the bus to one event (SPEC §15), as `/api/transit` last said,
    * with the start they were worked out for: if the event moves, the figure no longer applies.
+   * `back` is the way home after the event, when it was worked out apart (else it is the
+   * same as the way there).
    */
-  tripMinutes?: Record<string, { minutes: number; start: number }>;
+  tripMinutes?: Record<string, { minutes: number; start: number; back?: number }>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */

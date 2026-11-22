@@ -272,21 +272,40 @@ export function syncGoogle(client: SupabaseClient, session: Session): Promise<Sy
 /** Longest wait for a bus plan: the server searches in memory and may ask for walking times. */
 export const PLAN_TIMEOUT_MS = 20_000;
 
-/** The best bus options for a trip (SPEC §15); `error` says why there are none. */
-export async function planBus(client: SupabaseClient, request: PlanRequest): Promise<PlanResponse> {
+/** Calls `/api/transit` with the user's session; null when there is no session or no answer. */
+async function callTransit<T extends { ok: boolean }>(
+  client: SupabaseClient,
+  request: PlanRequest | { action: "status" },
+): Promise<T | "unauthorized" | "failed" | "unreachable"> {
   try {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) return { ok: false, error: "unauthorized" };
+    if (!token) return "unauthorized";
     const res = await fetch("/api/transit", {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(PLAN_TIMEOUT_MS),
     });
-    const body = (await res.json().catch(() => null)) as PlanResponse | null;
-    return body && typeof body.ok === "boolean" ? body : { ok: false, error: "transit_failed" };
+    const body = (await res.json().catch(() => null)) as T | null;
+    return body && typeof body.ok === "boolean" ? body : "failed";
   } catch {
-    return { ok: false, error: "unreachable" };
+    return "unreachable";
   }
+}
+
+/** The best bus options for a trip (SPEC §15); `error` says why there are none. */
+export async function planBus(client: SupabaseClient, request: PlanRequest): Promise<PlanResponse> {
+  const res = await callTransit<PlanResponse>(client, request);
+  if (res === "unauthorized") return { ok: false, error: "unauthorized" };
+  if (res === "failed") return { ok: false, error: "transit_failed" };
+  return res === "unreachable" ? { ok: false, error: "unreachable" } : res;
+}
+
+/** The version of the schedules the server holds now, or null when it cannot be asked. */
+export async function busFeedVersion(client: SupabaseClient): Promise<string | null> {
+  const res = await callTransit<{ ok: boolean; feed?: { version: string } | null }>(client, {
+    action: "status",
+  });
+  return typeof res === "object" && res.ok ? (res.feed?.version ?? null) : null;
 }
