@@ -13,6 +13,13 @@ const words = (p: Place) =>
     .filter((w) => w.length > 1)
     .sort((a, b) => b.length - a.length);
 
+/** Whether a place word names the normalized text: whole, or (`loose`) among other words. */
+function mentions(norm: string, w: string, loose: boolean): boolean {
+  if (!loose) return norm === w;
+  const t = ` ${norm} `;
+  return t.includes(` ${w} `) && !t.includes(` ${w} de `) && !t.includes(` ${w} del `);
+}
+
 /**
  * The saved place a text names. A location counts only when it is the place's name or an
  * alias as a whole (or its address): «Casa de la abuela Marta» is another place than «Casa».
@@ -25,17 +32,14 @@ export function placeFor(
 ): Place | undefined {
   if (!text) return undefined;
   const norm = normalize(text);
-  const t = ` ${norm} `;
   // A place's address counts only as the whole text: «Centro» inside «Gym Centro» does not.
   const whole = places.find((p) => p.address && spotKey(p.address) === spotKey(text));
   if (whole) return whole;
   let best: { place: Place; length: number } | undefined;
   for (const place of places) {
     for (const w of words(place)) {
-      const hit = loose
-        ? t.includes(` ${w} `) && !t.includes(` ${w} de `) && !t.includes(` ${w} del `)
-        : norm === w;
-      if (hit && (!best || w.length > best.length)) best = { place, length: w.length };
+      if (mentions(norm, w, loose) && (!best || w.length > best.length))
+        best = { place, length: w.length };
     }
   }
   return best?.place;
