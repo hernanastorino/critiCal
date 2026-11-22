@@ -1,31 +1,48 @@
-import { type Dispatch, useState } from "react";
+import { type Dispatch, useSyncExternalStore } from "react";
 import { useSync } from "../Connected.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
 import type { PageId } from "./Settings.js";
 
-/** This device's state of the guide: put away («Saltar») or gone through. */
+/**
+ * This device's state of the guide: put away («Saltar») or gone through. Kept per account
+ * (`owner`): a new account on a used device starts the guide again.
+ */
 export const FIRST_STEPS_KEY = "critical.firstSteps";
+const keyFor = (owner?: string) => (owner ? `${FIRST_STEPS_KEY}.${owner}` : FIRST_STEPS_KEY);
 
-const readKey = (): string | null => {
+const readKey = (owner?: string): string | null => {
   try {
-    return localStorage.getItem(FIRST_STEPS_KEY);
+    return localStorage.getItem(keyFor(owner));
   } catch {
-    return null;
+    return memory.get(keyFor(owner)) ?? null;
   }
 };
-const writeKey = (v: string | null) => {
+/** Where the state lives when the browser blocks storage (until the page closes). */
+const memory = new Map<string, string>();
+const listeners = new Set<() => void>();
+const writeKey = (owner: string | undefined, v: string | null) => {
+  const k = keyFor(owner);
   try {
-    if (v === null) localStorage.removeItem(FIRST_STEPS_KEY);
-    else localStorage.setItem(FIRST_STEPS_KEY, v);
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, v);
   } catch {
-    // Private mode: the guide just shows again next time.
+    if (v === null) memory.delete(k);
+    else memory.set(k, v);
   }
+  // The card on the week is already mounted: it hears about it now, not on the next visit.
+  for (const l of listeners) l();
+};
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
 };
 
-/** «Primeros pasos» in Ajustes: the guide comes back on the week. */
-export const resumeFirstSteps = () => {
-  writeKey(null);
+/** «Primeros pasos» in Ajustes: the guide comes back on the week, right away. */
+export const resumeFirstSteps = (owner?: string) => {
+  writeKey(owner, null);
 };
 
 /**
@@ -49,7 +66,12 @@ export function FirstStepsCard({
   onSettings: Dispatch<PageId>;
 }) {
   const { data } = useStore();
-  const [state, setState] = useState(readKey);
+  const owner = data.owner;
+  const state = useSyncExternalStore(
+    subscribe,
+    () => readKey(owner),
+    () => null,
+  );
   if (state) return null;
   const first = data.tasks.some((t) => t.status === "active");
   const steps = [
@@ -74,8 +96,7 @@ export function FirstStepsCard({
       text: "Mirá tu primer plan",
       action: "Ver mi plan",
       go: () => {
-        writeKey("done");
-        setState("done");
+        writeKey(owner, "done");
       },
     },
   ];
@@ -112,8 +133,7 @@ export function FirstStepsCard({
           type="button"
           className="btn"
           onClick={() => {
-            writeKey("skipped");
-            setState("skipped");
+            writeKey(owner, "skipped");
           }}
         >
           Saltar por ahora

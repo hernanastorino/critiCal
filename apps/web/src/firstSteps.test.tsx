@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { FIRST_STEPS_KEY, FirstStepsCard, resumeFirstSteps } from "./components/FirstSteps.js";
 import { demoData, emptyData } from "./demo.js";
@@ -54,6 +54,34 @@ describe("first-use guide (SPEC §14)", () => {
     cleanup();
     resumeFirstSteps();
     show(false);
+    expect(screen.getByText("Primeros pasos · 0 de 3")).toBeTruthy();
+  });
+
+  it("Ajustes › Primeros pasos starts it on the week at once, without remounting it", () => {
+    show(false);
+    fireEvent.click(screen.getByRole("button", { name: "Saltar por ahora" }));
+    expect(screen.queryByText(/Primeros pasos/)).toBeNull();
+    // The week stays mounted behind the settings sheet.
+    act(() => resumeFirstSteps());
+    expect(screen.getByText("Primeros pasos · 0 de 3")).toBeTruthy();
+  });
+
+  it("a new account on a device where another one skipped it starts the guide on its own", () => {
+    const withOwner = (owner: string) => () => ({ ...emptyData(), owner });
+    const first = withOwner("cuenta-vieja");
+    const { unmount } = render(
+      <StoreProvider initial={first} persist={false} fixedNow={NOW}>
+        <FirstStepsCard google={false} onSettings={vi.fn()} />
+      </StoreProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Saltar por ahora" }));
+    expect(screen.queryByText(/Primeros pasos/)).toBeNull();
+    unmount();
+    render(
+      <StoreProvider initial={withOwner("cuenta-nueva")} persist={false} fixedNow={NOW}>
+        <FirstStepsCard google={false} onSettings={vi.fn()} />
+      </StoreProvider>,
+    );
     expect(screen.getByText("Primeros pasos · 0 de 3")).toBeTruthy();
   });
 });
