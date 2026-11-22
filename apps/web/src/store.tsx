@@ -71,6 +71,7 @@ import {
 import { refresh } from "./refresh.js";
 import {
   aliasFrom,
+  fitRoutine,
   isNoSubject,
   markLegacyStudy,
   newClassTitles,
@@ -1128,6 +1129,11 @@ function apply(data: AppData, action: Action): AppData {
               ? { ...a, kind: action.as, academic: action.as === "materia" }
               : a,
           ),
+          // A routine's habit has smaller limits than a materia's weekly study.
+          tasks:
+            action.as === "rutina"
+              ? data.tasks.map((t) => (t.activityId === action.activityId ? fitRoutine(t) : t))
+              : data.tasks,
         },
         now,
       );

@@ -1,4 +1,5 @@
 import type { Activity } from "./engine.js";
+import { BACKUP_TEXT_MAX, deadlineInRange } from "./limits.js";
 import {
   type AppCalendar,
   type AppData,
@@ -148,7 +149,8 @@ export function subjectName(title: string): string {
     return n.length > 0 && !/^\d+$/.test(n) && n.replace(KEYWORDS, "").trim().length > 0;
   });
   const name = kept.join(" ") || title;
-  return name.charAt(0).toUpperCase() + name.slice(1);
+  // A name over the backup's limit would make the export impossible to import back.
+  return (name.charAt(0).toUpperCase() + name.slice(1)).slice(0, BACKUP_TEXT_MAX);
 }
 
 /** Whether the user deleted the materia this event title names. */
@@ -190,7 +192,7 @@ export function importFromCalendars(
     }
     const deadline = role === "entrega" ? e.end : e.start;
     const existing = tasks.find((t) => t.sourceEventId === e.id);
-    const title = untagged(e.title);
+    const title = untagged(e.title).slice(0, BACKUP_TEXT_MAX);
     if (existing) {
       // Dropped by the import and untouched since: it comes back with its event.
       const back =
@@ -230,7 +232,8 @@ export function importFromCalendars(
       }
       continue;
     }
-    if (deadline <= now) continue;
+    // Past, or further than a date field takes: it would not import back from a backup.
+    if (deadline <= now || !deadlineInRange(deadline, now)) continue;
 
     // With a class schedule, evaluations join its materias and never create one: an
     // unknown name waits under "Sin materia" until the inbox asks.
@@ -298,7 +301,7 @@ function deadlineTask(
   return {
     id: newId(`task:${e.id}`),
     activityId,
-    title: untagged(e.title),
+    title: untagged(e.title).slice(0, BACKUP_TEXT_MAX),
     kind: "deliverable",
     deadline,
     estimateMinutes: d.estimate,

@@ -471,6 +471,23 @@ it("does not save a weekly study longer than a week", () => {
   expect(save.getAttribute("aria-disabled")).toBeNull();
 });
 
+it("«Estudio semanal» casi cero (0,004 h) se avisa, no se descarta en silencio", () => {
+  render(
+    <StoreProvider initial={() => data()} persist={false} fixedNow={NOW}>
+      <ActivitySettings />
+    </StoreProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: /Análisis y Diseño/ }));
+  const field = screen.getByLabelText(/Estudio semanal/);
+  const save = screen.getByRole("button", { name: /Guardar Análisis y Diseño/ });
+  fireEvent.change(field, { target: { value: "0,004" } });
+  expect(save.getAttribute("aria-disabled")).toBe("true");
+  expect(field.getAttribute("aria-invalid")).toBe("true");
+  expect(screen.getByText(/Menos de 1 minuto a la semana/)).toBeTruthy();
+  fireEvent.change(field, { target: { value: "0,02" } });
+  expect(save.getAttribute("aria-disabled")).toBeNull();
+});
+
 it("migrates a demo saved before the study mark, once", () => {
   localStorage.clear();
   const old = {
