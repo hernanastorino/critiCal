@@ -161,7 +161,7 @@ describe("el plan de ómnibus", () => {
 
   it("una línea por tramo con la hora de salida y las líneas en orden", () => {
     show(ok);
-    expect(screen.getByText("salís 08:10 · 128")).toBeTruthy();
+    expect(screen.getByText("Ida · salís 08:10 · 128")).toBeTruthy();
     expect(legLine("Ida", ok.options[0] as TransitOption)).toBe("Ida · salís 08:10 · 128");
     const two = {
       ...(ok.options[0] as TransitOption),

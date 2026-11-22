@@ -220,6 +220,7 @@ describe("Rutinas", () => {
         <ActivitySettings />
       </>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Natación" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
     fireEvent.click(screen.getByRole("button", { name: /^Natación, 3 por semana/ }));
