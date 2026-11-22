@@ -135,7 +135,6 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
   // Asked for some trips only: the rest of the places are left alone.
   const wanted = body && body.pairs !== undefined ? wantedPairs(body.pairs) : undefined;
   if (wanted === null) return json({ ok: false, error: "bad_request" }, 400);
-  const asked = (from: string, to: string) => !wanted || wanted.has(`${from}>${to}`);
   const spots = body?.spots;
   if (
     spots !== undefined &&
@@ -147,12 +146,37 @@ export async function handle(req: Request, env: Env, pause = wait): Promise<Resp
       ))
   )
     return json({ ok: false, error: "bad_request" }, 400);
+  // One at a time per person: Nominatim's one-lookup-per-second queue is shared by everyone this
+  // instance serves, so a script with many calls open at once would make the rest wait.
+  if (inFlight.has(caller.uid)) {
+    const res = json({ ok: false, error: "busy" }, 429);
+    res.headers.set("Retry-After", "5");
+    return res;
+  }
   // Only well-formed requests count: a bad one costs nothing.
   if (!calls.take(caller.uid)) {
     const res = json({ ok: false, error: "rate_limited" }, 429);
     res.headers.set("Retry-After", "60");
     return res;
   }
+  inFlight.add(caller.uid);
+  try {
+    return await answer(env, user, { spots, wanted }, pause);
+  } finally {
+    inFlight.delete(caller.uid);
+  }
+}
+
+/** The people whose call is being served now. */
+const inFlight = new Set<string>();
+
+async function answer(
+  env: Env,
+  user: Caller["user"],
+  { spots, wanted }: { spots: unknown; wanted: Set<string> | undefined },
+  pause: (ms: number) => Promise<unknown>,
+): Promise<Response> {
+  const asked = (from: string, to: string) => !wanted || wanted.has(`${from}>${to}`);
   if (spots !== undefined) {
     return timeSpots(env, user, spots as string[], pause);
   }

@@ -20,8 +20,13 @@ import { useToast } from "./Toast.js";
 let pastOpen = false;
 
 export function Silos() {
-  const { data, now } = useStore();
+  const { data, now, dispatch } = useStore();
   const tz = data.settings.timezone;
+  const [showArchived, setShowArchived] = useState(false);
+  // Only the ones whose materia still exists: recovering a task of a deleted one would lead nowhere.
+  const archived = data.tasks.filter(
+    (t) => t.status === "dropped" && data.activities.some((a) => a.id === t.activityId),
+  );
   const [editing, setEditing] = useState<AppTask | "new" | null>(null);
   const [detail, setDetail] = useState<AppTask | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -159,6 +164,38 @@ export function Silos() {
                   <div className="silos">{group.map(silo)}</div>
                 </section>
               ))}
+          </>
+        )}
+        {archived.length > 0 && (
+          <>
+            <button
+              type="button"
+              className="btn past-toggle"
+              aria-expanded={showArchived}
+              onClick={() => setShowArchived(!showArchived)}
+            >
+              {showArchived ? "Ocultar archivadas" : `Ver archivadas (${archived.length})`}
+            </button>
+            {showArchived && (
+              <section className="card" aria-label="Archivadas">
+                {archived.map((t) => (
+                  <div key={t.id} className="row">
+                    <span style={{ flex: 1 }}>{t.title}</span>
+                    <button
+                      type="button"
+                      className="btn small"
+                      aria-label={`Recuperar ${t.title}`}
+                      onClick={() => {
+                        dispatch({ type: "unarchive", taskId: t.id, status: "active" });
+                        toast.show(`${t.title} recuperada`);
+                      }}
+                    >
+                      Recuperar
+                    </button>
+                  </div>
+                ))}
+              </section>
+            )}
           </>
         )}
         {week.length > 0 && (
