@@ -29,9 +29,8 @@ const lunchOnStudy = (): AppData => {
     },
   );
   const tz = d0.settings.timezone;
-  const block = d0.plan.find(
-    (b) => b.start > NOW && localParts(tz, b.start).date === "2026-11-03",
-  ) as AppData["plan"][number];
+  const block = d0.plan.find((b) => b.start > NOW && localParts(tz, b.start).date === "2026-11-03");
+  if (!block) throw new Error("the demo has no block on the 3rd");
   const minute = (block.start - zonedInstant(tz, "2026-11-03", 0)) / 60_000;
   return reducer(d0, {
     type: "mealChoice",
@@ -68,10 +67,10 @@ describe("comida encima del estudio: la propuesta de la Bandeja", () => {
 describe("una comida no queda como una rayita al pie del día", () => {
   it("la cena a las 23:59 se rechaza: no entra antes de acostarse", () => {
     render(<App fixedNow={NOW} initial={() => ({ ...demoData(NOW), events: [] })} />);
-    const dinner = [...screen.getByTestId("week").querySelectorAll<HTMLElement>(".pill.meal")].find(
-      (p) => /^Cena, mié/.test(p.getAttribute("aria-label") ?? ""),
-    ) as HTMLElement;
-    fireEvent.click(dinner);
+    const pills = screen.getByTestId("week").querySelectorAll(".pill.meal");
+    const supper = [...pills].find((p) => p.getAttribute("aria-label")?.startsWith("Cena, mié"));
+    if (!supper) throw new Error("no supper on Wednesday");
+    fireEvent.click(supper);
     fireEvent.change(screen.getByLabelText("Mover cena a"), { target: { value: "23:59" } });
     fireEvent.click(screen.getByText("Mover"));
     expect(screen.getByRole("alert").textContent).toMatch(/^Elegí una hora entre las /);
