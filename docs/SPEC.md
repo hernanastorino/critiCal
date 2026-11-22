@@ -74,6 +74,17 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras. Confirmado el 2026-11-18: sigue por materia. «Faltan» muestra las partes que quedan sin el ratio; el ratio solo ajusta lo que se planifica.
 9. **Ajuste por desvelo**: después de un evento nocturno, la bandeja pregunta a qué hora me levanté en vez de asumir el horario normal.
 
+### El pasado no se recalcula (regla general, decidida el 2026-11-22)
+
+Nada anterior a la hora actual se recalcula ni se reescribe: ni el algoritmo de eventos, ni las comidas (lugar y horario), ni los parciales, pruebas o entregas pasadas, ni los bloques y el tiempo ya registrado. El plan solo mueve lo que queda desde ahora.
+
+- **Comidas** (decidido el 2026-11-22): se guardan como **tramos por comida y día de la semana** (4 comidas × 7 días = 28 series por usuario). Tabla `meal_runs` (RLS por usuario): `meal`, `weekday` (0 = domingo … 6 = sábado), `from_date`, `to_date` (nulo = tramo abierto), `start_minutes`, `end_minutes`, `place_id` (el lugar, cuando se conoce; hoy queda vacío), clave `(user_id, meal, weekday, from_date)`. En el modo demo el equivalente vive en el almacenamiento local (`mealRuns`).
+  - Se congela solo lo que ya pasó: los días hasta **ayer** (hoy se sigue calculando). Antes de aplicar cualquier otra acción (en particular un cambio de ajustes), por cada día desde el último congelado (`mealsFrozenThrough`) hasta ayer y por cada comida se compara hora (y lugar) con el tramo abierto de su serie: igual → nada; distinto → ese tramo se cierra con `to_date` = el día anterior a **esa fecha** (no a hoy) y se abre uno nuevo desde esa fecha. Así, si la app no se abre varios días, el cambio de ajustes que llega después no reescribe esos días: se congelan con los ajustes vigentes antes del cambio. Sin historia previa se empieza por ayer; un hueco largo congela como mucho 60 días.
+  - Una excepción de un día es cerrar, abrir un tramo de ese día y reabrir: no hay tabla de excepciones. Una comida omitida ese día no deja marca (queda el tramo vigente).
+  - Leer un día pasado: el tramo de esa comida y ese día de la semana con `from_date ≤ fecha ≤ to_date` (o abierto). Lo que no tiene tramo (datos de antes) se calcula como antes. Borrar eventos de iCloud o Google no toca los tramos.
+- **Rutinas**: solo reparten el tiempo que queda. Una rutina de 3 veces por semana creada un sábado pide 1 sesión entre sábado y domingo (`sessionsThisWeek`); nunca se agrega lo «atrasado» de los días que ya pasaron.
+- **Única excepción**: si se borra un evento de iCloud o de Google Calendar, el evento desaparece (y su tarea de origen deja de planificarse), pero el tiempo adjudicado y el progreso que realmente se dedicó a él quedan: los registros de avance nunca se borran.
+
 ## 6. Traslados (auto)
 
 - Origen: ubicación del evento anterior si terminó hace < 2 h; si no, casa. En huecos largos evalúa volver a casa.

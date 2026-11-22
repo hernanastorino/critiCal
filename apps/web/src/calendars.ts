@@ -174,6 +174,23 @@ export function importFromCalendars(
   let activities = data.activities;
   let changed = false;
 
+  // An evaluation whose event is gone from the calendar (deleted in iCloud or Google): its
+  // task stops being planned, but is dropped, not deleted, and its check-ins stay: the time
+  // really spent on it is still there (SPEC §5, the past is not rewritten).
+  for (const t of data.tasks) {
+    if (
+      !t.sourceEventId ||
+      t.status !== "active" ||
+      (t.deadline ?? Number.POSITIVE_INFINITY) <= now
+    )
+      continue;
+    if (data.events.some((e) => e.id === t.sourceEventId)) continue;
+    tasks = tasks.map((x) =>
+      x === t ? { ...x, status: "dropped" as const, endedAt: now, autoDroppedAt: now } : x,
+    );
+    changed = true;
+  }
+
   for (const original of data.events) {
     // A moved evaluation is due at its new time: preparation must end before it.
     const e = projected(data, original);

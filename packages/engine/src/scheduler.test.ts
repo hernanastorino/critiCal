@@ -1147,3 +1147,42 @@ describe("routines and the daily materias cap", () => {
     expect(selfShort(input, r)).toEqual(["g"]);
   });
 });
+
+describe("the past is not planned again (SPEC §5)", () => {
+  const midweek = at("2026-11-04", "15:00");
+  const input = (over: Partial<ScheduleInput> = {}) =>
+    base({
+      now: midweek,
+      horizonEnd: at("2026-11-09", "08:00"),
+      tasks: [task("t", "mate", at("2026-11-08", "20:00"), { remainingMinutes: 240 })],
+      ...over,
+    });
+
+  it("never puts a block, a meal or a slot before now", () => {
+    const r = schedule(input());
+    expect(r.blocks.length).toBeGreaterThan(0);
+    expect(r.blocks.every((b) => b.start >= midweek)).toBe(true);
+    expect(r.meals.every((m) => !m.at || m.at.end > midweek)).toBe(true);
+  });
+
+  it("past events and past frozen blocks do not change what is planned from now", () => {
+    const clean = schedule(input());
+    const pastEvent = ev("old", at("2026-11-02", "10:00"), at("2026-11-02", "11:00"));
+    const pastBlock: PlanBlock = {
+      id: "old-block",
+      taskId: "t",
+      activityId: "mate",
+      start: at("2026-11-03", "10:00"),
+      end: at("2026-11-03", "11:00"),
+    } as PlanBlock;
+    const withPast = schedule(input({ events: [pastEvent] }));
+    expect(withPast.blocks).toEqual(clean.blocks);
+    expect(withPast.meals).toEqual(clean.meals);
+    // A past frozen block is echoed as it was, never moved.
+    const frozen = schedule(input({ frozen: [pastBlock] }));
+    expect(frozen.blocks.find((b) => b.id === "old-block")).toMatchObject({
+      start: pastBlock.start,
+      end: pastBlock.end,
+    });
+  });
+});

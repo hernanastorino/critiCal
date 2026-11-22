@@ -28,11 +28,12 @@ import {
   type Task,
   targetOptions,
   travelBuffers,
+  weekdayOf,
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppEvent, AppTask, CheckIn, Proposal, Unit } from "./model.js";
+import type { AppData, AppEvent, AppTask, CheckIn, MealRun, Proposal, Unit } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -597,8 +598,33 @@ export function wakingDay(data: AppData, now: number, date: string) {
 /**
  * Where each meal between `from` and `to` happens: at its time unless a fixed event,
  * its travel or a block pinned by hand is there, then at the closest free time.
+ * A day already over is not worked out again (SPEC §5): its meals are where `mealRuns`
+ * says they were; what the runs do not have (data from before them) is worked out as before.
  */
 export function mealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
+  const worked = workedMealTimes(data, now, from, to);
+  const runs = data.mealRuns;
+  if (!runs?.length) return worked;
+  const tz = data.settings.timezone;
+  const today = localParts(tz, now).date;
+  return worked.map((m) => {
+    if (m.date >= today || !m.kind || !m.at) return m;
+    const run = runAt(runs, m.kind, m.date);
+    if (!run) return m;
+    const midnight = zonedInstant(tz, m.date, 0);
+    return { ...m, at: { start: midnight + run.start * MINUTE, end: midnight + run.end * MINUTE } };
+  });
+}
+
+/** The run that says where `meal` was on `date` (its weekday's series). */
+export function runAt(runs: readonly MealRun[], meal: MealKind, date: string): MealRun | undefined {
+  const weekday = weekdayOf(date);
+  return runs.find(
+    (r) => r.meal === meal && r.weekday === weekday && r.from <= date && (!r.to || date <= r.to),
+  );
+}
+
+function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
   const events = plannerEvents(data);
   const travel = travelOptions(data);
   const busy = [
@@ -616,6 +642,55 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
     busy,
     events,
   );
+}
+
+/** How many days back the first catch-up goes when no day was ever frozen. */
+const FREEZE_FIRST_DAYS = 1;
+/** The longest catch-up: a long absence does not freeze months of guesses. */
+const FREEZE_MAX_DAYS = 60;
+
+/**
+ * Writes down the meals of every day that is over and not yet written (from the last
+ * frozen day to yesterday): for each meal, if its time matches the run standing for its
+ * meal and weekday nothing changes; if not, that run closes the day before this date and
+ * a new one opens on it. Meant to run on opening the app, before any change of settings
+ * applies, so a gap of several days is written with the settings that were in force.
+ */
+export function freezeMeals(data: AppData, now: number): AppData {
+  const tz = data.settings.timezone;
+  const today = localParts(tz, now).date;
+  const yesterday = addDays(today, -1);
+  const last = data.mealsFrozenThrough;
+  if (last !== undefined && last >= yesterday) return data;
+  const first = last === undefined ? addDays(today, -FREEZE_FIRST_DAYS) : addDays(last, 1);
+  const earliest = addDays(today, -FREEZE_MAX_DAYS);
+  let runs = [...(data.mealRuns ?? [])];
+  for (let date = first < earliest ? earliest : first; date <= yesterday; date = addDays(date, 1)) {
+    runs = freezeDay(data, now, date, runs);
+  }
+  return { ...data, mealRuns: runs, mealsFrozenThrough: yesterday };
+}
+
+/** `runs` with the meals of `date` written in (see `freezeMeals`). */
+function freezeDay(data: AppData, now: number, date: string, runs: MealRun[]): MealRun[] {
+  const tz = data.settings.timezone;
+  const midnight = zonedInstant(tz, date, 0);
+  const weekday = weekdayOf(date);
+  let out = runs;
+  for (const m of workedMealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0))) {
+    if (!m.at || !m.kind || m.date !== date) continue;
+    const start = Math.round((m.at.start - midnight) / MINUTE);
+    const end = Math.round((m.at.end - midnight) / MINUTE);
+    out = withRun(out, { meal: m.kind, weekday, from: date, start, end });
+  }
+  return out;
+}
+
+/** `runs` with `run` standing from its date: the open run of its series closes the day before. */
+function withRun(runs: MealRun[], run: MealRun): MealRun[] {
+  const standing = runs.find((r) => r.meal === run.meal && r.weekday === run.weekday && !r.to);
+  if (standing?.start === run.start && standing.end === run.end) return runs;
+  return [...runs.map((r) => (r === standing ? { ...r, to: addDays(run.from, -1) } : r)), run];
 }
 
 /**
