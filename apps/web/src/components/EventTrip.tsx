@@ -310,6 +310,25 @@ export function BusPlan({
   const best = answer.options[0];
   if (!best) return null;
   return (
+    <LegDetail title={title} best={best} raised={answer.raised}>
+      {children}
+    </LegDetail>
+  );
+}
+
+/** The line of a way, and under it the detail that opens on touching it. */
+function LegDetail({
+  title,
+  best,
+  raised,
+  children,
+}: {
+  title: string;
+  best: TransitOption;
+  raised?: boolean;
+  children?: ReactNode;
+}) {
+  return (
     <details className="bus-plan bus-leg">
       <summary>{legLine(title, best)}</summary>
       <p>
@@ -327,9 +346,7 @@ export function BusPlan({
           </li>
         ))}
       </ol>
-      {answer.raised && (
-        <p className="meta">Con un solo ómnibus no llegás: este lleva dos transbordos.</p>
-      )}
+      {raised && <p className="meta">Con un solo ómnibus no llegás: este lleva dos transbordos.</p>}
       {children}
     </details>
   );
