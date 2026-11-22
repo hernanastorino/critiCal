@@ -62,6 +62,11 @@ export interface Settings {
   maxActivitiesPerDay: number;
   /** Below this slack (minutes) a task is shown as yellow. */
   warnSlackMinutes: number;
+  /**
+   * Monday (YYYY-MM-DD) of the week the user last planned with the weekly planning.
+   * While it is next week's Monday, silos and widget show that week.
+   */
+  weekPlannedFor?: string;
 }
 
 export interface DayOverride {

@@ -88,6 +88,7 @@ Nada anterior a la hora actual se recalcula ni se reescribe: ni el algoritmo de 
 - Prioridad: lugares guardados (tiempos manuales) → OpenRouteService perfil auto (plan gratis) con caché por par de lugares.
 - Geocodificación: Nominatim (OSM), una vez por lugar, cacheada.
 - Evento sin ubicación: se intenta por título contra lugares guardados; si no, pregunta en la bandeja.
+- **Mi casa y reconocimiento de lugares**: la casa sale **solo** del interruptor «Mi casa» del lugar, nunca de que se llame «Casa». Hay **una sola**: al crear un lugar se pregunta si es tu casa solo mientras no haya una; con una ya marcada el formulario no ofrece el interruptor y dice que la casa ya es X y que, para cambiarla, se desmarque allí (otras casas van como lugares aparte, p. ej. «Casa Punta del Este»). Una **ubicación** reconoce un lugar solo si es su nombre o un alias completos (sin importar mayúsculas ni tildes) o su dirección: un texto con más palabras es otro lugar («Casa de la abuela Marta» no es «Casa»). Un **título** sin ubicación sí puede mencionar el lugar entre otras palabras, pero «Casa de …» no lo toma. Que la casa aparezca sugerida en el buscador de lugares no la asigna: solo se asigna al elegirla.
 
 ## 7. Pantallas
 
@@ -96,7 +97,7 @@ Nada anterior a la hora actual se recalcula ni se reescribe: ni el algoritmo de 
 - **Hojas**: todas con la barra fija de arriba (pastilla para arrastrar y ✕), §18.9.
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
-- **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
+- **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones. Es **siempre de la semana que viene** (lunes a domingo próximos), el día que se abra. Silos y widget muestran la semana en curso y, desde que el usuario toca «Cerrar resumen» en la planificación (`settings.weekPlannedFor` = el lunes de esa semana), la siguiente.
 - **Inicio de cuatrimestre**: materias, fechas, feriados.
 - **Ajustes**: parámetros fijos, reglas, lugares, conexiones, exportar/importar JSON.
 - Diseño visual: lo provee el usuario, siguiendo las guías del §14.

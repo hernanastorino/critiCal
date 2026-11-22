@@ -293,22 +293,40 @@ export function sessionsThisWeek(task: AppTask, tz: string, now: number): number
   return Math.min(full, Math.ceil((full * daysLeft) / 7));
 }
 
-/** What is left of each active task: its unmarked parts, or its estimate minus what was logged. */
-export function progress(data: AppData, now: number): TaskProgress[] {
+/** Monday of next week (the one the weekly planning always works on). */
+export function nextWeekStart(tz: string, now: number): string {
+  return addDays(weekStart(tz, now), 7);
+}
+
+/**
+ * An instant inside the week silos and widget show: the current one until the user has
+ * planned the next (`settings.weekPlannedFor`), and the next one from then on.
+ */
+export function focusWeekAt(data: AppData, now: number): number {
+  const tz = data.settings.timezone;
+  const next = nextWeekStart(tz, now);
+  return data.settings.weekPlannedFor === next ? zonedInstant(tz, next, 720) : now;
+}
+
+/**
+ * What is left of each active task: its unmarked parts, or its estimate minus what was
+ * logged. `weekAt`: an instant of the week the weekly habits are counted in (default `now`).
+ */
+export function progress(data: AppData, now: number, weekAt = now): TaskProgress[] {
   const tz = data.settings.timezone;
   return data.tasks
     .filter((t) => isRunning(t, now))
     .map((task) => {
       if (task.kind === "habit") {
-        const total = sessionsThisWeek(task, tz, now) * (task.sessionMinutes ?? 0);
-        const since = zonedInstant(tz, weekStart(tz, now), 0);
+        const total = sessionsThisWeek(task, tz, weekAt) * (task.sessionMinutes ?? 0);
+        const since = zonedInstant(tz, weekStart(tz, weekAt), 0);
         const left = Math.max(0, total - doneMinutes(data, task.id, since));
         return {
           task,
           totalMinutes: total,
           remainingMinutes: left,
           minRemainingMinutes: Math.min(left, task.minMinutes || total),
-          deadline: endOfWeek(tz, now),
+          deadline: endOfWeek(tz, weekAt),
         };
       }
       // Estimates are study time and check-ins block time (breaks included then).

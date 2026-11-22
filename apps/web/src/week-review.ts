@@ -1,22 +1,19 @@
 // Numbers for the weekly planning and for "planned vs done". Pure.
-import { addDays, localParts, MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
+import { addDays, MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
 import { holidaysBetween } from "./holidays.js";
 import type { AppData } from "./model.js";
 import {
   blockFactor,
   blockStartOf,
+  nextWeekStart,
   standingCheckIns,
   studyMinutes,
   weekStart,
 } from "./planning.js";
 
-const DAY = 1440 * MINUTE;
-
-/** The week to plan: next week on weekends, otherwise this one (from today). */
+/** The week to plan: always next week, Monday to Sunday, whatever day it is today. */
 export function weekToPlan(data: AppData, now: number): string[] {
-  const tz = data.settings.timezone;
-  const { weekday } = localParts(tz, now);
-  const monday = weekStart(tz, weekday === 0 || weekday === 6 ? now + 2 * DAY : now);
+  const monday = nextWeekStart(data.settings.timezone, now);
   return Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 }
 

@@ -54,15 +54,8 @@ export function Places() {
     for (const t of data.travelTimes ?? []) add(t);
     for (const t of tripPairs(data, now)) add(t);
   }
-  /** Saves a place; marking another as home says so and offers to go back to the old one. */
-  const savePlace = (place: Place) => {
-    const before = places.find((p) => p.isHome && p.id !== place.id);
-    dispatch({ type: "savePlace", place });
-    if (!place.isHome || !before) return;
-    toast.show(`Ahora tu casa es ${short(place.name)}`, {
-      undo: () => dispatch({ type: "savePlace", place: before }),
-    });
-  };
+  /** Saves a place. There is one home only: the form never offers a second one. */
+  const savePlace = (place: Place) => dispatch({ type: "savePlace", place });
   const placeName = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
   const eventSpots = (data.spots ?? []).length + kept.length;
 
@@ -473,6 +466,9 @@ function PlaceForm({
   const finish = () => saved(fresh());
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
+  // Only one home: with another place already marked, the switch is not offered.
+  const otherHome = (data.places ?? []).find((p) => p.isHome && p.id !== place.id);
+  const makesHome = isHome && !otherHome;
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
   const empty = !name.trim();
@@ -560,10 +556,17 @@ function PlaceForm({
           Canelones y San José.
         </span>
       </fieldset>
-      <label className="check">
-        <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
-        <span>Es mi casa</span>
-      </label>
+      {otherHome ? (
+        <p className="meta" role="note">
+          Tu casa ya es {short(otherHome.name)}: hay una sola. Para cambiarla, desmarcá «Mi casa» en
+          ese lugar.
+        </p>
+      ) : (
+        <label className="check">
+          <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
+          <span>Mi casa</span>
+        </label>
+      )}
       {/* Always there (empty until something changes), so the fields do not jump while typing. */}
       <p className="meta" style={{ margin: "6px 0 10px", minHeight: "1.2em" }}>
         {dirty ? "Cambios sin guardar" : ""}
@@ -596,7 +599,7 @@ function PlaceForm({
                   (a, i, all) =>
                     a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
                 ),
-              isHome: isHome || undefined,
+              isHome: makesHome || undefined,
               travelMode: travelMode === "bus" ? "bus" : undefined,
             });
           }}
