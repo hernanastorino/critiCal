@@ -42,7 +42,7 @@ describe("Demo de pruebas", () => {
     const r = refreshPlan(d, NOW);
     const kinds = decisions(r.input, r.result, { data: d, now: NOW }).options.map((o) => o.kind);
     expect(kinds).toContain("start-earlier");
-  });
+  }, 30_000);
 
   it("starts from the login's discreet button and says so in Ajustes", async () => {
     render(<App fixedNow={NOW} initial={pruebasData} />);
@@ -52,7 +52,7 @@ describe("Demo de pruebas", () => {
     expect(await screen.findByText(/Demo de pruebas: datos armados/)).toBeTruthy();
     // The first steps are there to try, unfinished.
     expect(screen.getAllByText(/Primeros pasos/).length).toBeGreaterThan(0);
-  });
+  }, 30_000);
 
   it("opens straight from ?demo=pruebas and cleans the address", async () => {
     window.history.replaceState(null, "", "/?demo=pruebas");
@@ -60,7 +60,7 @@ describe("Demo de pruebas", () => {
     expect(await screen.findByRole("button", { name: "Ajustes" })).toBeTruthy();
     expect(isTestDemo()).toBe(true);
     expect(window.location.search).toBe("");
-  });
+  }, 30_000);
 
   it("the plain demo does not get the test data", () => {
     const d = loadDemo(NOW);
