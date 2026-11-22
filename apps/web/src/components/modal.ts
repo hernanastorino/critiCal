@@ -53,6 +53,7 @@ if (typeof document !== "undefined") {
   document.addEventListener(
     "pointerdown",
     (e) => {
+      notePress(e.clientX, e.clientY);
       const t =
         e.target instanceof Element ? e.target.closest<HTMLElement>("button, a, [tabindex]") : null;
       // A backdrop never takes focus (the second tap of a double tap lands there).
@@ -61,6 +62,54 @@ if (typeof document !== "undefined") {
         return;
       }
       if (t) lastTapped = { el: t, at: Date.now() };
+    },
+    true,
+  );
+}
+
+/**
+ * Taps this soon after a sheet closes are the rest of a double tap on the button that
+ * closed it («Guardar», «Eliminar»): they would land on whatever is now under the finger
+ * (the tab bar, the next row) and do something nobody asked for.
+ */
+export const CLOSE_GRACE_MS = 400;
+/** A double tap lands where the first one did, give or take a finger. */
+export const SAME_SPOT_PX = 40;
+/** Where and when the last press was, and where the tap that closed a sheet was. */
+let lastDown = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY };
+let closed = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY };
+
+/** Notes that a sheet closed now, from the press just before it (the tap on its button). */
+function noteClosed(now = Date.now()) {
+  if (now - lastDown.at < CLOSE_GRACE_MS) closed = { x: lastDown.x, y: lastDown.y, at: now };
+}
+
+/**
+ * Whether a click is the leftover of a double tap: a real tap (`isTrusted`, so what code
+ * or tests dispatch is never held back), right after a sheet closed, on the same spot as
+ * the tap that closed it, and not inside a sheet still open. A tap elsewhere goes through.
+ */
+export function isGhostTap(
+  e: { isTrusted: boolean; target: EventTarget | null; clientX: number; clientY: number },
+  now = Date.now(),
+): boolean {
+  if (!e.isTrusted || now - closed.at >= CLOSE_GRACE_MS) return false;
+  if (Math.hypot(e.clientX - closed.x, e.clientY - closed.y) > SAME_SPOT_PX) return false;
+  return !(e.target instanceof Element && e.target.closest(".sheet"));
+}
+
+/** For tests: a press at this spot and time, as the browser would note it. */
+export function notePress(x: number, y: number, at = Date.now()) {
+  lastDown = { x, y, at };
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!isGhostTap(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
     },
     true,
   );
@@ -200,6 +249,7 @@ export function useModal(
       observer.disconnect();
       const wasTop = stack[stack.length - 1] === me;
       stack.splice(stack.indexOf(me), 1);
+      noteClosed();
       cover();
       if (stack.length === 0) document.removeEventListener("keydown", onKey);
       // A sheet closing under another one leaves the focus where it is.

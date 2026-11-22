@@ -133,6 +133,15 @@ Datos, servidor e interfaz mergeados (la interfaz en #185: modo por lugar, colum
 
 Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186–#188, #194–#197): lo vigente se arregló y lo que ya no pasaba quedó fijado con tests (el detalle de cada ítem está en la descripción de cada PR). Queda:
 
+- **23.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #206, solo modo demo; sin Altas). Arreglada en el PR de la vuelta: la Media del doble toque (el segundo toque, tras cerrar una hoja con «Guardar avance» o «Eliminar», caía en lo de abajo: la barra de pestañas o la fila siguiente; ahora un toque real en los 400 ms siguientes a cerrar una hoja, fuera de otra hoja abierta, se descarta). Para confirmar (Media dudosa): Ajustes → Planificación semanal un domingo dice «Ninguno: hay margen en todo» y «dom 0h» con un Parcial que vence el martes (¿resume la semana que termina hoy?). Bajas:
+  - Los mensajes de validación que aparecen o se van corren el botón o el campo que ibas a tocar (Rutinas, Materias).
+  - Buscador de Ajustes sin resultados: la hoja se achica y un toque donde estaba el campo cae en el fondo y cierra Ajustes.
+  - Escape no cierra Ajustes con el foco en un `<input type="time">` (a propósito: el selector nativo se cierra primero; hay que salir con Tab).
+  - Recargar con un formulario abierto pierde el borrador y vuelve a la Semana.
+  - Notificaciones en demo: las casillas se pueden tocar aunque no funcionan sin cuenta.
+  - Tema claro: la hoja de Ajustes deja ver la semana a través del fondo.
+  - Un aviso tapa los botones de la cabecera unos segundos.
+  - No probado: exportar e importar un respaldo válido, Mi semana, tarjeta de evento con Auto/Ómnibus, Lugares, «Reacomodar hoy» / «Reiniciar demo», arrastre táctil real.
 - **22.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #199, solo modo demo; sin Altas). Las tres Medias (doble «Guardar» en Silos → Nueva duplica, doble Deshacer tras «Fijar acá», lugar en ómnibus sin dirección) y dos Bajas (nombre accesible de silos archivados, hojas cerradas sin `inert`) se arreglaron en #204; las de letra grande y avisos largos, en #205. Queda:
   - No probado: tema claro, lector de pantalla real, Tab completo, arrastrar con precisión, Rutinas extremas, tarjeta de un evento con Auto/Ómnibus, recargar a mitad de un formulario, silos con partes.
 - **No se arreglan (decisiones, a revisar por el usuario si quiere)**:
