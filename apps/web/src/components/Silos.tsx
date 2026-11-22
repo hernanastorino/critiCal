@@ -15,7 +15,7 @@ import { useStore } from "../store.js";
 import { plannedVsDone } from "../week-review.js";
 import { CountUp } from "./CountUp.js";
 import { TaskDetail } from "./TaskDetail.js";
-import { TaskEditor } from "./TaskEditor.js";
+import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
 
 let pastOpen = false;
@@ -28,7 +28,12 @@ export function Silos() {
   const archived = data.tasks.filter(
     (t) => t.status === "dropped" && data.activities.some((a) => a.id === t.activityId),
   );
-  const [editing, setEditing] = useState<AppTask | "new" | null>(null);
+  // A reload brings back the editor that was open, with what was typed.
+  const [editing, setEditing] = useState<AppTask | "new" | null>(() => {
+    const d = editorDraft("silos");
+    if (!d) return null;
+    return d.taskId === null ? "new" : (data.tasks.find((t) => t.id === d.taskId) ?? null);
+  });
   const [detail, setDetail] = useState<AppTask | null>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const toast = useToast();
@@ -249,6 +254,7 @@ export function Silos() {
       )}
       {editing && (
         <TaskEditor
+          origin="silos"
           task={editing === "new" ? undefined : editing}
           onClose={() => {
             const id = editing === "new" ? undefined : editing.id;

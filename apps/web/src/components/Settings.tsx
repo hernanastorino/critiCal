@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { normalize } from "../calendars.js";
 import { awakeProblem } from "../dayLength.js";
+import { clearSettingsDrafts, hasSettingsDrafts, rememberSettingsPage } from "../drafts.js";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
@@ -12,6 +13,7 @@ import { useStore } from "../store.js";
 import { Account } from "./Account.js";
 import { Backup } from "./Backup.js";
 import { Calendars, describe, healthy } from "./Calendars.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { resumeFirstSteps } from "./FirstSteps.js";
 import { Problem, useFocusInvalid } from "./fields.js";
 import { GeminiKey } from "./GeminiKey.js";
@@ -349,6 +351,13 @@ export function Settings({
     setPage(id);
   };
   const toList = () => setPage(null);
+  // Leaving Ajustes with something typed and unsaved asks first (SPEC §14); a reload
+  // brings back the screen that was open (the drafts are kept in sessionStorage).
+  const [asking, setAsking] = useState(false);
+  const askClose = () => (hasSettingsDrafts() ? setAsking(true) : onClose());
+  useEffect(() => {
+    rememberSettingsPage(page);
+  }, [page]);
   const popScreen = useSettingsHistory(page, toList, onClose);
   const close = () => {
     popScreen();
@@ -357,7 +366,7 @@ export function Settings({
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
   const justOpened = useModal(
     sheet,
-    () => (page ? close() : onClose()),
+    () => (page ? close() : askClose()),
     !initialPage,
     () => document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
   );
@@ -628,7 +637,7 @@ export function Settings({
         tabIndex={-1}
         onClick={() => {
           // The second tap of a double tap on the gear lands here: not a close.
-          if (!justOpened()) onClose();
+          if (!justOpened()) askClose();
         }}
       />
       <div
@@ -638,7 +647,7 @@ export function Settings({
         aria-modal="true"
         aria-label={current ? current.title : "Ajustes"}
       >
-        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={askClose}>
           <Marks.close />
         </button>
 
@@ -788,6 +797,15 @@ export function Settings({
           </div>
         ))}
       </div>
+      {asking && (
+        <ConfirmDiscard
+          onDiscard={() => {
+            clearSettingsDrafts();
+            onClose();
+          }}
+          onKeep={() => setAsking(false)}
+        />
+      )}
     </>
   );
 }

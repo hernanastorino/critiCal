@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { readSheetDraft, writeSheetDraft } from "../drafts.js";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
 import {
@@ -24,6 +25,7 @@ import {
   partsSummary,
   typedHours,
 } from "../taskForm.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { focusFirstInvalid } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
@@ -72,12 +74,50 @@ function FieldError({
 
 const AFTER_DUE = "Tiene que ser antes de la entrega: con esa fecha el plan no le da tiempo.";
 
+/** What the editor holds, as kept in a draft (nothing sensitive: titles, hours, dates). */
+interface EditorForm {
+  title: string;
+  picked: string;
+  newActivity: string;
+  kind: AppTask["kind"];
+  deadline: string;
+  estimate: string;
+  minimum: string;
+  sessions: string;
+  sessionMin: string;
+  priority: number;
+  units: Unit[];
+  isExam: boolean;
+  dayBefore: boolean;
+  unitTitle: string;
+  /** `null` is «Ya», `"typing"` a number still being typed (not valid yet). */
+  startAfter: AppTask["startAfter"] | "typing" | null;
+  hoursForm: HoursForm;
+}
+
+/** A draft kept for an editor, and what it was opened from (so a reload reopens it). */
+export interface EditorDraft {
+  origin: string;
+  /** The task being edited, `null` for a new one. */
+  taskId: string | null;
+  form: EditorForm;
+}
+
+/** The editor to bring back after a reload: the draft kept, when it is of this screen. */
+export function editorDraft(origin: string): EditorDraft | null {
+  const d = readSheetDraft<EditorDraft>("editor");
+  return d && d.origin === origin ? d : null;
+}
+
 export function TaskEditor({
   task,
+  origin = "silos",
   onClose,
   onSaved,
 }: {
   task?: AppTask;
+  /** Which screen opened it: where a reload brings it back. */
+  origin?: "silos" | "inbox" | "preferences";
   onClose: () => void;
   /** Called only when the user saves (not when closing without changes). */
   onSaved?: (task: AppTask) => void;
@@ -86,10 +126,36 @@ export function TaskEditor({
   const toast = useToast();
   const answer = useUndoable();
   const tz = data.settings.timezone;
-  const [title, setTitle] = useState(task?.title ?? "");
-  const [picked, setActivityId] = useState(task?.activityId ?? "");
-  const [newActivity, setNewActivity] = useState("");
-  const [kind, setKind] = useState<AppTask["kind"]>(task?.kind ?? "deliverable");
+  // What the form is when untouched, and what it was left as (a draft of this same task).
+  const base = useRef<EditorForm>({
+    title: task?.title ?? "",
+    picked: task?.activityId ?? "",
+    newActivity: "",
+    kind: task?.kind ?? "deliverable",
+    deadline: toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
+    estimate: String((task?.estimateMinutes ?? 240) / 60),
+    minimum: String((task?.minMinutes ?? 120) / 60),
+    sessions: String(task?.sessionsPerWeek ?? 3),
+    sessionMin: String(task?.sessionMinutes ?? 60),
+    priority: task?.priority ?? 2,
+    units: task?.units ?? [],
+    isExam: !!task?.exam,
+    dayBefore: !!task?.dayBeforeOnly,
+    unitTitle: "",
+    startAfter: task?.startAfter ?? null,
+    hoursForm: formOfHours(data.activities.find((a) => a.id === task?.activityId)?.validHours),
+  }).current;
+  const kept = useRef<EditorForm | null>(
+    (() => {
+      const d = readSheetDraft<EditorDraft>("editor");
+      return d && d.origin === origin && d.taskId === (task?.id ?? null) ? d.form : null;
+    })(),
+  ).current;
+  const start = { ...base, ...kept };
+  const [title, setTitle] = useState(start.title);
+  const [picked, setActivityId] = useState(start.picked);
+  const [newActivity, setNewActivity] = useState(start.newActivity);
+  const [kind, setKind] = useState<AppTask["kind"]>(start.kind);
   // Rutinas have no parciales or entregas: they are offered for a habit only (or when the
   // task already belongs to one).
   const choices = data.activities.filter(
@@ -97,18 +163,17 @@ export function TaskEditor({
   );
   const activityId =
     picked === "new" || choices.some((a) => a.id === picked) ? picked : (choices[0]?.id ?? "new");
-  const [deadline, setDeadline] = useState(
-    toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
-  );
-  const [estimate, setEstimate] = useState(String((task?.estimateMinutes ?? 240) / 60));
-  const [minimum, setMinimum] = useState(String((task?.minMinutes ?? 120) / 60));
-  const [sessions, setSessions] = useState(String(task?.sessionsPerWeek ?? 3));
-  const [sessionMin, setSessionMin] = useState(String(task?.sessionMinutes ?? 60));
-  const [priority, setPriority] = useState(task?.priority ?? 2);
-  const [units, setUnits] = useState<Unit[]>(task?.units ?? []);
-  const [isExam, setIsExam] = useState(!!task?.exam);
-  const [dayBefore, setDayBefore] = useState(!!task?.dayBeforeOnly);
-  const [unitTitle, setUnitTitle] = useState("");
+  const [deadline, setDeadline] = useState(start.deadline);
+  const [estimate, setEstimate] = useState(start.estimate);
+  const [minimum, setMinimum] = useState(start.minimum);
+  const [sessions, setSessions] = useState(start.sessions);
+  const [sessionMin, setSessionMin] = useState(start.sessionMin);
+  const [priority, setPriority] = useState(start.priority);
+  const [units, setUnits] = useState<Unit[]>(start.units);
+  const [isExam, setIsExam] = useState(start.isExam);
+  const [dayBefore, setDayBefore] = useState(start.dayBefore);
+  const [unitTitle, setUnitTitle] = useState(start.unitTitle);
+  const [hoursForm, setHoursForm] = useState<HoursForm>(start.hoursForm);
   const [unitError, setUnitError] = useState<string | null>(null);
   const unitInput = useRef<HTMLInputElement>(null);
   const addUnit = () => {
@@ -129,7 +194,14 @@ export function TaskEditor({
   const [deadlineError, setDeadlineError] = useState<string | null>(null);
   /** The browser holds a date it cannot read (31/02, 24:00): its value is empty, but typed. */
   const [deadlineUnreal, setDeadlineUnreal] = useState(false);
-  const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(task?.startAfter);
+  // `undefined` is «Ya» and `null` a number still being typed.
+  const [startAfter, setStartAfter] = useState<AppTask["startAfter"] | null>(
+    kept
+      ? kept.startAfter === "typing"
+        ? null
+        : (kept.startAfter ?? undefined)
+      : task?.startAfter,
+  );
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */
   const [focusTick, setFocusTick] = useState(0);
@@ -138,7 +210,45 @@ export function TaskEditor({
   // Ids made once per form: a second tap on «Guardar» before the sheet is gone saves
   // the same task over itself instead of adding another one.
   const freshIds = useRef({ task: newId(), activity: newId() });
-  const justOpened = useModal(sheet, onClose);
+  // Closing with something typed asks first; with nothing changed it just closes.
+  const [asking, setAsking] = useState(false);
+  const form: EditorForm = {
+    title,
+    picked,
+    newActivity,
+    kind,
+    deadline,
+    estimate,
+    minimum,
+    sessions,
+    sessionMin,
+    priority,
+    units,
+    isExam,
+    dayBefore,
+    unitTitle,
+    startAfter: startAfter === null ? "typing" : (startAfter ?? null),
+    hoursForm,
+  };
+  const formKey = JSON.stringify(form);
+  const dirty = formKey !== JSON.stringify(base);
+  // The draft follows what is typed (a reload brings it back) and goes when it is saved
+  // or discarded.
+  useEffect(() => {
+    writeSheetDraft(
+      "editor",
+      dirty
+        ? ({ origin, taskId: task?.id ?? null, form: JSON.parse(formKey) } satisfies EditorDraft)
+        : null,
+    );
+  }, [formKey, dirty, origin, task?.id]);
+  /** Closed for good: saved, archived or discarded. */
+  const done = () => {
+    writeSheetDraft("editor", null);
+    onClose();
+  };
+  const askClose = () => (dirty ? setAsking(true) : done());
+  const justOpened = useModal(sheet, askClose);
   useEffect(() => {
     if (focusTick) focusFirstInvalid(sheet.current);
   }, [focusTick]);
@@ -221,9 +331,6 @@ export function TaskEditor({
   // A routine's valid hours are edited with its habit (not for a new one: Rutinas has them).
   const ownRoutine = data.activities.find(
     (a) => a.id === task?.activityId && a.kind === "rutina" && a.id === activityId,
-  );
-  const [hoursForm, setHoursForm] = useState<HoursForm>(() =>
-    formOfHours(data.activities.find((a) => a.id === task?.activityId)?.validHours),
   );
   const hoursRead =
     ownRoutine && kind === "habit"
@@ -335,7 +442,7 @@ export function TaskEditor({
     };
     dispatch({ type: "saveTask", task: next, activity });
     onSaved?.(next);
-    onClose();
+    done();
   };
 
   return (
@@ -347,7 +454,7 @@ export function TaskEditor({
         aria-hidden="true"
         tabIndex={-1}
         onClick={() => {
-          if (!justOpened()) onClose();
+          if (!justOpened()) askClose();
         }}
       />
       <div
@@ -357,7 +464,7 @@ export function TaskEditor({
         aria-modal="true"
         aria-label={task ? "Editar" : "Nueva actividad"}
       >
-        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={askClose}>
           <Marks.close />
         </button>
         <h2>{task ? "Editar" : "Nueva"}</h2>
@@ -670,7 +777,7 @@ export function TaskEditor({
                   tasks: [data.tasks.find((t) => t.id === task.id) ?? task],
                 },
               );
-              onClose();
+              done();
             }}
           >
             Volver a las horas por defecto
@@ -697,7 +804,7 @@ export function TaskEditor({
                       status: task.status === "done" ? "done" : "active",
                     }),
                 });
-                onClose();
+                done();
               }}
             >
               Archivar
@@ -713,6 +820,7 @@ export function TaskEditor({
           </button>
         </div>
       </div>
+      {asking && <ConfirmDiscard onDiscard={done} onKeep={() => setAsking(false)} />}
     </>
   );
 }

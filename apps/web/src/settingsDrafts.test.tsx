@@ -14,6 +14,12 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+/** Reloading the page: everything is gone but the tab's sessionStorage; Ajustes comes back open. */
+const reload = () => {
+  cleanup();
+  render(<App fixedNow={NOW} initial={demoData} />);
+};
+
 describe("what is typed in Ajustes and not saved", () => {
   it("is still there after closing and opening Ajustes, marked as unsaved", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Reglas/ }));
@@ -21,11 +27,14 @@ describe("what is typed in Ajustes and not saved", () => {
     expect(screen.queryByText("Cambios sin guardar")).toBeNull();
     fireEvent.change(field, { target: { value: "35" } });
     expect(screen.getByText("Cambios sin guardar")).toBeTruthy();
+    // Back to the list does not ask; leaving Ajustes does, and «Seguir editando» stays.
     fireEvent.click(screen.getByLabelText("Cerrar"));
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("alertdialog", { name: "¿Descartar los cambios?" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Seguir editando" }));
+    expect(screen.getByRole("dialog", { name: "Reglas" })).toBeTruthy();
 
-    fireEvent.click(screen.getByLabelText("Ajustes"));
-    fireEvent.click(screen.getByRole("button", { name: /^Reglas/ }));
+    // A reload brings Ajustes back on the same screen, with what was typed.
+    reload();
     const again = screen.getByLabelText("Margen antes de cada evento (min)") as HTMLInputElement;
     expect(again.value).toBe("35");
     fireEvent.click(screen.getByText("Guardar reglas"));
@@ -35,9 +44,7 @@ describe("what is typed in Ajustes and not saved", () => {
   it("keeps a half-typed routine", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Rutinas/ }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Nadar" } });
-    fireEvent.click(screen.getByLabelText("Cerrar"));
-    fireEvent.click(screen.getByLabelText("Ajustes"));
-    fireEvent.click(screen.getByRole("button", { name: /^Rutinas/ }));
+    reload();
     expect((screen.getByPlaceholderText("Gimnasio") as HTMLInputElement).value).toBe("Nadar");
   });
 });
@@ -88,9 +95,7 @@ describe("repeated names and other forms", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Lugares y traslados/ }));
     fireEvent.click(screen.getByRole("button", { name: /Agregar lugar/ }));
     fireEvent.change(screen.getByPlaceholderText("Facu"), { target: { value: "Taller" } });
-    fireEvent.click(screen.getByLabelText("Cerrar"));
-    fireEvent.click(screen.getByLabelText("Ajustes"));
-    fireEvent.click(screen.getByRole("button", { name: /^Lugares y traslados/ }));
+    reload();
     expect((screen.getByPlaceholderText("Facu") as HTMLInputElement).value).toBe("Taller");
     expect(screen.getByText("Cambios sin guardar")).toBeTruthy();
   });
