@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { normalize } from "../calendars.js";
 import { awakeProblem } from "../dayLength.js";
+import { isTestDemo } from "../demoPruebas.js";
 import { clearSettingsDrafts, hasSettingsDrafts, rememberSettingsPage } from "../drafts.js";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
@@ -561,7 +562,8 @@ export function Settings({
       <ChevronRight />
     </a>
   );
-  const stepsRow = sync && (
+  const testDemo = !sync && isTestDemo();
+  const stepsRow = (sync || testDemo) && (
     <Row
       key="steps"
       icon={I.flag}
@@ -764,6 +766,12 @@ export function Settings({
                       {shown.map(pageRow)}
                       {g.label === "Cuenta" && (
                         <>
+                          {testDemo && (
+                            <p className="meta">
+                              Demo de pruebas: datos armados para probar cada caso, solo en este
+                              dispositivo. «Reiniciar demo» los vuelve a cargar.
+                            </p>
+                          )}
                           {privacyRow}
                           {stepsRow}
                           {resetRow}
