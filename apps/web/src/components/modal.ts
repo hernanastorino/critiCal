@@ -66,6 +66,39 @@ if (typeof document !== "undefined") {
   );
 }
 
+/**
+ * Taps this soon after a sheet closes are the rest of a double tap on the button that
+ * closed it («Guardar», «Eliminar»): they would land on whatever is now under the finger
+ * (the tab bar, the next row) and do something nobody asked for.
+ */
+export const CLOSE_GRACE_MS = 400;
+let closedAt = Number.NEGATIVE_INFINITY;
+
+/**
+ * Whether a click is the leftover of a double tap. Only a real tap (`isTrusted`): what
+ * code or tests dispatch is never held back.
+ */
+export function isGhostTap(
+  e: { isTrusted: boolean; target: EventTarget | null },
+  now = Date.now(),
+): boolean {
+  if (!e.isTrusted || now - closedAt >= CLOSE_GRACE_MS) return false;
+  // Inside a sheet still open the tap is meant for it.
+  return !(e.target instanceof Element && e.target.closest(".sheet"));
+}
+
+if (typeof document !== "undefined") {
+  document.addEventListener(
+    "click",
+    (e) => {
+      if (!isGhostTap(e)) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    true,
+  );
+}
+
 // One listener for every sheet, so Escape works even after a tap left focus on the page.
 function onKey(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.defaultPrevented) return;
@@ -200,6 +233,7 @@ export function useModal(
       observer.disconnect();
       const wasTop = stack[stack.length - 1] === me;
       stack.splice(stack.indexOf(me), 1);
+      closedAt = Date.now();
       cover();
       if (stack.length === 0) document.removeEventListener("keydown", onKey);
       // A sheet closing under another one leaves the focus where it is.
