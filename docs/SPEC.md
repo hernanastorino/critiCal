@@ -164,7 +164,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Formularios y botones
 
-- Texto de ayuda debajo de los campos que no son obvios (formato, para qué sirve, ejemplo).
+- ✅ Texto de ayuda debajo de los campos que no son obvios (formato, para qué sirve, ejemplo). Es una línea corta, asociada al campo con `aria-describedby` (junto a su error, si lo tiene) y sin repetir la etiqueta: Reglas (máximo de materias, margen, avisar cuando el margen baja), «Arreglarse, traslado», «Nada de estudio desde», «Estudio semanal» (al agregar una materia y en el editor), Rutinas (veces por semana, minutos) y los alias de un lugar. `Field` recibe `help`; los campos hechos a mano usan `Help` y `describedBy` (`components/fields.tsx`). Los campos cuyo sentido ya dice la etiqueta (horas de comidas, nombre, dirección) no llevan.
 - Botones con un verbo concreto («Guardar reglas», «Conectar iCloud»), nunca «OK», «Listo» o «Aceptar» sueltos.
 - Cada sección termina con una acción clara: el siguiente paso o el botón para crear lo primero.
 - No pedir dos veces el mismo dato: lo que ya se sabe (lugares, materias, horarios) se propone precargado.

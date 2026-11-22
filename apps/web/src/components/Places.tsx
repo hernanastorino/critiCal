@@ -14,6 +14,7 @@ import {
 } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
@@ -511,8 +512,13 @@ function PlaceForm({
           value={aliases}
           onChange={(e) => setAliases(e.target.value)}
           placeholder="FING, Facultad"
+          aria-describedby={`aliases-help-${place.id}`}
         />
       </label>
+      <Help
+        id={`aliases-help-${place.id}`}
+        text="Otros nombres con los que aparece este lugar en tus eventos."
+      />
       <fieldset className="field mode-set">
         <legend>Cómo llegar ahí (por defecto)</legend>
         <div className="day-chips">

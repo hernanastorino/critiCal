@@ -2742,3 +2742,16 @@ label.check {
     transition: none;
   }
 }
+
+/* The field and its help line sit in one box, so the gap of the field is the box's. */
+.field-with-help {
+  min-width: 0;
+}
+
+/* A short line of help under a field (SPEC §14): what the label does not say. */
+.field-help {
+  display: block;
+  margin: calc(var(--space-1) - var(--space-3)) 0 var(--space-3);
+  font-size: var(--text-xs);
+  line-height: 1.35;
+}

@@ -364,6 +364,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
+              help="Horas por semana de estudio general; las entregas y parciales se suman aparte."
               invalid={!hoursOk}
               errorId={`${key}-hours-error`}
               value={weekly}
