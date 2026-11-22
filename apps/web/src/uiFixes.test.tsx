@@ -7,7 +7,7 @@ import { Inbox } from "./components/Inbox.js";
 import { useModal } from "./components/modal.js";
 import { Places } from "./components/Places.js";
 import { ActivitySettings } from "./components/Preferences.js";
-import { bounds, fit, ROY } from "./components/Roy.js";
+import { bounds, fit, ROY, type RoyAnim, uniformBox } from "./components/Roy.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData, emptyData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -528,5 +528,18 @@ describe("the grabber of a sheet", () => {
     const touch = new Event("touchmove", { cancelable: true });
     sheet.dispatchEvent(touch);
     expect(touch.defaultPrevented).toBe(false);
+  });
+});
+
+describe("Roy has one size in the «Elegí» cards", () => {
+  it("draws every shape at the same scale, in a slot of the same size", () => {
+    const box = uniformBox(56, 112);
+    for (const anim of Object.keys(ROY) as RoyAnim[]) {
+      const poses = [ROY[anim].still, ...(ROY[anim].seq ?? []).map((s) => s[0])];
+      const own = fit(poses, 56, 112, box.scale);
+      expect(own.scale).toBe(box.scale);
+      expect(own.width).toBeLessThanOrEqual(box.width);
+      expect(own.height).toBeLessThanOrEqual(box.height);
+    }
   });
 });

@@ -207,7 +207,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Accesibilidad
 
-- ✅ **Contraste AA** en texto y en los colores de criticidad (además del color, un ícono o una palabra). El azul de las opciones de hoja usa `--link-ink` (≥ 4,5:1 en claro y oscuro). El zoom del sistema no se bloquea (sin `maximum-scale`/`user-scalable`) y los campos tienen ≥ 16 px para que iOS no haga zoom al enfocar.
+- ✅ **Contraste AA** en texto y en los colores de criticidad (además del color, un ícono o una palabra). El azul de las opciones de hoja usa `--link-ink` (≥ 4,5:1 en claro y oscuro). **El zoom está bloqueado** por decisión del usuario (2026-11-22): `<meta viewport>` con `maximum-scale=1, user-scalable=no`, `touch-action: pan-y` en `html`/`body`, `gesturestart`/`gesturechange` cancelados, y todos los campos con `font-size: max(16px, …)` para que iOS no amplíe al enfocar (ni con el texto del sistema pequeño). Reemplaza el pedido anterior de permitir el zoom, aunque no cumpla WCAG 1.4.4.
 - ✅ Etiquetas para VoiceOver en todo lo que se toca, incluidos los bloques del calendario y los silos.
 - ✅ El texto respeta el tamaño de letra del sistema sin romper la grilla.
 - ✅ Foco visible y uso completo con teclado en la Mac.

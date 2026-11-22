@@ -80,6 +80,9 @@ const noFitKind = (t: AppTask, activities: Activity[], slot: number): NoFitKind 
 /** Said when the options to choose from go away by themselves: the plan fits again. */
 export const OPTIONS_GONE = "Ya no hace falta elegir: el plan alcanza";
 
+/** Roy has this size in every «Elegí» card (SPEC §18.12). */
+const ELEGI_ROY = 56;
+
 /** Roy, small, in a pose of its own for each kind of option (SPEC §18.12). */
 const OPTION_POSE: Record<OptionKind, RoyAnim> = {
   drop: "desarmado",
@@ -483,7 +486,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
             {noFits.map((t) => (
               <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
                 <div className="title">«{t.title}» no entra</div>
-                <RoyLine anim="hombros" big>
+                <RoyLine anim="hombros" size={ELEGI_ROY} uniform>
                   {noFit(t.title, noFitKind(t, data.activities, data.settings.slotMinutes))}
                 </RoyLine>
               </div>
@@ -495,7 +498,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
                 <div className="title">{o.label}</div>
-                <RoyLine anim={OPTION_POSE[o.kind]} size={48}>
+                <RoyLine anim={OPTION_POSE[o.kind]} size={ELEGI_ROY} uniform>
                   {optionPromise(
                     o,
                     plan.feasible,

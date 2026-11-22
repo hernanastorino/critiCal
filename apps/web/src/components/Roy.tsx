@@ -204,9 +204,9 @@ export function bounds(poses: Pose[][]) {
  * the box that takes. Before, every shape was scaled as if it were the tall ladder, so
  * the wide ones came out tiny.
  */
-export function fit(poses: Pose[][], size: number, maxWidth: number) {
+export function fit(poses: Pose[][], size: number, maxWidth: number, fixedScale?: number) {
   const b = bounds(poses);
-  const scale = Math.min(size / b.h, maxWidth / b.w) * FILL;
+  const scale = fixedScale ?? Math.min(size / b.h, maxWidth / b.w) * FILL;
   return {
     scale,
     cx: b.cx,
@@ -243,6 +243,31 @@ function useReducedMotion(): boolean {
 /** The six faces of a board: front, back, right, left, top, bottom. */
 const FACES = ["fr", "bk", "rt", "lf", "tp", "bt"] as const;
 
+/** Every pose of a shape, the way `Roy` measures it. */
+function posesOf(anim: RoyAnim, ladder: Pose[]): Pose[][] {
+  const def = ROY[anim];
+  return def.cascade ? [ladder] : [def.still, ...(def.seq ?? []).map((s) => s[0])];
+}
+
+/**
+ * One scale for every shape: the one at which the most demanding of them still fits in
+ * `size` x `maxWidth`. Cards that sit side by side (the options of the inbox) use it so
+ * Roy has the same size in all of them, whatever the proportions of his shape.
+ */
+export function uniformBox(size: number, maxWidth: number) {
+  const anims = Object.keys(ROY) as RoyAnim[];
+  const scale = Math.min(
+    ...anims.map((a) => fit(posesOf(a, V), size, maxWidth).scale),
+    ...anims.map((a) => fit(posesOf(a, H), size, maxWidth).scale),
+  );
+  const boxes = anims.map((a) => fit(posesOf(a, V), size, maxWidth, scale));
+  return {
+    scale,
+    width: Math.max(...boxes.map((b) => b.width)),
+    height: Math.max(...boxes.map((b) => b.height)),
+  };
+}
+
 /** Draws Roy in the shape `anim`: looping, or once and still with `once` (SPEC §18.1). */
 export function Roy({
   anim,
@@ -250,6 +275,7 @@ export function Roy({
   maxWidth = size * 1.4,
   once = false,
   flat: lying = false,
+  scale: fixedScale,
 }: {
   anim: RoyAnim;
   /** Most height in px he may take; the box is as tall as the shape needs. */
@@ -260,6 +286,8 @@ export function Roy({
   flat?: boolean;
   /** Plays the shape once and stays still (a notice at the bottom), instead of in a loop. */
   once?: boolean;
+  /** Draws him at exactly this scale (see `uniformBox`), ignoring `size` and `maxWidth`. */
+  scale?: number;
 }) {
   const reduce = useReducedMotion();
   const stage = useRef<HTMLDivElement>(null);
@@ -330,8 +358,7 @@ export function Roy({
     };
   }, [def, reduce, once, ladder]);
 
-  const poses = def.cascade ? [ladder] : [def.still, ...(def.seq ?? []).map((s) => s[0])];
-  const box = fit(poses, size, maxWidth);
+  const box = fit(posesOf(anim, ladder), size, maxWidth, fixedScale);
   const style = {
     "--roy-s": box.scale,
     "--roy-x": `${-box.cx}px`,
@@ -365,13 +392,27 @@ export function RoyLine({
   children,
   size = 84,
   big,
+  uniform,
 }: {
   anim: RoyAnim;
   children: ReactNode;
   size?: number;
   /** Twice as big, above the text instead of taking its width. */
   big?: boolean;
+  /** Same size in every card that uses it: a fixed slot, and one scale for all shapes. */
+  uniform?: boolean;
 }) {
+  if (uniform) {
+    const box = uniformBox(size, 112);
+    return (
+      <div className="roy-line">
+        <div className="roy-slot" style={{ width: box.width, height: box.height }}>
+          <Roy anim={anim} scale={box.scale} />
+        </div>
+        <p className="meta">{children}</p>
+      </div>
+    );
+  }
   return (
     <div className={`roy-line${big ? " big" : ""}`}>
       <Roy anim={anim} size={big ? size * 2 : size} maxWidth={big ? 224 : 112} />

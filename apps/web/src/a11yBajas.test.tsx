@@ -68,10 +68,11 @@ describe("contraste AA del texto azul", () => {
 });
 
 describe("zoom", () => {
-  it("the viewport does not block pinch zoom", () => {
+  it("the viewport blocks zoom: the user decided so (SPEC §10)", () => {
     const viewport = html.match(/<meta name="viewport" content="([^"]*)"/)?.[1] ?? "";
     expect(viewport).toContain("width=device-width");
-    expect(viewport).not.toMatch(/maximum-scale|user-scalable/);
+    expect(viewport).toContain("maximum-scale=1");
+    expect(viewport).toContain("user-scalable=no");
   });
 });
 

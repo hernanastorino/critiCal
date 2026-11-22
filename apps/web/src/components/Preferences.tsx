@@ -764,7 +764,7 @@ export function Routines() {
       {editing && (
         <TaskEditor origin="preferences" task={editing} onClose={() => setEditing(null)} />
       )}
-      <div className="row fields wrap-big">
+      <div className="row fields top wrap-big">
         <label className="field name-wide" style={{ flex: 2 }}>
           <span>Rutina</span>
           <input

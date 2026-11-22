@@ -278,13 +278,13 @@ export function Semester() {
           <div className="title" style={{ marginTop: 12 }}>
             Materias
           </div>
+          <p className="meta">{subjects.map((a) => a.name).join(", ") || "Todavía ninguna."}</p>
           <p className="meta">
-            {subjects.map((a) => a.name).join(", ") || "Todavía ninguna."}
             {hasClasses(data)
-              ? " Las clases nuevas de tu calendario de clases aparecen en la Bandeja."
-              : " Marcá tu calendario de clases como «Clases (materias)» en Calendarios para sumarlas solas."}
+              ? "Las clases nuevas de tu calendario de clases aparecen en la Bandeja."
+              : "Marcá tu calendario de clases como «Clases (materias)» en Calendarios para sumarlas solas."}
           </p>
-          <div className="row fields">
+          <div className="row fields top">
             <label className="field" style={{ flex: 2 }}>
               <span>Materia</span>
               <input

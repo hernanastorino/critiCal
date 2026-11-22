@@ -129,3 +129,60 @@ describe("design scale (SPEC §14)", () => {
     expect(loose).toEqual([]);
   });
 });
+
+describe("no zoom on the phone", () => {
+  const html = readFileSync(join(import.meta.dirname, "..", "index.html"), "utf8");
+  const main = readFileSync(join(import.meta.dirname, "main.tsx"), "utf8");
+
+  it("the viewport forbids scaling", () => {
+    const viewport = html.match(/<meta name="viewport" content="([^"]*)"/)?.[1] ?? "";
+    for (const part of [
+      "width=device-width",
+      "initial-scale=1",
+      "maximum-scale=1",
+      "user-scalable=no",
+      "viewport-fit=cover",
+    ]) {
+      expect(viewport).toContain(part);
+    }
+  });
+
+  it("blocks the pinch gestures of Safari and the pinch of touch-action", () => {
+    expect(main).toMatch(/gesturestart/);
+    expect(main).toMatch(/gesturechange/);
+    expect(main).toMatch(/preventDefault/);
+    expect(css).toMatch(/html,\s*body \{[^}]*touch-action: pan-y;/);
+  });
+
+  it("every rule that sets the font size of a field keeps it at 16px or more", () => {
+    const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)];
+    const sizes = rules
+      .filter(([, sel]) => /(^|[\s,>])(input|select|textarea)\b/.test(sel ?? ""))
+      .map(([, sel, body]) => ({
+        sel: (sel ?? "").trim(),
+        size: body?.match(/font-size:\s*([^;]+);/)?.[1],
+      }))
+      .filter((r) => r.size);
+    expect(sizes.length).toBeGreaterThan(0);
+    for (const { sel, size } of sizes) {
+      expect(size, sel).toMatch(/^max\(16px, /);
+    }
+  });
+});
+
+describe("forms: alignment and air", () => {
+  it("the fields of Materias and Rutinas start on one line, the help hangs below", () => {
+    expect(css).toMatch(/\.row\.fields\.top \{[^}]*align-items: flex-start;/);
+  });
+
+  it("the settings search has one focus ring, not two", () => {
+    expect(css).toMatch(
+      /\.settings-search input:focus-visible \{[^}]*outline: none;[^}]*box-shadow: none;/,
+    );
+  });
+
+  it("the way-to-get-there block of a place has air from the scale of tokens", () => {
+    expect(css).toMatch(/\.mode-set \{[^}]*margin-bottom: var\(--space-4\);/);
+    expect(css).toMatch(/\.unsaved-note \{[^}]*margin: var\(--space-3\) 0;/);
+  });
+});

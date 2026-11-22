@@ -568,9 +568,7 @@ function PlaceForm({
         </label>
       )}
       {/* Always there (empty until something changes), so the fields do not jump while typing. */}
-      <p className="meta" style={{ margin: "6px 0 10px", minHeight: "1.2em" }}>
-        {dirty ? "Cambios sin guardar" : ""}
-      </p>
+      <p className="meta unsaved-note">{dirty ? "Cambios sin guardar" : ""}</p>
       <div className="row">
         <button
           type="button"
