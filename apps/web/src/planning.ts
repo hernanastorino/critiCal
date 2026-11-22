@@ -587,8 +587,8 @@ const MEAL_LOG_DAYS = 60;
  */
 export function mealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
   const worked = workedMealTimes(data, now, from, to);
-  const log = data.mealLog;
-  if (!log?.length) return worked;
+  const log = standingMealLog(data, now);
+  if (!log.length) return worked;
   const over = (m: MealTime) => !!m.at && m.at.end <= now;
   const logged = (m: Pick<MealTime, "date" | "kind">) =>
     log.some((l) => l.date === m.date && l.kind === m.kind);
@@ -603,6 +603,17 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
       return { date: l.date, kind: l.kind, preferred: was?.preferred ?? at, at, latest: l.start };
     });
   return [...kept, ...back].sort((a, b) => (a.at?.start ?? 0) - (b.at?.start ?? 0));
+}
+
+/**
+ * The log entries that still stand: a wake-up set later than the meal (a late night
+ * the user answered after the fact) says it could not have happened, so it does not count.
+ */
+function standingMealLog(data: AppData, now: number): MealLogEntry[] {
+  const tz = data.settings.timezone;
+  return (data.mealLog ?? []).filter(
+    (l) => l.start >= zonedInstant(tz, l.date, wakingDay(data, now, l.date).wake),
+  );
 }
 
 function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
@@ -636,7 +647,7 @@ export function withMealLog(data: AppData, now: number): AppData {
   const since = zonedInstant(tz, addDays(today, -1), 0);
   // As worked out for now, not through the log: that is what was on screen.
   const fresh = workedMealTimes(data, now, since, now);
-  const log = data.mealLog ?? [];
+  const log = standingMealLog(data, now);
   const known = new Set(log.map((l) => `${l.date}|${l.kind}`));
   const added = fresh.flatMap((m): MealLogEntry[] =>
     m.at && m.kind && m.at.end <= now && !known.has(`${m.date}|${m.kind}`)
@@ -645,7 +656,7 @@ export function withMealLog(data: AppData, now: number): AppData {
   );
   const oldest = addDays(today, -MEAL_LOG_DAYS);
   const kept = log.filter((l) => l.date >= oldest);
-  if (added.length === 0 && kept.length === log.length) return data;
+  if (added.length === 0 && kept.length === (data.mealLog ?? []).length) return data;
   return { ...data, mealLog: [...kept, ...added] };
 }
 

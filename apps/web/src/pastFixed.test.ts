@@ -88,6 +88,22 @@ describe("the meals of the past are not worked out again (SPEC §5)", () => {
     expect(again.mealLog?.find((l) => l.date === DAY && l.kind === "almuerzo")).toEqual(lunch);
   });
 
+  it("a wake-up set later than a logged breakfast says it never happened", () => {
+    const now = at(DAY, "09:00");
+    const logged = withMealLog(base(now), now);
+    expect(logged.mealLog?.some((l) => l.date === DAY && l.kind === "desayuno")).toBe(true);
+    const late = {
+      ...logged,
+      overrides: [{ date: DAY, wake: 11 * 60, bed: 23 * 60 }],
+    };
+    const breakfast = mealTimes(late, now, at(DAY, "00:00"), at(addDays(DAY, 1), "00:00")).find(
+      (m) => m.kind === "desayuno",
+    );
+    expect(breakfast?.at?.start ?? Number.POSITIVE_INFINITY).toBeGreaterThanOrEqual(
+      at(DAY, "11:00"),
+    );
+  });
+
   it("forgets entries older than the keeping time", () => {
     const old = { date: "2026-08-01", kind: "cena" as const, start: 1, end: 2 };
     const d = withMealLog(base(AFTER_LUNCH, { mealLog: [old] }), AFTER_LUNCH);
