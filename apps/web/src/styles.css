@@ -114,8 +114,14 @@ body {
   overscroll-behavior: none;
 }
 
-html {
+html,
+body {
+  /* No pinch zoom, ever (SPEC §10). Only vertical panning: the week's sideways swipe and the
+     block drag are made by hand with touch events and need the browser to stay out of them. */
   touch-action: pan-y;
+}
+
+html {
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -147,8 +153,8 @@ input,
 select,
 textarea {
   font: inherit;
-  /* iOS zooms into any field under 16px. */
-  font-size: var(--text-l);
+  /* iOS zooms into any field under 16px, and with a small system text size 1rem is less. */
+  font-size: max(16px, var(--text-l));
   color: var(--ink);
   background: var(--bg);
   border: 1px solid var(--line);
@@ -761,6 +767,25 @@ textarea {
   min-width: 0;
 }
 
+.mode-set {
+  margin-bottom: var(--space-4);
+}
+
+.mode-set legend {
+  padding: 0;
+  margin-bottom: var(--space-2);
+}
+
+.mode-set > .meta {
+  display: block;
+  margin: 0;
+}
+
+.unsaved-note {
+  min-height: 1.2em;
+  margin: var(--space-3) 0;
+}
+
 .bubble-trip-head .day-chips {
   margin: 4px 0 6px;
 }
@@ -973,6 +998,12 @@ textarea {
 /* Fields of different label lengths: the inputs line up at the bottom. */
 .row.fields {
   align-items: flex-end;
+}
+
+/* Labels and fields start on one line; the help under a field hangs below without moving
+   its neighbours. */
+.row.fields.top {
+  align-items: flex-start;
 }
 
 .btn.primary {
@@ -1651,6 +1682,12 @@ input[type="radio"]:disabled {
   font: inherit;
   font-size: max(16px, var(--text-l));
   outline: none;
+}
+
+/* One ring, the container's: the global input ring would draw a second one inside it. */
+.settings-search input:focus-visible {
+  outline: none;
+  box-shadow: none;
 }
 
 .settings-search:focus-within {
@@ -2628,6 +2665,14 @@ label.check {
 
 .roy-line + * {
   margin-top: var(--space-3);
+}
+
+/* The same box for Roy in every card of a list (RoyLine `uniform`), so the text lines up. */
+.roy-slot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .roy-line .meta {
