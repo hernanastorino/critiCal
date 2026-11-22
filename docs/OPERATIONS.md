@@ -12,7 +12,7 @@ En la Mac: Safari → Archivo → **Agregar al Dock**.
 
 |            | Web                                   | Base                             | Deploy                            |
 | ---------- | ------------------------------------- | -------------------------------- | --------------------------------- |
-| Local      | `npm run dev` (http://localhost:5173) | `supabase start` (puertos 553xx) | —                                 |
+| Local      | `bun run dev` (http://localhost:5173) | `supabase start` (puertos 553xx) | —                                 |
 | Preview PR | preview de Vercel (protegida)         | `critical-staging`               | cada push a un PR (sin migrar)    |
 | Staging    | preview de Vercel (protegida)         | `critical-staging`               | cada merge a `main`               |
 | Producción | https://critical-cal.vercel.app       | `critical-prod`                  | automático si staging + E2E pasan |
@@ -52,7 +52,7 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 ## Notificaciones y offline
 
 - Push: Ajustes → Notificaciones → «Activar en este dispositivo» (en el iPhone, solo con la app instalada). Se elige qué avisar: bloques críticos (N min antes), cambios propuestos para hoy y el recordatorio del domingo. Las manda el cron cada 5 min; cada aviso sale una sola vez (`private.push_log`).
-- Claves VAPID nuevas: `npx web-push generate-vapid-keys` (cambiarlas obliga a reactivar en cada dispositivo).
+- Claves VAPID nuevas: `bunx web-push generate-vapid-keys` (cambiarlas obliga a reactivar en cada dispositivo).
 - Offline: el estado vive en IndexedDB. Sin conexión se puede seguir usando; el punto de estado queda hueco y los cambios se escriben solos al volver la conexión. Salir de la cuenta borra la copia local.
 - Errores: con `VITE_SENTRY_DSN` cargado, la app y las funciones reportan errores (sin datos personales ni contenido del calendario). Desde el 2026-11-18 el DSN es el de Better Stack (Errors → aplicación «critiCal», pestaña Ingest), que acepta el SDK de Sentry; la variable conserva su nombre. Los reportes de la CSP llegan ahí como errores `CSP: <directiva> blocked <dirección>`.
 

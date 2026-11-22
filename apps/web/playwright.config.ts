@@ -24,5 +24,5 @@ export default defineConfig({
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
-    : { command: "npm run preview", url: baseURL, reuseExistingServer: !process.env.CI },
+    : { command: "bun run preview", url: baseURL, reuseExistingServer: !process.env.CI },
 });
