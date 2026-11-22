@@ -1,5 +1,6 @@
 import type { Activity } from "../engine.js";
 import type { AppData, AppTask, Proposal } from "../model.js";
+import { MEAL_OVER_STUDY } from "../planning.js";
 import { leftAfterUndo, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { useToast } from "./Toast.js";
 
@@ -90,7 +91,11 @@ export function useInboxAnswers(onBack: (key: string) => void) {
       });
     },
     reject: (p: Proposal) => {
-      answer("Todo sigue como estaba", { type: "rejectProposal", id: p.id }, PROPOSAL_KEYS, {
+      // Study never goes on top of a meal (§5.1): leaving a meal where it is takes that block out.
+      const said = p.message.startsWith(MEAL_OVER_STUDY)
+        ? "La comida queda; saqué el bloque que tenía encima"
+        : "Todo sigue como estaba";
+      answer(said, { type: "rejectProposal", id: p.id }, PROPOSAL_KEYS, {
         key: p.id,
       });
     },

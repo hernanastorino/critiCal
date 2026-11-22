@@ -537,6 +537,9 @@ function withMealEvents<E extends CalendarEvent>(events: E[]): E[] {
   });
 }
 
+/** How the question about a meal put on top of study begins (the Bandeja words its «no» by it). */
+export const MEAL_OVER_STUDY = "Una comida quedó encima de";
+
 /** The events the planner reads: visible ones, with their places and meals. */
 const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visibleEvents(data)));
 
@@ -792,7 +795,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       message: conflicts.some(clashes)
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
         : conflicts.some(eats)
-          ? `Una comida quedó encima de ${names.join(", ")}. ¿Reacomodo el día?`
+          ? `${MEAL_OVER_STUDY} ${names.join(", ")}. ¿Reacomodo el día?`
           : conflicts.some(tooEarly)
             ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
             : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,
