@@ -73,6 +73,17 @@ describe("Ajustes as a grouped list", () => {
     expect(document.activeElement).toBe(add);
   });
 
+  // 24.ª vuelta: a home without an address hid «Falta tu casa» though no trip can start there.
+  it("asks for the address of a home that has none", () => {
+    renderDemo((now) => ({
+      ...demoData(now),
+      places: [{ id: "casa", name: "Casa de la abuela Marta", aliases: [], isHome: true }],
+    }));
+    const notices = screen.getByRole("region", { name: "Avisos" });
+    expect(within(notices).getByText("Tu casa no tiene dirección")).toBeTruthy();
+    expect(within(notices).getByRole("button", { name: "Agregar dirección" })).toBeTruthy();
+  });
+
   it("keeps the account's own actions in the Cuenta group", () => {
     const onReset = vi.fn();
     const onSignOut = vi.fn();

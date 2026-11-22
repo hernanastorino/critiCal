@@ -54,6 +54,9 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
         </button>
         <h2 tabIndex={-1}>Planificación semanal</h2>
         <p className="meta">
+          {/* It is always next week: say which, the screen behind shows this one. */}
+          Semana del {dayDate(tz, zonedInstant(tz, dates[0] as string, 720))} al{" "}
+          {dayDate(tz, zonedInstant(tz, dates[6] as string, 720))} ·{" "}
           {hours(days.reduce((s, d) => s + d.minutes, 0))} planificadas · {critical.length} bloques
           críticos
         </p>

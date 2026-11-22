@@ -66,7 +66,13 @@ export function Silos() {
     const total = shownTotal(p);
     const ratio = total > 0 ? Math.min(1, p.remainingMinutes / total) : 0;
     const level = levels.get(p.task.id) ?? "ok";
-    const due = p.task.kind === "habit" ? "esta semana" : dueDate(tz, p.deadline, now);
+    // Once next week is planned, a routine's silo counts that one.
+    const due =
+      p.task.kind === "habit"
+        ? focusWeekAt(data, now) === now
+          ? "esta semana"
+          : "la semana próxima"
+        : dueDate(tz, p.deadline, now);
     const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
     return (
       <button
