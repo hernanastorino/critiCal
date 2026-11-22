@@ -2,6 +2,7 @@
   "name": "critical",
   "private": true,
   "type": "module",
+  "packageManager": "bun@1.4.5",
   "engines": {
     "node": ">=24"
   },
@@ -10,14 +11,16 @@
     "apps/*"
   ],
   "scripts": {
-    "dev": "npm run dev -w @critical/web",
-    "build": "npm run build -w @critical/web",
+    "dev": "bun run --cwd apps/web dev",
+    "build": "bun run --cwd apps/web build",
     "check": "biome check .",
     "format": "biome check --write .",
     "typecheck": "tsc -b",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "e2e": "npm run e2e -w @critical/web"
+    "e2e": "bun run --cwd apps/web e2e",
+    "bench": "bun packages/engine/bench/schedule.bench.ts",
+    "bench:node": "bun build packages/engine/bench/schedule.bench.ts --target=node --outfile=node_modules/.cache/schedule.bench.mjs && node node_modules/.cache/schedule.bench.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.7",
