@@ -71,6 +71,7 @@ import {
 import { refresh } from "./refresh.js";
 import {
   aliasFrom,
+  fitRoutine,
   isNoSubject,
   markLegacyStudy,
   newClassTitles,
@@ -172,7 +173,16 @@ export type Action =
   | { type: "eventTravelMinutes"; eventId: string; minutes: number | null; now: number }
   /** How to get to one event just that once; null goes back to the place's own mode. */
   | { type: "tripMode"; eventId: string; mode: TravelMode | null; now: number }
-  | { type: "tripMinutes"; eventId: string; minutes: number | null; start?: number; now: number }
+  | {
+      type: "tripMinutes";
+      eventId: string;
+      /** Null forgets both ways. */
+      minutes: number | null;
+      /** Which way `minutes` is: there (home → event, the default) or back (event → home). */
+      way?: "there" | "back";
+      start?: number;
+      now: number;
+    }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
   /**
@@ -1128,6 +1138,11 @@ function apply(data: AppData, action: Action): AppData {
               ? { ...a, kind: action.as, academic: action.as === "materia" }
               : a,
           ),
+          // A routine's habit has smaller limits than a materia's weekly study.
+          tasks:
+            action.as === "rutina"
+              ? data.tasks.map((t) => (t.activityId === action.activityId ? fitRoutine(t) : t))
+              : data.tasks,
         },
         now,
       );
@@ -1427,8 +1442,14 @@ function apply(data: AppData, action: Action): AppData {
       else {
         const minutes = Math.min(1440, Math.round(action.minutes));
         const was = tripMinutes[action.eventId];
-        if (was?.minutes === minutes && was.start === event.start) return data;
-        tripMinutes[action.eventId] = { minutes, start: event.start };
+        const fresh = was?.start === event.start ? was : undefined;
+        // The way home answered first: the way there is taken to be as long until it answers.
+        const next =
+          action.way === "back"
+            ? { minutes: fresh?.minutes ?? minutes, start: event.start, back: minutes }
+            : { ...fresh, minutes, start: event.start };
+        if (JSON.stringify(was) === JSON.stringify(next)) return data;
+        tripMinutes[action.eventId] = next;
       }
       return refresh(
         { ...data, tripMinutes: Object.keys(tripMinutes).length ? tripMinutes : undefined },

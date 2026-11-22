@@ -14,6 +14,7 @@ import {
 } from "../places.js";
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
+import { BusRoutesList } from "./BusRoutesList.js";
 import { Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
@@ -312,6 +313,8 @@ export function Places() {
           )}
         </details>
       )}
+
+      <BusRoutesList places={places} />
     </Section>
   );
 }

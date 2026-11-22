@@ -21,6 +21,20 @@ function violation(raw: unknown): Violation {
   return { directive: body.effectiveDirective, blocked: body.blockedURL };
 }
 
+/**
+ * The endpoint is public: what it files is whatever a stranger sent, so only the shapes a browser
+ * really sends get through («connect-src», «https://x.test/a?b»); anything else is «?».
+ */
+const DIRECTIVE = /^[a-z][a-z0-9-]{0,40}$/;
+const directive = (x: unknown) => (typeof x === "string" && DIRECTIVE.test(x) ? x : "?");
+/** A blocked address or keyword («inline», «eval», «data», a URL): no spaces or control characters. */
+const BLOCKED = /^[^\s\p{C}]{1,200}$/u;
+const blocked = (x: unknown) => {
+  if (typeof x !== "string") return "?";
+  const first = x.slice(0, 200);
+  return BLOCKED.test(first) ? first : "?";
+};
+
 /** One line for the error tracker: «CSP: connect-src blocked https://x.test». */
 export function summary(body: string): string {
   let v: Violation = {};
@@ -29,8 +43,7 @@ export function summary(body: string): string {
   } catch {
     // Not JSON: still worth one generic line.
   }
-  const text = (x: unknown) => (typeof x === "string" && x ? x.slice(0, 200) : "?");
-  return `CSP: ${text(v.directive)} blocked ${text(v.blocked)}`;
+  return `CSP: ${directive(v.directive)} blocked ${blocked(v.blocked)}`;
 }
 
 export function POST(req: Request): Promise<Response> {
@@ -47,11 +60,26 @@ function clientIp(req: Request): string {
   return first ? first : "unknown";
 }
 
-/** Reads the body unless its own header already says it is too big. */
+/**
+ * Reads the body unless it is too big: by its own header when it has one and, since a chunked
+ * request has none, by counting what comes in (it stops reading at the limit).
+ */
 async function readBody(req: Request): Promise<string> {
   if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY) return "";
-  const body = await req.text();
-  return body.length > MAX_BODY ? "" : body;
+  const reader = req.body?.getReader();
+  if (!reader) return "";
+  const decoder = new TextDecoder();
+  let text = "";
+  let size = 0;
+  for (let part = await reader.read(); !part.done; part = await reader.read()) {
+    size += part.value.byteLength;
+    if (size > MAX_BODY) {
+      await reader.cancel();
+      return "";
+    }
+    text += decoder.decode(part.value, { stream: true });
+  }
+  return text + decoder.decode();
 }
 
 export async function handle(req: Request, env: Env): Promise<Response> {

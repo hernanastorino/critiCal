@@ -186,10 +186,15 @@ export const goesByBus = (data: AppData, e: AppEvent): boolean => {
  * figure `/api/transit` gave for the event's current start. Undefined when the trip is by
  * car or no figure was saved yet, and the plan then keeps the driving minutes.
  */
-export function busMinutes(data: AppData, e: AppEvent): number | undefined {
+export function busMinutes(
+  data: AppData,
+  e: AppEvent,
+  leg: "there" | "back" = "there",
+): number | undefined {
   const saved = data.tripMinutes?.[e.id];
   if (!saved || saved.start !== e.start || !goesByBus(data, e)) return undefined;
-  return saved.minutes;
+  // Without a way home of its own, it is as long as the way there.
+  return leg === "back" ? (saved.back ?? saved.minutes) : saved.minutes;
 }
 
 /** Upcoming events going by bus that have no usable bus figure: the plan drives for them. */
@@ -205,9 +210,9 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
   const places = data.places ?? [];
   const byId = new Map(data.events.map((e) => [e.id, e]));
   return {
-    tripMinutes: (event) => {
+    tripMinutes: (event, leg) => {
       const own = byId.get(event.id);
-      return own && own.start === event.start ? busMinutes(data, own) : undefined;
+      return own && own.start === event.start ? busMinutes(data, own, leg) : undefined;
     },
     home: start.id,
     resolvePlace: (location) =>

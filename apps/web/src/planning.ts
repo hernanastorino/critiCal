@@ -146,18 +146,21 @@ export function withHandMarks(data: AppData): AppData {
  * they are read as marked by hand, the way a part with no field is. Returns `data` itself
  * when there is nothing to say.
  */
-export function withOrphanMarks(data: AppData): AppData {
+export function withOrphanMarks(data: AppData, around: AppData = data): AppData {
   const declared = declaredBy(data);
+  // `around`: the same data with records made after the file, which also declare parts.
+  const declaredAround = declaredBy(around);
   let moved = false;
-  const orphan = (u: Unit, mine?: Map<string, number>) =>
-    u.doneAt !== undefined && u.doneByHand === false && !mine?.has(u.id);
+  const orphan = (u: Unit, mine?: Map<string, number>, near?: Map<string, number>) =>
+    u.doneAt !== undefined && u.doneByHand === false && !mine?.has(u.id) && !near?.has(u.id);
   const tasks = data.tasks.map((t) => {
     const mine = declared.get(t.id);
-    if (!t.units.some((u) => orphan(u, mine))) return t;
+    const near = declaredAround.get(t.id);
+    if (!t.units.some((u) => orphan(u, mine, near))) return t;
     moved = true;
     return {
       ...t,
-      units: t.units.map((u) => (orphan(u, mine) ? { ...u, doneByHand: true } : u)),
+      units: t.units.map((u) => (orphan(u, mine, near) ? { ...u, doneByHand: true } : u)),
     };
   });
   return moved ? { ...data, tasks } : data;
@@ -537,6 +540,9 @@ function withMealEvents<E extends CalendarEvent>(events: E[]): E[] {
   });
 }
 
+/** How the question about a meal put on top of study begins (the Bandeja words its «no» by it). */
+export const MEAL_OVER_STUDY = "Una comida quedó encima de";
+
 /** The events the planner reads: visible ones, with their places and meals. */
 const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visibleEvents(data)));
 
@@ -792,7 +798,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       message: conflicts.some(clashes)
         ? `Un evento nuevo pisa ${names.join(", ")}. ¿Reacomodo el día?`
         : conflicts.some(eats)
-          ? `Una comida quedó encima de ${names.join(", ")}. ¿Reacomodo el día?`
+          ? `${MEAL_OVER_STUDY} ${names.join(", ")}. ¿Reacomodo el día?`
           : conflicts.some(tooEarly)
             ? `${names.join(", ")} todavía no se puede empezar. ¿Reacomodo el día?`
             : `Hoy quedó reservado para un parcial y tiene ${names.join(", ")}. ¿Reacomodo el día?`,

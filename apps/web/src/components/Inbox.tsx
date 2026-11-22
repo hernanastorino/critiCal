@@ -238,7 +238,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
         {classes.length > 0 && <div className="section-title">Clases nuevas en tu calendario</div>}
         {classes.map((c) => (
-          <div key={c.key} className="card">
+          <div key={c.key} className="card" data-block-id={c.key}>
             <div className="title">{c.title}</div>
             <p className="meta">
               {dayAndTime(tz, c.event.start)} · ¿es una materia o un evento suelto (una charla, un
@@ -293,7 +293,12 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
         {unsorted.length > 0 && <div className="section-title">Ordenar tus actividades</div>}
         {unsorted.map((a) => (
-          <div key={a.id} className="card" style={{ ["--c" as string]: a.color }}>
+          <div
+            key={a.id}
+            className="card"
+            data-block-id={a.id}
+            style={{ ["--c" as string]: a.color }}
+          >
             <div className="title">{a.name}</div>
             <p className="meta">
               ¿Es una materia, una rutina (como el gimnasio) o parte de otra materia (una de sus
@@ -324,6 +329,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
           <div
             key={t.id}
             className="card"
+            data-block-id={t.id}
             style={{ ["--c" as string]: data.activities.find((a) => a.id === t.activityId)?.color }}
           >
             <div className="title">{t.title}</div>
@@ -352,7 +358,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
 
         {data.proposals.length > 0 && <div className="section-title">Cambios para hoy</div>}
         {data.proposals.map((p) => (
-          <div key={p.id} className="card">
+          <div key={p.id} className="card" data-block-id={p.id}>
             <div className="title">{p.message}</div>
             <ProposalToday
               text={p.plan

@@ -83,4 +83,42 @@ describe("csp-report", () => {
     await handle(req("x".repeat(MAX_BODY + 1)), { sentryDsn: dsn });
     expect(fetched).not.toHaveBeenCalled();
   });
+
+  it("no archiva texto ajeno: la directiva y la dirección tienen que verse como las de un navegador", () => {
+    const evil = JSON.stringify({
+      "csp-report": {
+        "violated-directive": "connect-src\nFATAL: llamá al 099",
+        "blocked-uri": "https://x.test\nOtra línea con espacios",
+      },
+    });
+    expect(summary(evil)).toBe("CSP: ? blocked ?");
+    expect(summary('{"csp-report":{"violated-directive":"img-src","blocked-uri":"inline"}}')).toBe(
+      "CSP: img-src blocked inline",
+    );
+  });
+
+  it("un cuerpo por partes (sin content-length) se corta al pasar el límite", async () => {
+    const fetched = vi.fn(() => Promise.resolve(new Response("{}")));
+    vi.stubGlobal("fetch", fetched);
+    byIp.reset();
+    let sent = 0;
+    const chunk = new TextEncoder().encode("x".repeat(4096));
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        sent += chunk.byteLength;
+        controller.enqueue(chunk);
+        // A body that never ends: only the limit stops the reading.
+        if (sent > MAX_BODY * 100) controller.close();
+      },
+    });
+    const chunked = new Request("https://x.test/api/csp-report", {
+      method: "POST",
+      headers: { "content-type": "application/csp-report" },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    expect((await handle(chunked, { sentryDsn: dsn })).status).toBe(204);
+    expect(fetched).not.toHaveBeenCalled();
+    expect(sent).toBeLessThan(MAX_BODY * 3);
+  });
 });

@@ -174,6 +174,17 @@ export function Connected({
     };
   }, []);
   const pushTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  /** Shows what the database holds, unless this device changed something in the meantime. */
+  const restoreFromServer = useCallback(async () => {
+    const before = changes.current;
+    const fresh = owned(await loadData(client));
+    if (changes.current !== before || !stored.current || !latest.current) return;
+    if (!nothing(diffData(stored.current, latest.current))) return;
+    stored.current = fresh;
+    latest.current = fresh;
+    replace.current?.(fresh);
+    if (alive.current) void writeLocal(uid, { data: fresh, stored: fresh });
+  }, [client, uid, owned]);
   /** Writes what is pending; true once the database has everything this device has. */
   const flush = useCallback(
     (quiet = false): Promise<boolean> => {
@@ -229,6 +240,13 @@ export function Connected({
             if (alive.current)
               void writeLocal(uid, { data: latest.current ?? target, stored: target });
           }
+          // What the database refused goes back to how it was on screen (SPEC §14): everything
+          // it took is saved, so its copy is exactly what this device should show. An edit
+          // made while reading it is kept, and the next sync brings the rest back.
+          if (rejected > 0)
+            await restoreFromServer().catch(() => {
+              // The network failed: the next sync shows the database's copy.
+            });
           setStatus((s) => (s.pending || s.offline ? { ...s, pending: false, offline: false } : s));
           hold("unsaved", false);
           if (rejected > 0) setStatus((s) => ({ ...s, rejected: (s.rejected ?? 0) + rejected }));
@@ -253,7 +271,7 @@ export function Connected({
       flushing.current = saving(run());
       return flushing.current;
     },
-    [client, session, uid, owned],
+    [client, session, uid, owned, restoreFromServer],
   );
 
   const onChange = useCallback(
@@ -358,9 +376,10 @@ function SaveRefused({ refused, onDismiss }: { refused?: number; onDismiss: () =
     <div className="notices">
       <div className="notice error" role="alert">
         <p>
-          No se pudo guardar {refused === 1 ? "un cambio" : `${refused} cambios`}: tienen datos que
-          la base no acepta. Lo demás sí se guardó. Ya avisamos del error; al recargar la app vas a
-          ver lo que quedó guardado.
+          No se pudo guardar{" "}
+          {refused === 1 ? "un cambio: tiene datos que" : `${refused} cambios: tienen datos que`} la
+          base no acepta, así que volvió a como estaba. Lo demás sí se guardó. Ya avisamos del
+          error.
         </p>
         <button type="button" className="btn small" onClick={onDismiss}>
           Entendido

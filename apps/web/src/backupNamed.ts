@@ -402,6 +402,7 @@ const travelMinutesTests: Test[] = [
 const tripMinutesTests: Test[] = [
   ["minutes", int(0, 1440)],
   ["start", instant],
+  ["back", opt(int(0, 1440))],
 ];
 
 /** How an optional top-level key is read: a list or an object of entries, or one value. */
