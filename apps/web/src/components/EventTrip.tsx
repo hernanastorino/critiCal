@@ -1,7 +1,7 @@
 // How to get to an event: car or bus (SPEC §15). For that event only; the default of
 // each place is set in «Lugares». With the bus, the line, the stop and the time it passes,
 // there and back, and the regular route kept for each way.
-import { useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import {
   deleteRoute,
   findRoute,
@@ -28,13 +28,7 @@ import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
 import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
-import {
-  hhmm,
-  type PlanOk,
-  type PlanResponse,
-  type StaleReason,
-  type TransitOption,
-} from "../transit.js";
+import { hhmm, type PlanResponse, type StaleReason, type TransitOption } from "../transit.js";
 import { useBusRoutes } from "../useBusRoutes.js";
 
 const MODES: { mode: TravelMode; label: string }[] = [
@@ -219,34 +213,37 @@ function BusWay({
   const title = way === "there" ? "Ida" : "Vuelta";
   return (
     <section className="bus-way" aria-label={title}>
-      <h4>{title}</h4>
       <BusPlan
+        title={title}
         signedIn={signedIn}
         missing={unlocatedEnd(trip)}
         answer={answer}
         waiting={!!request && !answer}
         home={trip.from.name}
         place={trip.place.name}
-      />
-      {saved && <p className="meta">Ruta habitual guardada: se usa sin consultar los horarios.</p>}
-      {route && stale && (
-        <p className="meta">{staleNote(stale)} Esto es lo que dan los horarios de hoy.</p>
-      )}
-      {best && !saved && slot && (
-        <button type="button" className="btn small" onClick={() => void keep()}>
-          {route ? "Actualizar ruta habitual" : "Guardar como ruta habitual"}
-        </button>
-      )}
-      {saved && (
-        <button type="button" className="btn small" onClick={() => void drop()}>
-          Borrar ruta habitual
-        </button>
-      )}
-      {problem && (
-        <p className="meta" role="alert">
-          {problem}
-        </p>
-      )}
+      >
+        {saved && (
+          <p className="meta">Ruta habitual guardada: se usa sin consultar los horarios.</p>
+        )}
+        {route && stale && (
+          <p className="meta">{staleNote(stale)} Esto es lo que dan los horarios de hoy.</p>
+        )}
+        {best && !saved && slot && (
+          <button type="button" className="btn small" onClick={() => void keep()}>
+            {route ? "Actualizar ruta habitual" : "Guardar como ruta habitual"}
+          </button>
+        )}
+        {saved && (
+          <button type="button" className="btn small" onClick={() => void drop()}>
+            Borrar ruta habitual
+          </button>
+        )}
+        {problem && (
+          <p className="meta" role="alert">
+            {problem}
+          </p>
+        )}
+      </BusPlan>
     </section>
   );
 }
@@ -275,31 +272,46 @@ function missingNote(missing: "from" | "to" | "area", home: string, place: strin
   return `Falta ubicar ${missing === "from" ? home : place}: guardá su dirección en Lugares.`;
 }
 
+/**
+ * One way as a single line («Ida · salís 11:35 · 701 → 710»); touching it opens the detail
+ * (stops, transfers, walks, arrival) and `children`, the regular-route controls. The data
+ * attribution lives in Ajustes → Acerca de, not here.
+ */
 export function BusPlan({
+  title = "",
   signedIn,
   missing,
   answer,
   waiting,
   home,
   place,
+  children,
 }: {
+  title?: string;
   signedIn: boolean;
   missing: ReturnType<typeof unlocatedEnd>;
   answer: PlanResponse | null;
   waiting: boolean;
   home: string;
   place: string;
+  children?: ReactNode;
 }) {
   const note = noPlanNote({ signedIn, missing, answer, waiting, home, place });
-  if (note) return <p className="meta">{note}</p>;
+  if (note) {
+    return (
+      <>
+        {title && <h4>{title}</h4>}
+        <p className="meta">{note}</p>
+      </>
+    );
+  }
   if (!answer?.ok) return null;
   // The best option is the first: the note above already covered there being none.
-  return <>{answer.options.slice(0, 1).map((best) => bestOption(best, answer))}</>;
-}
-
-function bestOption(best: TransitOption, answer: PlanOk) {
+  const best = answer.options[0];
+  if (!best) return null;
   return (
-    <div className="bus-plan" key="best">
+    <details className="bus-plan bus-leg">
+      <summary>{legLine(title, best)}</summary>
       <p>
         <strong>{summaryOf(best)}</strong>
         {best.transfers > 0 &&
@@ -318,10 +330,15 @@ function bestOption(best: TransitOption, answer: PlanOk) {
       {answer.raised && (
         <p className="meta">Con un solo ómnibus no llegás: este lleva dos transbordos.</p>
       )}
-      <p className="meta">
-        {best.theoretical ? "Horario teórico, sin tiempo real. " : ""}
-        {answer.attribution}
-      </p>
-    </div>
+      {children}
+    </details>
   );
+}
+
+/** «Ida · salís 11:35 · 701 → 710»: the lines in the order they are taken. */
+export function legLine(title: string, option: TransitOption): string {
+  const lines = option.legs.flatMap((l) => (l.kind === "walk" ? [] : [l.line]));
+  return [title, `salís ${hhmm(option.leaveMin)}`, lines.length ? lines.join(" → ") : "a pie"]
+    .filter(Boolean)
+    .join(" · ");
 }

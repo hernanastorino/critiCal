@@ -108,6 +108,7 @@ describe("Inicio de cuatrimestre", () => {
 describe("Rutinas", () => {
   it("explains 99 times a week and focuses the field", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const times = screen.getByLabelText("Veces/sem.");
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Nadar" } });
     fireEvent.change(times, { target: { value: "99" } });
@@ -118,12 +119,13 @@ describe("Rutinas", () => {
     expect(screen.queryByText("Nadar, 99 por semana de 60 min")).toBeNull();
   });
 
-  it("after adding a rutina the focus goes back to its name field", () => {
+  it("after adding a rutina the focus goes back to «Crear rutina nueva»", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const name = screen.getByPlaceholderText("Gimnasio");
     fireEvent.change(name, { target: { value: "Nadar" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
-    expect(document.activeElement).toBe(name);
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Crear rutina nueva" }));
   });
 });
 

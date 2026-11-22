@@ -19,13 +19,16 @@ function Spy() {
 }
 
 describe("Rutinas", () => {
-  const renderRoutines = () =>
-    render(
+  const renderRoutines = () => {
+    const view = render(
       <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
         <Spy />
         <Routines />
       </StoreProvider>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
+    return view;
+  };
 
   it("says every wrong field at once, not one by one", () => {
     renderRoutines();

@@ -79,6 +79,7 @@ describe("zoom", () => {
 describe("nombre repetido: el campo lo dice", () => {
   it("Rutinas marks the field and points it at the message", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const taken = latest?.activities.find((a) => a.kind === "rutina")?.name ?? "";
     fireEvent.change(screen.getByLabelText("Rutina"), { target: { value: taken } });
     const field = screen.getByLabelText("Rutina");

@@ -23,13 +23,16 @@ function Spy() {
   return null;
 }
 
-const renderRoutines = () =>
-  render(
+const renderRoutines = () => {
+  const view = render(
     <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
       <Spy />
       <Routines />
     </StoreProvider>,
   );
+  fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
+  return view;
+};
 const type = (label: string, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 const added = () => latest?.activities.find((a) => a.name === "Correr");

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
@@ -12,6 +12,7 @@ import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
 import { detectedProblem, detectedToReset } from "../taskForm.js";
 import { clockText, weekMinutesProblem } from "../weekForm.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import {
   clampMinutes,
   describedBy,
@@ -665,6 +666,11 @@ export function Routines() {
     hours: emptyHoursForm(),
   }));
   const { name, times, minutes, hours } = draft;
+  // The list of routines and the form of a new one are two views of the same sheet; a draft
+  // waiting from before (a reload) opens straight on the form.
+  const [creating, setCreating] = useState(dirty);
+  const [leaving, setLeaving] = useState(false);
+  const createButton = useRef<HTMLButtonElement>(null);
   const setName = (v: string) => setDraft({ ...draft, name: v });
   const setTimes = (v: string) => setDraft({ ...draft, times: v });
   const setMinutes = (v: string) => setDraft({ ...draft, minutes: v });
@@ -712,16 +718,26 @@ export function Routines() {
     });
     // Back to the defaults: the next routine does not inherit this one's figures.
     drafted({ name: "", times: "3", minutes: "60", hours: emptyHoursForm() });
-    // The button goes grey with the name cleared: the keyboard goes back to the name.
-    nameField.current?.focus();
+    // Back to the list, where the new routine now is.
+    setCreating(false);
+  };
+  // Back on the list (saved or left), the keyboard lands on the button that opened the form.
+  const wasCreating = useRef(creating);
+  useEffect(() => {
+    if (wasCreating.current && !creating) createButton.current?.focus();
+    wasCreating.current = creating;
+  }, [creating]);
+  const leave = () => {
+    if (dirty) setLeaving(true);
+    else setCreating(false);
   };
   const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     e.preventDefault();
     add(e.currentTarget.closest(".fields")?.parentElement ?? null);
   };
-  return (
-    <Section>
+  const list = (
+    <>
       <p className="meta">
         Cosas como el gimnasio: sin parciales ni entregas, el plan les busca lugar las veces que
         digas por semana.
@@ -750,20 +766,23 @@ export function Routines() {
           </button>
         );
       })}
-      {detail && (
-        <TaskDetail
-          task={detail}
-          onClose={() => setDetail(null)}
-          onGone={() => nameField.current?.focus()}
-          onEdit={() => {
-            setEditing(detail);
-            setDetail(null);
-          }}
-        />
-      )}
-      {editing && (
-        <TaskEditor origin="preferences" task={editing} onClose={() => setEditing(null)} />
-      )}
+      <button
+        ref={createButton}
+        type="button"
+        className="btn"
+        style={{ width: "100%" }}
+        onClick={() => setCreating(true)}
+      >
+        Crear rutina nueva
+      </button>
+    </>
+  );
+  const form = (
+    <>
+      <button type="button" className="settings-back" onClick={leave}>
+        ‹ Rutinas
+      </button>
+      <h3>Rutina nueva</h3>
       <div className="row fields top wrap-big">
         <label className="field name-wide" style={{ flex: 2 }}>
           <span>Rutina</span>
@@ -848,6 +867,35 @@ export function Routines() {
         id="routine-name-error"
         text={repeated && name.trim() ? "Ya hay una materia o rutina con ese nombre." : null}
       />
+    </>
+  );
+  return (
+    <Section>
+      {creating ? form : list}
+      {detail && (
+        <TaskDetail
+          task={detail}
+          onClose={() => setDetail(null)}
+          onGone={() => createButton.current?.focus()}
+          onEdit={() => {
+            setEditing(detail);
+            setDetail(null);
+          }}
+        />
+      )}
+      {editing && (
+        <TaskEditor origin="preferences" task={editing} onClose={() => setEditing(null)} />
+      )}
+      {leaving && (
+        <ConfirmDiscard
+          onKeep={() => setLeaving(false)}
+          onDiscard={() => {
+            drafted({ name: "", times: "3", minutes: "60", hours: emptyHoursForm() });
+            setLeaving(false);
+            setCreating(false);
+          }}
+        />
+      )}
     </Section>
   );
 }

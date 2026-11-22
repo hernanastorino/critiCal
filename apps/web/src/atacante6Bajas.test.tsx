@@ -137,6 +137,7 @@ describe("fechas del cuatrimestre", () => {
 describe("Rutinas", () => {
   it("says a repeated name as an alert", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const taken = (latest as AppData).activities.find((a) => a.kind === "rutina")?.name ?? "";
     set("Rutina", taken);
     expect(screen.getByRole("alert").textContent).toMatch(/Ya hay una materia o rutina/);
