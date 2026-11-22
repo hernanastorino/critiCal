@@ -20,12 +20,14 @@ export interface Toast {
   roy?: RoyAnim;
   /** «alert»: a refusal or an error, drawn in red. Anything else is neutral. */
   tone?: "alert";
+  /** The message with its names whole: the notice shows them cut, this is its `title`. */
+  full?: string;
 }
 
 interface ToastApi {
   show: (
     message: string,
-    opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim; tone?: "alert" },
+    opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim; tone?: "alert"; full?: string },
   ) => void;
   /** Takes the notice away, only if it is still the one tagged `tag` when given. */
   clear: (tag?: unknown) => void;
@@ -155,7 +157,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             onBlur={() => release(focus)}
           >
             {current.roy && <Roy anim={current.roy} size={56} maxWidth={72} once />}
-            <span>{current.message}</span>
+            <span className="snack-text" title={current.full}>
+              {current.message}
+            </span>
             {current.undo && (
               <button type="button" className="btn small snack-btn" onClick={() => undo(current)}>
                 Deshacer

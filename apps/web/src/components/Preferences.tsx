@@ -759,8 +759,8 @@ export function Routines() {
         />
       )}
       {editing && <TaskEditor task={editing} onClose={() => setEditing(null)} />}
-      <div className="row fields">
-        <label className="field" style={{ flex: 2 }}>
+      <div className="row fields wrap-big">
+        <label className="field name-wide" style={{ flex: 2 }}>
           <span>Rutina</span>
           <input
             ref={nameField}

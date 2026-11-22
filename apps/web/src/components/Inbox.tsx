@@ -11,6 +11,7 @@ import {
   type PlanBlock,
 } from "../engine.js";
 import {
+  clipName,
   dayAndTime,
   dayDate,
   hhmmToMinutes,
@@ -556,7 +557,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
               aria-label={`Deshacer: ${d.label}`}
               onClick={() => {
                 dispatch({ type: "undoDecision", id: d.id });
-                toast.show(`Deshecho: ${d.label}`);
+                toast.show(`Deshecho: ${clipName(d.label, 60)}`);
               }}
             >
               Deshacer

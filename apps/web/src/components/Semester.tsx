@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import { addDays, localParts, zonedInstant } from "../engine.js";
-import { dayDate } from "../format.js";
+import { clipName, dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { dateError, deadlineMaxYear, isBlank, TITLE_MAX } from "../limits.js";
 import { type AppTask, newId, nextColor } from "../model.js";
@@ -143,7 +143,7 @@ export function Semester() {
     setSubject("");
     setWeekly("");
     setNameTried(false);
-    toast.show(`${name} agregada`);
+    toast.show(`${clipName(name)} agregada`);
     // The button may be gone from under the keyboard: it goes back to the name field.
     subjectField.current?.focus();
   };
@@ -175,7 +175,7 @@ export function Semester() {
     };
     dispatch({ type: "saveTask", task });
     examSaved({ ...exam, date: "" });
-    toast.show(`${task.title} agregado`);
+    toast.show(`${clipName(task.title)} agregado`);
   };
 
   return (
