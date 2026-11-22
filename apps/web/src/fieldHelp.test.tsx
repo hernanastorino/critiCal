@@ -10,6 +10,8 @@ import { StoreProvider } from "./store.js";
 
 afterEach(cleanup);
 
+const noop = () => undefined;
+
 const described = (input: HTMLElement) =>
   (input.getAttribute("aria-describedby") ?? "")
     .split(" ")
@@ -18,11 +20,11 @@ const described = (input: HTMLElement) =>
 describe("ayuda bajo los campos", () => {
   it("un campo con ayuda la tiene asociada, y su error va antes", () => {
     const { rerender } = render(
-      <Field label="Margen" help="Se suma al traslado." value="10" onChange={() => {}} />,
+      <Field label="Margen" help="Se suma al traslado." value="10" onChange={noop} />,
     );
     expect(described(screen.getByLabelText(/Margen/))).toEqual(["Se suma al traslado."]);
     rerender(
-      <Field label="Margen" help="Se suma al traslado." value="x" invalid onChange={() => {}} />,
+      <Field label="Margen" help="Se suma al traslado." value="x" invalid onChange={noop} />,
     );
     const ids =
       screen
@@ -34,7 +36,7 @@ describe("ayuda bajo los campos", () => {
   });
 
   it("sin ayuda ni error el campo no se describe por nada", () => {
-    render(<Field label="Margen" value="10" onChange={() => {}} />);
+    render(<Field label="Margen" value="10" onChange={noop} />);
     expect(screen.getByLabelText("Margen").getAttribute("aria-describedby")).toBeNull();
   });
 
