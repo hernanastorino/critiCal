@@ -28,11 +28,12 @@ import {
   type Task,
   targetOptions,
   travelBuffers,
+  weekdayOf,
   zonedInstant,
 } from "./engine.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppEvent, AppTask, CheckIn, MealLogEntry, Proposal, Unit } from "./model.js";
+import type { AppData, AppEvent, AppTask, CheckIn, MealRun, Proposal, Unit } from "./model.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -594,43 +595,32 @@ export function wakingDay(data: AppData, now: number, date: string) {
   return { wake, bed: rawBed <= wake ? rawBed + 1440 : rawBed };
 }
 
-/** How long the meal log is kept (days back from today). */
-const MEAL_LOG_DAYS = 60;
-
 /**
  * Where each meal between `from` and `to` happens: at its time unless a fixed event,
  * its travel or a block pinned by hand is there, then at the closest free time.
- * A meal that is already over is not worked out again (SPEC §5): the log says where it
- * was, and what the log does not have (data from before it) is worked out as before.
+ * A day already over is not worked out again (SPEC §5): its meals are where `mealRuns`
+ * says they were; what the runs do not have (data from before them) is worked out as before.
  */
 export function mealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
   const worked = workedMealTimes(data, now, from, to);
-  const log = standingMealLog(data, now);
-  if (!log.length) return worked;
-  const over = (m: MealTime) => !!m.at && m.at.end <= now;
-  const logged = (m: Pick<MealTime, "date" | "kind">) =>
-    log.some((l) => l.date === m.date && l.kind === m.kind);
-  // The log wins over anything worked out for a meal already over...
-  const kept = worked.filter((m) => !(logged(m) && (over(m) || m.at === null)));
-  // ...and brings back the ones the plan would not show now (skipped, moved away since).
-  const back = log
-    .filter((l) => l.end <= now && l.end > from && l.start < to)
-    .map((l): MealTime => {
-      const at = { start: l.start, end: l.end };
-      const was = worked.find((m) => m.date === l.date && m.kind === l.kind);
-      return { date: l.date, kind: l.kind, preferred: was?.preferred ?? at, at, latest: l.start };
-    });
-  return [...kept, ...back].sort((a, b) => (a.at?.start ?? 0) - (b.at?.start ?? 0));
+  const runs = data.mealRuns;
+  if (!runs?.length) return worked;
+  const tz = data.settings.timezone;
+  const today = localParts(tz, now).date;
+  return worked.map((m) => {
+    if (m.date >= today || !m.kind || !m.at) return m;
+    const run = runAt(runs, m.kind, m.date);
+    if (!run) return m;
+    const midnight = zonedInstant(tz, m.date, 0);
+    return { ...m, at: { start: midnight + run.start * MINUTE, end: midnight + run.end * MINUTE } };
+  });
 }
 
-/**
- * The log entries that still stand: a wake-up set later than the meal (a late night
- * the user answered after the fact) says it could not have happened, so it does not count.
- */
-function standingMealLog(data: AppData, now: number): MealLogEntry[] {
-  const tz = data.settings.timezone;
-  return (data.mealLog ?? []).filter(
-    (l) => l.start >= zonedInstant(tz, l.date, wakingDay(data, now, l.date).wake),
+/** The run that says where `meal` was on `date` (its weekday's series). */
+export function runAt(runs: readonly MealRun[], meal: MealKind, date: string): MealRun | undefined {
+  const weekday = weekdayOf(date);
+  return runs.find(
+    (r) => r.meal === meal && r.weekday === weekday && r.from <= date && (!r.to || date <= r.to),
   );
 }
 
@@ -654,28 +644,42 @@ function workedMealTimes(data: AppData, now: number, from: number, to: number): 
   );
 }
 
+/** How many days back the first catch-up goes when no day was ever frozen. */
+const FREEZE_FIRST_DAYS = 1;
+/** The longest catch-up: a long absence does not freeze months of guesses. */
+const FREEZE_MAX_DAYS = 60;
+
 /**
- * The log with every meal that ended since (today and yesterday, as far back as a
- * running app could have missed) written down as it was shown. Meals already in the log
- * stay as they are; entries past the keeping time go.
+ * Writes down the meals of every day that is over and not yet written (from the last
+ * frozen day to yesterday): for each meal, if its time matches the run standing for its
+ * meal and weekday nothing changes; if not, that run closes the day before this date and
+ * a new one opens on it. Meant to run on opening the app, before any change of settings
+ * applies, so a gap of several days is written with the settings that were in force.
  */
-export function withMealLog(data: AppData, now: number): AppData {
+export function freezeMeals(data: AppData, now: number): AppData {
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
-  const since = zonedInstant(tz, addDays(today, -1), 0);
-  // As worked out for now, not through the log: that is what was on screen.
-  const fresh = workedMealTimes(data, now, since, now);
-  const log = standingMealLog(data, now);
-  const known = new Set(log.map((l) => `${l.date}|${l.kind}`));
-  const added = fresh.flatMap((m): MealLogEntry[] =>
-    m.at && m.kind && m.at.end <= now && !known.has(`${m.date}|${m.kind}`)
-      ? [{ date: m.date, kind: m.kind, start: m.at.start, end: m.at.end }]
-      : [],
-  );
-  const oldest = addDays(today, -MEAL_LOG_DAYS);
-  const kept = log.filter((l) => l.date >= oldest);
-  if (added.length === 0 && kept.length === (data.mealLog ?? []).length) return data;
-  return { ...data, mealLog: [...kept, ...added] };
+  const yesterday = addDays(today, -1);
+  const last = data.mealsFrozenThrough;
+  if (last !== undefined && last >= yesterday) return data;
+  const first = last === undefined ? addDays(today, -FREEZE_FIRST_DAYS) : addDays(last, 1);
+  const start = first < addDays(today, -FREEZE_MAX_DAYS) ? addDays(today, -FREEZE_MAX_DAYS) : first;
+  let runs = [...(data.mealRuns ?? [])];
+  for (let date = start; date <= yesterday; date = addDays(date, 1)) {
+    const midnight = zonedInstant(tz, date, 0);
+    const meals = workedMealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0));
+    const weekday = weekdayOf(date);
+    for (const m of meals) {
+      if (!m.at || !m.kind || m.date !== date) continue;
+      const startMin = Math.round((m.at.start - midnight) / MINUTE);
+      const endMin = Math.round((m.at.end - midnight) / MINUTE);
+      const standing = runs.find((r) => r.meal === m.kind && r.weekday === weekday && !r.to);
+      if (standing && standing.start === startMin && standing.end === endMin) continue;
+      runs = runs.map((r) => (r === standing ? { ...r, to: addDays(date, -1) } : r));
+      runs.push({ meal: m.kind, weekday, from: date, start: startMin, end: endMin });
+    }
+  }
+  return { ...data, mealRuns: runs, mealsFrozenThrough: yesterday };
 }
 
 /**

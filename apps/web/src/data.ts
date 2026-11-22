@@ -9,6 +9,7 @@ import type {
   AppTask,
   CalendarRole,
   CheckIn,
+  MealRun,
   Place,
   Preferences,
   Proposal,
@@ -31,7 +32,7 @@ interface State {
   tripModes?: AppData["tripModes"];
   tripMinutes?: AppData["tripMinutes"];
   mealChoices?: AppData["mealChoices"];
-  mealLog?: AppData["mealLog"];
+  mealsFrozenThrough?: string;
   notSubjects?: string[];
   removedSubjects?: string[];
   movedEvents?: AppData["movedEvents"];
@@ -57,6 +58,7 @@ export function rowsToData(r: {
   calendars?: Row[];
   places?: Row[];
   travelTimes?: Row[];
+  mealRuns?: Row[];
 }): AppData {
   const state = (r.settings?.state ?? {}) as State;
   return {
@@ -208,7 +210,18 @@ export function rowsToData(r: {
     tripModes: state.tripModes,
     tripMinutes: state.tripMinutes,
     mealChoices: state.mealChoices,
-    mealLog: state.mealLog,
+    mealsFrozenThrough: state.mealsFrozenThrough,
+    mealRuns: (r.mealRuns ?? []).map(
+      (m): MealRun => ({
+        meal: m.meal as MealRun["meal"],
+        weekday: m.weekday as number,
+        from: m.from_date as string,
+        to: (m.to_date as string) ?? undefined,
+        start: m.start_minutes as number,
+        end: m.end_minutes as number,
+        placeId: (m.place_id as string) ?? undefined,
+      }),
+    ),
     notSubjects: state.notSubjects,
     removedSubjects: state.removedSubjects,
     movedEvents: state.movedEvents,
@@ -254,6 +267,7 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     calendars,
     places,
     travelTimes,
+    mealRuns,
   ] = await Promise.all([
     client
       .from("settings")
@@ -275,6 +289,7 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     all("calendars", ["source", "external_id"]),
     all("places", ["id"]),
     all("travel_times", ["from_place", "to_place"]),
+    all("meal_runs", ["meal", "weekday", "from_date"]),
   ]);
   return rowsToData({
     settings,
@@ -288,6 +303,7 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     calendars,
     places,
     travelTimes,
+    mealRuns,
   });
 }
 
@@ -367,7 +383,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       prev.tripModes,
       prev.tripMinutes,
       prev.mealChoices,
-      prev.mealLog,
+      prev.mealsFrozenThrough,
       prev.notSubjects,
       prev.removedSubjects,
       prev.movedEvents,
@@ -389,7 +405,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
       next.tripModes,
       next.tripMinutes,
       next.mealChoices,
-      next.mealLog,
+      next.mealsFrozenThrough,
       next.notSubjects,
       next.removedSubjects,
       next.movedEvents,
@@ -416,7 +432,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
             tripModes: next.tripModes,
             tripMinutes: next.tripMinutes,
             mealChoices: next.mealChoices,
-            mealLog: next.mealLog,
+            mealsFrozenThrough: next.mealsFrozenThrough,
             notSubjects: next.notSubjects,
             removedSubjects: next.removedSubjects,
             movedEvents: next.movedEvents,
@@ -584,6 +600,24 @@ export function diffData(prev: AppData, next: AppData): Writes {
   const gonePlaces = (prev.places ?? []).map((p) => p.id).filter((id) => !keptPlaces.has(id));
   if (gonePlaces.length) deletes.push({ table: "places", ids: gonePlaces });
 
+  const runKey = (m: MealRun) => `${m.meal}|${m.weekday}|${m.from}`;
+  const oldRuns = new Map((prev.mealRuns ?? []).map((m) => [runKey(m), JSON.stringify(m)]));
+  const runs = (next.mealRuns ?? []).filter((m) => oldRuns.get(runKey(m)) !== JSON.stringify(m));
+  if (runs.length) {
+    upserts.push({
+      table: "meal_runs",
+      rows: runs.map((m) => ({
+        meal: m.meal,
+        weekday: m.weekday,
+        from_date: m.from,
+        to_date: m.to ?? null,
+        start_minutes: m.start,
+        end_minutes: m.end,
+        place_id: m.placeId ?? null,
+      })),
+    });
+  }
+
   const pair = (t: TravelTime) => `${t.from}>${t.to}`;
   const oldTimes = new Map((prev.travelTimes ?? []).map((t) => [pair(t), JSON.stringify(t)]));
   const times = (next.travelTimes ?? []).filter(
@@ -664,6 +698,7 @@ const WRITE_ORDER = [
   "day_overrides",
   "places",
   "travel_times",
+  "meal_runs",
   "plan_blocks",
 ];
 

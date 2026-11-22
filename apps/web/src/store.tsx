@@ -54,6 +54,7 @@ import {
   decisions,
   endOfDay,
   endOfWeek,
+  freezeMeals,
   isPinned,
   isRunning,
   latestCheckIns,
@@ -490,8 +491,13 @@ function withAfter(data: AppData, action: Action): AppData {
 export function reducer(data: AppData, action: Action): AppData {
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
-  const base = routinesBack(rekeySpots(withHandMarks(data)), action.now);
+  // The meals of the days gone by are written before anything else changes (SPEC §5).
+  const frozen = freezeMeals(data, action.now);
+  const base = routinesBack(rekeySpots(withHandMarks(frozen)), action.now);
   const next = rekeySpots(versioned(base, action, apply(base, action)));
+  // An action that changes nothing leaves the data as it came (the freeze waits).
+  if (next === base && frozen !== data)
+    return routinesBack(rekeySpots(withHandMarks(data)), action.now);
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.
   const exempt = ["applyOption", "undoDecision", "replace", "refresh", "restoreState"].includes(

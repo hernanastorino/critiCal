@@ -2,7 +2,7 @@ import { importFromCalendars, isTentative, visibleEvents } from "./calendars.js"
 import { localParts, zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { newId, stableId, uniqueColors } from "./model.js";
-import { endOfDay, isPinned, refreshPlan, settleUnits, withMealLog } from "./planning.js";
+import { endOfDay, isPinned, refreshPlan, settleUnits } from "./planning.js";
 
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
 export function refresh(raw: AppData, now: number): AppData {
@@ -56,7 +56,7 @@ export function refresh(raw: AppData, now: number): AppData {
           data.plan.some((o) => o.id === b.id),
       )
     : r.plan;
-  return withMealLog({ ...data, plan, proposals, tentativeSeen }, now);
+  return { ...data, plan, proposals, tentativeSeen };
 }
 
 const TENTATIVE = "tentative@";

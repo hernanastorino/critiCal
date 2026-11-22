@@ -249,10 +249,12 @@ export interface AppData {
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /**
-   * Where and when each meal was once it was over: the past is not planned again (SPEC §5),
-   * so past days show this instead of working the meals out anew.
+   * Where and when each meal was, once its day is over: the past is not planned again
+   * (SPEC §5). One series per meal and weekday, as runs (see `MealRun`).
    */
-  mealLog?: MealLogEntry[];
+  mealRuns?: MealRun[];
+  /** The last day whose meals were written into `mealRuns` (YYYY-MM-DD). */
+  mealsFrozenThrough?: string;
   /** Flexible events the user agreed to move: planned at the new time until moved. */
   movedEvents?: { eventId: string; from: number; start: number; end: number }[];
   /** Upcoming tentative events last seen, to notice one that falls through. */
@@ -467,10 +469,18 @@ export interface PlanVersion {
   tentativeHoldUntil?: number;
 }
 
-/** A meal that already happened: its day (the wake-up date), kind and the time it took place. */
-export interface MealLogEntry {
-  date: string;
-  kind: MealKind;
+/**
+ * From `from` on, this meal of this weekday was at `start`–`end` (minutes since the day's
+ * midnight) until `to` (the last day it was so; undefined while it is the run standing).
+ * `placeId`: where it was, when a place was known.
+ */
+export interface MealRun {
+  meal: MealKind;
+  /** 0 = Sunday … 6 = Saturday. */
+  weekday: number;
+  from: string;
+  to?: string;
   start: number;
   end: number;
+  placeId?: string;
 }
