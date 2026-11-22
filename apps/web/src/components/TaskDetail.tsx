@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { dayDate, dueDate, hours } from "../format.js";
+import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
 import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
@@ -93,8 +93,8 @@ export function TaskDetail({
       );
       toast.show(
         change === "deleteAll"
-          ? `${task.title} eliminada, con lo registrado`
-          : `${task.title} eliminada de hoy en adelante`,
+          ? `${clipName(task.title)} eliminada, con lo registrado`
+          : `${clipName(task.title)} eliminada de hoy en adelante`,
         {
           undo: () => {
             dispatch({ type: "restoreState", before });
@@ -296,8 +296,8 @@ export function TaskDetail({
               });
               toast.show(
                 logged > 0
-                  ? `Avance guardado: ${hours(logged)} en ${task.title}`
-                  : `Avance guardado en ${task.title}`,
+                  ? `Avance guardado: ${hours(logged)} en ${clipName(task.title)}`
+                  : `Avance guardado en ${clipName(task.title)}`,
               );
               onClose();
             }}

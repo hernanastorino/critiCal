@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { dayDate, dueDate, hours } from "../format.js";
+import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import {
   isRunning,
@@ -52,7 +52,7 @@ export function Silos() {
     if (before === null || showPast) return;
     const was = new Set(before.split(" "));
     const moved = past.find((p) => !was.has(p.task.id));
-    if (moved) toast.show(`${moved.task.title} pasó a «Ver anteriores»`);
+    if (moved) toast.show(`${clipName(moved.task.title)} pasó a «Ver anteriores»`);
   }, [pastIds, past, showPast, toast]);
   const pastGroups = new Map<string, TaskProgress[]>();
   for (const p of past) {
@@ -195,7 +195,7 @@ export function Silos() {
                       aria-label={`Recuperar ${t.title}`}
                       onClick={() => {
                         dispatch({ type: "unarchive", taskId: t.id, status: "active" });
-                        toast.show(`${t.title} recuperada`);
+                        toast.show(`${clipName(t.title)} recuperada`);
                       }}
                     >
                       Recuperar

@@ -35,9 +35,9 @@ function Pair({
     onChange(side === "from" ? { ...value, from: v } : { ...value, to: v });
   };
   return (
-    <div className="row fields">
+    <div className="row fields wrap-big">
       {label && (
-        <span className="grid3-label" style={{ minWidth: 72 }}>
+        <span className="grid3-label" style={{ minWidth: "4.5rem" }}>
           {label}
         </span>
       )}

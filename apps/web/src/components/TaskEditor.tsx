@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
-import { dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
+import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
 import {
   dateYearInRange,
   deadlineInRange,
@@ -688,7 +688,8 @@ export function TaskEditor({
               className="btn missed"
               onClick={() => {
                 dispatch({ type: "saveTask", task: { ...task, status: "dropped" } });
-                toast.show(`${task.title} archivada`, {
+                toast.show(`${clipName(task.title)} archivada`, {
+                  full: `${task.title} archivada`,
                   undo: () =>
                     dispatch({
                       type: "unarchive",

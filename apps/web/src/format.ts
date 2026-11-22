@@ -78,3 +78,9 @@ export function minutesToHhmm(v: number): string {
   const n = ((v % 1440) + 1440) % 1440;
   return `${String(Math.floor(n / 60)).padStart(2, "0")}:${String(n % 60).padStart(2, "0")}`;
 }
+
+/** A name the user typed, cut for a notice: a huge one would fill half the screen. */
+export const clipName = (s: string, max = 40) => {
+  const t = s.trim();
+  return t.length > max ? `${t.slice(0, max).trimEnd()}…` : t;
+};

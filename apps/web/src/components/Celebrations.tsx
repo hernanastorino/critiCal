@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { clipName } from "../format.js";
 import { isUndoCopy, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
@@ -43,7 +44,7 @@ export function Celebrations() {
     // What came in is only a copy or a retirement (an undo): that is not a new delivery.
     if (incoming.length > 0 && incoming.every((c) => isUndoCopy(data, c))) return;
     const fresh = incoming.at(-1);
-    toast.show(`${first}: entrega cerrada. Bien ahí.`, {
+    toast.show(`${clipName(first)}: entrega cerrada. Bien ahí.`, {
       roy: "festejo",
       ...(fresh ? { undo: () => dispatch({ type: "undoCheckIn", id: fresh.id }) } : {}),
     });

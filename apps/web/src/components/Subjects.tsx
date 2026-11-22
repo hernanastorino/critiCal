@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
-import { minutesToHhmm, parseClock } from "../format.js";
+import { clipName, minutesToHhmm, parseClock } from "../format.js";
 import { isBlank, NAME_MAX } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
@@ -176,8 +176,8 @@ export function ActivitySettings() {
     const silos = removed.tasks.length;
     toast.show(
       all.length > 1
-        ? `${all.length} eliminadas: ${all.map((r) => r.activity.name).join(", ")}`
-        : `${activity.name} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
+        ? `${all.length} eliminadas: ${all.map((r) => clipName(r.activity.name, 24)).join(", ")}`
+        : `${clipName(activity.name)} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
       {
         undo: () => {
           recent.current = [];
