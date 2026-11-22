@@ -51,14 +51,18 @@ const MESSAGES: Partial<Record<string, string>> = {
   unreachable: "No pude consultar los horarios: ¿hay conexión?",
 };
 
-const WAY_TITLE = { there: "Ida", back: "Vuelta" } as const;
-
-const STALE: Record<StaleReason, string> = {
-  feed: "Cambiaron los horarios de ómnibus desde que guardaste la ruta habitual.",
-  time: "El horario cambió desde que guardaste la ruta habitual.",
-  day: "La ruta habitual guardada no corre ese día.",
-  expired: "Los horarios de la ruta habitual ya vencieron.",
-};
+function staleNote(reason: StaleReason): string {
+  switch (reason) {
+    case "feed":
+      return "Cambiaron los horarios de ómnibus desde que guardaste la ruta habitual.";
+    case "time":
+      return "El horario cambió desde que guardaste la ruta habitual.";
+    case "day":
+      return "La ruta habitual guardada no corre ese día.";
+    case "expired":
+      return "Los horarios de la ruta habitual ya vencieron.";
+  }
+}
 
 type Result = { for: string; res: PlanResponse } | null;
 
@@ -139,7 +143,7 @@ function BusWay({
 }) {
   const { dispatch } = useStore();
   const client = useSync()?.client;
-  const routes = useBusRoutes(client);
+  const routes = useBusRoutes();
   const request = client ? planRequestFor(trip, event, tz, way) : null;
   const slot = request ? slotOf(trip, event, tz, way, request) : null;
   const route = slot ? findRoute(routes, slot) : undefined;
@@ -162,7 +166,8 @@ function BusWay({
   const checked = route && feed?.route === route.id ? feed : null;
   const stale = route && request && checked ? routeStale(route, request, checked.version) : null;
   const saved = route && request && checked && !stale ? route : undefined;
-  const asked = !request || saved || (route && !checked) ? null : request;
+  const waitingForFeed = !!route && !checked;
+  const asked = request && !saved && !waitingForFeed ? request : null;
 
   // One key per question, so an answer is only shown for the question it answers.
   const key = asked ? JSON.stringify(asked) : "";
@@ -211,9 +216,10 @@ function BusWay({
     else setProblem("No pude borrar la ruta: probá de nuevo.");
   };
 
+  const title = way === "there" ? "Ida" : "Vuelta";
   return (
-    <section className="bus-way" aria-label={WAY_TITLE[way]}>
-      <h4>{WAY_TITLE[way]}</h4>
+    <section className="bus-way" aria-label={title}>
+      <h4>{title}</h4>
       <BusPlan
         signedIn={signedIn}
         missing={unlocatedEnd(trip)}
@@ -224,7 +230,7 @@ function BusWay({
       />
       {saved && <p className="meta">Ruta habitual guardada: se usa sin consultar los horarios.</p>}
       {route && stale && (
-        <p className="meta">{STALE[stale]} Esto es lo que dan los horarios de hoy.</p>
+        <p className="meta">{staleNote(stale)} Esto es lo que dan los horarios de hoy.</p>
       )}
       {best && !saved && slot && (
         <button type="button" className="btn small" onClick={() => void keep()}>

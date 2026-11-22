@@ -11,7 +11,7 @@ const WEEKDAYS = ["lunes", "martes", "miércoles", "jueves", "viernes", "sábado
 
 export function BusRoutesList({ places }: { places: readonly Place[] }) {
   const client = useSync()?.client;
-  const routes = useBusRoutes(client);
+  const routes = useBusRoutes();
   const [problem, setProblem] = useState<string | null>(null);
   if (!client) return null;
   const nameOf = (id: string) => places.find((p) => p.id === id)?.name ?? "?";

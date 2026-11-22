@@ -6,6 +6,7 @@ import type { AppData, AppEvent, Place, TravelMode } from "./model.js";
 import { home, placeOfEvent } from "./places.js";
 import {
   type BusLeg,
+  type Coords,
   type DayType,
   dayTypeOf,
   hhmm,
@@ -52,6 +53,9 @@ export function unlocatedEnd(trip: EventTrip): "from" | "to" | "area" | null {
     : "area";
 }
 
+const coordsOf = (p: Place): Coords | null =>
+  p.lat == null || p.lon == null ? null : { lat: p.lat, lon: p.lon };
+
 /** Which way of the trip: home → event (`there`) or event → home (`back`). */
 export type Way = "there" | "back";
 
@@ -66,12 +70,9 @@ export function planRequestFor(
   tz: string,
   way: Way = "there",
 ): PlanRequest | null {
-  const { lat: fromLat, lon: fromLon } = way === "there" ? trip.from : trip.place;
-  const { lat: toLat, lon: toLon } = way === "there" ? trip.place : trip.from;
-  if (fromLat == null || fromLon == null || toLat == null || toLon == null) return null;
-  const from = { lat: fromLat, lon: fromLon };
-  const to = { lat: toLat, lon: toLon };
-  if (!inArea(from) || !inArea(to)) return null;
+  const from = coordsOf(way === "there" ? trip.from : trip.place);
+  const to = coordsOf(way === "there" ? trip.place : trip.from);
+  if (!from || !to || !inArea(from) || !inArea(to)) return null;
   const at = localParts(tz, way === "there" ? event.start : event.end);
   const holiday = uruguayHolidays(at.year).some((h) => h.date === at.date);
   const dayType: DayType = holiday ? 3 : dayTypeOf(at.date);

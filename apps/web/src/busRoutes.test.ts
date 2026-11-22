@@ -118,8 +118,9 @@ describe("la vuelta del ómnibus", () => {
     const opts = travelOptions(d);
     if (!opts) throw new Error("expected options");
     const [there, back] = travelBuffers([clase], opts).busy;
-    expect(clase.start - (there?.start ?? 0)).toBe((40 + d.settings.travelMarginMinutes) * MIN);
-    expect((back?.end ?? 0) - clase.end).toBe(70 * MIN);
+    if (!there || !back) throw new Error("expected both trips");
+    expect(clase.start - there.start).toBe((40 + d.settings.travelMarginMinutes) * MIN);
+    expect(back.end - clase.end).toBe(70 * MIN);
   });
 
   it("si la vuelta responde antes que la ida, la ida vale lo mismo hasta que responda", () => {
