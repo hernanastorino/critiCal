@@ -160,6 +160,16 @@ export function Places() {
               {p.aliases.length > 0 && (
                 <span className="meta place-aliases">{p.aliases.join(", ")}</span>
               )}
+              {/* So «Falta tu casa» is understood: which one is home, and how each is reached. */}
+              <span className="meta place-aliases">
+                {[
+                  p.isHome ? "Tu casa" : null,
+                  p.travelMode === "bus" ? "Ómnibus" : "Auto",
+                  !p.address?.trim() && p.lat === undefined ? "sin dirección" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </span>
             </span>
             <button
               type="button"
@@ -473,6 +483,8 @@ function PlaceForm({
       : empty && tried
         ? "Poné un nombre para el lugar."
         : null;
+  // Bus times are worked out from the addresses: without one there is nothing to compute.
+  const noAddress = travelMode === "bus" && !address.trim();
   const nameField = useRef<HTMLInputElement>(null);
   // Opened from «Agregar lugar» or «Editar»: the keyboard lands on the first field.
   useEffect(() => nameField.current?.focus(), []);
@@ -506,8 +518,14 @@ function PlaceForm({
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Julio Herrera y Reissig 565, Montevideo"
+          aria-describedby={noAddress ? `address-${place.id}` : undefined}
         />
       </label>
+      {noAddress && (
+        <p className="meta" id={`address-${place.id}`} style={{ color: "var(--critical)" }}>
+          Sin dirección no se puede calcular el viaje en ómnibus: poné la dirección de este lugar.
+        </p>
+      )}
       <label className="field">
         <span>Alias, separados por coma</span>
         <input

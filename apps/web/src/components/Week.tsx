@@ -300,6 +300,9 @@ export function Week({
   } | null>(null);
   // Once the plan changes again, a drop's undo would take back the wrong thing.
   const latest = data.planHistory?.at(-1);
+  /** The newest plan version as of the last render, for an undo that runs later. */
+  const latestRef = useRef(latest);
+  latestRef.current = latest;
   useEffect(() => {
     const tag = toaster.current?.tag;
     if (tag && tag !== latest) toaster.clear(tag);
@@ -367,6 +370,7 @@ export function Week({
     const flexible = items.find(
       (i) => i.kind === "event" && i.event.busy && i.event.flexible && overlaps(i, spot),
     );
+    const versionBefore = data.planHistory?.at(-1);
     watch.current = {
       id: moved,
       before: new Map(pinShort.short.map((s) => [s.taskId, s.minutes])),
@@ -377,8 +381,12 @@ export function Week({
       flexible: flexible?.kind === "event" ? flexible.event.title : undefined,
       undo: () => {
         toaster.clear();
+        // The pin saved a version of the plan: taking that one back leaves the plan and the
+        // history as they were (a «soltar» would add one more change to undo).
+        const saved = latestRef.current;
+        if (saved && saved !== versionBefore) dispatch({ type: "undoPlan", only: saved });
         // The pins it freed come back with the plan as it was.
-        if (freed.length > 0) dispatch({ type: "undoPlan" });
+        else if (freed.length > 0) dispatch({ type: "undoPlan" });
         // A block placed by the plan goes back to the plan; a pinned one to its old spot.
         else if (isPinned(block)) dispatch({ type: "pin", blockId: moved, start: block.start });
         else dispatch({ type: "unpin", blockId: moved });

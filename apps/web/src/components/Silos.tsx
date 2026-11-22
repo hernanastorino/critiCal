@@ -180,7 +180,15 @@ export function Silos() {
               <section className="card" aria-label="Archivadas">
                 {archived.map((t) => (
                   <div key={t.id} className="row">
-                    <span style={{ flex: 1 }}>{t.title}</span>
+                    <span style={{ flex: 1 }}>
+                      {t.title}
+                      {t.kind !== "habit" && t.deadline !== undefined && (
+                        <span className="meta" style={{ display: "block" }}>
+                          {t.deadline <= now ? "Venció el" : "Entrega"}{" "}
+                          {dueDate(tz, t.deadline, now)}
+                        </span>
+                      )}
+                    </span>
                     <button
                       type="button"
                       className="btn small"

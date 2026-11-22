@@ -75,6 +75,7 @@ import {
   isNoSubject,
   markLegacyStudy,
   newClassTitles,
+  sameName,
   studyOf,
   studyTitle,
   unassignedTasks,
@@ -598,6 +599,14 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "saveTask": {
       const before = data.tasks.find((t) => t.id === action.task.id);
+      // A second tap on «Agregar» (a new id, the same new materia) does not add it twice.
+      if (
+        !before &&
+        action.activity &&
+        !data.activities.some((a) => a.id === action.activity?.id) &&
+        data.activities.some((a) => sameName(a.name, action.activity?.name ?? ""))
+      )
+        return data;
       // A date the user sets on a task that follows an event is kept against the import.
       const synced =
         before?.sourceEventId && before.deadline !== action.task.deadline
@@ -995,6 +1004,8 @@ function apply(data: AppData, action: Action): AppData {
       return refresh({ ...data, preferences: action.preferences }, now);
     case "saveActivity": {
       const old = data.activities.find((a) => a.id === action.activity.id);
+      // A second tap on «Agregar» (a new id, the same name) does not add it twice.
+      if (!old && data.activities.some((a) => sameName(a.name, action.activity.name))) return data;
       const activities = old
         ? data.activities.map((a) => (a.id === action.activity.id ? action.activity : a))
         : [...data.activities, action.activity];
@@ -1235,6 +1246,8 @@ function apply(data: AppData, action: Action): AppData {
     case "saveRoutine": {
       const name = action.name.trim();
       if (!name || !validRoutine(action.sessionsPerWeek, action.sessionMinutes)) return data;
+      // A second tap on «Agregar» does not add the same routine twice.
+      if (data.activities.some((a) => sameName(a.name, name))) return data;
       const times = Math.round(action.sessionsPerWeek);
       const minutes = Math.round(action.sessionMinutes);
       const routine: Activity = {

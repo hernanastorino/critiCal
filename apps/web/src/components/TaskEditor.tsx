@@ -135,6 +135,9 @@ export function TaskEditor({
   const [focusTick, setFocusTick] = useState(0);
 
   const sheet = useRef<HTMLDivElement>(null);
+  // Ids made once per form: a second tap on «Guardar» before the sheet is gone saves
+  // the same task over itself instead of adding another one.
+  const freshIds = useRef({ task: newId(), activity: newId() });
   const justOpened = useModal(sheet, onClose);
   useEffect(() => {
     if (focusTick) focusFirstInvalid(sheet.current);
@@ -294,7 +297,7 @@ export function TaskEditor({
     let actId = activityId;
     let activity: Activity | undefined;
     if (actId === "new") {
-      actId = newId();
+      actId = freshIds.current.activity;
       activity = {
         id: actId,
         name: newActivity.trim(),
@@ -311,7 +314,7 @@ export function TaskEditor({
     const next: AppTask = {
       // Keeps fields the form does not edit (e.g. the calendar event it came from).
       ...task,
-      id: task?.id ?? newId(),
+      id: task?.id ?? freshIds.current.task,
       activityId: actId,
       title: title.trim(),
       kind,
