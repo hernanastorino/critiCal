@@ -28,13 +28,16 @@ interface Write {
   rows: { name?: string }[];
 }
 
-/** A database that takes everything but a materia called MALA (a check violation). */
+/**
+ * A database that takes everything but a materia called MALA (a check violation), and
+ * remembers what it took: reading it back gives exactly that.
+ */
 function database() {
   const writes: Write[] = [];
-  const empty = Promise.resolve({ data: [], error: null });
+  const kept: Record<string, { id?: string; name?: string }[]> = {};
   const from = (table: string) => ({
     select: () =>
-      Object.assign(empty, {
+      Object.assign(Promise.resolve({ data: kept[table] ?? [], error: null }), {
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
         order() {
           return this;
@@ -43,6 +46,7 @@ function database() {
     upsert: (rows: Write["rows"]) => {
       writes.push({ table, rows });
       const bad = table === "activities" && rows.some((r) => r.name === "MALA");
+      if (!bad) kept[table] = [...(kept[table] ?? []), ...rows];
       const error = bad ? { code: "23514", message: "check constraint violated" } : null;
       return Promise.resolve({ error });
     },
@@ -63,9 +67,10 @@ const activity = (name: string) => ({
 });
 
 function Poke() {
-  const { dispatch } = useStore();
+  const { data, dispatch } = useStore();
   return (
     <>
+      <output data-testid="names">{data.activities.map((a) => a.name).join(",")}</output>
       <button
         type="button"
         onClick={() => {
@@ -88,6 +93,25 @@ function Poke() {
 
 const named = (writes: Write[], name: string) =>
   writes.filter((w) => w.table === "activities" && w.rows.some((r) => r.name === name));
+
+describe("Un cambio que la base rechaza vuelve a como estaba", () => {
+  it("la pantalla lo suelta y avisa, y lo que sí se guardó se queda", async () => {
+    const { client } = database();
+    render(
+      <Connected client={client} session={{ user: { id: `t${Math.random()}` } } as never}>
+        <Poke />
+      </Connected>,
+    );
+    fireEvent.click(await screen.findByText("buena"));
+    await waitFor(() => expect(screen.getByTestId("names").textContent).toBe("Buena"));
+    fireEvent.click(screen.getByText("mala"));
+    // Rechazada para siempre: sale de la pantalla y dice que volvió a como estaba.
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toMatch(/volvió a como estaba/);
+    expect(alert.textContent).toMatch(/Lo demás sí se guardó/);
+    await waitFor(() => expect(screen.getByTestId("names").textContent).toBe("Buena"));
+  });
+});
 
 describe("3b. Un error permanente de la base no traba los guardados", () => {
   it("reports it, tells the user and keeps saving what comes next", async () => {
