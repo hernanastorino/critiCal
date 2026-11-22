@@ -29,7 +29,7 @@ import {
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { Section } from "./Section.js";
 import { TaskDetail } from "./TaskDetail.js";
-import { TaskEditor } from "./TaskEditor.js";
+import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
 import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
 
@@ -674,7 +674,10 @@ export function Routines() {
   const [detail, setDetail] = useState<AppTask | null>(null);
   // Two «Nadar» would be told apart by nothing.
   const repeated = data.activities.some((a) => sameName(a.name, name));
-  const [editing, setEditing] = useState<AppTask | null>(null);
+  const [editing, setEditing] = useState<AppTask | null>(() => {
+    const d = editorDraft("preferences");
+    return (d && data.tasks.find((t) => t.id === d.taskId)) || null;
+  });
   const problem = routineProblems(times, minutes);
   // A franja shorter than the session is said once the session is a valid figure.
   const read = readHours(
@@ -758,7 +761,9 @@ export function Routines() {
           }}
         />
       )}
-      {editing && <TaskEditor task={editing} onClose={() => setEditing(null)} />}
+      {editing && (
+        <TaskEditor origin="preferences" task={editing} onClose={() => setEditing(null)} />
+      )}
       <div className="row fields wrap-big">
         <label className="field name-wide" style={{ flex: 2 }}>
           <span>Rutina</span>

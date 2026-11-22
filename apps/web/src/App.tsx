@@ -6,11 +6,12 @@ import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { type PageId, Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
+import { editorDraft } from "./components/TaskEditor.js";
 import { ToastProvider, useToast } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { localDev } from "./devAuth.js";
-import { clearDrafts } from "./drafts.js";
+import { clearDrafts, settingsToRestore } from "./drafts.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { disablePush } from "./push.js";
@@ -53,7 +54,12 @@ export function Shell({
   resetUndo?: () => void;
 }) {
   const { inboxCount, data } = useStore();
-  const [tab, setTab] = useState<Tab>(() => tabFrom(globalThis.location?.search ?? "") ?? "week");
+  // A reload brings back the tab whose editor was open with something typed (SPEC §14).
+  const [tab, setTab] = useState<Tab>(
+    () =>
+      tabFrom(globalThis.location?.search ?? "") ??
+      (editorDraft("silos") ? "silos" : editorDraft("inbox") ? "inbox" : "week"),
+  );
   const [weekly, setWeekly] = useState(() => wantsWeeklyPlan(globalThis.location?.search ?? ""));
   useEffect(() => {
     // A notification tapped while the app is open: the service worker says where to go.
@@ -69,7 +75,9 @@ export function Shell({
     return () => navigator.serviceWorker?.removeEventListener("message", onMessage);
   }, []);
   /** Ajustes open, on its list (`true`) or on one screen. */
-  const [settings, setSettings] = useState<boolean | PageId>(false);
+  const [settings, setSettings] = useState<boolean | PageId>(
+    () => (settingsToRestore() || false) as boolean | PageId,
+  );
   /** Planificación semanal was opened from the Ajustes list: closing it goes back there. */
   const [weeklyFromSettings, setWeeklyFromSettings] = useState(false);
   /** A day to open the week on, picked from the inbox. */
@@ -358,7 +366,8 @@ export function App({
   const uid = session?.user?.id;
   const lastUid = useRef(uid);
   useEffect(() => {
-    if (lastUid.current !== uid) clearDrafts();
+    // (Loading the session on a reload is not a change of account: the drafts stay.)
+    if (lastUid.current && lastUid.current !== uid) clearDrafts();
     lastUid.current = uid;
   }, [uid]);
   const remember = (m: "login" | "demo") => {

@@ -45,7 +45,7 @@ import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
 import { type RoyAnim, RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
-import { TaskEditor } from "./TaskEditor.js";
+import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
 import { useInboxAnswers } from "./useUndoable.js";
@@ -102,7 +102,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const toast = useToast();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
-  const [editing, setEditing] = useState<AppTask | null>(null);
+  const [editing, setEditing] = useState<AppTask | null>(() => {
+    const d = editorDraft("inbox");
+    return (d && data.tasks.find((t) => t.id === d.taskId)) || null;
+  });
   const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
   const review = data.tasks.filter((t) => t.needsReview && t.status === "active");
@@ -615,6 +618,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
       </div>
       {editing && (
         <TaskEditor
+          origin="inbox"
           task={editing}
           onClose={() => setEditing(null)}
           onSaved={(t) => dispatch({ type: "review", taskId: t.id, keep: true })}
