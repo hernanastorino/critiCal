@@ -55,7 +55,7 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
-- **Borradores de formularios** (pendiente, anotado el 2026-11-22): ¿se guarda el borrador de un formulario abierto o se pide confirmar antes de descartarlo? Lo esperan dos Bajas del atacante: recargar con un formulario abierto lo pierde y vuelve a la Semana (23.ª vuelta) y Escape descarta sin aviso el formulario de un silo nuevo (24.ª vuelta, 4.ª Baja).
+- ~~Borradores de formularios~~: respondida el 2026-11-22 (las dos cosas: borrador al recargar y confirmar al descartar), hecha en #213.
 
 ## 0. Antes de empezar algo nuevo
 
@@ -193,6 +193,23 @@ Un PR por tema, en este orden:
 4. ✅ «Elegí»: Roy chico con pose por opción y aviso al desaparecer (#179).
 5. ✅ Deslizar a los costados en la Semana para cambiar de semana (#180).
 6. §5.1: ✅ transiciones (#181), ✅ espaciados (#183), ✅ primer uso guiado (#182). Ómnibus (§5.2): ✅ interfaz (#185), plan (#190), vuelta y rutas habituales (#193).
+
+### 5.8 Prueba en producción del usuario (2026-11-22) — arreglar
+
+Decisiones del usuario: tarjeta de ómnibus con líneas + hora de salida (el detalle al tocar), atribución de datos abiertos en Ajustes → Acerca de; entorno de prueba = «Demo de pruebas» con todos los casos (sin cuenta); rutinas: siempre planeada la semana en curso y la siguiente completa; no se puede hacer zoom.
+
+1. **Zoom (prioridad máxima)**: en iPhone, al escribir en cualquier campo la página queda ampliada al cerrar el teclado; y con dos dedos se puede ampliar. No debe poder ampliarse nunca (campos de 16 px o más, viewport sin escala, `touch-action`).
+2. **Comidas de días pasados se recalculan igual** al cambiar horarios (#210 no alcanza en producción, al menos en demo).
+3. **Rutinas**: no se planean en la semana siguiente aunque haya tiempo libre; deben estar planeadas la semana en curso y la siguiente completa.
+4. **Primeros pasos**: con cuenta nueva no arrancan solos; desde Ajustes, la guía no aparece en la Semana hasta pasar por Silos o Bandeja.
+5. **Tarjeta de ómnibus**: demasiado texto; solo líneas y hora de salida de ida y vuelta, paradas y transbordos al tocar; sin el aviso de datos (va a Ajustes → Acerca de).
+6. **Rutinas (Ajustes)**: lista de rutinas hechas + botón «Crear rutina nueva» que abre una vista solo con el formulario.
+7. **Alineación y espacios**: campos desalineados en Materias (Materia / Estudio semanal) y Rutinas (Rutina / Veces / Minutos) por la ayuda bajo un solo campo; botones muy pegados al texto en Lugares («Cómo llegar ahí» Auto/Ómnibus, «Tu casa ya es…», «Cambios sin guardar»); en Materias falta separar la lista de materias de «Marcá tu calendario…».
+8. **Roy** con tamaños distintos entre las tarjetas de la Bandeja: mismo tamaño en todas.
+9. **Buscador de Ajustes** con doble borde al enfocarlo.
+10. **Demo de pruebas**: entrada en producción que carga datos con cada caso a probar del §6 (Bandeja con cada acción, ómnibus, rutinas distintas por día, comidas pasadas, entregas la semana próxima, casa sin dirección, etc.).
+
+Confirmado en producción el 2026-11-22: Planificación semanal (semana próxima y su rango), avisos de casa (falta / sin dirección / una sola), hoja de bloque con Deshacer, doble toque, importar respaldo, Deshacer tras guardar con cuenta real.
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
