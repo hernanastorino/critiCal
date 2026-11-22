@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import {
+  focusWeekAt,
   isRunning,
   progress,
   refreshPlan,
@@ -39,9 +40,9 @@ export function Silos() {
   };
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const { current: items, past } = splitPastSilos(
-    progress(data, now).sort((a, b) => a.deadline - b.deadline),
+    progress(data, now, focusWeekAt(data, now)).sort((a, b) => a.deadline - b.deadline),
     tz,
-    now,
+    focusWeekAt(data, now),
   );
   // A task just saved with an old date leaves the view: say where it went.
   const pastIds = past.map((p) => p.task.id).join(" ");

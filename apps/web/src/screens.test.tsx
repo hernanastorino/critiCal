@@ -67,10 +67,12 @@ describe("Uruguay's holidays", () => {
 });
 
 describe("weekly review", () => {
-  it("plans next week on weekends and the current one otherwise", () => {
+  it("always plans next week, Monday to Sunday", () => {
     const data = emptyData();
-    expect(weekToPlan(data, at("2026-11-08", 600))[0]).toBe("2026-11-09");
-    expect(weekToPlan(data, at("2026-11-04", 600))[0]).toBe("2026-11-02");
+    expect(weekToPlan(data, at("2026-11-08", 600))[0]).toBe("2026-11-09"); // Sunday
+    expect(weekToPlan(data, at("2026-11-07", 600))[0]).toBe("2026-11-09"); // Saturday
+    expect(weekToPlan(data, at("2026-11-04", 600))[0]).toBe("2026-11-09"); // Wednesday
+    expect(weekToPlan(data, at("2026-11-04", 600))[6]).toBe("2026-11-15");
   });
 
   it("sums each day and compares planned with done", () => {
@@ -128,7 +130,7 @@ describe("weekly review", () => {
         },
       ],
     };
-    const days = weekPlan(data, weekToPlan(data, at("2026-11-04", 600)));
+    const days = weekPlan(data, weekToPlan(data, at("2026-10-28", 600)));
     expect(days[1]).toMatchObject({ date: "2026-11-03", minutes: 120, critical: 1 });
     expect(days[0]?.holiday).toBe("Día de los Difuntos");
     expect(plannedVsDone(data, at("2026-11-04", 600))).toEqual([

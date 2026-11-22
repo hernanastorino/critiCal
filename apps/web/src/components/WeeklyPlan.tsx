@@ -8,7 +8,7 @@ import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
 export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox: () => void }) {
-  const { data, now, result, inboxCount } = useStore();
+  const { data, now, result, inboxCount, dispatch } = useStore();
   const tz = data.settings.timezone;
   const dates = weekToPlan(data, now);
   const days = weekPlan(data, dates);
@@ -104,7 +104,20 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
             Ver la Bandeja ({inboxCount})
           </button>
         )}
-        <button type="button" className="btn primary" style={{ width: "100%" }} onClick={onClose}>
+        <button
+          type="button"
+          className="btn primary"
+          style={{ width: "100%" }}
+          onClick={() => {
+            // Planned: from now on silos and widget show this week.
+            if (data.settings.weekPlannedFor !== dates[0])
+              dispatch({
+                type: "settings",
+                settings: { ...data.settings, weekPlannedFor: dates[0] },
+              });
+            onClose();
+          }}
+        >
           Cerrar resumen
         </button>
       </div>
