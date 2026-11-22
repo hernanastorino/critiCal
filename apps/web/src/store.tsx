@@ -11,6 +11,7 @@ import {
 } from "react";
 import { DEFAULTS, eventRole, normalize, visibleEvents } from "./calendars.js";
 import { demoData } from "./demo.js";
+import { isTestDemo, pruebasData } from "./demoPruebas.js";
 import {
   type Activity,
   addDays,
@@ -1554,7 +1555,7 @@ export function loadDemo(now: number): AppData {
   } catch {
     // Storage blocked or corrupt: start fresh.
   }
-  return seedHistory(demoData(now), now);
+  return seedHistory(isTestDemo() ? pruebasData(now) : demoData(now), now);
 }
 
 /**

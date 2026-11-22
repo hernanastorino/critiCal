@@ -2,6 +2,7 @@ import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
 import { Celebrations } from "./components/Celebrations.js";
+import { resumeFirstSteps } from "./components/FirstSteps.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
 import { type PageId, Settings } from "./components/Settings.js";
@@ -10,6 +11,7 @@ import { editorDraft } from "./components/TaskEditor.js";
 import { ToastProvider, useToast } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
+import { demoKind, isTestDemo, setDemoKind } from "./demoPruebas.js";
 import { localDev } from "./devAuth.js";
 import { clearDrafts, settingsToRestore } from "./drafts.js";
 import type { AppData } from "./model.js";
@@ -234,12 +236,45 @@ export function DevLogin({ client }: { client: SupabaseClient }) {
   );
 }
 
+/**
+ * Starts the demo of the kind asked for. Changing kind starts that demo from its own data
+ * (the stored copy belongs to the other one); asking for the one already on keeps its progress.
+ */
+function startDemo(kind: "ejemplo" | "pruebas") {
+  if (demoKind() !== kind) {
+    resetDemo();
+    setDemoKind(kind);
+    if (kind === "pruebas") resumeFirstSteps();
+  }
+  try {
+    globalThis.localStorage?.setItem("critical.mode", "demo");
+  } catch {
+    // ignore
+  }
+}
+
+/** `?demo=pruebas` opens the test demo straight away (and leaves the address clean). */
+function demoFromUrl(): boolean {
+  try {
+    const url = new URL(globalThis.location.href);
+    if (url.searchParams.get("demo") !== "pruebas") return false;
+    startDemo("pruebas");
+    url.searchParams.delete("demo");
+    globalThis.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function Login({
   onDemo,
+  onTestDemo,
   onGoogle,
   dev,
 }: {
   onDemo: () => void;
+  onTestDemo: () => void;
   onGoogle?: () => void;
   dev?: ReactNode;
 }) {
@@ -255,6 +290,9 @@ function Login({
       )}
       <button type="button" className={`btn${onGoogle ? "" : " primary"}`} onClick={onDemo}>
         Probar con datos de ejemplo
+      </button>
+      <button type="button" className="btn small" onClick={onTestDemo}>
+        Demo de pruebas
       </button>
       {dev}
       <a className="meta" href="/privacy.html" target="_blank" rel="noreferrer">
@@ -350,6 +388,7 @@ export function App({
   initial?: (now: number) => AppData;
 } = {}) {
   const [mode, setMode] = useState<"login" | "demo">(() => {
+    if (demoFromUrl()) return "demo";
     try {
       return globalThis.localStorage?.getItem("critical.mode") === "demo" ? "demo" : "login";
     } catch {
@@ -414,7 +453,14 @@ export function App({
   if (mode === "login") {
     return (
       <Login
-        onDemo={() => remember("demo")}
+        onDemo={() => {
+          startDemo("ejemplo");
+          remember("demo");
+        }}
+        onTestDemo={() => {
+          startDemo("pruebas");
+          remember("demo");
+        }}
         onGoogle={client ? () => void signInWithGoogle(client) : undefined}
         dev={client && localDev ? <DevLogin client={client} /> : undefined}
       />
@@ -430,6 +476,8 @@ export function App({
       <Shell
         onReset={(was) => {
           resetDemo();
+          // The test demo's guide starts over with it.
+          if (isTestDemo()) resumeFirstSteps();
           clearDrafts();
           setBefore(was);
           setRestored(null);

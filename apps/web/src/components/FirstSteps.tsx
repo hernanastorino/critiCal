@@ -1,5 +1,6 @@
 import { type Dispatch, useSyncExternalStore } from "react";
 import { useSync } from "../Connected.js";
+import { isTestDemo } from "../demoPruebas.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
 import type { PageId } from "./Settings.js";
@@ -53,7 +54,8 @@ export const resumeFirstSteps = (owner?: string) => {
  */
 export function FirstSteps({ onSettings }: { onSettings: Dispatch<PageId> }) {
   const sync = useSync();
-  if (!sync) return null;
+  // The demo has everything already; only the test demo shows the guide, to try it.
+  if (!sync) return isTestDemo() ? <FirstStepsCard google={false} onSettings={onSettings} /> : null;
   return <FirstStepsCard google={!!sync.status.google?.connected} onSettings={onSettings} />;
 }
 

@@ -105,3 +105,19 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - La app lee todos los calendarios visibles y escribe los bloques en un calendario propio, **📚 Plan** (rojo tomate = crítico). Agregalo en el Calendario del iPhone y aparece en el widget nativo.
 - Eventos marcados "Disponible" en Google no bloquean tiempo.
 - La app OAuth está en producción sin verificar: la primera vez Google avisa "app no verificada" → Avanzado → Ir a critiCal.
+
+## Demo de pruebas
+
+Para probar sin la cuenta personal: en la pantalla de inicio, **Demo de pruebas** (debajo de «Probar con datos de ejemplo»), o abrir `/?demo=pruebas`. No usa cuenta ni Supabase: todo queda en este dispositivo (`localStorage`), aparte de los datos del demo común. En Ajustes → Cuenta dice «Demo de pruebas»; **Reiniciar demo** la vuelve a cargar tal cual (y reinicia los Primeros pasos). Los datos se arman en `apps/web/src/demoPruebas.ts`, relativos a hoy. Para volver al demo común, «Salir» y «Probar con datos de ejemplo».
+
+Qué probar, paso a paso (lo que se ve depende del día; lo ideal es abrirla un lunes o martes, así hay bloques ya pasados):
+
+1. **Primeros pasos**: arriba de la Semana, «Primeros pasos · 1 de 3». «Saltar por ahora» la guarda; en Ajustes → Primeros pasos vuelve a aparecer en la Semana al instante (sin pasar por Silos ni Bandeja).
+2. **Bandeja** (una tarjeta de cada tipo): asignar la materia de «Parcial SD (del calendario)»; «Elegí» (no llegás a todo) con «Empezar antes» para «Informe corto SD», «No hacer…», «Usar tiempo libre»; un lugar sin dirección conocido («Parque Rodó», «¿Cuántos minutos desde casa?»); y los bloques de ayer/hoy ya pasados para Hecho / Parcial / No, y «Corregir» + Deshacer después. Para ver «gym no entra», subí las veces por semana de Gym en Ajustes → Rutinas (7), o esperá a la segunda mitad de la semana.
+3. **Ómnibus**: el evento «evento gran» del miércoles (13:00, Atlántida 1213 Bis) → su ventanita → Cómo llegar: Ómnibus muestra Ida y Vuelta con transbordos; «Guardar como ruta habitual» en cada tramo.
+4. **Rutinas con «Distinto según el día»**: Ajustes → Rutinas → Gym: de lunes a viernes 9–17, miércoles de 17 a 20 y sábado y domingo «No ese día».
+5. **Comidas de días pasados**: en Semana, mirá el almuerzo y la cena de la semana pasada (12:30 y 20:30, antes de hace dos semanas; hoy 13:00 y 21:00). Cambiá los horarios en Ajustes → Mi semana y comprobá que los días ya pasados no se mueven y los futuros sí.
+6. **Planificación semanal**: Ajustes → Planificación semanal (un domingo, o desde ahí cualquier día): sobre la semana próxima, con «Parcial Física I» (partes con peso) y las entregas de Sistemas Distribuidos y Programación 2.
+7. **Lugares**: Ajustes → Lugares y traslados: «Casa» (mi casa, con dirección), «Casa Fran» (con dirección), «Casa de la abuela Marta» (sin dirección) y «Facultad» (alias FING, por ómnibus). Comprobá que «Casa de la abuela Marta» no se confunde con «Casa» y que hay una sola casa.
+8. **Materias y parciales**: Ajustes → Materias (Cálculo II, Física I, Programación, Sistemas Distribuidos) y el semestre en Ajustes → Inicio de cuatrimestre.
+9. **Borradores**: abrí un formulario (un lugar, una materia), escribí algo, cerralo con la X y verificá que pide confirmar el descarte.
