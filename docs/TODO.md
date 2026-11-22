@@ -42,7 +42,7 @@ En la cuenta original lo hace la tarea programada `critical-sentry-watch` (cada 
    - **Bug nuestro**: se arregla.
    - **Ruido** ajeno (extensiones, cortes de red reconocidos): se resuelve en Sentry con el motivo, sin tocar código.
 3. Si ya hay un PR abierto con «Fixes CRITICAL-N», solo hacerlo avanzar (nunca un duplicado). Si el PR ya está mergeado pero el Deploy de `main` falló, recuperar ese deploy (un Deploy nuevo sobre el `main` actual) antes de crear otro PR.
-4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `npx biome check .`, `npx tsc -b`, `npx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
+4. Arreglo: worktree nuevo desde `origin/main` en la rama `claude/sentry-<issue>`, test de regresión, `bunx biome check .`, `bunx tsc -b`, `bunx vitest run` (y `supabase test db` si toca `supabase/`), «Fixes CRITICAL-N» en el commit y en el PR.
 5. Mergear con las reglas de §2 (Codacy en verde sobre el último commit, sin hilos ni hallazgos pendientes); si todavía no terminó, dejarlo abierto para la corrida siguiente.
 6. Confirmar el deploy de `main` y marcar el issue como resuelto en Sentry, con el link al PR.
 7. Informe de 2 a 4 líneas. Si un problema de seguridad no quedó resuelto, decirlo arriba de todo.
@@ -63,11 +63,9 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                                                                                                                  | Estado                                                                        | Qué falta                                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PR #68 `claude/settings-a-search` (buscador arriba de Ajustes, mockup B)                                                             | En conflicto con `main`; el usuario decidió (2026-11-22) rehacerlo            | La sesión hija `ajustes-buscador` lo rehace sobre `main` en un PR nuevo y cierra el #68. Revisar y mergear.                                                               |
-| Sesiones hijas del 2026-11-22: `vuelta22-medias` (Medias de la 22.ª vuelta) y `bun` (Bun, §18.8; Bun 1.4.5 instalado por el usuario) | Trabajando                                                                    | Revisar sus PRs (CI, preview, e2e, Codacy) y mergear de a uno; archivar cada hija al terminar. El Deploy de `main` tras Bun es el primero con el gestor nuevo: vigilarlo. |
-| Ciclo del agente atacante sobre `main`                                                                                               | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3.                                                                                                                     |
+| Qué                                    | Estado                                                                        | Qué falta                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Ciclo del agente atacante sobre `main` | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -75,7 +73,7 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 
 - **Un PR por tema**, rama `claude/<tema>`, en un worktree propio (`git worktree add .claude/worktrees/<tema> -b claude/<tema> origin/main`). La carpeta principal la usa otra tarea (vigilar Sentry cada hora): no cambies su rama ni dejes archivos sueltos ahí.
 - **Validar antes de mergear** (cada merge a `main` despliega a staging y, si el E2E pasa, a producción; §17):
-  1. `npx biome check .`, `npx tsc -b`, `npx vitest run` (con coverage en CI: 80 %).
+  1. `bunx biome check .`, `bunx tsc -b`, `bunx vitest run` (con coverage en CI: 80 %).
   2. Probar en el **simulador de iPhone** (`mcp__Claude_Code_iOS_Simulator__control`, Safari contra el dev server), modo demo y cuenta de prueba local, como pide la SPEC §17. En corridas programadas el simulador no está disponible: ahí se usa el navegador integrado con viewport de iPhone (375×812) y se anota en el PR que la prueba en el simulador queda pendiente.
   3. **Agente atacante** (cambiado por el usuario el 2026-11-20): ya **no bloquea el merge**. Corre en segundo plano (subagente sin contexto técnico, solo la URL) contra `main` en local, una vez cada 2–3 PRs mergeados; **nunca** contra producción ni contra la preview hasta nuevo aviso. Si reporta algo Alto o Medio, se arregla primero, en un PR propio; las Bajas van a §5.3.
   4. Lo que reporte el atacante se arregla con tests (Altas y Medias primero, en su propio PR). **Freno** (§17): si la misma falla vuelve 3 veces, o hay 5 vueltas seguidas con fallas nuevas, parar y avisar al usuario con el detalle.
@@ -88,7 +86,7 @@ Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces 
 
 - `supabase start` y, para el seed de la cuenta de prueba, `supabase db reset` (borra la base local).
 - `apps/web/.env.local` del worktree (ignorado por git), con las claves de `supabase status` y `VITE_FAKE_PROVIDERS=1` (ver `.env.example`; ahí están también el email y la contraseña de la cuenta de prueba).
-- Dev server de un worktree en otro puerto: `cd .claude/worktrees/<tema>/apps/web && npx vite --port 5178 --strictPort`. Los worktrees dentro de `.claude/worktrees/` usan el `node_modules` del checkout principal; uno creado en otra carpeta necesita su propio `npm ci` primero.
+- Dev server de un worktree en otro puerto: `cd .claude/worktrees/<tema>/apps/web && bunx vite --port 5178 --strictPort`. Los worktrees dentro de `.claude/worktrees/` usan el `node_modules` del checkout principal; uno creado en otra carpeta necesita su propio `bun install` primero (desde #202 el repo usa Bun; nunca enlazar `node_modules` con un junction).
 - Con `VITE_FAKE_PROVIDERS=1`, Google, iCloud, los mapas y Gemini responden datos inventados (`apps/web/api/_lib/fake-providers.ts`). «Reconectar Google» queda dentro de la app.
 
 ## 4. Problemas conocidos del entorno
@@ -135,10 +133,7 @@ Datos, servidor e interfaz mergeados (la interfaz en #185: modo por lugar, colum
 
 Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186–#188, #194–#197): lo vigente se arregló y lo que ya no pasaba quedó fijado con tests (el detalle de cada ítem está en la descripción de cada PR). Queda:
 
-- **22.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #199, solo modo demo; sin Altas). Las tres Medias (doble «Guardar» en Silos → Nueva duplica, doble Deshacer tras «Fijar acá» cambia el plan y la etiqueta dice «soltar», lugar en ómnibus sin dirección sin aviso) se arreglan en la sesión hija `vuelta22-medias`, que también mira dos Bajas (nombre accesible de silos archivados, hojas cerradas montadas sin `inert`). Otras Bajas:
-  - El aviso «… archivada» con un nombre larguísimo ocupa media pantalla.
-  - Con letra al 200 % los íconos de la cabecera de la Semana no crecen con el texto.
-  - Para confirmar: columnas recortadas a la derecha en Rutinas con letra grande (puede ser la captura).
+- **22.ª vuelta** (2026-11-22, en segundo plano sobre `main` local después de #199, solo modo demo; sin Altas). Las tres Medias (doble «Guardar» en Silos → Nueva duplica, doble Deshacer tras «Fijar acá», lugar en ómnibus sin dirección) y dos Bajas (nombre accesible de silos archivados, hojas cerradas sin `inert`) se arreglaron en #204; las de letra grande y avisos largos, en #205. Queda:
   - No probado: tema claro, lector de pantalla real, Tab completo, arrastrar con precisión, Rutinas extremas, tarjeta de un evento con Auto/Ómnibus, recargar a mitad de un formulario, silos con partes.
 - **No se arreglan (decisiones, a revisar por el usuario si quiere)**:
   - Un lugar llamado «Casa» se reconoce dentro de «Casa de la abuela Marta» (#196: un lugar se reconoce por su nombre como palabra; salida: guardar el lugar largo, gana el nombre más largo).
@@ -150,7 +145,7 @@ Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Roy (§1) y Dependabot ya están (`Roy.tsx`, `.github/dependabot.yml`). Lo que sigue: Bun (§18.8, sesión hija `bun`, 2026-11-22) y el buscador de Ajustes rehecho sobre `main` (sesión hija `ajustes-buscador`, reemplaza al #68). Háptica y deslizar un bloque quedaron fuera: el usuario eligió solo deslizar la semana.
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Roy (§1) y Dependabot ya están (`Roy.tsx`, `.github/dependabot.yml`). Hecho el 2026-11-22: Bun (#202, §18.8) y el buscador de Ajustes rehecho sobre `main` (#201, reemplaza al #68, cerrado). Háptica y deslizar un bloque quedaron fuera: el usuario eligió solo deslizar la semana.
 
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + **Roy** (escalera de Jacob toon 3D, estilo A · Madera pintada, elegido; animación por caso en SPEC §18.1) como personaje y animación de carga. Implementarlo enchufándolo al `<Loading>` de la sesión `esperas-errores`. Textos y esperas: sesión hija `esperas-errores`.
 2. Hecho (#80, validado en producción; arrastrar comidas, #108).
@@ -159,7 +154,7 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 5. Hecho (#77, validado en producción).
 6. Hecho (#76, validado en producción).
 7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
-8. Bun como gestor de paquetes y para correr los scripts; medir el motor antes de pensar en Rust/WASM.
+8. ✅ Bun como gestor de paquetes y para correr los scripts (#202); la medición del motor y la conclusión sobre Rust/WASM están en la SPEC §18.8.
 
 ### 5.6 Decisiones del 2026-11-18 para implementar (SPEC §18 punto 11)
 
@@ -189,7 +184,7 @@ Un PR por tema, en este orden:
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
 
-- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #164 íconos de línea, #165 «Soltar todo» en bloques seguidos, #166 toques de 44 pt en la cabecera, #167 20.ª vuelta (botones con letra grande), #168 «Fijar acá» con Deshacer, #170 números que cuentan, #171 «No ese día», #172 botones con verbo, #173 Silos vacío, #174 21.ª vuelta, #176–#183 (decisiones del 21-11, resorte, escala de tokens, deslizar semana, primeros pasos), #185 ómnibus: interfaz (migración `places_travel_mode`, aplicada por el Deploy del 2026-11-21), #186–#188 Bajas de servidor, Semana y accesibilidad, #190 el plan reserva el tiempo del ómnibus, #193 ómnibus: vuelta y rutas habituales, #194–#197 Bajas viejas, #198 ayuda bajo los campos, #199 reversión de lo rechazado por la base, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
+- **Trabajo del 2026-11-18/19, mergeado y desplegado** (staging y producción en verde): #123–#128 (capturas), #130–#131 y #132–#140 (vueltas 5–11 del atacante), #141 y #149 (decisiones y TODO), #142 comidas al levantarse tarde, #143 «Me levanté» no futura, #144 respaldo con ids nuevos, #145 CSP en modo reporte, #160–#162 (19.ª vuelta y tarjeta de la Bandeja sin hora futura), #164 íconos de línea, #165 «Soltar todo» en bloques seguidos, #166 toques de 44 pt en la cabecera, #167 20.ª vuelta (botones con letra grande), #168 «Fijar acá» con Deshacer, #170 números que cuentan, #171 «No ese día», #172 botones con verbo, #173 Silos vacío, #174 21.ª vuelta, #176–#183 (decisiones del 21-11, resorte, escala de tokens, deslizar semana, primeros pasos), #185 ómnibus: interfaz (migración `places_travel_mode`, aplicada por el Deploy del 2026-11-21), #186–#188 Bajas de servidor, Semana y accesibilidad, #190 el plan reserva el tiempo del ómnibus, #193 ómnibus: vuelta y rutas habituales, #194–#197 Bajas viejas, #198 ayuda bajo los campos, #199 reversión de lo rechazado por la base, #201 buscador de Ajustes, #202 Bun (primer Deploy con Bun en verde, demo en producción sin errores), #204–#205 22.ª vuelta, #146 horarios por rutina y día (migración `valid_hours`), #147 rutina proporcional, #148 Better Stack, #150 tarea imposible no marca críticas, #151–#157 vueltas 13–18 (migraciones `check_in_retired` y `units_by_hand_checkin_origin`). Falta verificar:
   - Prueba en producción en modo demo y en el simulador de iPhone (todo se probó solo en local con WebKit de Playwright y jsdom): «Primeros pasos» con cuenta nueva, tarjeta de ómnibus de un evento con lugar, zoom con dos dedos en iPhone, hoja de bloque con Hecho/Parcial/No/Corregir y su Deshacer, Bandeja (Deshacer de cada acción), Rutinas con «Distinto según el día», comidas al levantarse tarde, letra grande y tema oscuro.
   - Con cuenta real (nunca probado contra Supabase): importar un respaldo de otra cuenta o del demo (ids nuevos), Deshacer después de guardar (registro `retired` / `origin: "undo"`, que no reaparezca al recargar), carga paginada con más de 1000 registros.
   - Better Stack (`errors.betterstack.com`, aplicación «critiCal»): que no aparezcan errores nuevos tras el uso real, y revisar los reportes «CSP: …» unos días; si no hay nada roto, pasar la CSP a `Content-Security-Policy` (TODO §5.6 punto 7).
