@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { errorOf, NOW, roundTrip } from "./atacante11Kit.js";
 import { importFromCalendars } from "./calendars.js";
@@ -38,8 +38,10 @@ describe("12.ª vuelta: materia con estudio semanal enorme pasada a rutina", () 
 describe("12.ª vuelta: Bandeja, foco después de «Deshacer» de «Ordenar tus actividades»", () => {
   it("vuelve a la tarjeta que volvió, no al título", () => {
     const base = demoData(NOW);
+    const first = base.activities.find((a) => a.id === "calc");
+    if (!first) throw new Error("falta la materia de la demo");
     const old: Activity = {
-      ...(base.activities[0] as Activity),
+      ...first,
       id: "gym",
       name: "gym",
       kind: undefined,
@@ -67,10 +69,8 @@ describe("12.ª vuelta: Bandeja, foco después de «Deshacer» de «Ordenar tus 
     );
     const card = () => document.querySelector<HTMLElement>('[data-block-id="gym"]');
     expect(card()).not.toBeNull();
-    const rutina = [...(card()?.querySelectorAll("button") ?? [])].find(
-      (b) => b.textContent === "Rutina",
-    ) as HTMLElement;
-    fireEvent.click(rutina);
+    const pick = within(card() ?? document.body).getByRole("button", { name: "Rutina" });
+    fireEvent.click(pick);
     expect(card()).toBeNull();
     const undo = screen.getByRole("button", { name: "Deshacer" });
     undo.focus();
