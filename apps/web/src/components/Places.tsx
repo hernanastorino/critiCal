@@ -16,6 +16,7 @@ import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
+import { PlaceRoutes } from "./PlaceRoutes.js";
 import { Section } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -533,6 +534,7 @@ function PlaceForm({
           Canelones y San José.
         </span>
       </fieldset>
+      {onDelete && <PlaceRoutes place={place} />}
       <label className="check">
         <input type="checkbox" checked={isHome} onChange={(e) => setIsHome(e.target.checked)} />
         <span>Es mi casa</span>

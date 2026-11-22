@@ -2,7 +2,15 @@
 // the steps the screen reads, and what is saved (place column, one-off choice, backup).
 import { describe, expect, it } from "vitest";
 import { exportJson, parseBackup } from "./backup.js";
-import { placeMode, planRequestFor, stepsOf, summaryOf, tripOf, unlocatedEnd } from "./busTrip.js";
+import {
+  placeMode,
+  planRequestFor,
+  slotFor,
+  stepsOf,
+  summaryOf,
+  tripOf,
+  unlocatedEnd,
+} from "./busTrip.js";
 import { diffData, rowsToData } from "./data.js";
 import { demoData, emptyData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -42,8 +50,8 @@ const event = (id: string, title: string, date: string, location?: string): AppE
 });
 
 /** The value, or a failure: for what a test has just arranged to exist. */
-function must<T>(v: T | undefined): T {
-  if (v === undefined) throw new Error("expected a value");
+function must<T>(v: T | null | undefined): T {
+  if (v === undefined || v === null) throw new Error("expected a value");
   return v;
 }
 
@@ -106,6 +114,39 @@ describe("el pedido al servidor", () => {
       mode: "arrive",
       dayType: 1,
     });
+  });
+
+  it("la vuelta sale cuando termina el evento, del lugar a casa", () => {
+    const e = must(d.events[0]);
+    const req = must(planRequestFor(trip, e, tz, "back"));
+    expect(req).toEqual({
+      action: "plan",
+      from: { lat: -34.918, lon: -56.166 },
+      to: { lat: -34.9, lon: -56.16 },
+      date: "2026-11-24",
+      time: "10:00",
+      mode: "depart",
+      dayType: 1,
+    });
+    expect(slotFor(trip, req)).toEqual({
+      from: "facu",
+      to: "casa",
+      mode: "depart",
+      date: "2026-11-24",
+      timeMinutes: 600,
+    });
+    const ida = must(planRequestFor(trip, e, tz));
+    expect(slotFor(trip, ida)).toMatchObject({ from: "casa", to: "facu", mode: "arrive" });
+  });
+
+  it("la vuelta de un evento que termina pasada la medianoche cuenta el día siguiente", () => {
+    const late = {
+      ...event("n", "Cálculo", "2026-11-27", "FING"),
+      start: zonedInstant(tz, "2026-11-27", 22 * 60),
+      end: zonedInstant(tz, "2026-11-28", 30),
+    };
+    const req = must(planRequestFor(trip, late, tz, "back"));
+    expect([req.date, req.time, req.dayType]).toEqual(["2026-11-28", "00:30", 2]);
   });
 
   it("un feriado y un domingo corren con el horario de domingo; el sábado, el suyo", () => {

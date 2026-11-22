@@ -173,6 +173,8 @@ export type Action =
   /** How to get to one event just that once; null goes back to the place's own mode. */
   | { type: "tripMode"; eventId: string; mode: TravelMode | null; now: number }
   | { type: "tripMinutes"; eventId: string; minutes: number | null; start?: number; now: number }
+  /** The same for the way back, for the event's `end`. */
+  | { type: "tripBack"; eventId: string; minutes: number | null; end?: number; now: number }
   /** Deletes an event address but keeps its minutes on each event that used it. */
   | { type: "dropSpotAddress"; key: string; now: number }
   /**
@@ -1432,6 +1434,24 @@ function apply(data: AppData, action: Action): AppData {
       }
       return refresh(
         { ...data, tripMinutes: Object.keys(tripMinutes).length ? tripMinutes : undefined },
+        now,
+      );
+    }
+    case "tripBack": {
+      const tripBack = { ...data.tripBack };
+      const event = data.events.find((e) => e.id === action.eventId);
+      if (action.minutes === null) delete tripBack[action.eventId];
+      else if (!event || !Number.isFinite(action.minutes) || action.minutes < 0) return data;
+      // An answer for an end the event no longer has is stale.
+      else if (action.end !== undefined && action.end !== event.end) return data;
+      else {
+        const minutes = Math.min(1440, Math.round(action.minutes));
+        const was = tripBack[action.eventId];
+        if (was?.minutes === minutes && was.end === event.end) return data;
+        tripBack[action.eventId] = { minutes, end: event.end };
+      }
+      return refresh(
+        { ...data, tripBack: Object.keys(tripBack).length ? tripBack : undefined },
         now,
       );
     }

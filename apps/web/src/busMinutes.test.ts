@@ -100,6 +100,53 @@ describe("los minutos del ómnibus que reserva el plan", () => {
     expect(gone.tripMinutes).toBeUndefined();
   });
 
+  it("la vuelta tiene su dato: reserva esos minutos y no los de la ida", () => {
+    const d = reducer(withMinutes(base(), "e1", 50), {
+      type: "tripBack",
+      eventId: "e1",
+      minutes: 30,
+      end: clase.end,
+      now: NOW,
+    });
+    expect(busMinutes(d, clase, "back")).toBe(30);
+    const [there, back] = travelBuffers([clase], must(travelOptions(d))).busy;
+    expect(clase.start - must(there).start).toBe((50 + d.settings.travelMarginMinutes) * MIN);
+    expect(must(back).end - clase.end).toBe(30 * MIN);
+  });
+
+  it("sin dato de vuelta se toma igual que la ida", () => {
+    const d = withMinutes(base(), "e1", 50);
+    expect(busMinutes(d, clase, "back")).toBeUndefined();
+    const back = travelBuffers([clase], must(travelOptions(d))).busy[1];
+    expect(must(back).end - clase.end).toBe(50 * MIN);
+  });
+
+  it("el dato de vuelta vale solo para el fin con que se calculó", () => {
+    const a = base();
+    const d = reducer(a, { type: "tripBack", eventId: "e1", minutes: 30, now: NOW });
+    const moved = { ...d, events: [{ ...clase, end: clase.end + 3600_000 }, pesas] };
+    expect(busMinutes(moved, must(moved.events[0]), "back")).toBeUndefined();
+    // Una respuesta para un fin que el evento ya no tiene no se guarda.
+    expect(
+      reducer(a, { type: "tripBack", eventId: "e1", minutes: 30, end: clase.end + 1, now: NOW }),
+    ).toBe(a);
+    expect(reducer(d, { type: "tripBack", eventId: "e1", minutes: 30, now: NOW })).toBe(d);
+    expect(reducer(a, { type: "tripBack", eventId: "nadie", minutes: 30, now: NOW })).toBe(a);
+    const gone = reducer(d, { type: "tripBack", eventId: "e1", minutes: null, now: NOW });
+    expect(gone.tripBack).toBeUndefined();
+  });
+
+  it("la vuelta se guarda en los ajustes y el respaldo la conserva", () => {
+    const a = base();
+    const b = reducer(a, { type: "tripBack", eventId: "e1", minutes: 29.6, now: NOW });
+    const row = diffData(a, b).upserts.find((u) => u.table === "settings")?.rows[0] as {
+      state: { tripBack: unknown };
+    };
+    expect(row.state.tripBack).toEqual({ e1: { minutes: 30, end: clase.end } });
+    const ok = parseBackup(exportJson(b, NOW));
+    expect("data" in ok && ok.data.tripBack).toEqual({ e1: { minutes: 30, end: clase.end } });
+  });
+
   it("el respaldo lo conserva", () => {
     const d = withMinutes(base(), "e1", 50);
     const ok = parseBackup(exportJson(d, NOW));

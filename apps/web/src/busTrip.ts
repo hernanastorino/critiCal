@@ -1,6 +1,7 @@
 // How to get to an event: by car or by bus (SPEC §15). Pure: the request for
 // `/api/transit` and the words the interface says; the network call is in remote.ts.
-import { localParts } from "./engine.js";
+import type { RouteSlot } from "./busRoutes.js";
+import { localParts, type TripLeg } from "./engine.js";
 import { uruguayHolidays } from "./holidays.js";
 import type { AppData, AppEvent, Place, TravelMode } from "./model.js";
 import { home, placeOfEvent } from "./places.js";
@@ -11,6 +12,7 @@ import {
   hhmm,
   inArea,
   type PlanRequest,
+  parseHhmm,
   type TransitOption,
   type WalkLeg,
 } from "./transit.js";
@@ -52,27 +54,46 @@ export function unlocatedEnd(trip: EventTrip): "from" | "to" | "area" | null {
 }
 
 /**
- * The request for the bus that gets home → event done by the event's start. A holiday
- * runs with the Sunday schedule. `maxTransfers` stays unset: the server decides.
+ * The request for the bus of one leg of the trip. `there`: home → event, done by the
+ * event's start. `back`: event → home, leaving when the event ends. A holiday runs with
+ * the Sunday schedule. `maxTransfers` stays unset: the server decides.
  */
-export function planRequestFor(trip: EventTrip, event: AppEvent, tz: string): PlanRequest | null {
+export function planRequestFor(
+  trip: EventTrip,
+  event: AppEvent,
+  tz: string,
+  leg: TripLeg = "there",
+): PlanRequest | null {
   const { lat: fromLat, lon: fromLon } = trip.from;
   const { lat: toLat, lon: toLon } = trip.place;
   if (fromLat == null || fromLon == null || toLat == null || toLon == null) return null;
-  const from = { lat: fromLat, lon: fromLon };
-  const to = { lat: toLat, lon: toLon };
-  if (!inArea(from) || !inArea(to)) return null;
-  const at = localParts(tz, event.start);
+  const home_ = { lat: fromLat, lon: fromLon };
+  const place = { lat: toLat, lon: toLon };
+  if (!inArea(home_) || !inArea(place)) return null;
+  const back = leg === "back";
+  const at = localParts(tz, back ? event.end : event.start);
   const holiday = uruguayHolidays(at.year).some((h) => h.date === at.date);
   const dayType: DayType = holiday ? 3 : dayTypeOf(at.date);
   return {
     action: "plan",
-    from,
-    to,
+    from: back ? place : home_,
+    to: back ? home_ : place,
     date: at.date,
     time: hhmm(at.minuteOfDay),
-    mode: "arrive",
+    mode: back ? "depart" : "arrive",
     dayType,
+  };
+}
+
+/** The saved-route slot a request for this leg falls in (`bus_routes`). */
+export function slotFor(trip: EventTrip, request: PlanRequest): RouteSlot {
+  const back = request.mode === "depart";
+  return {
+    from: back ? trip.place.id : trip.from.id,
+    to: back ? trip.from.id : trip.place.id,
+    mode: request.mode,
+    date: request.date,
+    timeMinutes: parseHhmm(request.time) ?? -1,
   };
 }
 

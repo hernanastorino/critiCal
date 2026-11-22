@@ -16,6 +16,6 @@ export {
 export type { ScheduleInput, ScheduleResult } from "./scheduler.js";
 export { schedule } from "./scheduler.js";
 export { addDays, localDates, localParts, weekdayOf, zonedInstant } from "./time.js";
-export type { TravelOptions, TravelResult } from "./travel.js";
+export type { TravelOptions, TravelResult, TripLeg } from "./travel.js";
 export { travelBuffers } from "./travel.js";
 export * from "./types.js";

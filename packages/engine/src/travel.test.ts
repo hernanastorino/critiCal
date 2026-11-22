@@ -41,6 +41,25 @@ describe("travelBuffers by bus", () => {
     ]);
   });
 
+  it("blocks the way back by its own figure, not the way there's", () => {
+    const { busy } = travelBuffers(
+      [clase],
+      options({ tripMinutes: (_e, leg) => (leg === "there" ? 55 : 35) }),
+    );
+    expect(busy).toEqual([
+      { start: clase.start - 65 * MINUTE, end: clase.start },
+      { start: clase.end, end: clase.end + 35 * MINUTE },
+    ]);
+  });
+
+  it("takes the way back as long as the way there when only that is known", () => {
+    const { busy } = travelBuffers(
+      [clase],
+      options({ tripMinutes: (_e, leg) => (leg === "there" ? 55 : undefined) }),
+    );
+    expect(busy[1]).toEqual({ start: clase.end, end: clase.end + 55 * MINUTE });
+  });
+
   it("falls back to driving for an event with no bus figure", () => {
     const other = ev("gym", "15:00", "16:00", "Gym");
     const { busy } = travelBuffers(

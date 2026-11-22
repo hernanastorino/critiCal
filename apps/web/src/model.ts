@@ -243,6 +243,12 @@ export interface AppData {
    * with the start they were worked out for: if the event moves, the figure no longer applies.
    */
   tripMinutes?: Record<string, { minutes: number; start: number }>;
+  /**
+   * The same for the way back (event → home), worked out for the event's end: if the event
+   * moves, the figure no longer applies. Without it the plan takes the way back as long as
+   * the way there.
+   */
+  tripBack?: Record<string, { minutes: number; end: number }>;
   /** That day only: a meal skipped («Hoy no») or moved by hand (minutes since midnight). */
   mealChoices?: (MealChoice & { date: string })[];
   /** Flexible events the user agreed to move: planned at the new time until moved. */

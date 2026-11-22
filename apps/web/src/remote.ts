@@ -1,7 +1,14 @@
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 
 import type { Syllabus } from "./syllabus.js";
-import type { PlanRequest, PlanResponse } from "./transit.js";
+import type {
+  FeedInfo,
+  PlanOk,
+  PlanRequest,
+  PlanResponse,
+  StatusOk,
+  TransitError,
+} from "./transit.js";
 
 export {
   applyWrites,
@@ -272,8 +279,11 @@ export function syncGoogle(client: SupabaseClient, session: Session): Promise<Sy
 /** Longest wait for a bus plan: the server searches in memory and may ask for walking times. */
 export const PLAN_TIMEOUT_MS = 20_000;
 
-/** The best bus options for a trip (SPEC §15); `error` says why there are none. */
-export async function planBus(client: SupabaseClient, request: PlanRequest): Promise<PlanResponse> {
+/** Asks `/api/transit`; `error` says why there is no answer. */
+async function askTransit<T extends { ok: boolean }>(
+  client: SupabaseClient,
+  request: unknown,
+): Promise<T | { ok: false; error: TransitError }> {
   try {
     const { data } = await client.auth.getSession();
     const token = data.session?.access_token;
@@ -284,9 +294,19 @@ export async function planBus(client: SupabaseClient, request: PlanRequest): Pro
       body: JSON.stringify(request),
       signal: AbortSignal.timeout(PLAN_TIMEOUT_MS),
     });
-    const body = (await res.json().catch(() => null)) as PlanResponse | null;
+    const body = (await res.json().catch(() => null)) as T | null;
     return body && typeof body.ok === "boolean" ? body : { ok: false, error: "transit_failed" };
   } catch {
     return { ok: false, error: "unreachable" };
   }
+}
+
+/** The best bus options for a trip (SPEC §15); `error` says why there are none. */
+export const planBus = (client: SupabaseClient, request: PlanRequest): Promise<PlanResponse> =>
+  askTransit<PlanOk>(client, request);
+
+/** The version of the stored schedules (to tell if a saved route went stale), or null. */
+export async function busFeed(client: SupabaseClient): Promise<FeedInfo | null> {
+  const res = await askTransit<StatusOk>(client, { action: "status" });
+  return res.ok ? res.feed : null;
 }

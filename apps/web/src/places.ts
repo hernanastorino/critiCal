@@ -1,6 +1,6 @@
 // Saved places and driving times → the engine's travel options. Pure.
 import { normalize } from "./calendars.js";
-import type { CalendarEvent, TravelOptions } from "./engine.js";
+import type { CalendarEvent, TravelOptions, TripLeg } from "./engine.js";
 import type { AppData, AppEvent, Place, Spot } from "./model.js";
 
 /** Origin is the previous event's place if it ended less than this ago, else home. */
@@ -186,10 +186,14 @@ export const goesByBus = (data: AppData, e: AppEvent): boolean => {
  * figure `/api/transit` gave for the event's current start. Undefined when the trip is by
  * car or no figure was saved yet, and the plan then keeps the driving minutes.
  */
-export function busMinutes(data: AppData, e: AppEvent): number | undefined {
+export function busMinutes(data: AppData, e: AppEvent, leg: TripLeg = "there"): number | undefined {
+  if (!goesByBus(data, e)) return undefined;
+  if (leg === "back") {
+    const back = data.tripBack?.[e.id];
+    return back && back.end === e.end ? back.minutes : undefined;
+  }
   const saved = data.tripMinutes?.[e.id];
-  if (!saved || saved.start !== e.start || !goesByBus(data, e)) return undefined;
-  return saved.minutes;
+  return saved && saved.start === e.start ? saved.minutes : undefined;
 }
 
 /** Upcoming events going by bus that have no usable bus figure: the plan drives for them. */
@@ -205,9 +209,11 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
   const places = data.places ?? [];
   const byId = new Map(data.events.map((e) => [e.id, e]));
   return {
-    tripMinutes: (event) => {
+    tripMinutes: (event, leg) => {
       const own = byId.get(event.id);
-      return own && own.start === event.start ? busMinutes(data, own) : undefined;
+      return own && own.start === event.start && own.end === event.end
+        ? busMinutes(data, own, leg)
+        : undefined;
     },
     home: start.id,
     resolvePlace: (location) =>

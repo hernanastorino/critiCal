@@ -60,7 +60,8 @@ describe("cómo llegar a un evento", () => {
       "true",
     );
     // Sin cuenta (demo) no hay horarios que consultar.
-    expect(screen.getByText("Los horarios de ómnibus necesitan tu cuenta.")).toBeTruthy();
+    // La ida y la vuelta lo dicen cada una.
+    expect(screen.getAllByText("Los horarios de ómnibus necesitan tu cuenta.")).toHaveLength(2);
     fireEvent.click(screen.getByRole("button", { name: "Auto" }));
     expect(state()[0]).toEqual({ e1: "car" });
     expect(screen.getByText(/Solo esta vez/)).toBeTruthy();
