@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { App } from "./App.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { emptyData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
@@ -100,6 +101,8 @@ describe("Planificación semanal: siempre la semana que viene", () => {
     );
     expect(screen.getAllByText(/Parcial/).length).toBeGreaterThan(0);
     expect(screen.queryByText(/hay margen en todo/)).toBeNull();
+    // 24.ª vuelta: it says which week, the screen behind shows this one.
+    expect(screen.getByText(/Semana del lun 23\/11 al dom 29\/11/)).toBeTruthy();
   });
 });
 
@@ -115,6 +118,18 @@ describe("Silos y widget: la semana en curso hasta planear la siguiente", () => 
     const after = progress(planned, SUNDAY, week).find((p) => p.task.id === "h");
     expect(after?.deadline).toBe(at("2026-11-30", 0));
     expect(after?.totalMinutes).toBe(180);
+  });
+
+  it("el silo de una rutina dice de qué semana es", () => {
+    const planned = (): AppData => {
+      const d = data();
+      return { ...d, settings: { ...d.settings, weekPlannedFor: "2026-11-23" } };
+    };
+    localStorage.clear();
+    localStorage.setItem("critical.mode", "demo");
+    render(<App fixedNow={SUNDAY} initial={planned} />);
+    fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
+    expect(screen.getByLabelText(/^Gym: faltan .*, la semana próxima$/)).toBeTruthy();
   });
 
   it("un «planeada» de otra semana no cambia nada", () => {

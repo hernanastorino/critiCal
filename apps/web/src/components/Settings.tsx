@@ -136,12 +136,22 @@ function Notices({ onOpen }: { onOpen: (id: PageId, from?: HTMLElement) => void 
       run: (from) => onOpen("calendars", from),
     });
   }
-  if (!home(data)) {
+  const house = home(data);
+  if (!house) {
     notices.push({
       key: "home",
       title: "Falta tu casa",
       text: "Sin tu casa guardada no se calculan los traslados.",
       action: "Agregar casa",
+      run: (from) => onOpen("places", from),
+    });
+  } else if (!house.address?.trim() && house.lat === undefined) {
+    // A home without an address is no start for any trip either.
+    notices.push({
+      key: "home",
+      title: "Tu casa no tiene dirección",
+      text: "Sin la dirección de tu casa no se calculan los traslados.",
+      action: "Agregar dirección",
       run: (from) => onOpen("places", from),
     });
   }
