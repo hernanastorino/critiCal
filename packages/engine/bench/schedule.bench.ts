@@ -6,7 +6,12 @@ import { activity, at, settings, task } from "../src/testing.js";
 
 const runtime = typeof Bun !== "undefined" ? `bun ${Bun.version}` : `node ${process.versions.node}`;
 
-function scenario(name: string, activities: number, tasks: number, days: number): [string, ScheduleInput] {
+function scenario(
+  name: string,
+  activities: number,
+  tasks: number,
+  days: number,
+): [string, ScheduleInput] {
   const now = at("2026-11-02", "08:00");
   const horizonEnd = now + days * 24 * 3600_000;
   const acts = Array.from({ length: activities }, (_, i) =>
@@ -29,7 +34,8 @@ const cases = [
   scenario("enorme (30 materias, 500 tareas, 180 días)", 30, 500, 180),
 ];
 
-const pct = (xs: number[], p: number) => xs[Math.min(xs.length - 1, Math.floor(xs.length * p))] as number;
+const pct = (xs: number[], p: number) =>
+  xs[Math.min(xs.length - 1, Math.floor(xs.length * p))] as number;
 
 console.log(`Motor — schedule() en ${runtime}`);
 for (const [name, input] of cases) {

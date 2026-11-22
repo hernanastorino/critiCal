@@ -308,12 +308,12 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
    - ✅ **Bun hecho** (2026-11-22): `bun.lock` (sin `package-lock.json`), `packageManager: bun@1.4.5`, CI y Deploy con `oven-sh/setup-bun` fijo y `bun install --frozen-lockfile`, scripts con `bun run`, Dependabot en el ecosistema `bun`. Node 24 sigue instalado en CI porque Vitest, Playwright y la CLI de Vercel corren sobre él.
    - ✅ **Motor medido** con `bun run bench` / `bun run bench:node` (`packages/engine/bench/schedule.bench.ts`), mediana de `schedule()` en una PC con Windows (Bun 1.4.5 vs Node 22.14):
 
-     | Caso | Bun | Node |
-     |---|---|---|
-     | demo (3 materias, 6 tareas, 14 días) | 3,7 ms | 7,3 ms |
-     | mediano (8, 40, 30 días) | 35,8 ms | 29,9 ms |
-     | grande (15, 150, 90 días) | 958 ms | 328 ms |
-     | enorme (30, 500, 180 días) | 18,2 s | 5,4 s |
+     | Caso                                 | Bun     | Node    |
+     | ------------------------------------ | ------- | ------- |
+     | demo (3 materias, 6 tareas, 14 días) | 3,7 ms  | 7,3 ms  |
+     | mediano (8, 40, 30 días)             | 35,8 ms | 29,9 ms |
+     | grande (15, 150, 90 días)            | 958 ms  | 328 ms  |
+     | enorme (30, 500, 180 días)           | 18,2 s  | 5,4 s   |
 
    - **Conclusión: no se hace Rust/WASM.** Un uso real (demo hasta mediano) tarda decenas de milisegundos. El costo crece más que lineal con tareas y días, por lo que lo que escala mal es el algoritmo, no el lenguaje: si algún día hiciera falta, conviene optimizar el algoritmo antes. Además Bun (JavaScriptCore) no es más rápido que Node (V8) en los casos grandes, y el motor corre en el navegador y en Vercel, no en Bun.
 
