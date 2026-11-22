@@ -13,18 +13,29 @@ const words = (p: Place) =>
     .filter((w) => w.length > 1)
     .sort((a, b) => b.length - a.length);
 
-/** The saved place a location (or title) mentions; the longest match wins. */
-export function placeFor(places: readonly Place[], text: string | undefined): Place | undefined {
+/**
+ * The saved place a text names. A location counts only when it is the place's name or an
+ * alias as a whole (or its address): «Casa de la abuela Marta» is another place than «Casa».
+ * A title (`loose`) may mention the place among other words, but «Casa de …» is not «Casa».
+ */
+export function placeFor(
+  places: readonly Place[],
+  text: string | undefined,
+  loose = false,
+): Place | undefined {
   if (!text) return undefined;
-  const t = ` ${normalize(text)} `;
+  const norm = normalize(text);
+  const t = ` ${norm} `;
   // A place's address counts only as the whole text: «Centro» inside «Gym Centro» does not.
   const whole = places.find((p) => p.address && spotKey(p.address) === spotKey(text));
   if (whole) return whole;
   let best: { place: Place; length: number } | undefined;
   for (const place of places) {
     for (const w of words(place)) {
-      if (t.includes(` ${w} `) && (!best || w.length > best.length))
-        best = { place, length: w.length };
+      const hit = loose
+        ? t.includes(` ${w} `) && !t.includes(` ${w} de `) && !t.includes(` ${w} del `)
+        : norm === w;
+      if (hit && (!best || w.length > best.length)) best = { place, length: w.length };
     }
   }
   return best?.place;
@@ -131,7 +142,11 @@ export const eventsAt = (data: AppData, key: string) =>
  */
 export const keepableEvents = (data: AppData, key: string) =>
   data.events
-    .filter((e) => eventSpotKey(e) === key && !placeFor(data.places ?? [], addressOf(e) ?? e.title))
+    .filter(
+      (e) =>
+        eventSpotKey(e) === key &&
+        !placeFor(data.places ?? [], addressOf(e) ?? e.title, !addressOf(e)),
+    )
     .map((e) => e.id);
 
 /**
@@ -141,7 +156,7 @@ export const keepableEvents = (data: AppData, key: string) =>
 export function keptTravel(data: AppData, e: { id: string; location?: string; title: string }) {
   const kept = data.eventTravel?.[e.id];
   if (!kept || eventSpotKey(e) !== kept.key) return undefined;
-  if (placeFor(data.places ?? [], addressOf(e) ?? e.title)) return undefined;
+  if (placeFor(data.places ?? [], addressOf(e) ?? e.title, !addressOf(e))) return undefined;
   return kept.minutes;
 }
 
@@ -166,7 +181,7 @@ export function withPlaces<T extends CalendarEvent & { title: string }>(
     // A title answer only counts for events without a location of their own.
     if (skipped(data, e.location || e.title)) return { ...e, location: undefined };
     if (e.location) return e;
-    const place = placeFor(places, e.title);
+    const place = placeFor(places, e.title, true);
     if (place) return { ...e, location: place.name };
     // Minutes typed for an event without an address are kept under its title.
     return timed(data, e.title) ? { ...e, location: e.title } : e;
@@ -252,7 +267,7 @@ export function unlocated(data: AppData, events: readonly AppEvent[], now: numbe
     const location = addressOf(e);
     const text = location?.trim() || e.title;
     if (!text || skipped(data, text)) continue;
-    if (placeFor(places, location) || (!location && placeFor(places, e.title))) continue;
+    if (placeFor(places, location) || (!location && placeFor(places, e.title, true))) continue;
     if (timed(data, text)) continue;
     const key = spotKey(text);
     if (!seen.has(key)) seen.set(key, e);
@@ -282,7 +297,8 @@ export function searchPlaces(data: AppData, query: string, limit = 6): Place[] {
   const titles = new Map<string, string[]>();
   for (const e of data.events) {
     const place =
-      placeFor(places, addressOf(e)) ?? (!addressOf(e) ? placeFor(places, e.title) : undefined);
+      placeFor(places, addressOf(e)) ??
+      (!addressOf(e) ? placeFor(places, e.title, true) : undefined);
     if (place) titles.set(place.id, [...(titles.get(place.id) ?? []), e.title]);
   }
   const hits = (texts: (string | undefined)[]) => {
@@ -321,7 +337,7 @@ export function placeOfEvent(data: AppData, e: AppEvent): Place | undefined {
   const places = data.places ?? [];
   const location = addressOf(e);
   if (skipped(data, location ?? e.title)) return undefined;
-  return location ? placeFor(places, location) : placeFor(places, e.title);
+  return location ? placeFor(places, location) : placeFor(places, e.title, true);
 }
 
 /**

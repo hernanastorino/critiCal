@@ -153,7 +153,7 @@ describe("event addresses and search", () => {
     expect(reducer(moved, { type: "forgetSpot", key: "instituto anglo", now: NOW }).spots).toEqual(
       [],
     );
-    // So does unchecking «Es mi casa».
+    // So does unchecking «Mi casa».
     expect(
       reducer(both, {
         type: "savePlace",
@@ -204,14 +204,35 @@ describe("event addresses and search", () => {
 });
 
 describe("places", () => {
-  it("matches locations by name or alias, the longest first", () => {
+  it("matches a location only by its whole name or alias, or its address", () => {
     const places = [casa, facu, gym, { id: "f2", name: "Facultad", aliases: [] }];
-    expect(placeFor(places, "Aula 301, FING")?.id).toBe("facu");
-    expect(placeFor(places, "facultad de ingenieria (salón 5)")?.id).toBe("facu");
-    expect(placeFor(places, "Facultad de Química")?.id).toBe("f2");
-    expect(placeFor(places, "Gimnasio Sport Centro")?.id).toBe("gym");
+    expect(placeFor(places, "FING")?.id).toBe("facu");
+    expect(placeFor(places, "facultad de ingenieria")?.id).toBe("facu");
+    expect(placeFor(places, "Facultad")?.id).toBe("f2");
+    // More words than the name: another place, not this one.
+    expect(placeFor(places, "Aula 301, FING")).toBeUndefined();
+    expect(placeFor(places, "Facultad de Química")).toBeUndefined();
+    expect(placeFor(places, "Gimnasio Sport Centro")).toBeUndefined();
     expect(placeFor(places, "Shopping")).toBeUndefined();
     expect(placeFor(places, undefined)).toBeUndefined();
+  });
+
+  it("«Casa de la abuela Marta» no es el lugar «Casa»", () => {
+    const home: Place = { id: "casa", name: "Casa", aliases: [], isHome: true };
+    const abuela: Place = { id: "abuela", name: "Casa de la abuela Marta", aliases: [] };
+    expect(placeFor([home], "Casa de la abuela Marta")).toBeUndefined();
+    expect(placeFor([home], "casa")?.id).toBe("casa");
+    expect(placeFor([home, abuela], "Casa de la abuela Marta")?.id).toBe("abuela");
+    // A title that says «Casa de …» does not take the home either.
+    expect(placeFor([home], "Cena en Casa de Clara", true)).toBeUndefined();
+    expect(placeFor([home], "Cena en Casa", true)?.id).toBe("casa");
+  });
+
+  it("la casa sale solo del interruptor, no del nombre", () => {
+    const d = { ...emptyData(), places: [{ id: "c", name: "Casa", aliases: [] }] } as AppData;
+    expect(home(d)).toBeUndefined();
+    const e = { ...d, places: [{ id: "c", name: "Casa", aliases: [], isHome: true }] } as AppData;
+    expect(home(e)?.id).toBe("c");
   });
 
   it("prefers manual driving times", () => {
@@ -696,7 +717,8 @@ describe("claves viejas y direcciones", () => {
     expect(dup([hand, auto]).spots).toEqual([hand]);
     const gym = { id: "g", name: "Gym", aliases: [] };
     const centro = { id: "c", name: "Otro", aliases: [], address: "Centro" };
-    expect(placeFor([gym, centro], "Gym Centro")?.id).toBe("g");
+    expect(placeFor([gym, centro], "Gym Centro")).toBeUndefined();
+    expect(placeFor([gym, centro], "Centro")?.id).toBe("c");
   });
 });
 
