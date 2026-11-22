@@ -1,7 +1,7 @@
 // What the Scriptable widget shows: the silos, ordered by urgency.
 
 import type { AppData } from "../../src/model.js";
-import { progress, refreshPlan } from "../../src/planning.js";
+import { focusWeekAt, progress, refreshPlan } from "../../src/planning.js";
 
 export interface WidgetSilo {
   title: string;
@@ -16,7 +16,7 @@ export interface WidgetSilo {
 
 export function widgetSilos(data: AppData, now: number): WidgetSilo[] {
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
-  return progress(data, now)
+  return progress(data, now, focusWeekAt(data, now))
     .filter((p) => p.totalMinutes > 0)
     .sort((a, b) => a.deadline - b.deadline)
     .map((p) => ({

@@ -88,7 +88,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 - **Hojas**: todas con la barra fija de arriba (pastilla para arrastrar y ✕), §18.9.
 - **Dashboard de silos**: un silo vertical por entrega/hábito, ordenados por urgencia; nombre abajo; horas totales arriba dentro del silo; lo que falta como "stock" adentro, abajo. Color por holgura.
 - **Planificado vs. hecho**: vista semanal.
-- **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones.
+- **Planificación semanal** (domingo, ~5 min): semana, críticos y decisiones. Es **siempre de la semana que viene** (lunes a domingo próximos), el día que se abra. Silos y widget muestran la semana en curso y, desde que el usuario toca «Cerrar resumen» en la planificación (`settings.weekPlannedFor` = el lunes de esa semana), la siguiente.
 - **Inicio de cuatrimestre**: materias, fechas, feriados.
 - **Ajustes**: parámetros fijos, reglas, lugares, conexiones, exportar/importar JSON.
 - Diseño visual: lo provee el usuario, siguiendo las guías del §14.
