@@ -175,6 +175,105 @@ function Probe() {
   return null;
 }
 
+describe("searching Ajustes", () => {
+  const box = () => screen.getByRole("searchbox", { name: "Buscar un ajuste" });
+  const type = (value: string) => fireEvent.change(box(), { target: { value } });
+  const results = () =>
+    within(screen.getByRole("region", { name: "Resultados" }))
+      .queryAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? b.textContent);
+
+  it("is a labelled search, and with nothing typed the list is the usual one", () => {
+    renderDemo(withHome);
+    expect(screen.getByRole("search")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+    expect(screen.getByRole("region", { name: "Mi tiempo" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Resultados" })).toBeNull();
+    type("   ");
+    expect(screen.queryByRole("region", { name: "Resultados" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+  });
+
+  it("finds a section by what it holds, ignoring accents and case, and by its name", () => {
+    renderDemo(withHome);
+    type("ALMUERZO");
+    expect(results()).toEqual([expect.stringMatching(/^Mi semana/), "Limpiar búsqueda"]);
+    // The groups and «Hoy» give way to the results.
+    expect(screen.queryByRole("button", { name: "Reacomodar hoy" })).toBeNull();
+    type("omnibus");
+    expect(results()).toEqual([expect.stringMatching(/^Lugares y traslados/), "Limpiar búsqueda"]);
+    type("traslados");
+    expect(results()).toContain("Lugares y traslados, 1");
+    // Every word must match.
+    type("margen almuerzo");
+    expect(screen.getByText("No hay ningún ajuste con «margen almuerzo».")).toBeTruthy();
+  });
+
+  it("matches the start of a word, so «dia» finds días but not «media»", () => {
+    renderDemo(withHome);
+    type("dia");
+    expect(results().some((r) => /^Mi semana/.test(r ?? ""))).toBe(true);
+    type("edia");
+    expect(screen.getByText(/No hay ningún ajuste/)).toBeTruthy();
+  });
+
+  it("also finds the rows that are not screens", () => {
+    renderDemo(withHome);
+    type("sesion");
+    expect(results()).toContain("Salir");
+    type("privacidad");
+    expect(
+      within(screen.getByRole("region", { name: "Resultados" })).getByRole("link", {
+        name: /Política de privacidad/,
+      }),
+    ).toBeTruthy();
+  });
+
+  it("announces how many settings match", () => {
+    renderDemo(withHome);
+    const status = () => document.getElementById(box().getAttribute("aria-describedby") ?? "");
+    expect(status()?.textContent).toBe("");
+    // «Materias» and «Salir» (cerrar sesión).
+    type("sesion");
+    expect(status()?.textContent).toBe("2 ajustes coinciden");
+    type("margen");
+    expect(status()?.textContent).toBe("1 ajuste coincide");
+    type("xyzzy");
+    expect(status()?.textContent).toBe("Ningún ajuste coincide");
+  });
+
+  it("opens a result, comes back to its row, and clears with the focus on the box", () => {
+    renderDemo(withHome);
+    type("margen");
+    const row = screen.getByRole("button", { name: "Reglas" });
+    fireEvent.click(row);
+    expect(screen.getByRole("dialog", { name: "Reglas" })).toBeTruthy();
+    fireEvent.click(document.activeElement as HTMLElement);
+    expect(document.activeElement).toBe(row);
+    expect((box() as HTMLInputElement).value).toBe("margen");
+    fireEvent.click(screen.getByRole("button", { name: "Limpiar búsqueda" }));
+    expect((box() as HTMLInputElement).value).toBe("");
+    expect(document.activeElement).toBe(box());
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+  });
+
+  it("says when nothing matches and offers every setting", () => {
+    renderDemo(withHome);
+    type("xyzzy");
+    expect(screen.getByText("No hay ningún ajuste con «xyzzy».")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Ver todos los ajustes" }));
+    expect(screen.getByRole("button", { name: "Reacomodar hoy" })).toBeTruthy();
+  });
+
+  it("keeps what was typed in «Hoy» while searching", () => {
+    renderDemo(withHome);
+    fireEvent.change(screen.getByLabelText("Me levanté a las"), { target: { value: "06:15" } });
+    type("margen");
+    type("");
+    expect((screen.getByLabelText("Me levanté a las") as HTMLInputElement).value).toBe("06:15");
+  });
+});
+
 describe("Ajustes for a signed-in account", () => {
   function client(owner: boolean) {
     const ok = Promise.resolve({ data: [], error: null });
