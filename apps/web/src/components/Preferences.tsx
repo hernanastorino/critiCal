@@ -14,9 +14,11 @@ import { detectedProblem, detectedToReset } from "../taskForm.js";
 import { clockText, weekMinutesProblem } from "../weekForm.js";
 import {
   clampMinutes,
+  describedBy,
   Field,
   focusFirstInvalid,
   fromHours,
+  Help,
   isFigure,
   isWhole,
   Problem,
@@ -234,6 +236,7 @@ export function WeekSettings() {
         />
         <Field
           label="Arreglarse, traslado (min)"
+          help="Desde que te levantás hasta que podés empezar a estudiar."
           value={form.morning}
           onChange={set("morning")}
           invalid={badField === "Arreglarse, traslado (min)"}
@@ -296,6 +299,7 @@ export function WeekSettings() {
         />
         <Field
           label="Nada de estudio desde"
+          help="Después de esta hora no se planifica estudio."
           type="time"
           value={form.freeFrom}
           onChange={set("freeFrom")}
@@ -452,9 +456,10 @@ export function RuleSettings() {
     saved({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
     toast.show("Reglas guardadas");
   };
-  const field = (k: keyof typeof form, label: string) => (
+  const field = (k: keyof typeof form, label: string, help: string) => (
     <Field
       label={label}
+      help={help}
       value={form[k]}
       onChange={set(k)}
       invalid={problem?.field === k}
@@ -464,9 +469,21 @@ export function RuleSettings() {
   return (
     <Section>
       <div className="grid2">
-        {field("maxActivities", "Máximo de materias por día")}
-        {field("margin", "Margen antes de cada evento (min)")}
-        {field("warn", "Avisar cuando el margen baja de (h)")}
+        {field(
+          "maxActivities",
+          "Máximo de materias por día",
+          "Cuántas materias distintas entran en un mismo día.",
+        )}
+        {field(
+          "margin",
+          "Margen antes de cada evento (min)",
+          "Se suma al traslado para llegar con tiempo.",
+        )}
+        {field(
+          "warn",
+          "Avisar cuando el margen baja de (h)",
+          "El margen es el tiempo que te sobra para cumplir una entrega.",
+        )}
       </div>
       {problem && (
         <p id="rules-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
@@ -765,28 +782,40 @@ export function Routines() {
             placeholder="Gimnasio"
           />
         </label>
-        <label className="field" style={{ flex: 1 }}>
-          <span>Veces/sem.</span>
-          <input
-            inputMode="numeric"
-            value={times}
-            aria-invalid={problem.times ? true : undefined}
-            aria-describedby={problem.times ? "routine-times-error" : undefined}
-            onKeyDown={onEnter}
-            onChange={(e) => setTimes(e.target.value)}
-          />
-        </label>
-        <label className="field" style={{ flex: 1 }}>
-          <span>Minutos</span>
-          <input
-            inputMode="numeric"
-            value={minutes}
-            aria-invalid={problem.minutes ? true : undefined}
-            aria-describedby={problem.minutes ? "routine-minutes-error" : undefined}
-            onKeyDown={onEnter}
-            onChange={(e) => setMinutes(e.target.value)}
-          />
-        </label>
+        <div style={{ flex: 1 }}>
+          <label className="field">
+            <span>Veces/sem.</span>
+            <input
+              inputMode="numeric"
+              value={times}
+              aria-invalid={problem.times ? true : undefined}
+              aria-describedby={describedBy(
+                problem.times ? "routine-times-error" : undefined,
+                "routine-times-help",
+              )}
+              onKeyDown={onEnter}
+              onChange={(e) => setTimes(e.target.value)}
+            />
+          </label>
+          <Help id="routine-times-help" text="Cuántas veces por semana la hacés." />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label className="field">
+            <span>Minutos</span>
+            <input
+              inputMode="numeric"
+              value={minutes}
+              aria-invalid={problem.minutes ? true : undefined}
+              aria-describedby={describedBy(
+                problem.minutes ? "routine-minutes-error" : undefined,
+                "routine-minutes-help",
+              )}
+              onKeyDown={onEnter}
+              onChange={(e) => setMinutes(e.target.value)}
+            />
+          </label>
+          <Help id="routine-minutes-help" text="Lo que dura cada vez." />
+        </div>
       </div>
       <RoutineHours
         form={hours}

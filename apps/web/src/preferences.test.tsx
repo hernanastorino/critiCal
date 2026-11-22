@@ -52,7 +52,9 @@ describe("fixed settings", () => {
     expect(field.value).toBe("-60");
     expect(field.getAttribute("aria-invalid")).toBe("true");
     expect(
-      document.getElementById(field.getAttribute("aria-describedby") ?? "")?.textContent,
+      // The error comes first; the field's help follows it.
+      document.getElementById(field.getAttribute("aria-describedby")?.split(" ")[0] ?? "")
+        ?.textContent,
     ).toMatch(/0 y 240/);
     // 240,4 rounds to 240 but is out of range as typed.
     fireEvent.change(field, { target: { value: "240,4" } });

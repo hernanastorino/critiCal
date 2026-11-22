@@ -1,5 +1,5 @@
 // Small pieces shared by the forms of Ajustes.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 /** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
 export function Unsaved() {
@@ -64,6 +64,7 @@ export function Field({
   onChange,
   invalid,
   errorId = "week-error",
+  help,
 }: {
   label: string;
   /** What a screen reader says when several fields share the same visible label. */
@@ -75,20 +76,41 @@ export function Field({
   invalid?: boolean;
   /** The id of the error text shown for it. */
   errorId?: string;
+  /** A short line under the field for what its label does not say (what it is for, an example). */
+  help?: string;
 }) {
+  const helpId = useId();
+  const box = (children: React.ReactNode) =>
+    help ? <div className="field-with-help">{children}</div> : children;
+  return box(
+    <>
+      <label className="field">
+        <span>{label}</span>
+        <input
+          type={type}
+          aria-label={name}
+          inputMode={type === "text" ? "decimal" : undefined}
+          value={value}
+          onChange={onChange}
+          aria-invalid={invalid ? true : undefined}
+          aria-describedby={describedBy(invalid ? errorId : undefined, help ? helpId : undefined)}
+        />
+      </label>
+      {help && <Help id={helpId} text={help} />}
+    </>,
+  );
+}
+
+/** The ids a field is described by (its error, then its help), or undefined when none. */
+export const describedBy = (...ids: (string | undefined)[]) =>
+  ids.filter(Boolean).join(" ") || undefined;
+
+/** The help line under a field: short, and tied to it with `aria-describedby`. */
+export function Help({ id, text }: { id: string; text: string }) {
   return (
-    <label className="field">
-      <span>{label}</span>
-      <input
-        type={type}
-        aria-label={name}
-        inputMode={type === "text" ? "decimal" : undefined}
-        value={value}
-        onChange={onChange}
-        aria-invalid={invalid ? true : undefined}
-        aria-describedby={invalid ? errorId : undefined}
-      />
-    </label>
+    <small id={id} className="meta field-help">
+      {text}
+    </small>
   );
 }
 

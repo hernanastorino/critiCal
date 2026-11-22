@@ -8,7 +8,14 @@ import { dateError, deadlineMaxYear, isBlank, TITLE_MAX } from "../limits.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, sameName, subjectsOf } from "../subjects.js";
-import { focusFirstInvalid, isFigure, Problem, useFocusInvalid } from "./fields.js";
+import {
+  describedBy,
+  focusFirstInvalid,
+  Help,
+  isFigure,
+  Problem,
+  useFocusInvalid,
+} from "./fields.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
 
@@ -299,16 +306,25 @@ export function Semester() {
                 placeholder="Física II"
               />
             </label>
-            <label className="field" style={{ flex: 1 }}>
-              <span>Estudio semanal (h)</span>
-              <input
-                inputMode="decimal"
-                value={weekly}
-                aria-invalid={hoursOk ? undefined : true}
-                aria-describedby={hoursOk ? undefined : "semester-hours-error"}
-                onChange={(e) => setWeekly(e.target.value)}
+            <div style={{ flex: 1 }}>
+              <label className="field">
+                <span>Estudio semanal (h)</span>
+                <input
+                  inputMode="decimal"
+                  value={weekly}
+                  aria-invalid={hoursOk ? undefined : true}
+                  aria-describedby={describedBy(
+                    hoursOk ? undefined : "semester-hours-error",
+                    "semester-weekly-help",
+                  )}
+                  onChange={(e) => setWeekly(e.target.value)}
+                />
+              </label>
+              <Help
+                id="semester-weekly-help"
+                text="Horas por semana que querés dedicarle, fuera de las evaluaciones."
               />
-            </label>
+            </div>
           </div>
           <Problem
             id="semester-hours-error"
