@@ -489,7 +489,11 @@ function withAfter(data: AppData, action: Action): AppData {
 }
 
 /** Applies `action` and records a plan version for the ones that can be undone. */
-export function reducer(data: AppData, action: Action): AppData {
+export function reducer(data: AppData, input: Action): AppData {
+  // Data arriving whole (the account's, a restored copy) gets its past meals written down
+  // the moment it comes, with the settings it carries, before anything else changes them.
+  const action: Action =
+    input.type === "replace" ? { ...input, data: freezeMeals(input.data, input.now) } : input;
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
   // The meals of the days gone by are written before anything else changes (SPEC §5).

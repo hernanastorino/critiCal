@@ -34,7 +34,8 @@ describe("the meals of the past are not worked out again (SPEC §5)", () => {
     const d = freezeMeals(base(TODAY), TODAY);
     expect(d.mealsFrozenThrough).toBe("2026-11-03");
     expect(lunchRuns(d)).toHaveLength(1);
-    expect(lunchRuns(d)[0]?.from).toBe(DAY);
+    // The first catch-up goes back 60 days: its first Tuesday opens the run.
+    expect(lunchRuns(d)[0]?.from).toBe("2026-09-08");
     expect(lunchRuns(d)[0]?.to).toBeUndefined();
     expect(d.mealRuns?.every((r) => r.from <= DAY)).toBe(true);
     // Already frozen through yesterday: nothing changes.
@@ -108,6 +109,29 @@ describe("the meals of the past are not worked out again (SPEC §5)", () => {
     const run = runAt(after.mealRuns ?? [], "almuerzo", DAY);
     const midnight = at(DAY, "00:00");
     expect(run && midnight + run.start * MINUTE).toBe(lunchBefore?.start);
+  });
+
+  it("a fresh demo: opening, moving lunch and looking at yesterday and days before shows the old times", () => {
+    // Nothing was ever frozen (no mealsFrozenThrough, no runs): the user's own case.
+    const fresh = base(TODAY);
+    expect(fresh.mealsFrozenThrough).toBeUndefined();
+    const days = ["2026-11-03", "2026-11-02", "2026-10-30", "2026-10-21"];
+    const was = days.map((d) => lunchOf(fresh, TODAY, d)?.at);
+    const settings = {
+      ...fresh.settings,
+      week: fresh.settings.week.map((w) => ({
+        ...w,
+        meals: w.meals.map((m) => ({ ...m, start: m.start + 120, end: m.end + 120 })),
+      })),
+    };
+    const after = reducer(fresh, { type: "settings", settings, now: TODAY });
+    days.forEach((d, i) => {
+      expect(lunchOf(after, TODAY, d)?.at).toEqual(was[i]);
+    });
+    // Today and what comes do follow the change.
+    expect(lunchOf(after, TODAY, "2026-11-04")?.at).not.toEqual(
+      lunchOf(fresh, TODAY, "2026-11-04")?.at,
+    );
   });
 
   it("meals of today are still worked out", () => {
