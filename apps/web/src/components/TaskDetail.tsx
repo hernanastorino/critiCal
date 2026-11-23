@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
-import { checkInFactor, earliestStartOf, endOfWeek, progress } from "../planning.js";
+import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
 import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
@@ -73,6 +73,15 @@ export function TaskDetail({
   const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
   const p = progress(data, now).find((x) => x.task.id === task.id);
+  // A weekly one speaks of the week the plan works on: this one, or the next once planned.
+  const weekAt = focusWeekAt(data, now);
+  const weekly =
+    task.kind === "habit"
+      ? progress(data, now, weekAt).find((x) => x.task.id === task.id)
+      : undefined;
+  const weeklyLabel = weekly
+    ? `${weekAt === now ? "Esta semana" : "La semana próxima"}: ${weekly.remainingMinutes > 0 ? `faltan ${hours(weekly.remainingMinutes)}` : "ya está completa"}`
+    : undefined;
   const factor = checkInFactor(data, task.id) ?? 1;
   const [minutes, setMinutes] = useState("");
   const [topics, setTopics] = useState("");
@@ -154,7 +163,8 @@ export function TaskDetail({
         </button>
         <h2>{task.title}</h2>
         <p className="meta">
-          {p && `Faltan ${hours(p.remainingMinutes)} (mínimo ${hours(p.minRemainingMinutes)})`}
+          {weeklyLabel ??
+            (p && `Faltan ${hours(p.remainingMinutes)} (mínimo ${hours(p.minRemainingMinutes)})`)}
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>

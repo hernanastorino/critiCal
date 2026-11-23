@@ -1,5 +1,6 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
+import { Routines } from "./components/Preferences.js";
 import { Silos } from "./components/Silos.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
@@ -104,4 +105,21 @@ describe("Rutinas de la semana próxima", () => {
     expect((s?.minDeficit ?? 0) > (base?.minDeficit ?? 0)).toBe(true);
     expect(s?.level).toBe("critical");
   });
+});
+
+describe("Detalle de la rutina y la semana en curso", () => {
+  it("the sheet of a routine says which week and what is left, without «mínimo»", () => {
+    const d = demoData(SUNDAY);
+    render(
+      <StoreProvider initial={() => d} persist={false} fixedNow={SUNDAY}>
+        <ToastProvider>
+          <Routines />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Gym, 3 por semana/ }));
+    const dialog = screen.getByRole("dialog", { name: "Gym" });
+    expect(within(dialog).getByText(/Esta semana: faltan 4h30/)).toBeTruthy();
+    expect(within(dialog).queryByText(/mínimo/)).toBeNull();
+  }, 30_000);
 });
