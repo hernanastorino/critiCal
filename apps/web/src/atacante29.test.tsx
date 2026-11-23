@@ -155,7 +155,7 @@ describe("MEDIA 4: la Planificación semanal aclara de qué semana es la Bandeja
 });
 
 describe("MEDIA 5: «No hace falta traslado» se puede deshacer", () => {
-  it("ofrece «Deshacer» y la pregunta vuelve", async () => {
+  it("ofrece «Deshacer» y la pregunta vuelve", () => {
     const event: AppEvent = {
       id: "x",
       title: "Zoom",
@@ -165,11 +165,11 @@ describe("MEDIA 5: «No hace falta traslado» se puede deshacer", () => {
       source: "google",
     };
     inside(<Inbox />, () => ({ ...emptyData(), places: [casa], events: [event] }));
-    await act(async () => {
+    act(() => {
       fireEvent.click(screen.getByRole("button", { name: "No hace falta traslado" }));
     });
     expect(screen.queryByText("¿Dónde es?")).toBeNull();
-    await act(async () => {
+    act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     });
     expect(screen.getByText("¿Dónde es?")).toBeTruthy();
