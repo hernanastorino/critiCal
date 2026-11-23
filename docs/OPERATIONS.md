@@ -146,28 +146,3 @@ Qué probar, paso a paso (lo que se ve depende del día; lo ideal es abrirla un 
 7. **Lugares**: Ajustes → Lugares y traslados: «Casa» (mi casa, con dirección), «Casa Fran» (con dirección), «Casa de la abuela Marta» (sin dirección) y «Facultad» (alias FING, por ómnibus). Comprobá que «Casa de la abuela Marta» no se confunde con «Casa» y que hay una sola casa.
 8. **Materias y parciales**: Ajustes → Materias (Cálculo II, Física I, Programación, Sistemas Distribuidos) y el semestre en Ajustes → Inicio de cuatrimestre.
 9. **Borradores**: abrí un formulario (un lugar, una materia), escribí algo, cerralo con la X y verificá que pide confirmar el descarte.
-
-## Pruebas E2E: qué cubre cada una y qué sigue siendo manual
-
-Playwright, en `apps/web/e2e/`, contra la build (`bun run e2e`; en CI también contra staging y la preview). Todas arrancan en **modo demo**, con el celular de 375×812 y zona horaria de Montevideo, y los proyectos `iphone` y `desktop-safari` (WebKit). Las que dependen de la fecha fijan el reloj con `page.clock` (domingo 22/11/2026 12:00 o lunes 23/11 08:00), así que no cambian con el día en que corren. Los helpers están en `e2e/helpers.ts`.
-
-| Archivo                 | Qué cubre                                                                                                                                                                                                                               |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `smoke.spec.ts`         | Demo: semana, camino crítico, globo, silos y Bandeja; manifiesto, privacidad y funciones de sync (solo contra un sitio desplegado).                                                                                                     |
-| `planificacion.spec.ts` | Planificación semanal un domingo: «Semana del lun … al dom …» de la semana próxima, «Cerrar resumen» vuelve a Ajustes, el silo de la rutina pasa a «la semana próxima» y sigue así al recargar.                                         |
-| `lugares.spec.ts`       | Casa: «Falta tu casa», «Tu casa no tiene dirección», una sola casa (la segunda no ofrece «Mi casa»), desmarcar la casa vuelve a avisar, nombres repetidos.                                                                              |
-| `bloque.spec.ts`        | Hoja de bloque: Hecho, Parcial, No y Corregir, cada uno con «Deshacer» que deja el bloque como estaba.                                                                                                                                  |
-| `avance.spec.ts`        | «Guardar avance»: un doble toque guarda una sola vez y no cambia de pestaña; sin nada anotado avisa.                                                                                                                                    |
-| `bandeja.spec.ts`       | Bandeja: Hecho, No hecho, Hice una parte y Elegir una opción, cada uno con su «Deshacer».                                                                                                                                               |
-| `rutinas.spec.ts`       | Rutinas «Distinto según el día»: la Semana respeta la franja de cada día y no pone la rutina en los días «No»; horarios ilegibles se marcan.                                                                                            |
-| `respaldo.spec.ts`      | Respaldo: exportar desde la demo, importar (sin duplicados, también dos veces, persiste al recargar, «Deshacer») y rechazo de archivos que no son un respaldo.                                                                          |
-| `borradores.spec.ts`    | Borradores (§14): recargar con «Nueva» abierta restaura lo escrito, Escape con cambios pregunta (y Escape en la pregunta sigue editando), «Descartar» borra; lo mismo con un formulario de Ajustes.                                     |
-| `letra-grande.spec.ts`  | Letra grande (raíz a 24 y 32 px) con tema claro y oscuro: ninguna pestaña, pantalla de Ajustes ni hoja tiene contenido que se salga por el costado (`scrollWidth > clientWidth` y elementos fuera de pantalla). Solo corre en `iphone`. |
-
-Tiempos: toda la suite tarda ~1 min en una PC con los dos proyectos; `letra-grande.spec.ts` es la más lenta (56 pruebas, ~40 s en un solo proyecto), el resto tarda segundos por archivo.
-
-**Sigue siendo manual** (no se puede probar sin un aparato o una cuenta reales):
-
-- Instalar la PWA y abrirla desde el ícono en un **iPhone físico**: barra de estado, teclado, gestos de borde, el zoom de texto del sistema (las pruebas simulan la letra grande cambiando la raíz, no el ajuste de iOS), notificaciones push y Face ID.
-- Todo lo que necesita una **cuenta real**: entrar con Google, sincronizar con Google Calendar / iCloud, invitaciones, el widget de Scriptable, cargar un programa en PDF con Gemini, el cálculo de traslados con OpenRouteService y los horarios de ómnibus. En la demo no hay sesión ni servidor.
-- Lo que cambia con la **fecha real**: el aviso del domingo y el cron del servidor.
