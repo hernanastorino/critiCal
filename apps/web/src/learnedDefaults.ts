@@ -15,8 +15,9 @@ export interface LearnedHours {
 export function median(values: number[]): number {
   const s = [...values].sort((a, b) => a - b);
   const mid = Math.floor(s.length / 2);
-  if (s.length % 2 === 1) return s[mid] as number;
-  return Math.round(((s[mid - 1] as number) + (s[mid] as number)) / 2 / 15) * 15;
+  const high = s.at(mid) ?? 0;
+  if (s.length % 2 === 1) return high;
+  return Math.round(((s.at(mid - 1) ?? 0) + high) / 2 / 15) * 15;
 }
 
 /** Earlier deliveries that can teach: real deliverables of the same kind, not dropped. */
