@@ -602,7 +602,9 @@ export function diffData(prev: AppData, next: AppData): Writes {
 
   const runKey = (m: MealRun) => `${m.meal}|${m.weekday}|${m.from}`;
   const oldRuns = new Map((prev.mealRuns ?? []).map((m) => [runKey(m), JSON.stringify(m)]));
-  const runs = (next.mealRuns ?? []).filter((m) => oldRuns.get(runKey(m)) !== JSON.stringify(m));
+  // One row per key (the last one stands), so a copy never differs from itself.
+  const newRuns = new Map((next.mealRuns ?? []).map((m) => [runKey(m), m]));
+  const runs = [...newRuns.values()].filter((m) => oldRuns.get(runKey(m)) !== JSON.stringify(m));
   if (runs.length) {
     upserts.push({
       table: "meal_runs",

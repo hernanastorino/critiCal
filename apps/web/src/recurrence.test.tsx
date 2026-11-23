@@ -51,7 +51,9 @@ describe("weekly silo recurrence", () => {
     });
     const next = endOfWeek(d.settings.timezone, NOW);
     expect(gymOf(skipped)?.skipUntil).toBe(next);
-    expect(future(skipped, gym.id)).toEqual([]);
+    // Nothing left this week; next week is already planned (it comes back on Monday).
+    expect(future(skipped, gym.id).filter((x) => x.start < next)).toEqual([]);
+    expect(future(skipped, gym.id).some((x) => x.start >= next)).toBe(true);
     expect(progress(skipped, NOW).some((p) => p.task.id === gym.id)).toBe(false);
     // History stays.
     expect(skipped.plan.some((b) => b.id === "past")).toBe(true);
