@@ -1,7 +1,7 @@
 // What waits in the Bandeja, as plain rows. Pure; the server (widget) uses it too, so the
 // text there is the one the cards of the app show.
 import { visibleEvents } from "./calendars.js";
-import type { MealKind, PlanBlock } from "./engine.js";
+import type { MealKind } from "./engine.js";
 import { clipName, dayAndTime, dayDate, time } from "./format.js";
 import { lateNight } from "./lateNight.js";
 import type { AppData } from "./model.js";
@@ -32,13 +32,8 @@ export interface InboxRow {
   color?: string;
 }
 
-/** Everything the Bandeja asks the user to decide or register (its tab counts these). */
-export function inboxRows(data: AppData, now: number): InboxRow[] {
-  const tz = data.settings.timezone;
-  const plan = refreshPlan(data, now);
-  const asked = decisions(plan.input, plan.result, { data, now });
-  const colorOf = (b: PlanBlock) => data.activities.find((a) => a.id === b.activityId)?.color;
-  const titleOf = (b: PlanBlock) => data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
+/** Rows about things to sort out in the calendar and the materias. */
+function sortingRows(data: AppData, now: number): InboxRow[] {
   const rows: InboxRow[] = [];
   for (const m of data.movedEvents ?? []) {
     const event = data.events.find((e) => e.id === m.eventId);
@@ -67,9 +62,18 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     });
   }
   for (const p of data.proposals) rows.push({ title: p.message, detail: "Cambios para hoy" });
+  return rows;
+}
+
+/** Rows about the plan: pins, meals and what does not fit. */
+function planRows(data: AppData, now: number, plan: ReturnType<typeof refreshPlan>): InboxRow[] {
+  const tz = data.settings.timezone;
+  const rows: InboxRow[] = [];
+  const asked = decisions(plan.input, plan.result, { data, now });
   for (const { pin, event } of pinClashes(data, now, plan.input)) {
+    const title = data.tasks.find((t) => t.id === pin.taskId)?.title ?? "Bloque";
     rows.push({
-      title: `${titleOf(pin)} · ${dayAndTime(tz, pin.start)}`,
+      title: `${title} · ${dayAndTime(tz, pin.start)}`,
       detail: `Fijado que choca con ${event.title}`,
     });
   }
@@ -77,8 +81,9 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     rows.push({ title: "Lo que fijaste no te deja llegar", detail: "Movelos o soltá alguno" });
   }
   for (const m of missedMeals(data, now)) {
+    const eat = m.kind ? EAT[m.kind] : "comer";
     rows.push({
-      title: `Sin lugar para ${m.kind ? EAT[m.kind] : "comer"} · ${dayDate(tz, m.preferred.start)}`,
+      title: `Sin lugar para ${eat} · ${dayDate(tz, m.preferred.start)}`,
       detail: "Comidas sin lugar",
     });
   }
@@ -87,12 +92,21 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     rows.push({ title: "No llegás a todo", detail: "Elegí cómo acomodarlo" });
   }
   for (const r of asked.recommendations) rows.push({ title: "Sugerencia", detail: r.message });
-  for (const b of pendingConfirmations(data, now)) {
-    rows.push({
-      title: clipName(titleOf(b)),
-      detail: `¿Cómo te fue? · ${dayAndTime(tz, b.start)} – ${time(tz, b.end)}`,
-      color: colorOf(b),
-    });
-  }
   return rows;
+}
+
+/** «¿Cómo te fue?»: blocks that ended and were not answered. */
+function answerRows(data: AppData, now: number): InboxRow[] {
+  const tz = data.settings.timezone;
+  return pendingConfirmations(data, now).map((b) => ({
+    title: clipName(data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque"),
+    detail: `¿Cómo te fue? · ${dayAndTime(tz, b.start)} – ${time(tz, b.end)}`,
+    color: data.activities.find((a) => a.id === b.activityId)?.color,
+  }));
+}
+
+/** Everything the Bandeja asks the user to decide or register (its tab counts these). */
+export function inboxRows(data: AppData, now: number): InboxRow[] {
+  const plan = refreshPlan(data, now);
+  return [...sortingRows(data, now), ...planRows(data, now, plan), ...answerRows(data, now)];
 }
