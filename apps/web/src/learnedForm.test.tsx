@@ -23,7 +23,7 @@ const open = (tasks: AppTask[]) =>
     </ToastProvider>,
   );
 
-const valueOf = (label: string): string => screen.getByLabelText<HTMLInputElement>(label).value;
+const typed = (label: string): string => screen.getByLabelText<HTMLInputElement>(label).value;
 
 const exam = (o: Partial<AppTask>): AppTask => ({
   id: "p1",
@@ -50,17 +50,17 @@ afterEach(() => {
 describe("valores por defecto aprendidos en el formulario (SPEC §18.1)", () => {
   it("sin historia trae las horas fijas y no dice nada", () => {
     open([]);
-    expect(valueOf("Horas estimadas")).toBe("4");
-    expect(valueOf("Mínimo (horas)")).toBe("2");
+    expect(typed("Horas estimadas")).toBe("4");
+    expect(typed("Mínimo (horas)")).toBe("2");
     expect(screen.queryByText(/anteriores/)).toBeNull();
   });
 
   it("al marcar «Es un parcial» propone las horas de los parciales anteriores y lo dice", () => {
     open([exam({})]);
-    expect(valueOf("Horas estimadas")).toBe("4");
+    expect(typed("Horas estimadas")).toBe("4");
     fireEvent.click(screen.getByLabelText(/Es un parcial/));
-    expect(valueOf("Horas estimadas")).toBe("10");
-    expect(valueOf("Mínimo (horas)")).toBe("5");
+    expect(typed("Horas estimadas")).toBe("10");
+    expect(typed("Mínimo (horas)")).toBe("5");
     expect(screen.getByText(/Como tus parciales anteriores/)).toBeTruthy();
   });
 
@@ -68,7 +68,7 @@ describe("valores por defecto aprendidos en el formulario (SPEC §18.1)", () => 
     open([exam({})]);
     fireEvent.change(screen.getByLabelText("Horas estimadas"), { target: { value: "3" } });
     fireEvent.click(screen.getByLabelText(/Es un parcial/));
-    expect(valueOf("Horas estimadas")).toBe("3");
+    expect(typed("Horas estimadas")).toBe("3");
     expect(screen.queryByText(/Como tus parciales/)).toBeNull();
   });
 });
