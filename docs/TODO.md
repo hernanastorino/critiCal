@@ -65,9 +65,9 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                        | Qué falta                                             |
-| -------------------------------------- | ----------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Ciclo del agente atacante sobre `main` | **Cerrado** (SPEC §17) el 2026-11-19: 19 vueltas; la 19.ª sin Altas ni Medias | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
+| Qué                                    | Estado                                                                                                           | Qué falta                                             |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Ciclo del agente atacante sobre `main` | En segundo plano cada 2–3 PRs mergeados; la última es la 27.ª (2026-11-23, sin Altas, Medias arregladas en #231) | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -162,7 +162,7 @@ Las listas de las vueltas 5–21 se revisaron una por una el 2026-11-21/22 (#186
 
 ### 5.4 Próximos desarrollos (SPEC §18, pedidos del 2026-11-06)
 
-Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Roy (§1, con el camino infeliz completo desde el 2026-11-23, ver SPEC §18.1; los valores por defecto aprendidos y el efecto IKEA «Tu semana tipo» están hechos: la psicología de UX del §18.1 está completa) y Dependabot ya están (`Roy.tsx`, `.github/dependabot.yml`). Hecho el 2026-11-22: Bun (#202, §18.8) y el buscador de Ajustes rehecho sobre `main` (#201, reemplaza al #68, cerrado). Háptica y deslizar un bloque quedaron fuera: el usuario eligió solo deslizar la semana.
+Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas el 2026-11-06). **Orden**: 6 → 5 → 3 → 4 → 2 → 7 → 1 (con el resto del §14 de 5.1) → ómnibus (5.2) → 8. Hechos: 2–7. Roy (§1, con el camino infeliz completo desde el 2026-11-23, ver SPEC §18.1; los valores por defecto aprendidos están hechos; el efecto IKEA «Tu semana tipo» también está hecho: la psicología de UX del §18.1 está completa) y Dependabot ya están (`Roy.tsx`, `.github/dependabot.yml`). Hecho el 2026-11-22: Bun (#202, §18.8) y el buscador de Ajustes rehecho sobre `main` (#201, reemplaza al #68, cerrado). Háptica y deslizar un bloque quedaron fuera: el usuario eligió solo deslizar la semana.
 
 1. Psicología de UX del video: valores por defecto, gradiente de meta, valor antes del registro, efecto IKEA, encuadre de pérdidas y **compensar el camino infeliz con gracia** (lo que más quiere ver): texto con humor + **Roy** (escalera de Jacob toon 3D, estilo A · Madera pintada, elegido; animación por caso en SPEC §18.1) como personaje y animación de carga. Implementarlo enchufándolo al `<Loading>` de la sesión `esperas-errores`. Textos y esperas: sesión hija `esperas-errores`.
 2. Hecho (#80, validado en producción; arrastrar comidas, #108).
@@ -183,7 +183,7 @@ Un PR por tema, con la SPEC actualizada en el mismo PR:
 4. ✅ Una tarea que no entra ni sola no marca críticos a las demás (#150).
 5. ✅ Respaldo: ids nuevos al importar con cuenta y extras mal formados descartados con aviso (#144, que también arregla `isPermanent` con `22P02` y `42501`).
 6. ✅ Ajustes → Hoy: «Me levanté» no puede ser futura (#143).
-7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Revisado el 2026-11-22 con el MCP de Better Stack: en la aplicación «critiCal» solo hay el reporte de prueba de conexión (19/11) y un `otp_expired` (link de acceso vencido, uso normal); ningún evento después del 19/11, así que no hay uso real para decidir. Falta: usar la app en producción un par de días por todas las pantallas (Lugares, Comidas, viajes, login, PWA instalada), volver a mirar y, si sigue limpio, renombrar la cabecera a `Content-Security-Policy` (`apps/web/vercel.json`, `vercelHeaders.test.ts`, SPEC).
+7. CSP completa: en modo `Content-Security-Policy-Report-Only` desde #145 (reportes a `/api/csp-report`, que los manda como errores «CSP: …» a Better Stack, #148). Revisado el 2026-11-22 con el MCP de Better Stack: en la aplicación «critiCal» solo hay el reporte de prueba de conexión (19/11) y un `otp_expired` (link de acceso vencido, uso normal); ningún evento después del 19/11, así que no hay uso real para decidir. Revisado otra vez el 2026-11-23 (tras #229, con la Demo de pruebas recorrida en producción): igual, sin reportes CSP nuevos ni errores nuevos (solo dos `otp_expired`, que desde #230 muestran un aviso con Roy al volver al login). Falta: usar la app en producción un par de días por todas las pantallas (Lugares, Comidas, viajes, login, PWA instalada), volver a mirar y, si sigue limpio, renombrar la cabecera a `Content-Security-Policy` (`apps/web/vercel.json`, `vercelHeaders.test.ts`, SPEC).
 8. ✅ Tarjeta «¿A qué hora te levantaste?» de la Bandeja: no acepta una hora que todavía no pasó («Todavía no son las HH:MM.»), ni siquiera la supuesta si todavía no llegó.
 
 ### 5.7 Decisiones del 2026-11-21 para implementar (SPEC §18 punto 12)
@@ -203,7 +203,7 @@ Decisiones del usuario: tarjeta de ómnibus con líneas + hora de salida (el det
 
 Arreglado y mergeado: zoom, alineación, Roy, buscador (#217); Primeros pasos (#215); Demo de pruebas (#219); Rutinas en lista + crear aparte y tarjeta de ómnibus (#216); rutinas la semana siguiente completa y comidas pasadas congeladas (#218); E2E de los flujos del §6 (#220); letra grande con tope, iniciales y tests de campos ≥16 px / zoom bloqueado / sin desborde (#221); rutinas fuera de Silos, semana nombrada en el detalle y rutina atrasada (#222); comidas pasadas con duración 0, etiquetas del pasado y validación del respaldo (#223).
 
-Probado por Claude en producción (Demo de pruebas, 375×812, 2026-11-23, antes de #221–#223): viewport sin escala, campos de 16 px, sin desborde, Primeros pasos en la Semana, Rutinas en lista. Falta: repetir tras el deploy de #221–#223 y la confirmación del usuario en su iPhone (2–3 pasos: zoom tras el teclado, tarjeta de ómnibus).
+Probado por Claude en producción (Demo de pruebas, 375×812, 2026-11-23, antes de #221–#223): viewport sin escala, campos de 16 px, sin desborde, Primeros pasos en la Semana, Rutinas en lista. Repetido el 2026-11-23 tras el deploy de #229: Lugares con topes (nombre 60, dirección 200, alias 500), campos de 16 px y sin desborde a 375 px. Falta la confirmación del usuario en su iPhone (2–3 pasos: zoom tras el teclado, tarjeta de ómnibus).
 
 ## 6. Mergeado, falta confirmar la validación en producción
 
