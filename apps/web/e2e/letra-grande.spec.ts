@@ -3,49 +3,60 @@ import { goTab, IPHONE_375, openDemo, sheet } from "./helpers";
 
 test.use(IPHONE_375);
 
-/**
- * Lo que se sale de su caja por el costado: contenedores con más contenido que ancho
- * (`scrollWidth > clientWidth`) y elementos visibles que terminan más allá del borde de la pantalla.
- * Las zonas con scroll horizontal a propósito (`overflow-x: auto|scroll`) no cuentan.
- */
-async function desbordes(page: Page, sinCerrar = false): Promise<string[]> {
-  return page.evaluate((sinCerrar) => {
-    // La ✕ de las hojas se mide aparte (ver más abajo): aquí no tapa lo demás.
-    if (sinCerrar)
-      for (const el of document.querySelectorAll<HTMLElement>(".sheet-close"))
-        el.style.display = "none";
+/** Cómo se nombra un elemento en el mensaje: etiqueta, clases y el comienzo de su texto. */
+const NOMBRE = `(el) => {
+  const clases = typeof el.className === "string" && el.className.trim() ? "." + el.className.trim().split(/s+/).join(".") : "";
+  return el.tagName.toLowerCase() + clases + " «" + (el.textContent ?? "").trim().slice(0, 40) + "»";
+}`;
+
+/** Contenedores con más contenido que ancho (`scrollWidth > clientWidth`), y el documento. */
+const contenedores = (page: Page): Promise<string[]> =>
+  page.evaluate((nombreSrc) => {
+    const nombre = new Function(`return (${nombreSrc})`)() as (el: Element) => string;
     const out: string[] = [];
-    const name = (el: Element) =>
-      `${el.tagName.toLowerCase()}${el.className && typeof el.className === "string" ? `.${el.className.trim().split(/\s+/).join(".")}` : ""} «${(el.textContent ?? "").trim().slice(0, 40)}»`;
     const doc = document.documentElement;
     if (doc.scrollWidth > doc.clientWidth)
       out.push(`documento ${doc.scrollWidth} > ${doc.clientWidth}`);
-    const containers = document.querySelectorAll(
+    const lista = document.querySelectorAll(
       ".app, main, .screen, .scroll, .header, nav.tabs, .sheet, .settings-list, .card, .notice",
     );
-    for (const el of containers) {
-      const st = getComputedStyle(el);
-      if (st.display === "none" || st.visibility === "hidden") continue;
+    for (const el of lista) {
+      if (getComputedStyle(el).display === "none") continue;
       if (el.scrollWidth > el.clientWidth + 1)
-        out.push(`${name(el)}: ${el.scrollWidth} > ${el.clientWidth}`);
+        out.push(`${nombre(el)}: ${el.scrollWidth} > ${el.clientWidth}`);
     }
-    const width = window.innerWidth;
-    const scrollsSideways = (el: Element) => {
+    return out;
+  }, NOMBRE);
+
+/** Elementos visibles que terminan más allá del borde de la pantalla (salvo en zonas con scroll lateral). */
+const fueraDePantalla = (page: Page): Promise<string[]> =>
+  page.evaluate((nombreSrc) => {
+    const nombre = new Function(`return (${nombreSrc})`)() as (el: Element) => string;
+    const ancho = window.innerWidth;
+    const conScroll = (el: Element) => {
       for (let p: Element | null = el; p; p = p.parentElement) {
         const x = getComputedStyle(p).overflowX;
         if (x === "auto" || x === "scroll") return true;
       }
       return false;
     };
+    const ignorado = (el: Element) => !!el.closest("[hidden], [inert], .sr-only, .skip-link");
+    const out: string[] = [];
     for (const el of document.querySelectorAll("main *, .sheet *, nav.tabs *")) {
-      if (el.closest("[hidden], [inert]") || el.closest(".sr-only, .skip-link")) continue;
+      if (ignorado(el)) continue;
       const r = el.getBoundingClientRect();
-      if (r.width === 0 || r.height === 0) continue;
-      if (r.right > width + 1 && !scrollsSideways(el))
-        out.push(`${name(el)} termina en ${Math.round(r.right)} > ${width}`);
+      if (r.width > 0 && r.right > ancho + 1 && !conScroll(el))
+        out.push(`${nombre(el)} termina en ${Math.round(r.right)} > ${ancho}`);
     }
-    return out.slice(0, 12);
-  }, sinCerrar);
+    return out;
+  }, NOMBRE);
+
+/** Todo lo que se sale por el costado; `sinCerrar` oculta antes la ✕ de las hojas (se mide aparte). */
+async function desbordes(page: Page, sinCerrar = false): Promise<string[]> {
+  if (sinCerrar) {
+    await page.addStyleTag({ content: ".sheet-close { display: none !important; }" });
+  }
+  return [...(await contenedores(page)), ...(await fueraDePantalla(page))].slice(0, 12);
 }
 
 const sinDesborde = async (page: Page, donde: string, sinCerrar = false) =>
