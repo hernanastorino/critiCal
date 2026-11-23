@@ -891,6 +891,33 @@ function withMissing(result: ScheduleResult, missing: Map<string, number>): Sche
   return { ...result, status };
 }
 
+/**
+ * A routine that fell behind in the week under way plans only the sessions that fit in
+ * what is left of it: one that would only fit as a critical block (at odd hours, late)
+ * is not done, and is not reported as missing either. The next week asks for all.
+ */
+function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
+  const late = new Set(
+    data.tasks
+      .filter(
+        (t) =>
+          t.kind === "habit" &&
+          data.activities.find((a) => a.id === t.activityId)?.kind === "rutina",
+      )
+      .map((t) => t.id),
+  );
+  const dropped = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const short = result.status.some((s) => late.has(s.taskId) && s.minDeficit > 0);
+  if (dropped.length === 0 && !short) return result;
+  return {
+    ...result,
+    blocks: result.blocks.filter((b) => !dropped.includes(b)),
+    status: result.status.map((s) =>
+      late.has(s.taskId) ? { ...s, minDeficit: 0, targetDeficit: 0, level: "ok" as const } : s,
+    ),
+  };
+}
+
 export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);
@@ -953,7 +980,10 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const main = schedule({ ...input, frozen: [...keep, ...held] });
   const placed = main.blocks.filter((b) => !b.taskId.endsWith("#next"));
   const result = withMissing(
-    { ...main, blocks: [...placed, ...next.blocks].sort((a, b) => a.start - b.start) },
+    lateRoutines(data, {
+      ...main,
+      blocks: [...placed, ...next.blocks].sort((a, b) => a.start - b.start),
+    }),
     next.missing,
   );
   const plan = [...past, ...result.blocks.map((b) => ({ ...b, frozen: undefined }))];

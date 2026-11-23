@@ -73,15 +73,20 @@ describe("Rutinas de la semana próxima", () => {
     expect(days.size).toBe(3);
     // Nothing missing from next week is reported.
     const next = result.status.find((s) => s.taskId === "gym");
-    expect(next?.targetDeficit).toBe(270); // this week (only Sunday, off) is the old shortfall
+    expect(next?.targetDeficit).toBe(0); // a routine behind in this week is not reported
   });
 
   it("today's Gym block does not count as one of next week's sessions", () => {
     const d = demoData(SUNDAY);
     const monday = zonedInstant(TIMEZONE, "2026-11-23", 0);
-    const first = refreshPlan(d, SUNDAY).plan;
-    // Today's block is already in the plan when it is planned again a few minutes later.
-    expect(first.some((b) => b.taskId === "gym" && b.start < monday)).toBe(true);
+    const today = {
+      id: "g-today",
+      taskId: "gym",
+      activityId: "gym",
+      start: zonedInstant(TIMEZONE, "2026-11-22", 15 * 60 + 30),
+      end: zonedInstant(TIMEZONE, "2026-11-22", 17 * 60),
+    };
+    const first = [today];
     const again = refreshPlan({ ...d, plan: first }, SUNDAY + 3 * 60_000).plan;
     expect(gymBlocks(again, monday)).toHaveLength(3);
   });
@@ -122,4 +127,17 @@ describe("Detalle de la rutina y la semana en curso", () => {
     expect(within(dialog).getByText(/Esta semana: faltan 4h30/)).toBeTruthy();
     expect(within(dialog).queryByText(/mínimo/)).toBeNull();
   }, 30_000);
+});
+
+describe("Rutina atrasada, domingo de noche", () => {
+  it("a Gym not done all week gets no critical block at night, and nothing is reported missing", () => {
+    const night = zonedInstant(TIMEZONE, "2026-11-22", 21 * 60 + 30);
+    const d = demoData(night);
+    const { result } = refreshPlan(d, night);
+    const monday = zonedInstant(TIMEZONE, "2026-11-23", 0);
+    const gym = result.blocks.filter((b) => b.taskId === "gym");
+    expect(gym.filter((b) => b.start < monday)).toEqual([]);
+    expect(gym.filter((b) => b.start >= monday)).toHaveLength(3);
+    expect(result.status.find((s) => s.taskId === "gym")?.minDeficit).toBe(0);
+  });
 });

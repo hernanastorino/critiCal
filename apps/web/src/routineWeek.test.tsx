@@ -142,14 +142,20 @@ describe("a routine that does not fit even alone", () => {
     );
   };
 
-  it("is named as the cause, and options that fix the rest say so", () => {
+  it("plans only the runs that fit and does not report the rest as missing", () => {
     const d = data();
     const r = refreshPlan(d, SAT);
     const correr = d.tasks.find((t) => t.title === "Correr") as AppTask;
     const dec = decisions(r.input, r.result);
-    expect(dec.impossible).toEqual([correr.id]);
-    // Its days are not critical for the TP, which fits.
-    expect(d.plan.filter((b) => b.taskId === "tp").every((b) => b.level !== "critical")).toBe(true);
+    // A routine behind in the week is not a cause nor a decision: what does not fit was not done.
+    expect(dec.impossible).toEqual([]);
+    expect(r.result.status.find((s) => s.taskId === correr.id)?.minDeficit).toBe(0);
+    expect(r.result.blocks.some((b) => b.taskId === correr.id && b.level === "critical")).toBe(
+      false,
+    );
+    expect(
+      r.result.blocks.filter((b) => b.taskId === "tp").every((b) => b.level !== "critical"),
+    ).toBe(true);
 
     render(
       <StoreProvider initial={() => d} persist={false} fixedNow={SAT}>
@@ -158,13 +164,6 @@ describe("a routine that does not fit even alone", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    expect(screen.getByText("«Correr» no entra")).toBeTruthy();
-    expect(screen.getByText(/son más veces de las que caben en los días que quedan/)).toBeTruthy();
-    // Dropping the TP frees time, but the runs still do not fit: said plainly.
-    expect(
-      screen.getAllByText("Con esto llegás a todo menos «Correr», que no entra igual."),
-    ).not.toHaveLength(0);
-    expect(screen.getAllByText("Con esto llegás a todos los mínimos.")).not.toHaveLength(0);
-    expect(screen.queryByText(/todavía faltaría tiempo/)).toBeNull();
+    expect(screen.queryByText("«Correr» no entra")).toBeNull();
   });
 });
