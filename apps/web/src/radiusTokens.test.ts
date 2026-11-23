@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
+// A fixed path inside the repo, not user input.
+// eslint-disable-next-line security/detect-non-literal-fs-filename
 const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
 
 // SPEC §14 «Consistencia visual»: every corner radius comes from a token of `:root`
