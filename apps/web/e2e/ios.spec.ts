@@ -12,21 +12,20 @@ const TOPE_PX = 24;
 /** Campos visibles con letra computada menor a 16 px. */
 const camposChicos = (page: Page): Promise<string[]> =>
   page.evaluate(() => {
-    const out: string[] = [];
-    for (const el of document.querySelectorAll("input, textarea, select")) {
-      if (el instanceof HTMLInputElement && ["hidden", "checkbox", "radio"].includes(el.type))
-        continue;
+    const visible = (el: Element) => {
       const r = el.getBoundingClientRect();
-      const cs = getComputedStyle(el);
-      if (r.width === 0 || r.height === 0 || cs.visibility === "hidden" || cs.display === "none")
-        continue;
-      const px = Number.parseFloat(cs.fontSize);
-      if (px < 16) {
-        const nombre = el.getAttribute("aria-label") ?? el.getAttribute("name") ?? el.id;
-        out.push(`${el.tagName.toLowerCase()} «${nombre}» ${px}px`);
-      }
-    }
-    return out;
+      return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden";
+    };
+    const sinTexto = (el: Element) =>
+      /^(hidden|checkbox|radio)$/.test(el.getAttribute("type") ?? "");
+    return [...document.querySelectorAll("input, textarea, select")]
+      .filter((el) => visible(el) && !sinTexto(el))
+      .map((el) => ({ el, px: Number.parseFloat(getComputedStyle(el).fontSize) }))
+      .filter(({ px }) => px < 16)
+      .map(
+        ({ el, px }) =>
+          `${el.tagName.toLowerCase()} «${el.getAttribute("aria-label") ?? el.id}» ${px}px`,
+      );
   });
 
 const desborde = (page: Page): Promise<string> =>
