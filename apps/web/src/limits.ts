@@ -76,6 +76,32 @@ export const ALIASES_FIELD_MAX = 500;
  */
 export const stripBidi = (s: string) => s.replace(/[‪-‮⁦-⁩]/g, "");
 
+/**
+ * Text that is safe to quote inside a notice: no direction-changing characters, no zero-width
+ * or other invisible ones, no control characters (a pasted name must not flip the sentence
+ * around it or hide part of itself).
+ */
+const INVISIBLE = [
+  [0x00, 0x1f],
+  [0x7f, 0x9f],
+  [0xad, 0xad],
+  [0x61c, 0x61c],
+  [0x180e, 0x180e],
+  [0x200b, 0x200f],
+  [0x2028, 0x202e],
+  [0x2060, 0x206f],
+  [0xfeff, 0xfeff],
+] as const;
+const isInvisible = (c: number) => INVISIBLE.some(([lo, hi]) => c >= lo && c <= hi);
+export const stripInvisible = (s: string) =>
+  Array.from(s, (ch) => (isInvisible(ch.codePointAt(0) ?? 0) ? " " : ch))
+    .join("")
+    .replace(/ {2,}/g, " ")
+    .trim();
+
+/** The most parts one task may have (a silo of a few hundred topics is already a lot). */
+export const UNITS_PER_TASK_MAX = 500;
+
 /** Nothing to read in it: empty, spaces, or only characters that draw nothing (zero width). */
 export const isBlank = (s: string) =>
   s.replace(/[\s\u00ad\u200b-\u200f\u2060\u2066-\u2069\ufeff]/g, "") === "";

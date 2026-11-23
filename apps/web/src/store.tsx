@@ -60,6 +60,7 @@ import {
   freezeMeals,
   isPinned,
   isRunning,
+  keepStartedMeals,
   latestCheckIns,
   missedMeals,
   pendingConfirmations,
@@ -529,9 +530,14 @@ export function reducer(data: AppData, input: Action): AppData {
   // The meals of the days gone by are written before anything else changes (SPEC §5).
   const frozen = freezeMeals(data, action.now);
   const base = routinesBack(rekeySpots(withHandMarks(frozen)), action.now);
-  const next = rekeySpots(versioned(base, action, apply(base, action)));
+  const changed = rekeySpots(versioned(base, action, apply(base, action)));
+  // Changing Mi semana keeps today's meals that had begun as they were (SPEC §5).
+  const next =
+    action.type === "settings" && changed.settings !== base.settings
+      ? keepStartedMeals(base, changed, action.now)
+      : changed;
   // An action that changes nothing leaves the data as it came (the freeze waits).
-  if (next === base && frozen !== data)
+  if (changed === base && frozen !== data)
     return routinesBack(rekeySpots(withHandMarks(data)), action.now);
   // Decisions themselves, and data that arrives whole (loaded, re-planned), already
   // carry their own history.

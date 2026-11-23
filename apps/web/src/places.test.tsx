@@ -733,3 +733,36 @@ describe("replace con claves viejas", () => {
     expect(r.spots?.[0]?.key).not.toBe("casa");
   });
 });
+
+describe("places: largo de nombre y dirección al guardar", () => {
+  it("un nombre o una dirección pegados de más no se guardan", async () => {
+    render(
+      <StoreProvider initial={() => data()} persist={false} fixedNow={NOW}>
+        <Places />
+        <Probe />
+      </StoreProvider>,
+    );
+    fireEvent.click(screen.getByText("Agregar lugar"));
+    // fireEvent skips the input's maxLength, as a paste or a restored draft does.
+    fireEvent.change(screen.getByPlaceholderText("Facu"), { target: { value: "N".repeat(61) } });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Guardar"));
+    });
+    expect(screen.getByText(/El nombre tiene como máximo 60 caracteres/)).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText("Facu"), { target: { value: "Largo" } });
+    const address = screen.getByLabelText(/Dirección/) as HTMLInputElement;
+    fireEvent.change(address, { target: { value: "D".repeat(201) } });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Guardar"));
+    });
+    expect(screen.getByText(/La dirección tiene como máximo 200 caracteres/)).toBeTruthy();
+    const saved = JSON.parse(screen.getByTestId("places").textContent ?? "[]") as Place[];
+    expect(saved.some((p) => p.name === "Largo" || p.name.length > 60)).toBe(false);
+    fireEvent.change(address, { target: { value: "D".repeat(200) } });
+    await act(async () => {
+      fireEvent.click(screen.getByText("Guardar"));
+    });
+    const after = JSON.parse(screen.getByTestId("places").textContent ?? "[]") as Place[];
+    expect(after.at(-1)).toMatchObject({ name: "Largo" });
+  });
+});

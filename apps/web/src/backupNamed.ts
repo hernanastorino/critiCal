@@ -6,6 +6,8 @@ import {
   BACKUP_TEXT_MAX,
   isRealDate,
   SESSIONS_PER_WEEK_MAX,
+  stripInvisible,
+  UNITS_PER_TASK_MAX,
 } from "./limits.js";
 
 export type Rec = Record<string, unknown>;
@@ -62,7 +64,9 @@ function firstBroken(xs: Rec[], who: (x: Rec) => string, rules: Rule[]): string 
 
 const called = (x: Rec, key: string, fallback: string) => {
   const v = Reflect.get(x, key);
-  return typeof v === "string" && v ? `«${v.slice(0, 40)}»` : fallback;
+  // What is quoted never carries direction-changing or invisible characters.
+  const shown = typeof v === "string" ? stripInvisible(v.slice(0, 120)).slice(0, 40) : "";
+  return shown ? `«${shown}»` : fallback;
 };
 
 const settingsProblem: Check = (d) => {
@@ -219,6 +223,9 @@ const taskRules = (): Rule[] => [
 
 const taskIssue = (t: Rec): string | null =>
   broken(`La tarea ${called(t, "title", "sin título")}`, t, taskRules()) ??
+  (list(t.units).length > UNITS_PER_TASK_MAX
+    ? `La tarea ${called(t, "title", "sin título")} tiene más de ${UNITS_PER_TASK_MAX} partes: dividila en varias tareas.`
+    : null) ??
   firstBroken(list(t.units), () => `La tarea ${called(t, "title", "sin título")}`, unitRules());
 
 const tasksProblem: Check = (d) => {

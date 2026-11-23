@@ -288,3 +288,67 @@ describe("changing the meals never touches the days gone by", () => {
     expect(lunchOf(back, at("2026-11-23", "09:00"), "2026-11-22")?.at).toBeFalsy();
   });
 });
+
+describe("changing Mi semana keeps today's meals that had begun (by the instant, not the day)", () => {
+  const DAY = "2026-11-22";
+  const week = (
+    d: AppData,
+    change: (m: AppData["settings"]["week"][number]["meals"][number]) => unknown,
+  ) => ({
+    ...d.settings,
+    week: d.settings.week.map((w) => ({
+      ...w,
+      meals: w.meals.flatMap((m) => {
+        const next = change(m);
+        return next ? [next as typeof m] : [];
+      }),
+    })),
+  });
+  const shifted = (d: AppData) =>
+    week(d, (m) => (m.kind === "almuerzo" ? { ...m, start: m.start + 180, end: m.end + 180 } : m));
+  const removed = (d: AppData) => week(d, (m) => (m.kind === "almuerzo" ? null : m));
+
+  it("a lunch that already began stays; one still to come takes the new time", () => {
+    const afternoon = at(DAY, "15:00");
+    const fresh = freezeMeals(base(afternoon), afternoon);
+    const was = lunchOf(fresh, afternoon, DAY)?.at;
+    expect(was).toBeTruthy();
+    expect((was?.start ?? 0) <= afternoon).toBe(true);
+    const after = reducer(fresh, { type: "settings", settings: shifted(fresh), now: afternoon });
+    expect(lunchOf(after, afternoon, DAY)?.at).toEqual(was);
+    // Taking it out of the week does not erase it either.
+    const gone = reducer(fresh, { type: "settings", settings: removed(fresh), now: afternoon });
+    expect(lunchOf(gone, afternoon, DAY)?.at).toEqual(was);
+    // The same change in the morning, before lunch: it follows the new settings.
+    const morning = at(DAY, "09:00");
+    const early = freezeMeals(base(morning), morning);
+    const lunch = lunchOf(early, morning, DAY)?.at;
+    const moved = reducer(early, { type: "settings", settings: shifted(early), now: morning });
+    expect(lunchOf(moved, morning, DAY)?.at?.start).toBe((lunch?.start ?? 0) + 180 * MINUTE);
+  });
+
+  it("the next day's catch-up does not overwrite it, and the sync carries the run", () => {
+    const afternoon = at(DAY, "15:00");
+    const fresh = freezeMeals(base(afternoon), afternoon);
+    const was = lunchOf(fresh, afternoon, DAY)?.at;
+    const after = reducer(fresh, { type: "settings", settings: shifted(fresh), now: afternoon });
+    const tomorrow = at("2026-11-23", "09:00");
+    const later = freezeMeals(after, tomorrow);
+    expect(lunchOf(later, tomorrow, DAY)?.at).toEqual(was);
+    // A second change on the same day does not duplicate or break the runs.
+    const twice = reducer(after, { type: "settings", settings: removed(after), now: afternoon });
+    expect(lunchOf(twice, afternoon, DAY)?.at).toEqual(was);
+    const openRuns = (twice.mealRuns ?? []).filter(
+      (r) => r.meal === "almuerzo" && r.weekday === 0 && !r.to,
+    );
+    expect(openRuns).toHaveLength(1);
+    expect(diffData(fresh, after).upserts.some((u) => u.table === "meal_runs")).toBe(true);
+    // Next Sunday its lunch is written with the settings then in force, not with today's.
+    const sunday = at("2026-11-30", "09:00");
+    const next = freezeMeals(later, sunday);
+    expect(lunchOf(next, sunday, DAY)?.at).toEqual(was);
+    expect(lunchOf(next, sunday, "2026-11-29")?.at?.start).toBe(
+      (was?.start ?? 0) + (7 * 1440 + 180) * MINUTE,
+    );
+  });
+});
