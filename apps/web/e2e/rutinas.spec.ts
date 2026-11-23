@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { goTab, IPHONE_375, MONDAY, openDemo, openSettingsPage, sheet } from "./helpers";
+import { goTab, IPHONE_375, MONDAY, openDemo, openNewRoutine, sheet } from "./helpers";
 
 test.use(IPHONE_375);
 
@@ -21,7 +21,7 @@ async function bloques(page: Page, nombre: string): Promise<[string, number, num
 // «Distinto según el día»: cada día con su horario, y los días en «No» sin rutina.
 test("rutina con horario distinto por día: la Semana respeta cada franja", async ({ page }) => {
   await openDemo(page, MONDAY);
-  await openSettingsPage(page, "Rutinas");
+  await openNewRoutine(page);
   const hoja = sheet(page);
   await hoja.getByLabel("Rutina", { exact: true }).fill("Natación");
   await hoja.getByLabel("Distinto según el día").check();
@@ -62,7 +62,7 @@ test("rutina con horario distinto por día: la Semana respeta cada franja", asyn
 
 test("horario ilegible: se marca el campo y no se agrega la rutina", async ({ page }) => {
   await openDemo(page, MONDAY);
-  await openSettingsPage(page, "Rutinas");
+  await openNewRoutine(page);
   const hoja = sheet(page);
   await hoja.getByLabel("Rutina", { exact: true }).fill("Yoga");
   await hoja.getByLabel("Desde, todos los días").fill("25:99");

@@ -4,6 +4,7 @@ import {
   goTab,
   IPHONE_375,
   openDemo,
+  openNewRoutine,
   openSettingsPage,
   reload,
   sheet,
@@ -87,7 +88,7 @@ test.describe("respaldo: exportar desde la demo e importar", () => {
     const original = await foto(page);
 
     // Se agrega una rutina nueva: la demo ya no es la que se exportó.
-    await openSettingsPage(page, "Rutinas");
+    await openNewRoutine(page);
     await sheet(page).getByLabel("Rutina", { exact: true }).fill("Natación");
     await sheet(page).getByRole("button", { name: "Agregar rutina" }).click();
     await expect(sheet(page).getByRole("button", { name: /^Natación, / })).toBeVisible();

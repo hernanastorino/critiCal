@@ -51,6 +51,13 @@ export async function openSettingsPage(page: Page, title: string): Promise<void>
   await expect(sheet(page)).toHaveAccessibleName(title);
 }
 
+/** Ajustes → Rutinas → «Crear rutina nueva»: abre el formulario (la lista y el formulario son dos vistas). */
+export async function openNewRoutine(page: Page): Promise<void> {
+  await openSettingsPage(page, "Rutinas");
+  await sheet(page).getByRole("button", { name: "Crear rutina nueva" }).click();
+  await expect(sheet(page).getByRole("heading", { name: "Rutina nueva" })).toBeVisible();
+}
+
 /** El aviso de abajo (el que ofrece «Deshacer»). */
 export const toast = (page: Page): Locator => page.locator(".toasts .snack");
 
