@@ -132,9 +132,8 @@ describe("MEDIA 2: nombres de solo caracteres invisibles", () => {
   it("Rutinas dice que el nombre está vacío y no lo muestra con el RLO", () => {
     inside(<Routines />);
     fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
-    const field = screen.getByLabelText("Rutina") as HTMLInputElement;
-    fireEvent.change(field, { target: { value: `\u202eGym${HIDDEN}` } });
-    expect(field.value.includes("\u202e")).toBe(false);
+    fireEvent.change(screen.getByLabelText("Rutina"), { target: { value: `\u202eGym${HIDDEN}` } });
+    expect(screen.getByLabelText("Rutina")).toHaveProperty("value", "Gym\u200b\u200c");
   });
 });
 
