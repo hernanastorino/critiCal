@@ -607,13 +607,57 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   if (!runs?.length) return worked;
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
-  return worked.map((m) => {
-    if (m.date >= today || !m.kind || !m.at) return m;
+  const firstFrozen = runs.map((r) => r.from).sort()[0] ?? today;
+  const out: MealTime[] = [];
+  const seen = new Set<string>();
+  for (const m of worked) {
+    if (m.date >= today || !m.kind || !m.at) {
+      out.push(m);
+      continue;
+    }
     const run = runAt(runs, m.kind, m.date) ?? firstRun(runs, m.kind, m.date);
-    if (!run) return m;
-    const midnight = zonedInstant(tz, m.date, 0);
-    return { ...m, at: { start: midnight + run.start * MINUTE, end: midnight + run.end * MINUTE } };
-  });
+    seen.add(`${m.kind}|${m.date}`);
+    if (!run) {
+      // A meal added after that day was written down: the past does not get it.
+      if (m.date >= firstFrozen && data.mealsFrozenThrough !== undefined) continue;
+      out.push(m);
+      continue;
+    }
+    out.push(pastMeal(tz, m.date, m.kind, run, m.latest, m.chosen));
+  }
+  // A meal the settings no longer have (or have somewhere else) was still there that day.
+  const startDay = localParts(tz, from).date;
+  const endDay = localParts(tz, to).date;
+  for (let date = startDay; date <= endDay && date < today; date = addDays(date, 1)) {
+    for (const run of runs) {
+      if (run.weekday !== weekdayOf(date) || seen.has(`${run.meal}|${date}`)) continue;
+      if (!(run.from <= date && (!run.to || date <= run.to))) continue;
+      const meal = pastMeal(tz, date, run.meal, run, 0, undefined);
+      if (meal.at && meal.at.end > from && meal.at.start < to) out.push(meal);
+    }
+  }
+  return out.sort((a, b) => (a.at?.start ?? 0) - (b.at?.start ?? 0));
+}
+
+/** A meal of a day that is over, as its run says: it is what it was, never moved or on top. */
+function pastMeal(
+  tz: string,
+  date: string,
+  kind: MealKind,
+  run: MealRun,
+  latest: number,
+  chosen: boolean | undefined,
+): MealTime {
+  const midnight = zonedInstant(tz, date, 0);
+  const at = { start: midnight + run.start * MINUTE, end: midnight + run.end * MINUTE };
+  return {
+    date,
+    kind,
+    preferred: at,
+    at,
+    ...(chosen ? { chosen } : {}),
+    latest: latest || at.start,
+  };
 }
 
 /** The run that says where `meal` was on `date` (its weekday's series). */
@@ -699,7 +743,11 @@ function freezeDay(midnight: number, date: string, worked: MealTime[], runs: Mea
     const end = Math.round((m.at.end - midnight) / MINUTE);
     out = withRun(out, { meal: m.kind, weekday, from: date, start, end });
   }
-  return out;
+  // A meal this day does not have (taken out of the settings) closes its standing run.
+  const had = new Set(worked.filter((m) => m.date === date && m.at).map((m) => m.kind));
+  return out.map((r) =>
+    r.weekday === weekday && !r.to && !had.has(r.meal) ? { ...r, to: addDays(date, -1) } : r,
+  );
 }
 
 /** `runs` with `run` standing from its date: the open run of its series closes the day before. */

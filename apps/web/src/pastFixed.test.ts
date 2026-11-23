@@ -217,3 +217,74 @@ describe("meal runs travel to the database and back", () => {
     expect(writes.upserts.filter((u) => u.table === "meal_runs")).toEqual([]);
   });
 });
+
+describe("changing the meals never touches the days gone by", () => {
+  const TODAY = at("2026-11-22", "09:00");
+  const week = (
+    d: AppData,
+    change: (m: AppData["settings"]["week"][number]["meals"][number]) => unknown,
+  ) => ({
+    ...d.settings,
+    week: d.settings.week.map((w) => ({
+      ...w,
+      meals: w.meals.flatMap((m) => {
+        const next = change(m);
+        return next ? [next as typeof m] : [];
+      }),
+    })),
+  });
+  const pastLunches = (d: AppData) =>
+    ["2026-11-09", "2026-11-10", "2026-11-13", "2026-11-17", "2026-11-20"].map(
+      (date) => lunchOf(d, TODAY, date)?.at,
+    );
+
+  it("taking lunch out keeps the lunches of past days and closes the run the day before", () => {
+    const fresh = base(TODAY);
+    const was = pastLunches(fresh);
+    expect(was.every(Boolean)).toBe(true);
+    const settings = week(fresh, (m) => (m.kind === "almuerzo" ? null : m));
+    const after = reducer(fresh, { type: "settings", settings, now: TODAY });
+    expect(pastLunches(after)).toEqual(was);
+    // Today follows the change; and once the day is over its runs close on the day before.
+    expect(lunchOf(after, TODAY, "2026-11-22")?.at).toBeFalsy();
+    const tomorrow = at("2026-11-23", "09:00");
+    const later = freezeMeals(after, tomorrow);
+    const mondays = (later.mealRuns ?? []).filter((r) => r.meal === "almuerzo" && r.weekday === 0);
+    expect(mondays.every((r) => r.to !== undefined)).toBe(true);
+    expect(mondays.some((r) => r.to === "2026-11-21")).toBe(true);
+    expect(pastLunches(later)).toEqual(was);
+    expect(lunchOf(later, tomorrow, "2026-11-22")?.at).toBeFalsy();
+  });
+
+  it("a past day shows its meal as it was, not moved or on top of anything", () => {
+    const fresh = base(TODAY);
+    const shown = (d: AppData) =>
+      mealTimes(d, TODAY, at("2026-11-10", "00:00"), at("2026-11-11", "00:00")).find(
+        (m) => m.kind === "almuerzo",
+      );
+    const settings = week(fresh, (m) =>
+      m.kind === "almuerzo" ? { ...m, start: 900, end: 945 } : m,
+    );
+    const after = reducer(fresh, { type: "settings", settings, now: TODAY });
+    const m = shown(after);
+    expect(m?.at).toEqual(shown(fresh)?.at);
+    expect(m?.preferred).toEqual(m?.at);
+    expect(m?.overlapping).toBeFalsy();
+  });
+
+  it("a meal added later does not appear on the days that were already written", () => {
+    const fresh = base(TODAY);
+    const noLunch = reducer(fresh, {
+      type: "settings",
+      settings: week(fresh, (m) => (m.kind === "almuerzo" ? null : m)),
+      now: TODAY,
+    });
+    const frozen = freezeMeals(noLunch, at("2026-11-23", "09:00"));
+    const back = reducer(frozen, {
+      type: "settings",
+      settings: fresh.settings,
+      now: at("2026-11-23", "09:00"),
+    });
+    expect(lunchOf(back, at("2026-11-23", "09:00"), "2026-11-22")?.at).toBeFalsy();
+  });
+});
