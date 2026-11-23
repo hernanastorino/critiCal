@@ -65,9 +65,9 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                                                           | Qué falta                                             |
-| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| Ciclo del agente atacante sobre `main` | En segundo plano cada 2–3 PRs mergeados; la última es la 27.ª (2026-11-23, sin Altas, Medias arregladas en #231) | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
+| Qué                                    | Estado                                                                                                                                          | Qué falta                                             |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| Ciclo del agente atacante sobre `main` | En segundo plano cada 2–3 PRs mergeados; la última es la 28.ª (2026-11-23, 1 Alta y 2 Medias arregladas en #236); la 29.ª toca tras 2–3 PRs más | Nada urgente. Las Bajas de cada vuelta están en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -210,9 +210,15 @@ Arreglado y mergeado: zoom, alineación, Roy, buscador (#217); Primeros pasos (#
 
 Probado por Claude en producción (Demo de pruebas, 375×812, 2026-11-23, antes de #221–#223): viewport sin escala, campos de 16 px, sin desborde, Primeros pasos en la Semana, Rutinas en lista. Repetido el 2026-11-23 tras el deploy de #229: Lugares con topes (nombre 60, dirección 200, alias 500), campos de 16 px y sin desborde a 375 px. Falta la confirmación del usuario en su iPhone (2–3 pasos: zoom tras el teclado, tarjeta de ómnibus).
 
+### 5.9 Deuda técnica
+
+- `inboxRows` (`apps/web/src/inbox.ts`, usado por el widget desde #235) repite la lógica de `Inbox.tsx`: conviene unificarlas en una sola función para que la Bandeja y el widget no se separen.
+
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
+
+- **Trabajo del 2026-11-23, mergeado** (#230–#236): camino infeliz con Roy, Bajas y Medias de la 27.ª vuelta, defaults aprendidos (#233), «Tu semana tipo» (#234), widget (#235) y 28.ª vuelta (#236). **Probado por Claude en producción** tras el deploy de #236 (Demo de pruebas, 375×812): Nueva entrega propone horas con la nota «Como tus entregas anteriores de esta materia.» y las ajusta tras una entrega nueva; «+ Nueva…» con «cálculo ii» guarda la entrega en Cálculo II sin duplicar la materia; «gym» avisa «Ya tenés una rutina con ese nombre»; Planificación semanal muestra «Tu semana tipo: 4 materias, 1 rutina, 5 lugares» sin contradicciones; un lugar de nombre invisible se ve como «Sin nombre»; un título de 398 caracteres se corta a tres líneas en el detalle. Better Stack sin errores nuevos. Falta: **el usuario tiene que volver a pegar el script del widget** en Scriptable (los pasos están en el cuerpo de #235); si reporta algo, mirar `apps/web/api/_lib/widget.ts` y `apps/web/src/widget-script.ts`.
 
 - **Trabajo del 2026-11-22, mergeado**: #206 (TODO), #207 (23.ª vuelta), #208 Planificación semanal siempre sobre la semana próxima (Silos y widget pasan a la siguiente una vez planeada; `settings.weekPlannedFor`, sin migración), #209 casa solo por el interruptor (una sola casa), #210 el pasado no se recalcula (migración `meal_runs`), #211 Bajas de la 24.ª vuelta. Falta: confirmar que el Deploy aplicó `meal_runs` en staging y producción, prueba en producción en modo demo (Planificación semanal un domingo, comidas de días pasados tras cambiar los horarios, formulario de lugar con casa ya marcada) y revisar Better Stack.
 
