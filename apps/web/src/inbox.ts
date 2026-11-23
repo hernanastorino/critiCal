@@ -32,8 +32,8 @@ export interface InboxRow {
   color?: string;
 }
 
-/** Rows about things to sort out in the calendar and the materias. */
-function sortingRows(data: AppData, now: number): InboxRow[] {
+/** Rows about the calendar: events to move, the wake-up, places. */
+function calendarRows(data: AppData, now: number): InboxRow[] {
   const rows: InboxRow[] = [];
   for (const m of data.movedEvents ?? []) {
     const event = data.events.find((e) => e.id === m.eventId);
@@ -46,6 +46,12 @@ function sortingRows(data: AppData, now: number): InboxRow[] {
   for (const u of unlocated(data, visibleEvents(data), now)) {
     if (!u.lookup) rows.push({ title: u.event.title, detail: "¿Dónde es?" });
   }
+  return rows;
+}
+
+/** Rows about materias and what was detected or proposed. */
+function subjectRows(data: AppData): InboxRow[] {
+  const rows: InboxRow[] = [];
   for (const c of newClassTitles(data)) {
     rows.push({ title: c.title, detail: "Clase nueva en tu calendario" });
   }
@@ -108,5 +114,10 @@ function answerRows(data: AppData, now: number): InboxRow[] {
 /** Everything the Bandeja asks the user to decide or register (its tab counts these). */
 export function inboxRows(data: AppData, now: number): InboxRow[] {
   const plan = refreshPlan(data, now);
-  return [...sortingRows(data, now), ...planRows(data, now, plan), ...answerRows(data, now)];
+  return [
+    ...calendarRows(data, now),
+    ...subjectRows(data),
+    ...planRows(data, now, plan),
+    ...answerRows(data, now),
+  ];
 }

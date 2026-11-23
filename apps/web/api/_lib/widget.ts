@@ -71,34 +71,33 @@ export interface WidgetView {
 export const WIDGET_REFRESH_MINUTES = 5;
 export const WIDGET_EMPTY = "Todo al día ✓";
 
+function siloRows(silos: WidgetSilo[]): WidgetRow[] {
+  return silos.map((s) => ({
+    title: s.title,
+    detail: hours(s.remainingMinutes),
+    color: s.color,
+    level: s.level,
+    ratio: s.totalMinutes > 0 ? Math.min(1, s.remainingMinutes / s.totalMinutes) : 0,
+  }));
+}
+
+function inboxViewRows(data: AppData, now: number): WidgetRow[] {
+  return inboxRows(data, now).map((r) => ({
+    title: r.title,
+    detail: r.detail,
+    color: r.color ?? "#888888",
+    level: "ok" as const,
+  }));
+}
+
 export function widgetView(data: AppData, now: number, silos = widgetSilos(data, now)): WidgetView {
-  const refreshMinutes = WIDGET_REFRESH_MINUTES;
-  if (silos.length > 0) {
-    return {
-      mode: "silos",
-      style: "tanks",
-      rows: silos.map((s) => ({
-        title: s.title,
-        detail: hours(s.remainingMinutes),
-        color: s.color,
-        level: s.level,
-        ratio: s.totalMinutes > 0 ? Math.min(1, s.remainingMinutes / s.totalMinutes) : 0,
-      })),
-      empty: WIDGET_EMPTY,
-      refreshMinutes,
-    };
-  }
+  const inSilos = silos.length > 0;
   return {
-    mode: "inbox",
-    style: "list",
-    rows: inboxRows(data, now).map((r) => ({
-      title: r.title,
-      detail: r.detail,
-      color: r.color ?? "#888888",
-      level: "ok" as const,
-    })),
+    mode: inSilos ? "silos" : "inbox",
+    style: inSilos ? "tanks" : "list",
+    rows: inSilos ? siloRows(silos) : inboxViewRows(data, now),
     empty: WIDGET_EMPTY,
-    refreshMinutes,
+    refreshMinutes: WIDGET_REFRESH_MINUTES,
   };
 }
 
