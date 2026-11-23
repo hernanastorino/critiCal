@@ -117,8 +117,8 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
    - Transiciones con resorte, con fundido si el sistema pide reducir movimiento.
    - ✅ Respuesta optimista con reversión y aviso (#199: tras guardar se muestra la copia de la base; lo rechazado vuelve y avisa).
    - ✅ **Deshacer en vez de confirmar**: «Reiniciar demo» ya tiene Deshacer. El único `confirm` que queda es al cerrar sesión con cambios sin guardar, que no se pueden recuperar.
-   - Gestos: deslizar un bloque para marcarlo y deslizar para cambiar de día o semana, siempre con su botón equivalente.
-   - Háptica como extra.
+   - ✅ Gestos: deslizar para cambiar de semana (#180) y deslizar una tarjeta de «¿Cómo te fue?» en la Bandeja para marcarla hecha (derecha) o no hecha (izquierda), con los botones de siempre y el mismo «Deshacer». En la grilla de la Semana no se marca deslizando (choca con deslizar de semana y con arrastrar).
+   - ✅ Háptica como extra: `navigator.vibrate(10)` al marcar y al empezar un arrastre donde exista; en iPhone no hay API y no se hace nada.
 5. ✅ **Accesibilidad**: hecha (#84: contraste AA, letra del sistema en `rem`, foco, diálogos, etiquetas, orden de lectura), ver §6.
 6. ✅ **Primer uso guiado** (`FirstSteps.tsx`, falta verlo con una cuenta real): recorrido corto (conectar Google → primera materia o entrega → primer plan) que se puede saltar y retomar desde Ajustes.
 

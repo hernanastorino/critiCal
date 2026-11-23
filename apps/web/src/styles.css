@@ -2918,3 +2918,14 @@ label.check {
 .settings-credits {
   margin: var(--space-2) var(--space-3) 0;
 }
+
+/* A card that answers to a sideways swipe: vertical scrolling stays the browser's. */
+.card.swipeable {
+  touch-action: pan-y;
+}
+.card.swipeable[data-swiping="done"] {
+  box-shadow: inset 4px 0 0 var(--ok);
+}
+.card.swipeable[data-swiping="missed"] {
+  box-shadow: inset -4px 0 0 var(--warn);
+}
