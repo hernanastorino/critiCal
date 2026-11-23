@@ -420,10 +420,34 @@ export function Week({
   const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
   const lastChange = data.planHistory?.at(-1)?.label;
 
-  // Visible span: earliest wake to latest bedtime of the week.
-  const startMin = Math.min(...data.settings.week.map((d) => d.wake));
-  const endMin = Math.max(
-    ...data.settings.week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)),
+  // Meals of the week shown, placed around fixed events and pins as the planner does.
+  const firstDay = dates[0] as string;
+  const meals = useMemo(
+    () =>
+      mealTimes(
+        data,
+        now,
+        zonedInstant(tz, firstDay, 0),
+        zonedInstant(tz, addDays(firstDay, 7), 0),
+      ).filter((m): m is MealBubble["meal"] => m.at !== null),
+    [data, now, tz, firstDay],
+  );
+
+  // Visible span: earliest wake to latest bedtime of the week, wide enough for a meal that
+  // was kept where it was (the past is not worked out again: a breakfast at 01:30 stays
+  // visible after the week goes back to waking at 07:30).
+  const mealMinutes = meals.map((m) => ({
+    start: (m.at.start - zonedInstant(tz, m.date, 0)) / MINUTE,
+    end: (m.at.end - zonedInstant(tz, m.date, 0)) / MINUTE,
+  }));
+  const startMin = Math.floor(
+    Math.min(...data.settings.week.map((d) => d.wake), ...mealMinutes.map((m) => m.start)),
+  );
+  const endMin = Math.ceil(
+    Math.max(
+      ...data.settings.week.map((d) => (d.bed <= d.wake ? d.bed + 1440 : d.bed)),
+      ...mealMinutes.map((m) => m.end),
+    ),
   );
   const span = endMin - startMin;
 
@@ -437,18 +461,6 @@ export function Week({
     return all;
   }, [data, editing, now]);
 
-  // Meals of the week shown, placed around fixed events and pins as the planner does.
-  const firstDay = dates[0] as string;
-  const meals = useMemo(
-    () =>
-      mealTimes(
-        data,
-        now,
-        zonedInstant(tz, firstDay, 0),
-        zonedInstant(tz, addDays(firstDay, 7), 0),
-      ).filter((m): m is MealBubble["meal"] => m.at !== null),
-    [data, now, tz, firstDay],
-  );
   // Meals skipped for a day («Hoy no»), shown faint where they would be, to bring back.
   const skipped = useMemo(() => {
     const skips = (data.mealChoices ?? []).filter((c) => c.skip);

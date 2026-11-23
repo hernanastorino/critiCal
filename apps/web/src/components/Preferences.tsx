@@ -4,7 +4,7 @@ import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
-import { isBlank } from "../limits.js";
+import { isBlank, stripBidi } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { describeHours, emptyHoursForm, type HoursForm, readHours } from "../routineHours.js";
@@ -804,7 +804,8 @@ export function Routines() {
                   : undefined
             }
             onChange={(e) => {
-              setName(e.target.value);
+              // Direction-changing characters never show in the field (see `stripBidi`).
+              setName(stripBidi(e.target.value));
               setNameTried(false);
             }}
             onKeyDown={onEnter}

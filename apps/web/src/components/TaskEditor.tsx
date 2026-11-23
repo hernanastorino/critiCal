@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { readSheetDraft, writeSheetDraft } from "../drafts.js";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
@@ -123,6 +123,9 @@ export function TaskEditor({
   onSaved?: (task: AppTask) => void;
 }) {
   const { data, now, dispatch } = useStore();
+  const examId = useId();
+  const estimateId = useId();
+  const minimumId = useId();
   const toast = useToast();
   const answer = useUndoable();
   const tz = data.settings.timezone;
@@ -601,8 +604,9 @@ export function TaskEditor({
                 {startWarning}
               </p>
             )}
-            <label className="check">
+            <label className="check" htmlFor={examId}>
               <input
+                id={examId}
                 type="checkbox"
                 checked={isExam}
                 onChange={(e) => setIsExam(e.target.checked)}
@@ -620,9 +624,10 @@ export function TaskEditor({
               </label>
             )}
             <div className="row">
-              <label className="field" style={{ flex: 1 }}>
+              <label className="field" style={{ flex: 1 }} htmlFor={estimateId}>
                 <span>Horas estimadas</span>
                 <input
+                  id={estimateId}
                   inputMode="decimal"
                   value={estimate}
                   aria-invalid={estimateError ? true : undefined}
@@ -630,9 +635,10 @@ export function TaskEditor({
                   onChange={(e) => setEstimate(e.target.value)}
                 />
               </label>
-              <label className="field" style={{ flex: 1 }}>
+              <label className="field" style={{ flex: 1 }} htmlFor={minimumId}>
                 <span>Mínimo (horas)</span>
                 <input
+                  id={minimumId}
                   inputMode="decimal"
                   value={minimum}
                   aria-invalid={minimumError ? true : undefined}

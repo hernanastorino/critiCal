@@ -14,6 +14,7 @@ import {
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
+import { stripInvisible } from "../limits.js";
 import { home } from "../places.js";
 import { mealsOf } from "../planning.js";
 import type { SyncResult } from "../remote.js";
@@ -245,7 +246,7 @@ function Results({
       {rows.length ? (
         <div className="settings-group">{rows}</div>
       ) : (
-        <p className="meta">No hay ningún ajuste con «{query.trim()}».</p>
+        <p className="meta">No hay ningún ajuste con «{stripInvisible(query)}».</p>
       )}
       <button type="button" className="btn small" onClick={onClear}>
         {rows.length ? "Limpiar búsqueda" : "Ver todos los ajustes"}
@@ -331,6 +332,8 @@ export function Settings({
   // Untouched fields follow the routine (e.g. holidays switched on or off here).
   const [wakeEdit, setWake] = useState<string | null>(null);
   const [bedEdit, setBed] = useState<string | null>(null);
+  const wakeId = useId();
+  const bedId = useId();
   const wake = wakeEdit ?? defaultWake;
   const bed = bedEdit ?? defaultBed;
   // Shown once «Reacomodar hoy» is refused; typing in either field clears it.
@@ -710,9 +713,10 @@ export function Settings({
                   Si te levantaste o te vas a acostar a otra hora, el día se reacomoda.
                 </p>
                 <div className="row">
-                  <label className="field" style={{ flex: 1 }}>
+                  <label className="field" style={{ flex: 1 }} htmlFor={wakeId}>
                     <span>Me levanté a las</span>
                     <input
+                      id={wakeId}
                       type="time"
                       value={wake}
                       aria-invalid={dayError ? true : undefined}
@@ -723,9 +727,10 @@ export function Settings({
                       }}
                     />
                   </label>
-                  <label className="field" style={{ flex: 1 }}>
+                  <label className="field" style={{ flex: 1 }} htmlFor={bedId}>
                     <span>Me acuesto a las</span>
                     <input
+                      id={bedId}
                       type="time"
                       value={bed}
                       aria-invalid={dayError ? true : undefined}

@@ -85,12 +85,18 @@ const INVISIBLE = [
   [0x00, 0x1f],
   [0x7f, 0x9f],
   [0xad, 0xad],
+  [0x34f, 0x34f],
   [0x61c, 0x61c],
+  [0x115f, 0x1160],
+  [0x17b4, 0x17b5],
   [0x180e, 0x180e],
   [0x200b, 0x200f],
   [0x2028, 0x202e],
   [0x2060, 0x206f],
+  [0x2800, 0x2800],
+  [0x3164, 0x3164],
   [0xfeff, 0xfeff],
+  [0xffa0, 0xffa0],
 ] as const;
 const isInvisible = (c: number) => INVISIBLE.some(([lo, hi]) => c >= lo && c <= hi);
 export const stripInvisible = (s: string) =>
@@ -104,7 +110,7 @@ export const UNITS_PER_TASK_MAX = 500;
 
 /** Nothing to read in it: empty, spaces, or only characters that draw nothing (zero width). */
 export const isBlank = (s: string) =>
-  s.replace(/[\s\u00ad\u200b-\u200f\u2060\u2066-\u2069\ufeff]/g, "") === "";
+  Array.from(s).every((ch) => /\s/.test(ch) || isInvisible(ch.codePointAt(0) ?? 0));
 
 /**
  * What is wrong with a typed calendar date, or null when it is fine (or empty): a day
