@@ -742,6 +742,11 @@ export function Routines() {
         Cosas como el gimnasio: sin parciales ni entregas, el plan les busca lugar las veces que
         digas por semana.
       </p>
+      {!routines.some((r) => habitOf(r.id)) && (
+        <p className="meta" id="routines-empty">
+          Todavía no tenés rutinas. Creá la primera con el botón de abajo.
+        </p>
+      )}
       {routines.map((r) => {
         const h = habitOf(r.id);
         // A routine whose silo was deleted is gone from here too.

@@ -465,7 +465,7 @@ export function Settings({
           title: "Materias",
           icon: I.book,
           value: String(data.activities.length - routines),
-          content: <ActivitySettings />,
+          content: <ActivitySettings onOpen={(id) => open(id)} />,
         },
         {
           id: "routines",

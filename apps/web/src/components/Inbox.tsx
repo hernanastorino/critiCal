@@ -98,7 +98,7 @@ const OPTION_POSE: Record<OptionKind, RoyAnim> = {
 };
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
-export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
+export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWeek?: () => void }) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
     useStore();
   const { result: plan } = useStore();
@@ -204,7 +204,21 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         </h1>
       </div>
       <div className="scroll" ref={listRef} onClickCapture={keepFocus}>
-        {empty && <p className="empty">Todo al día ✓</p>}
+        {empty && (
+          // An empty screen says what goes here and where to go next (SPEC §14).
+          <div className="empty">
+            <p>Todo al día ✓</p>
+            <p className="meta">
+              Acá aparece lo que necesita una decisión tuya: eventos para mover, comidas sin lugar y
+              cómo te fue.
+            </p>
+            {onWeek && (
+              <button type="button" className="btn" onClick={onWeek}>
+                Ver mi semana
+              </button>
+            )}
+          </div>
+        )}
 
         {moves.length > 0 && <div className="section-title">Para mover en tu calendario</div>}
         {moves.map((m) => (

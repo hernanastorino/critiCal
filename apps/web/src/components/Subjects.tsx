@@ -18,6 +18,7 @@ import {
   Unsaved,
 } from "./fields.js";
 import { Section } from "./Section.js";
+import type { PageId } from "./Settings.js";
 import { StartAfterField } from "./StartAfterField.js";
 import { UNDO_MS, useToast } from "./Toast.js";
 
@@ -146,7 +147,7 @@ function nameError(name: string, repeated: boolean): string | null {
 }
 
 /** Per-subject colour and study rules. */
-export function ActivitySettings() {
+export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }) {
   const { data, dispatch } = useStore();
   const toast = useToast();
   /** Where focus goes once a row is gone: the next (or previous) row, else the empty note. */
@@ -201,6 +202,26 @@ export function ActivitySettings() {
           No tenés materias ni rutinas. Las materias se crean en «Inicio de cuatrimestre» y las
           rutinas en «Rutinas».
         </p>
+      )}
+      {data.activities.length === 0 && onOpen && (
+        <>
+          <button
+            type="button"
+            className="btn"
+            style={{ width: "100%", marginTop: 8 }}
+            onClick={() => onOpen("semester")}
+          >
+            Ir a Inicio de cuatrimestre
+          </button>
+          <button
+            type="button"
+            className="btn"
+            style={{ width: "100%", marginTop: 8 }}
+            onClick={() => onOpen("routines")}
+          >
+            Ir a Rutinas
+          </button>
+        </>
       )}
       {data.activities.map((a) => (
         <ActivityRow key={a.id} activity={a} onRemove={() => remove(a)} />
