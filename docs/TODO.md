@@ -107,10 +107,10 @@ Marcá cada uno con ✅ en la SPEC al mergearlo y pasalo a la sección 6 hasta q
 ### 5.1 Guías de UI/UX del §14 (un PR por grupo)
 
 1. ✅ **Mensajes y esperas**: hecho (#89: `Loading`, `Notice`, skeletons, errores con salida), ver §6.
-2. **Formularios y botones** (✅ botones con verbo: sin «OK» ni «Listo» sueltos, con test; ✅ Silos vacío explica qué va y apunta a «Nueva»; ✅ ayuda bajo los campos no obvios, #198): botones con verbo concreto, cada sección termina con una acción, nada pedido dos veces, estados vacíos útiles.
+2. **Formularios y botones** (✅ botones con verbo: sin «OK» ni «Listo» sueltos, con test; ✅ Silos vacío explica qué va y apunta a «Nueva»; ✅ ayuda bajo los campos no obvios, #198): ✅ estados vacíos útiles en Bandeja, Rutinas, Lugares y Materias, con su acción y tests unitarios y E2E): botones con verbo concreto, cada sección termina con una acción, nada pedido dos veces. Hecho.
 3. **Consistencia visual**:
    - ✅ Íconos de línea de 2 px desde `icons.tsx`, sin emojis como íconos de interfaz (PR de `claude/iconos-de-linea`). Falta el ícono de critiCal, que es relleno: pregunta en §1.1.
-   - Espaciados y radios desde los tokens de `styles.css`.
+   - ✅ Espaciados (#183) y radios desde los tokens de `styles.css` (`--radius-round` para círculos; `radiusTokens.test.ts` falla ante un radio literal).
    - ✅ Toques de 44 pt: todo lo que se dibuja más chico (píldoras de la semana, botones chicos, cerrar, íconos de la cabecera) tiene un área invisible de 44 px.
    - ✅ Números de silos que se animan con cifras tabulares (`CountUp`: cuentan hasta el valor nuevo en 450 ms; con «reducir movimiento» saltan).
 4. **Interacción y animaciones**:

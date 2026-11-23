@@ -115,6 +115,12 @@ export function Places() {
         Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
         evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
       </p>
+      {places.length === 0 && !editing && (
+        <p className="meta" id="places-empty">
+          Todavía no guardaste ningún lugar. Empezá por tu casa: el plan la usa para calcular cada
+          traslado.
+        </p>
+      )}
       {places.map((p) =>
         editing?.id === p.id ? (
           // The form opens where its place is, not at the end of the list.

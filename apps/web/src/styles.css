@@ -42,6 +42,7 @@
   --radius-xl: 24px;
   --radius-xxl: 32px;
   --radius-pill: 999px;
+  --radius-round: 50%;
   --text-2xs: 0.6875rem;
   --text-xs: 0.75rem;
   --text-s: 0.8125rem;
@@ -339,7 +340,7 @@ textarea {
   height: 36px;
   display: grid;
   place-items: center;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: var(--ink-soft);
 }
 
@@ -570,7 +571,7 @@ textarea {
   top: -3px;
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--critical);
 }
 
@@ -580,7 +581,7 @@ textarea {
   bottom: calc(var(--tab-h) + var(--safe-b) + 14px);
   width: 48px;
   height: 48px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   display: grid;
   place-items: center;
   background: var(--surface);
@@ -812,7 +813,7 @@ textarea {
   width: 0.625rem;
   height: 0.625rem;
   margin-right: 0.5rem;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--c);
   vertical-align: 0.02em;
 }
@@ -873,7 +874,7 @@ textarea {
   margin: -38px calc(var(--space-2) * -1) var(--space-2) auto;
   width: 32px;
   height: 32px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   display: grid;
   place-items: center;
   background: color-mix(in srgb, var(--ink) 12%, var(--surface));
@@ -1088,7 +1089,7 @@ input[type="radio"] {
 }
 
 input[type="radio"] {
-  border-radius: 50%;
+  border-radius: var(--radius-round);
 }
 
 input[type="checkbox"]:checked {
@@ -1356,7 +1357,7 @@ input[type="radio"]:disabled {
   flex: none;
   width: 1.125em;
   height: 1.125em;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   border: 2px solid var(--ink-soft);
 }
 
@@ -1490,7 +1491,7 @@ input[type="radio"]:disabled {
   content: "";
   width: 9px;
   height: 9px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   background: var(--ok);
 }
 
@@ -1820,7 +1821,7 @@ input[type="datetime-local"] {
 .swatch {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   flex: none;
 }
 

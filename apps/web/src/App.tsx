@@ -120,6 +120,10 @@ export function Shell({
                 setDay(date);
                 setTab("week");
               }}
+              onWeek={() => {
+                setDay(undefined);
+                setTab("week");
+              }}
             />
           )}
         </main>
