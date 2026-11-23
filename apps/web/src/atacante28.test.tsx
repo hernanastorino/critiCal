@@ -135,6 +135,7 @@ describe("MEDIA 1: Planificación semanal no se contradice", () => {
     plan: [],
   });
 
+  // Plans two very large entregas: slow with coverage on a loaded CI runner (6–8 s), like demoPruebas.
   it("culpa solo a lo que vence dentro de la semana o después, y no dice «margen en todo»", () => {
     // Sunday 22/11 18:00: the week to plan is 23/11–29/11.
     inside(
@@ -150,7 +151,7 @@ describe("MEDIA 1: Planificación semanal no se contradice", () => {
     expect(screen.getByText(/Vence dentro: faltan/)).toBeTruthy();
     expect(screen.queryByText(/Vence antes/)).toBeNull();
     expect(screen.queryByText(/hay margen en todo/)).toBeNull();
-  });
+  }, 30_000);
 
   it("sin nada que falte sí dice que hay margen", () => {
     inside(<WeeklyPlan onClose={noop} onInbox={noop} />, () => data([]), SUNDAY);
