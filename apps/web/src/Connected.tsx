@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { Loading } from "./components/Loading.js";
+import { RoyLine } from "./components/Roy.js";
 import { WeekSkeleton } from "./components/Skeleton.js";
 import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
@@ -309,11 +310,11 @@ export function Connected({
     return (
       <main className="login">
         <h1>{offline ? "Sin conexión" : "Algo falló"}</h1>
-        <p>
+        <RoyLine anim="desarmado" big>
           {offline
-            ? "No pude traer tu calendario. Revisá el internet y reintentá."
+            ? "No pude traer tu calendario: parece que se fue el internet. Revisalo y reintentá."
             : `No pude cargar tu calendario (${error}). Reintentá; si sigue igual, descartá lo de este dispositivo.`}
-        </p>
+        </RoyLine>
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Reintentar
         </button>
@@ -375,12 +376,12 @@ function SaveRefused({ refused, onDismiss }: { refused?: number; onDismiss: () =
   return (
     <div className="notices">
       <div className="notice error" role="alert">
-        <p>
+        <RoyLine anim="desarmado">
           No se pudo guardar{" "}
           {refused === 1 ? "un cambio: tiene datos que" : `${refused} cambios: tienen datos que`} la
           base no acepta, así que volvió a como estaba. Lo demás sí se guardó. Ya avisamos del
           error.
-        </p>
+        </RoyLine>
         <button type="button" className="btn small" onClick={onDismiss}>
           Entendido
         </button>

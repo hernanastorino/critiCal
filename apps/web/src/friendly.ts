@@ -66,3 +66,32 @@ export const FREE_TODAY = "Hoy no queda nada por hacer: día libre.";
 
 /** After a replan that fits skipped or moved blocks again (Roy celebrates). */
 export const REPLANNED_TOAST = "Listo, reacomodé el plan. Bien ahí.";
+
+/** Sign-in came back with an expired link (or any one-time code that no longer works). */
+export const LOGIN_LINK_EXPIRED =
+  "Ese enlace ya venció (duran poco y este se desarmó). Entrá de nuevo con Google y listo.";
+
+/** The user closed or refused Google's permission screen: nothing is wrong. */
+export const LOGIN_DENIED =
+  "No diste el permiso de Google, y no pasa nada. Cuando quieras, tocá «Entrar con Google» de nuevo.";
+
+/** Sign-in failed for a reason we cannot tell more about. */
+export const LOGIN_FAILED =
+  "No pudimos entrar esta vez. Tocá «Entrar con Google» para intentar de nuevo.";
+
+/** What the sign-in problem in the address (`error` / `error_code`) says; null when there is none. */
+export function loginProblem(params: URLSearchParams): string | null {
+  const code = params.get("error_code") ?? "";
+  const error = params.get("error") ?? "";
+  if (!code && !error) return null;
+  if (code === "otp_expired" || code === "flow_state_expired") return LOGIN_LINK_EXPIRED;
+  if (error === "access_denied") return LOGIN_DENIED;
+  return LOGIN_FAILED;
+}
+
+/**
+ * Loss framing without pressure (SPEC §18.1): what skipping a block costs, in the minutes it
+ * has and no more. Only said when the task has a date; no «last chance», nothing invented.
+ */
+export const skipLoss = (minutes: number, deadline: string) =>
+  `Si lo salteás, el plan tiene que encontrar ${minutes >= 60 ? `${Math.round((minutes / 60) * 10) / 10} h`.replace(".", ",") : `${minutes} min`} en otro momento antes de la entrega del ${deadline}.`;

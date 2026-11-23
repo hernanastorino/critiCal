@@ -298,6 +298,11 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
      - Nada para hoy (un cambio que deja el día libre): reposo.
      - Salteé bloques: hombros, también en el aviso de abajo («Anotado, sin culpa»): Roy chico a la izquierda del texto, encoge los hombros una vez y queda quieto.
      - Festejo: al reacomodar el plan (aceptar un cambio o elegir una salida de la Bandeja) y cuando una entrega llega al 100 % (un silo se cierra; los hábitos no cuentan porque empiezan de nuevo cada semana). No al terminar el día.
+   - ✅ **Auditoría del 2026-11-23** (resto de la psicología de UX contra el código):
+     - Valor antes de registrarse ✅ (la demo se abre sin cuenta). Gradiente de meta ✅ («Primeros pasos» no arranca en 0 %: conectar cuenta cuenta como un paso).
+     - **Camino infeliz** ✅ en todos los casos: no llego y salteé bloques (Roy hombros), falla la sync Google/iCloud (Roy desarmado + «Reconectar Google»), no hay lugar (puente), importador con error (Roy desarmado + «Reintentar»), sin conexión o carga fallida (Roy desarmado + «Reintentar»/«Descartar»), guardado rechazado por la base (Roy desarmado + «Entendido»), pantalla trabada (Roy desarmado + «Recargar») y enlace de entrada vencido o permiso de Google rechazado (`otp_expired` / `access_denied`: aviso con Roy desarmado y «Entrar con Google» al lado; la dirección queda limpia).
+     - **Encuadre de pérdidas** ✅: el bloque futuro de una tarea con fecha dice «Si lo salteás, el plan tiene que encontrar 50 min en otro momento antes de la entrega del 12 nov»: solo los minutos que tiene el bloque y la fecha, sin apuro (los críticos ya dicen que no llegás al mínimo).
+     - **Pendiente** (decisión de producto, no se hizo): valores por defecto más inteligentes en los formularios (hoy ya traen valores, pero sin «lo más probable» por materia) y **efecto IKEA** («tu semana tipo»).
    - Ética: nada de urgencia, escasez, progreso ni resultados falsos.
 2. ✅ **Comidas siempre presentes**: la regla nueva está en §5.1. Decidido:
    - **«Hoy no»**: al tocar una comida, «Hoy no almuerzo» la saca solo ese día (con Deshacer, §14). El plan usa ese tiempo y al día siguiente vuelve.

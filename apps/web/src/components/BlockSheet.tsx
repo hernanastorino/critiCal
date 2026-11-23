@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
+import { skipLoss } from "../friendly.js";
 import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
@@ -237,6 +238,9 @@ export function CheckInForm({
         <>
           {!hoursOnly && (
             <p className="meta">Bloque planificado. Cuando termine, marcás cómo te fue.</p>
+          )}
+          {!hoursOnly && task?.deadline && block.level !== "critical" && (
+            <p className="meta">{skipLoss(length, dayMonth(tz, task.deadline))}</p>
           )}
           {isPinned(block) && (
             <button
