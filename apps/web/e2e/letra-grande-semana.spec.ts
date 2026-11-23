@@ -5,7 +5,8 @@ test.use(IPHONE_375);
 
 // Con la letra al tope (24 px de raíz) y la tarjeta «Primeros pasos» arriba (la demo de pruebas
 // la muestra), la grilla de la Semana tiene que seguir siendo usable: no se la come la tarjeta.
-const GRILLA_MIN = 400;
+// Se mide contra la pantalla y no en píxeles: las fuentes cambian de una plataforma a otra.
+const GRILLA_MIN_PANTALLA = 0.45;
 
 test("letra grande: la Semana con «Primeros pasos» deja la grilla usable", async ({
   page,
@@ -20,5 +21,7 @@ test("letra grande: la Semana con «Primeros pasos» deja la grilla usable", asy
   });
   await expect(page.getByText(/^Primeros pasos/)).toBeVisible();
   const semana = await page.getByTestId("week").boundingBox();
-  expect(semana?.height ?? 0).toBeGreaterThanOrEqual(GRILLA_MIN);
+  expect(semana?.height ?? 0).toBeGreaterThanOrEqual(
+    IPHONE_375.viewport.height * GRILLA_MIN_PANTALLA,
+  );
 });
