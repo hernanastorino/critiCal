@@ -9,6 +9,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { standingCheckIns } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
+import { tapDone } from "./testDone.js";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const start = () => reducer(demoData(NOW), { type: "refresh", now: NOW });
@@ -70,7 +71,7 @@ describe("Bandeja: a double tap answers one block, and it can be undone", () => 
     render(<App fixedNow={MON} initial={seeded} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     expect(screen.getAllByLabelText(/^Hecho:/)).toHaveLength(2);
-    fireEvent.click(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
+    tapDone(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
     // The list moved: the next item is under the finger now, and the tap is lost.
     fireEvent.click(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
     expect(screen.getAllByLabelText(/^Hecho:/)).toHaveLength(1);

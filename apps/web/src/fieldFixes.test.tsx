@@ -8,6 +8,7 @@ import { demoData } from "./demo.js";
 import { clearDrafts } from "./drafts.js";
 import { zonedInstant } from "./engine.js";
 import { reducer, StoreProvider } from "./store.js";
+import { tapDone } from "./testDone.js";
 
 afterEach(() => {
   cleanup();
@@ -130,7 +131,7 @@ describe("Bandeja focus", () => {
     const done = screen.getAllByLabelText(/^Hecho:/);
     expect(done.length).toBeGreaterThan(1);
     (done[0] as HTMLElement).focus();
-    fireEvent.click(done[0] as HTMLElement);
+    tapDone(done[0] as HTMLElement);
     expect(document.activeElement).not.toBe(document.body);
     expect(document.querySelector(".scroll")?.contains(document.activeElement)).toBe(true);
   });
@@ -148,7 +149,7 @@ describe("Bandeja focus", () => {
     const done = screen.getAllByLabelText(/^Hecho:/);
     (done[0] as HTMLElement).focus();
     for (let i = done.length; i > 0; i--) {
-      fireEvent.click(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
+      tapDone(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
       expect(document.activeElement).not.toBe(document.body);
     }
   });

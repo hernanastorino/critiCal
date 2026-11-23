@@ -10,6 +10,7 @@ import { clearDrafts } from "./drafts.js";
 import { zonedInstant } from "./engine.js";
 import type { AppTask } from "./model.js";
 import { StoreProvider, seedHistory } from "./store.js";
+import { tapDone } from "./testDone.js";
 
 const MON = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 const seeded = (now: number) =>
@@ -77,7 +78,7 @@ describe("notices and sheets", () => {
   it("a notice from before is closed when Ajustes opens", () => {
     render(<App fixedNow={MON} initial={seeded} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
-    fireEvent.click(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
+    tapDone(screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement);
     expect(screen.getByRole("button", { name: "Deshacer" })).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /Semana/ }));
     fireEvent.click(screen.getByRole("button", { name: "Ajustes" }));

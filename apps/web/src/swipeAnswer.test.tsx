@@ -5,6 +5,7 @@ import { swipeOf } from "./components/useSwipe.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import { seedHistory } from "./store.js";
+import { confirmParts } from "./testDone.js";
 
 const MONDAY = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 
@@ -57,6 +58,7 @@ describe("swiping a «¿Cómo te fue?» card", () => {
       .getByLabelText(/^Hecho: /)
       .getAttribute("aria-label");
     swipe(first, 120);
+    confirmParts();
     expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
     expect(hechos().length).toBe(before - 1);
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
@@ -85,6 +87,7 @@ describe("swiping a «¿Cómo te fue?» card", () => {
   it("buzzes briefly where the browser can, and does nothing odd where it cannot", () => {
     open();
     swipe(cards()[0] as HTMLElement, 120); // no `navigator.vibrate`: no error
+    confirmParts();
     const later = Date.now() + 5000; // past the guard against a second answer in a row
     vi.spyOn(Date, "now").mockReturnValue(later);
     const vibrate = vi.fn();
@@ -116,6 +119,7 @@ describe("swiping a «¿Cómo te fue?» card", () => {
     fireEvent.touchMove(first, { touches: [{ clientX: 320, clientY: 300 }] });
     expect(first.style.transform).toBe("");
     fireEvent.touchEnd(first, { changedTouches: [{ clientX: 320, clientY: 300 }] });
+    confirmParts();
     expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
   });
 });

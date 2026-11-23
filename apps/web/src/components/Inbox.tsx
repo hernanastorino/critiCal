@@ -182,11 +182,25 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
   // The list reflows after each answer: a second tap right after lands on the next item.
   const lastAnswer = useRef(0);
   const answer = useCheckIn(setRestored);
+  // The card that is asking which parts were done (tasks with parts only, SPEC §3).
+  const [choosing, setChoosing] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const pendingParts = (b: PlanBlock) =>
+    data.tasks.find((t) => t.id === b.taskId)?.units.filter((u) => !u.doneAt) ?? [];
   const quick = (b: PlanBlock, status: "done" | "missed") => {
     if (Date.now() - lastAnswer.current < ANSWER_GUARD_MS) return;
     lastAnswer.current = Date.now();
     buzz();
+    if (status === "done" && pendingParts(b).length > 0) {
+      setPicked([]);
+      setChoosing(b.id);
+      return;
+    }
     answer(b, status);
+  };
+  const confirmParts = (b: PlanBlock) => {
+    setChoosing(null);
+    answer(b, "done", { unitIds: picked });
   };
 
   return (
@@ -600,32 +614,70 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
             <p className="meta">
               {dayAndTime(tz, b.start)} – {time(tz, b.end)} · {hours((b.end - b.start) / MINUTE)}
             </p>
-            <div className="row">
-              <button
-                type="button"
-                className="btn done"
-                aria-label={`Hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
-                onClick={() => quick(b, "done")}
-              >
-                <Marks.done />
-              </button>
-              <button
-                type="button"
-                className="btn"
-                aria-label={`Hice una parte: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
-                onClick={() => setOpen(b)}
-              >
-                <Marks.partial />
-              </button>
-              <button
-                type="button"
-                className="btn missed"
-                aria-label={`No hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
-                onClick={() => quick(b, "missed")}
-              >
-                <Marks.missed />
-              </button>
-            </div>
+            {choosing === b.id ? (
+              <>
+                <div className="row" style={{ flexWrap: "wrap" }}>
+                  {pendingParts(b).map((u) => (
+                    <button
+                      key={u.id}
+                      type="button"
+                      className={`chip${picked.includes(u.id) ? " on" : ""}`}
+                      style={{
+                        flex: "1 1 45%",
+                        height: "auto",
+                        minHeight: 36,
+                        padding: "6px 12px",
+                      }}
+                      aria-pressed={picked.includes(u.id)}
+                      onClick={() =>
+                        setPicked(
+                          picked.includes(u.id)
+                            ? picked.filter((x) => x !== u.id)
+                            : [...picked, u.id],
+                        )
+                      }
+                    >
+                      {u.title}
+                    </button>
+                  ))}
+                </div>
+                <div className="row">
+                  <button type="button" className="btn" onClick={() => setChoosing(null)}>
+                    Volver
+                  </button>
+                  <button type="button" className="btn primary" onClick={() => confirmParts(b)}>
+                    Anotar hecho
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn done"
+                  aria-label={`Hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
+                  onClick={() => quick(b, "done")}
+                >
+                  <Marks.done />
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  aria-label={`Hice una parte: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
+                  onClick={() => setOpen(b)}
+                >
+                  <Marks.partial />
+                </button>
+                <button
+                  type="button"
+                  className="btn missed"
+                  aria-label={`No hecho: ${titleOf(b)}, ${dayAndTime(tz, b.start)}`}
+                  onClick={() => quick(b, "missed")}
+                >
+                  <Marks.missed />
+                </button>
+              </div>
+            )}
           </div>
         ))}
       </div>

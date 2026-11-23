@@ -5,6 +5,7 @@ import { TIMEZONE } from "./demo.js";
 import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import { zonedInstant } from "./engine.js";
 import { loadDemo, resetDemo, seedHistory } from "./store.js";
+import { tapDone } from "./testDone.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 // 2026-11-02 is a holiday (Difuntos); the demo here is an ordinary Monday.
@@ -87,7 +88,7 @@ describe("app", () => {
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     const done = screen.getAllByLabelText(/^Hecho:/);
     expect(done).toHaveLength(2);
-    fireEvent.click(done[0] as HTMLElement);
+    tapDone(done[0] as HTMLElement);
     // A second tap right after the first is ignored (the list moves under the finger).
     vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
     vi.setSystemTime(Date.now() + 1000);
