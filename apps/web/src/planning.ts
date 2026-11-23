@@ -611,16 +611,20 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   const seen = new Set<string>();
   for (const m of worked) {
     const kept = pastOrSame(data, runs, today, m);
-    if (m.kind && m.date < today) seen.add(`${m.kind}|${m.date}`);
+    if (m.kind && (m.date < today || todayRun(runs, m.kind, today, m.date))) {
+      seen.add(`${m.kind}|${m.date}`);
+    }
     if (kept) out.push(kept);
   }
   // A meal the settings no longer have (or have somewhere else) was still there that day.
   const startDay = localParts(tz, from).date;
   const endDay = localParts(tz, to).date;
-  for (let date = startDay; date <= endDay && date < today; date = addDays(date, 1)) {
+  for (let date = startDay; date <= endDay && date <= today; date = addDays(date, 1)) {
     for (const run of runs) {
       if (run.weekday !== weekdayOf(date) || seen.has(`${run.meal}|${date}`)) continue;
       if (!(run.from <= date && (!run.to || date <= run.to))) continue;
+      // Today only has what was written down this very day (see `keepStartedMeals`).
+      if (date === today && run.from !== today) continue;
       const meal = pastMeal(tz, date, run.meal, run, 0, undefined);
       if (meal.at && meal.at.end > from && meal.at.start < to) out.push(meal);
     }
@@ -635,13 +639,30 @@ function pastOrSame(
   today: string,
   m: MealTime,
 ): MealTime | null {
-  if (m.date >= today || !m.kind || !m.at) return m;
+  if (!m.kind || !m.at) return m;
+  if (m.date === today) {
+    const kept = todayRun(runs, m.kind, today, m.date);
+    return kept ? pastMeal(data.settings.timezone, m.date, m.kind, kept, m.latest, m.chosen) : m;
+  }
+  if (m.date > today) return m;
   const run = runAt(runs, m.kind, m.date) ?? firstRun(runs, m.kind, m.date);
   if (run) return pastMeal(data.settings.timezone, m.date, m.kind, run, m.latest, m.chosen);
   // A meal added after that day was written down: the past does not get it.
   const firstFrozen = runs.map((r) => r.from).sort()[0] ?? today;
   const written = m.date >= firstFrozen && data.mealsFrozenThrough !== undefined;
   return written ? null : m;
+}
+
+/** The run written today for `meal` (a meal that had begun when the week changed), if any. */
+function todayRun(
+  runs: readonly MealRun[],
+  meal: MealKind,
+  today: string,
+  date: string,
+): MealRun | undefined {
+  if (date !== today) return undefined;
+  const weekday = weekdayOf(today);
+  return runs.find((r) => r.meal === meal && r.weekday === weekday && r.from === today);
 }
 
 /** A meal of a day that is over, as its run says: it is what it was, never moved or on top. */
@@ -742,8 +763,12 @@ export function freezeMeals(data: AppData, now: number): AppData {
 function freezeDay(midnight: number, date: string, worked: MealTime[], runs: MealRun[]): MealRun[] {
   const weekday = weekdayOf(date);
   let out = runs;
+  const written = (meal: MealKind) =>
+    runs.some((r) => r.meal === meal && r.weekday === weekday && r.from === date);
   for (const m of worked) {
     if (!m.at || !m.kind || m.date !== date) continue;
+    // A meal kept as it was when the week changed that day is already written down.
+    if (written(m.kind)) continue;
     const start = Math.round((m.at.start - midnight) / MINUTE);
     const end = Math.round((m.at.end - midnight) / MINUTE);
     out = withRun(out, { meal: m.kind, weekday, from: date, start, end });
@@ -751,8 +776,59 @@ function freezeDay(midnight: number, date: string, worked: MealTime[], runs: Mea
   // A meal this day does not have (taken out of the settings) closes its standing run.
   const had = new Set(worked.filter((m) => m.date === date && m.at).map((m) => m.kind));
   return out.map((r) =>
-    r.weekday === weekday && !r.to && !had.has(r.meal) ? { ...r, to: addDays(date, -1) } : r,
+    r.weekday === weekday && !r.to && r.from < date && !had.has(r.meal)
+      ? { ...r, to: addDays(date, -1) }
+      : r,
   );
+}
+
+/**
+ * Changing Mi semana does not rewrite what already happened today: the meals of today that
+ * had begun by `now` stay as `prev` had them (written as runs that stand from today, like a
+ * day that is over); the ones still to come take the new settings. `prev` is the data
+ * before the change, already frozen through yesterday.
+ */
+export function keepStartedMeals(prev: AppData, next: AppData, now: number): AppData {
+  const tz = prev.settings.timezone;
+  const today = localParts(tz, now).date;
+  const midnight = zonedInstant(tz, today, 0);
+  const end = zonedInstant(tz, addDays(today, 1), 0);
+  const started = mealTimes(prev, now, midnight, end).filter(
+    (m) => m.date === today && m.kind && m.at && m.at.start <= now,
+  );
+  const after = mealTimes(next, now, midnight, end);
+  const weekday = weekdayOf(today);
+  const old = next.mealRuns ?? [];
+  let runs = old;
+  for (const m of started) {
+    const { kind, at } = m;
+    if (!kind || !at) continue;
+    const written = runs.some((r) => r.meal === kind && r.weekday === weekday && r.from === today);
+    const same = after.some(
+      (a) => a.kind === kind && a.at?.start === at.start && a.at.end === at.end,
+    );
+    if (written || same) continue;
+    const run = {
+      meal: kind,
+      weekday,
+      from: today,
+      start: Math.round((at.start - midnight) / MINUTE),
+      end: Math.round((at.end - midnight) / MINUTE),
+    };
+    runs = openFromToday(runs, run);
+  }
+  if (runs === old) return next;
+  return {
+    ...next,
+    mealRuns: runs,
+    mealsFrozenThrough: next.mealsFrozenThrough ?? addDays(today, -1),
+  };
+}
+
+/** `runs` with `run` standing from today, even when the standing one says the same time. */
+function openFromToday(runs: MealRun[], run: MealRun): MealRun[] {
+  const standing = runs.find((r) => r.meal === run.meal && r.weekday === run.weekday && !r.to);
+  return [...runs.map((r) => (r === standing ? { ...r, to: addDays(run.from, -1) } : r)), run];
 }
 
 /** `runs` with `run` standing from its date: the open run of its series closes the day before. */

@@ -6,6 +6,7 @@ import {
   BACKUP_TEXT_MAX,
   deadlineInRange,
   deadlineMaxYear,
+  stripInvisible,
   UNIT_MINUTES_MAX,
   UNIT_MINUTES_MIN,
 } from "./limits.js";
@@ -28,7 +29,8 @@ export function exportJson(data: AppData, now: number): string {
 
 type Task = Record<string, unknown>;
 const isRecord = (x: unknown): x is Task => !!x && typeof x === "object" && !Array.isArray(x);
-const nameOf = (t: Task) => `"${typeof t.title === "string" ? t.title : "sin título"}"`;
+const nameOf = (t: Task) =>
+  `"${typeof t.title === "string" ? stripInvisible(t.title.slice(0, 120)).slice(0, 80) || "sin título" : "sin título"}"`;
 
 /** What is wrong with the minutes of a part of a silo, or null. */
 function partProblem(t: Task): string | null {

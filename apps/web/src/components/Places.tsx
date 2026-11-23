@@ -482,13 +482,20 @@ function PlaceForm({
   const [tried, setTried] = useState(false);
   const empty = !name.trim();
   const longAlias = aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
+  // The fields stop at their limits as you type; a pasted or restored draft is checked here.
+  const longName = name.trim().length > NAME_MAX;
+  const longAddress = address.trim().length > ADDRESS_MAX;
   const problem = taken
     ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
-    : longAlias
-      ? `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`
-      : empty && tried
-        ? "Poné un nombre para el lugar."
-        : null;
+    : longName
+      ? `El nombre tiene como máximo ${NAME_MAX} caracteres.`
+      : longAddress
+        ? `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`
+        : longAlias
+          ? `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`
+          : empty && tried
+            ? "Poné un nombre para el lugar."
+            : null;
   // Bus times are worked out from the addresses: without one there is nothing to compute.
   const noAddress = travelMode === "bus" && !address.trim();
   const nameField = useRef<HTMLInputElement>(null);
@@ -584,9 +591,9 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          aria-disabled={empty || taken || longAlias ? true : undefined}
+          aria-disabled={empty || taken || longAlias || longName || longAddress ? true : undefined}
           onClick={() => {
-            if (empty || taken || longAlias) {
+            if (empty || taken || longAlias || longName || longAddress) {
               setTried(true);
               nameField.current?.focus();
               return;

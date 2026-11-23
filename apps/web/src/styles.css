@@ -1313,8 +1313,15 @@ input[type="radio"]:disabled {
 }
 
 /* «Primeros pasos» on the week (SPEC §14): the steps and how far along they are. */
-.first-steps {
+.card.first-steps {
   margin: 0 0 var(--space-3);
+  /* With the biggest text the guide would eat the week's grid: it stops growing at 16 px. */
+  font-size: min(1rem, 16px);
+}
+
+.first-steps .btn {
+  font-size: inherit;
+  white-space: nowrap;
 }
 
 .first-steps-bar {
