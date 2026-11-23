@@ -145,8 +145,11 @@ export interface CheckIn {
   minutesDone: number;
   unitIds: string[];
   createdAt: number;
-  /** «undo»: written by «Deshacer» (a copy of the earlier answer): not news, no celebration. */
-  origin?: "undo";
+  /**
+   * «undo»: written by «Deshacer» (a copy of the earlier answer): not news, no celebration.
+   * «slept»: a «no hecho» the app wrote when the wake-up said the user was asleep then.
+   */
+  origin?: "undo" | "slept";
   /**
    * Block time per study minute when it was recorded (breaks included; see blockFactor).
    * Missing on older check-ins, which had no breaks: 1.

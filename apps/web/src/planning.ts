@@ -100,7 +100,12 @@ export function standingCheckIns(data: AppData): CheckIn[] {
  * celebration). The same answer given again by hand is news.
  */
 export function isUndoCopy(_data: AppData, c: CheckIn): boolean {
-  return c.status === "retired" || c.origin === "undo";
+  return c.status === "retired" || c.origin === "undo" || c.origin === "slept";
+}
+
+/** The block's standing record says the user was asleep: closed by the app, not editable. */
+export function sleptBlockIds(data: AppData): Set<string> {
+  return new Set(standingCheckIns(data).flatMap((c) => (c.origin === "slept" ? [c.blockId] : [])));
 }
 
 /** The oldest standing record's date that declares each part, per task. */
