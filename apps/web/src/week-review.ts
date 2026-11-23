@@ -44,6 +44,8 @@ export interface PlannedDone {
   taskId: string;
   title: string;
   color?: string;
+  /** A routine (Gym...) rather than a materia's task. */
+  routine?: boolean;
   /**
    * Study minutes planned in blocks that already ended this week, plus work logged this
    * week outside them (the plan made room for it by taking it off later blocks).
@@ -66,6 +68,8 @@ export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
         taskId,
         title: task?.title ?? "—",
         color: data.activities.find((a) => a.id === task?.activityId)?.color,
+        routine:
+          data.activities.find((a) => a.id === task?.activityId)?.kind === "rutina" || undefined,
         planned: 0,
         done: 0,
       };

@@ -22,7 +22,7 @@ const silos = (initial: () => AppData) =>
 describe("empty states (SPEC §14)", () => {
   it("Silos with nothing yet says what goes there and where to start", () => {
     silos(emptyData);
-    expect(screen.getByText(/Acá van tus entregas, parciales y rutinas/)).toBeTruthy();
+    expect(screen.getByText(/Acá van tus entregas y parciales/)).toBeTruthy();
     expect(screen.getByRole("button", { name: "Nueva actividad" })).toBeTruthy();
   });
 

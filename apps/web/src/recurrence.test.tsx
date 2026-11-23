@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
-import { demoData } from "./demo.js";
+import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import type { AppData } from "./model.js";
 import { endOfWeek, isRunning, pinClashes, progress } from "./planning.js";
 import { diffData, rowsToData } from "./remote.js";

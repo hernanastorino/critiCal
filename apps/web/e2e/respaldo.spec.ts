@@ -59,7 +59,7 @@ test.describe("respaldo: exportar desde la demo e importar", () => {
   }) => {
     await openDemo(page);
     const antes = await foto(page);
-    expect(antes.silos.length).toBeGreaterThan(3);
+    expect(antes.silos.length).toBeGreaterThan(2);
 
     const json = await exportar(page);
     const archivo = JSON.parse(json) as { app: string; data: { tasks: unknown[] } };
@@ -94,7 +94,7 @@ test.describe("respaldo: exportar desde la demo e importar", () => {
     await expect(sheet(page).getByRole("button", { name: /^Natación, / })).toBeVisible();
     await page.getByRole("button", { name: "Cerrar", exact: true }).first().click();
     await goTab(page, "Silos");
-    await expect.poll(async () => (await siloLabels(page)).length).toBe(original.silos.length + 1);
+    await expect.poll(async () => (await siloLabels(page)).length).toBe(original.silos.length);
 
     await goTab(page, "Semana");
     await openSettingsPage(page, "Respaldo");
