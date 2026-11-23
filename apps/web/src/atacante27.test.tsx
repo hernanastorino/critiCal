@@ -21,6 +21,8 @@ const DAY = "2026-11-23"; // lunes
 const NOW = zonedInstant(TIMEZONE, DAY, 60 + 42);
 const HIDDEN = "\u202e\u200b\u200c";
 
+const noop = () => undefined;
+
 beforeEach(() => {
   localStorage.clear();
   localStorage.setItem("critical.mode", "demo");
@@ -36,7 +38,7 @@ function Spy() {
   latest = useStore().data;
   return null;
 }
-const inside = (ui: React.ReactNode, initial: (now: number) => AppData = demoData) =>
+const inside = (ui: React.ReactNode, initial: typeof demoData = demoData) =>
   render(
     <ToastProvider>
       <StoreProvider initial={initial} persist={false} fixedNow={NOW}>
@@ -81,7 +83,7 @@ describe("MEDIA 1: la comida de hoy que ya empezó no desaparece al volver Mi se
     render(
       <StoreProvider initial={() => data} persist={false} fixedNow={NOW}>
         <ToastProvider>
-          <Week day={DAY} onSettings={() => {}} />
+          <Week day={DAY} onSettings={noop} />
         </ToastProvider>
       </StoreProvider>,
     );
@@ -152,7 +154,7 @@ describe("BAJAS", () => {
   it("el buscador de Ajustes cita la búsqueda sin RLO ni invisibles", () => {
     render(
       <StoreProvider initial={demoData} persist={false} fixedNow={NOW}>
-        <Settings onClose={() => {}} onReset={() => {}} onSignOut={() => {}} />
+        <Settings onClose={noop} onReset={noop} onSignOut={noop} />
       </StoreProvider>,
     );
     const box = screen.getByRole("searchbox", { name: "Buscar un ajuste" });
@@ -162,7 +164,7 @@ describe("BAJAS", () => {
   });
 
   it("Silos > Nueva: etiquetas asociadas a sus campos", () => {
-    inside(<TaskEditor onClose={() => {}} />);
+    inside(<TaskEditor onClose={noop} />);
     for (const label of ["Horas estimadas", "Mínimo (horas)"]) {
       const input = screen.getByLabelText(label);
       expect(input.id).toBeTruthy();
@@ -185,14 +187,13 @@ describe("BAJAS", () => {
     inside(
       <>
         <main>
-          <Week day={DAY} onSettings={() => {}} />
+          <Week day={DAY} onSettings={noop} />
         </main>
-        <Settings onClose={() => {}} onReset={() => {}} onSignOut={() => {}} />
+        <Settings onClose={noop} onReset={noop} onSignOut={noop} />
       </>,
     );
-    await act(async () => {});
-    const main = document.querySelector("main") as HTMLElement;
-    expect(main.querySelector(".week")).toBeTruthy();
-    expect(main.inert).toBe(true);
+    await act(() => Promise.resolve());
+    expect(document.querySelector("main .week")).toBeTruthy();
+    expect(document.querySelector("main")?.inert).toBe(true);
   });
 });
