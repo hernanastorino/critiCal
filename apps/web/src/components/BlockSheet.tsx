@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { skipLoss } from "../friendly.js";
+import type { CheckIn } from "../model.js";
 import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
@@ -215,14 +216,7 @@ export function CheckInForm({
         <p className="meta">No hecho · dormías</p>
       ) : answered && !correcting ? (
         <>
-          <p className="meta">
-            Ya registrado:{" "}
-            {answered.status === "done"
-              ? "hecho ✓"
-              : answered.status === "missed"
-                ? "no lo hice ✗"
-                : `parcial (${hours(answered.minutesDone)})`}
-          </p>
+          <p className="meta">Ya registrado: {answerText(answered)}</p>
           {/* The log only grows: a correction is a new answer, the old one stays in it. */}
           <button
             type="button"
@@ -323,4 +317,10 @@ export function CheckInForm({
       )}
     </>
   );
+}
+
+function answerText(c: CheckIn): string {
+  if (c.status === "done") return "hecho ✓";
+  if (c.status === "missed") return "no lo hice ✗";
+  return `parcial (${hours(c.minutesDone)})`;
 }

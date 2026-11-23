@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { demoData, TIMEZONE } from "./demo.js";
 import type { PlanBlock } from "./engine.js";
 import { zonedInstant } from "./engine.js";
-import type { AppData } from "./model.js";
+import type { AppData, AppTask } from "./model.js";
 import { pendingConfirmations, sleptBlockIds, standingCheckIns } from "./planning.js";
 import { reducer } from "./store.js";
 
@@ -12,8 +12,7 @@ const NOW = at(10.5);
 
 function withBlocks(): AppData {
   const d = demoData(NOW);
-  const task = d.tasks[0];
-  if (!task) throw new Error("sin tarea");
+  const task = d.tasks[0] as AppTask;
   const block = (id: string, from: number, to: number): PlanBlock => ({
     id,
     taskId: task.id,

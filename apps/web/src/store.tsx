@@ -17,8 +17,8 @@ import {
   addDays,
   type DayOverride,
   localParts,
+  localParts,
   type MealKind,
-  overlaps,
   type ScheduleResult,
   type Settings,
   type ValidHours,
@@ -599,31 +599,23 @@ function settleSlept(data: AppData, now: number): AppData {
   const todays = data.plan.filter((b) => b.start >= dayStart && b.start < endOfDay(tz, now));
   const asleep = sleptBlockIds(data);
   const standing = new Set(standingCheckIns(data).map((c) => c.blockId));
-  const added: CheckIn[] = [];
-  for (const b of todays) {
-    if (asleep.has(b.id) && (wakeAt === undefined || b.start >= wakeAt))
-      added.push({
-        id: newId(),
-        blockId: b.id,
-        taskId: b.taskId,
-        status: "retired",
-        minutesDone: 0,
-        unitIds: [],
-        origin: "undo",
-        createdAt: stampAfter(data, b.id, now),
-      });
-    else if (wakeAt !== undefined && !standing.has(b.id) && b.end <= now && b.start < wakeAt)
-      added.push({
-        id: newId(),
-        blockId: b.id,
-        taskId: b.taskId,
-        status: "missed",
-        minutesDone: 0,
-        unitIds: [],
-        origin: "slept",
-        createdAt: stampAfter(data, b.id, now),
-      });
-  }
+  const record = (b: PlanBlock, status: "retired" | "missed", origin: "undo" | "slept"): CheckIn => ({
+    id: newId(),
+    blockId: b.id,
+    taskId: b.taskId,
+    status,
+    minutesDone: 0,
+    unitIds: [],
+    origin,
+    createdAt: stampAfter(data, b.id, now),
+  });
+  const awake = (b: PlanBlock) => wakeAt === undefined || b.start >= wakeAt;
+  const added = [
+    ...todays.filter((b) => asleep.has(b.id) && awake(b)).map((b) => record(b, "retired", "undo")),
+    ...todays
+      .filter((b) => !asleep.has(b.id) && !awake(b) && !standing.has(b.id) && b.end <= now)
+      .map((b) => record(b, "missed", "slept")),
+  ];
   return added.length ? { ...data, checkIns: [...data.checkIns, ...added] } : data;
 }
 
