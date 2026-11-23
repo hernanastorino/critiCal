@@ -250,12 +250,6 @@ export function Silos() {
                 </div>
               ))}
             </div>
-            {week.some((r) => data.tasks.find((t) => t.id === r.taskId)?.units.length) && (
-              <p className="meta">
-                Lo hecho cuenta los bloques que marcaste. En los silos con partes, «faltan» baja al
-                marcar las partes hechas.
-              </p>
-            )}
           </div>
         )}
       </div>
