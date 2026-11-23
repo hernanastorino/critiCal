@@ -173,6 +173,10 @@ Un PR por punto. Las respuestas del usuario están en el §18 (todas respondidas
 7. Hecho (#82, validado en producción). «Empezar antes» en la Bandeja: mergeado (#87), ver §6.
 8. ✅ Bun como gestor de paquetes y para correr los scripts (#202); la medición del motor y la conclusión sobre Rust/WASM están en la SPEC §18.8.
 
+### 5.5 Idea futura (sin hacer)
+
+- Un segundo widget que muestre siempre la Bandeja en la pantalla de inicio, para saber si hay algo que decidir o registrar sin abrir la app.
+
 ### 5.6 Decisiones del 2026-11-18 para implementar (SPEC §18 punto 11)
 
 Un PR por tema, con la SPEC actualizada en el mismo PR:
