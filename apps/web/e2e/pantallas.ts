@@ -56,7 +56,7 @@ export const PANTALLAS: { nombre: string; abrir: (page: Page) => Promise<void> }
     abrir: async (page) => {
       await page
         .getByTestId("week")
-        .getByRole("button", { name: /^Parcial Cálculo II, sáb 09:30/ })
+        .getByRole("button", { name: /^Parcial Cálculo II, sáb 12:00/ })
         .click();
       await page.locator(".bubble").click();
       await expect(sheet(page).getByRole("heading", { name: "Parcial Cálculo II" })).toBeVisible();
