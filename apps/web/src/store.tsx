@@ -17,8 +17,9 @@ import {
   addDays,
   type DayOverride,
   localParts,
-  localParts,
   type MealKind,
+  overlaps,
+  type PlanBlock,
   type ScheduleResult,
   type Settings,
   type ValidHours,
@@ -599,7 +600,11 @@ function settleSlept(data: AppData, now: number): AppData {
   const todays = data.plan.filter((b) => b.start >= dayStart && b.start < endOfDay(tz, now));
   const asleep = sleptBlockIds(data);
   const standing = new Set(standingCheckIns(data).map((c) => c.blockId));
-  const record = (b: PlanBlock, status: "retired" | "missed", origin: "undo" | "slept"): CheckIn => ({
+  const record = (
+    b: PlanBlock,
+    status: "retired" | "missed",
+    origin: "undo" | "slept",
+  ): CheckIn => ({
     id: newId(),
     blockId: b.id,
     taskId: b.taskId,
