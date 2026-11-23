@@ -1,6 +1,9 @@
 import { expect, test } from "@playwright/test";
+import { MONDAY } from "./helpers";
 
 test("demo: week, critical path, bubble, silos and inbox", async ({ page }) => {
+  // Reloj fijo (lunes por la mañana): con la hora real, un domingo de noche no queda ningún bloque por delante.
+  await page.clock.install({ time: MONDAY });
   await page.goto("/");
   await expect(page.getByRole("heading", { name: "critiCal" })).toBeVisible();
   await page.getByRole("button", { name: "Probar con datos de ejemplo" }).click();
