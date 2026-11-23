@@ -40,7 +40,7 @@ export const name: Ok = (v) =>
 export const instant: Ok = (v) =>
   num(v) && v >= Date.UTC(1900, 0, 1) && v <= Date.UTC(9999, 11, 31);
 /** Text that may be empty but not longer than a backup takes (an address). */
-export const shortText: Ok = (v) => typeof v === "string" && v.length <= BACKUP_TEXT_MAX;
+const shortText: Ok = (v) => typeof v === "string" && v.length <= BACKUP_TEXT_MAX;
 export const strings: Ok = (v) => Array.isArray(v) && v.every((s) => typeof s === "string");
 export const shortStrings: Ok = (v) =>
   Array.isArray(v) && v.every((s) => typeof s === "string" && s.length <= BACKUP_TEXT_MAX);
