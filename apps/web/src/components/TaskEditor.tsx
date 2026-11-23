@@ -395,10 +395,15 @@ export function TaskEditor({
         )
       : { hours: undefined, problems: [] };
   const nameMissing = activityId === "new" && isBlank(newActivity);
+  // An entrega is never filed under a routine: a new materia may not take a routine's name.
+  const routineClash =
+    activityId === "new" &&
+    kind === "deliverable" &&
+    data.activities.some((a) => a.kind === "rutina" && sameName(a.name, newActivity));
   // One error is announced by its own text; several, by one summary (not one alert each).
   const shown = [
     tried && isBlank(title),
-    activityId === "new" && tried && nameMissing,
+    activityId === "new" && tried && (nameMissing || routineClash),
     !!deadlineError,
     !!estimateShown,
     !!minimumShown,
@@ -447,6 +452,7 @@ export function TaskEditor({
       hoursRead.problems.length > 0,
       isBlank(title),
       nameMissing,
+      routineClash,
       rangeBad,
       !!pendingError,
       extraBad,
@@ -459,7 +465,9 @@ export function TaskEditor({
     let activity: Activity | undefined;
     // «cálculo ii» when «Cálculo II» exists: that materia is used, never lost to a duplicate.
     const sameNamed =
-      actId === "new" ? data.activities.find((a) => sameName(a.name, newActivity)) : undefined;
+      actId === "new"
+        ? data.activities.find((a) => a.kind !== "rutina" && sameName(a.name, newActivity))
+        : undefined;
     if (sameNamed) {
       actId = sameNamed.id;
     } else if (actId === "new") {
@@ -595,15 +603,23 @@ export function TaskEditor({
             <input
               value={newActivity}
               maxLength={NAME_MAX}
-              aria-invalid={tried && nameMissing ? true : undefined}
-              aria-describedby={tried && nameMissing ? "activity-error" : undefined}
+              aria-invalid={tried && (nameMissing || routineClash) ? true : undefined}
+              aria-describedby={
+                tried && (nameMissing || routineClash) ? "activity-error" : undefined
+              }
               onChange={(e) => setNewActivity(e.target.value)}
               placeholder="Física I"
             />
           </label>
         )}
-        {activityId === "new" && tried && nameMissing && (
-          <FieldError id="activity-error" text="Poné el nombre de la materia" role={alertRole} />
+        {activityId === "new" && tried && (nameMissing || routineClash) && (
+          <FieldError
+            id="activity-error"
+            text={
+              nameMissing ? "Poné el nombre de la materia" : "Ya tenés una rutina con ese nombre"
+            }
+            role={alertRole}
+          />
         )}
         {kind === "deliverable" ? (
           <>

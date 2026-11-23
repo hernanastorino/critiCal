@@ -44,7 +44,8 @@ const inside = (ui: React.ReactNode, initial: () => AppData, fixedNow = NOW) =>
 describe("ALTA: la entrega con una materia nueva de nombre repetido no desaparece", () => {
   const withCalculo = (): AppData => {
     const d = demoData(NOW);
-    const first = d.activities[0] as AppData["activities"][number];
+    const first = d.activities[0];
+    if (!first) throw new Error("the demo has activities");
     return { ...d, activities: [{ ...first, id: "calc", name: "Cálculo II", kind: "materia" }] };
   };
 
@@ -72,6 +73,36 @@ describe("ALTA: la entrega con una materia nueva de nombre repetido no desaparec
       expect(latest?.tasks.find((t) => t.title === "TP final")?.activityId).toBe("calc");
     });
   }
+});
+
+describe("ALTA: una entrega no queda colgada de una rutina", () => {
+  it("con el nombre de una rutina dice el error en el campo y no guarda", () => {
+    let closed = false;
+    inside(
+      <TaskEditor
+        onClose={() => {
+          closed = true;
+        }}
+      />,
+      () => {
+        const d = demoData(NOW);
+        const first = d.activities[0];
+        return first
+          ? { ...d, activities: [{ ...first, id: "gym", name: "Gimnasio", kind: "rutina" }] }
+          : d;
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
+    fireEvent.change(screen.getByLabelText("Nombre de la materia"), {
+      target: { value: " gimnasio " },
+    });
+    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "TP" } });
+    const tasks = latest?.tasks.length ?? 0;
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(screen.getByText("Ya tenés una rutina con ese nombre")).toBeTruthy();
+    expect(closed).toBe(false);
+    expect(latest?.tasks.length).toBe(tasks);
+  });
 });
 
 describe("MEDIA 1: Planificación semanal no se contradice", () => {
