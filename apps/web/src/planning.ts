@@ -607,23 +607,12 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   if (!runs?.length) return worked;
   const tz = data.settings.timezone;
   const today = localParts(tz, now).date;
-  const firstFrozen = runs.map((r) => r.from).sort()[0] ?? today;
   const out: MealTime[] = [];
   const seen = new Set<string>();
   for (const m of worked) {
-    if (m.date >= today || !m.kind || !m.at) {
-      out.push(m);
-      continue;
-    }
-    const run = runAt(runs, m.kind, m.date) ?? firstRun(runs, m.kind, m.date);
-    seen.add(`${m.kind}|${m.date}`);
-    if (!run) {
-      // A meal added after that day was written down: the past does not get it.
-      if (m.date >= firstFrozen && data.mealsFrozenThrough !== undefined) continue;
-      out.push(m);
-      continue;
-    }
-    out.push(pastMeal(tz, m.date, m.kind, run, m.latest, m.chosen));
+    const kept = pastOrSame(data, runs, today, m);
+    if (m.kind && m.date < today) seen.add(`${m.kind}|${m.date}`);
+    if (kept) out.push(kept);
   }
   // A meal the settings no longer have (or have somewhere else) was still there that day.
   const startDay = localParts(tz, from).date;
@@ -637,6 +626,22 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
     }
   }
   return out.sort((a, b) => (a.at?.start ?? 0) - (b.at?.start ?? 0));
+}
+
+/** One worked meal as it stands: today and later as worked; a day that is over as its run says. */
+function pastOrSame(
+  data: AppData,
+  runs: readonly MealRun[],
+  today: string,
+  m: MealTime,
+): MealTime | null {
+  if (m.date >= today || !m.kind || !m.at) return m;
+  const run = runAt(runs, m.kind, m.date) ?? firstRun(runs, m.kind, m.date);
+  if (run) return pastMeal(data.settings.timezone, m.date, m.kind, run, m.latest, m.chosen);
+  // A meal added after that day was written down: the past does not get it.
+  const firstFrozen = runs.map((r) => r.from).sort()[0] ?? today;
+  const written = m.date >= firstFrozen && data.mealsFrozenThrough !== undefined;
+  return written ? null : m;
 }
 
 /** A meal of a day that is over, as its run says: it is what it was, never moved or on top. */
