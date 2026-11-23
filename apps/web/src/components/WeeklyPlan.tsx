@@ -18,7 +18,12 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
   const critical = data.plan
     .filter((b) => b.level === "critical" && b.start >= from && b.start < to)
     .sort((a, b) => a.start - b.start);
-  const short = result.status.filter((s) => s.minDeficit > 0);
+  // Next week's summary blames only what is due in it or later, not what falls due before.
+  const short = result.status.filter(
+    (s) =>
+      s.minDeficit > 0 &&
+      (data.tasks.find((t) => t.id === s.taskId)?.deadline ?? Number.POSITIVE_INFINITY) >= from,
+  );
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
   const typeLine = weekTypeLine(data);
   const max = Math.max(60, ...days.map((d) => d.minutes));
@@ -113,7 +118,11 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
 
         <div className="section-title">Críticos de la semana</div>
         {critical.length === 0 ? (
-          <p className="meta">Ninguno: hay margen en todo. 🟢</p>
+          <p className="meta">
+            {short.length > 0
+              ? "Ningún bloque crítico esta semana, pero revisá lo que no llega al mínimo."
+              : "Ninguno: hay margen en todo. 🟢"}
+          </p>
         ) : (
           critical.map((b) => (
             <p key={b.id} className="meta">

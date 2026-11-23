@@ -31,6 +31,9 @@ import { useToast } from "./Toast.js";
 
 const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 
+/** A place whose name is only invisible characters (seeded data) still shows as a row. */
+const label = (name: string) => (isBlank(name) ? "Sin nombre" : name);
+
 /** Saved places and the driving times between them. */
 export function Places() {
   const { data, now, dispatch } = useStore();
@@ -64,7 +67,7 @@ export function Places() {
   }
   /** Saves a place. There is one home only: the form never offers a second one. */
   const savePlace = (place: Place) => dispatch({ type: "savePlace", place });
-  const placeName = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+  const placeName = (id: string) => label(places.find((p) => p.id === id)?.name ?? "?");
   const eventSpots = (data.spots ?? []).length + kept.length;
 
   const compute = async () => {
@@ -93,7 +96,7 @@ export function Places() {
       );
       return;
     }
-    const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+    const name = (id: string) => label(places.find((p) => p.id === id)?.name ?? "?");
     // Only pairs entered by hand are settled: computed times may be the ones the server
     // just deleted, and it already leaves manual pairs out of `unroutable`.
     const known = (from: string, to: string) =>
@@ -146,7 +149,7 @@ export function Places() {
               );
               dispatch({ type: "deletePlace", placeId: p.id });
               setEditing(null);
-              toast.show(`${short(p.name)} borrado`, {
+              toast.show(`${short(label(p.name))} borrado`, {
                 undo: () => {
                   dispatch({ type: "savePlace", place: p });
                   // Its times typed by hand come back; computed ones are worked out again.
@@ -163,7 +166,7 @@ export function Places() {
               <span className="place-name">
                 {p.isHome && <Marks.home />}
                 {p.isHome ? " " : ""}
-                {p.name}
+                {label(p.name)}
               </span>
               {p.aliases.length > 0 && (
                 <span className="meta place-aliases">{p.aliases.join(", ")}</span>
@@ -182,7 +185,7 @@ export function Places() {
             <button
               type="button"
               className="btn small"
-              aria-label={`Editar ${p.name}`}
+              aria-label={`Editar ${label(p.name)}`}
               onClick={() => setEditing(p)}
             >
               Editar
@@ -346,7 +349,7 @@ function AddTrip({
 }) {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const name = (id: string) => places.find((p) => p.id === id)?.name ?? "?";
+  const name = (id: string) => label(places.find((p) => p.id === id)?.name ?? "?");
   const ready = !!from && !!to && from !== to;
   return (
     <fieldset className="add-trip">
@@ -355,7 +358,7 @@ function AddTrip({
         <option value="">Desde…</option>
         {places.map((p) => (
           <option key={p.id} value={p.id}>
-            {p.name}
+            {label(p.name)}
           </option>
         ))}
       </select>
@@ -365,7 +368,7 @@ function AddTrip({
           .filter((p) => p.id !== from)
           .map((p) => (
             <option key={p.id} value={p.id}>
-              {p.name}
+              {label(p.name)}
             </option>
           ))}
       </select>

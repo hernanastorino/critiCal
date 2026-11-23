@@ -16,6 +16,7 @@ import { type AppTask, newId, nextColor, type Unit } from "../model.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
 import { formOfHours, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
+import { sameName } from "../subjects.js";
 import {
   awakeWeekMinutes,
   estimateProblem,
@@ -176,12 +177,16 @@ export function TaskEditor({
   const [minimum, setMinimumTyped] = useState(start.minimum);
   // Once the user touches the hours (or a draft brings them back) they are theirs.
   const hoursTouched = useRef(!!task || !!kept);
+  /** Hours typed in this session of the form: empty ones from a draft are not scolded before. */
+  const [hoursEdited, setHoursEdited] = useState(false);
   const setEstimate = (v: string) => {
     hoursTouched.current = true;
+    setHoursEdited(true);
     setEstimateTyped(v);
   };
   const setMinimum = (v: string) => {
     hoursTouched.current = true;
+    setHoursEdited(true);
     setMinimumTyped(v);
   };
   const [sessions, setSessions] = useState(start.sessions);
@@ -226,12 +231,20 @@ export function TaskEditor({
       : learnedHours(data.tasks, isExam, activityId === "new" ? undefined : activityId);
   const learnedKey = learned ? `${learned.estimateMinutes}/${learned.minMinutes}` : "fixed";
   // Changing the materia or «Es un parcial» re-proposes the hours, until they are typed.
+  // With both hours erased there is nothing of theirs to keep: it proposes again.
+  const hoursErased = useRef(false);
+  hoursErased.current = !estimate.trim() && !minimum.trim();
+  const proposeKey = `${learnedKey}|${isExam}|${activityId}`;
+  const proposedBefore = useRef<string | null>(null);
   useEffect(() => {
-    if (hoursTouched.current || kind !== "deliverable") return;
+    // Not when it opens (a draft with empty hours stays as it was), only on a change.
+    const first = proposedBefore.current === null;
+    proposedBefore.current = proposeKey;
+    if (first || (hoursTouched.current && !hoursErased.current) || kind !== "deliverable") return;
     const [e, m] = learnedKey === "fixed" ? [240, 120] : learnedKey.split("/").map(Number);
     setEstimateTyped(String((e as number) / 60));
     setMinimumTyped(String((m as number) / 60));
-  }, [learnedKey, kind]);
+  }, [learnedKey, kind, proposeKey]);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */
   const [focusTick, setFocusTick] = useState(0);
@@ -345,10 +358,21 @@ export function TaskEditor({
   const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
   const estimateError = deliverable ? estimateProblem(estimate, partsMinutes) : null;
   const partsHours = units.reduce((n, u) => n + u.estimateMinutes, 0) / 60;
+  // With hours that are not a figure there is nothing to compare the minimum to: only the
+  // first problem is said («１２» is not a figure, and does not make the minimum «mayor»).
   const minimumError = deliverable
-    ? minimumProblem(minimum, Math.max(typedHours(estimate) || 0, partsHours))
+    ? minimumProblem(
+        minimum,
+        Number.isNaN(typedHours(estimate))
+          ? Number.POSITIVE_INFINITY
+          : Math.max(typedHours(estimate), partsHours),
+      )
     : null;
   const hoursBlocked = !!(estimateError || minimumError);
+  // Empty hours from a restored draft are said once typed or saving is tried, not on opening.
+  const hoursQuiet = !hoursEdited && !tried;
+  const estimateShown = hoursQuiet && !estimate.trim() ? null : estimateError;
+  const minimumShown = hoursQuiet && !minimum.trim() ? null : minimumError;
   const dueNow = deliverable ? fromLocalInput(tz, deadline) : Number.NaN;
   const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
 
@@ -376,8 +400,8 @@ export function TaskEditor({
     tried && isBlank(title),
     activityId === "new" && tried && nameMissing,
     !!deadlineError,
-    !!estimateError,
-    !!minimumError,
+    !!estimateShown,
+    !!minimumShown,
     !!unitError,
     !!habit.times,
     !!habit.minutes,
@@ -433,7 +457,12 @@ export function TaskEditor({
     }
     let actId = activityId;
     let activity: Activity | undefined;
-    if (actId === "new") {
+    // «cálculo ii» when «Cálculo II» exists: that materia is used, never lost to a duplicate.
+    const sameNamed =
+      actId === "new" ? data.activities.find((a) => sameName(a.name, newActivity)) : undefined;
+    if (sameNamed) {
+      actId = sameNamed.id;
+    } else if (actId === "new") {
       actId = freshIds.current.activity;
       activity = {
         id: actId,
@@ -589,9 +618,17 @@ export function TaskEditor({
                 aria-invalid={deadlineError ? true : undefined}
                 aria-describedby={deadlineError ? "deadline-error" : undefined}
                 onChange={(e) => {
-                  setDeadline(e.target.value);
+                  const v = e.target.value;
+                  setDeadline(v);
                   setDeadlineUnreal(e.target.validity.badInput);
-                  setDeadlineError(null);
+                  // A year past the last one is said now, not only when saving (the layout
+                  // would jump under the finger then). Earlier years pass while it is typed.
+                  const year = Number(/^(\d{4,6})-/.exec(v)?.[1]);
+                  setDeadlineError(
+                    year > deadlineMaxYear(now)
+                      ? `Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`
+                      : null,
+                  );
                 }}
               />
             </label>
@@ -657,8 +694,8 @@ export function TaskEditor({
                   id={estimateId}
                   inputMode="decimal"
                   value={estimate}
-                  aria-invalid={estimateError ? true : undefined}
-                  aria-describedby={estimateError ? "estimate-error" : undefined}
+                  aria-invalid={estimateShown ? true : undefined}
+                  aria-describedby={estimateShown ? "estimate-error" : undefined}
                   onChange={(e) => setEstimate(e.target.value)}
                 />
               </label>
@@ -668,8 +705,8 @@ export function TaskEditor({
                   id={minimumId}
                   inputMode="decimal"
                   value={minimum}
-                  aria-invalid={minimumError ? true : undefined}
-                  aria-describedby={minimumError ? "minimum-error" : undefined}
+                  aria-invalid={minimumShown ? true : undefined}
+                  aria-describedby={minimumShown ? "minimum-error" : undefined}
                   onChange={(e) => setMinimum(e.target.value)}
                 />
               </label>
@@ -679,8 +716,8 @@ export function TaskEditor({
                 {learnedNote(learned, isExam)}
               </p>
             )}
-            <FieldError id="estimate-error" text={estimateError} role={alertRole} />
-            <FieldError id="minimum-error" text={minimumError} role={alertRole} />
+            <FieldError id="estimate-error" text={estimateShown} role={alertRole} />
+            <FieldError id="minimum-error" text={minimumShown} role={alertRole} />
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <legend style={{ padding: 0 }}>Partes (opcional)</legend>
               <span className="meta" style={{ margin: 0 }}>
