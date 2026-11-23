@@ -164,7 +164,7 @@ export function pruebasData(now: number): AppData {
 
   const events: AppEvent[] = [
     ...base.events.filter((e) => e.id !== "familia"),
-    // Far away: by bus there and back (SPEC §15), the trip card.
+    // Far away, by car: an address of its own with minutes already known.
     event("evento-gran", "evento gran", 2, "13:00", "14:00", { location: "Atlántida 1213 Bis" }),
     event("familia", "Almuerzo en lo de la abuela", 6, "12:30", "15:30", {
       location: "Casa de la abuela Marta",
@@ -175,6 +175,30 @@ export function pruebasData(now: number): AppData {
       location: "Casa Fran",
     }),
   ];
+
+  // By bus (SPEC §15), always ahead of today so the trip card can be tried any day: one with
+  // plans (invented ones: demoTransit.ts) and one in a place the bus does not reach, whose
+  // plan keeps the car's minutes with a notice.
+  const ahead = (
+    id: string,
+    title: string,
+    day: number,
+    from: string,
+    to: string,
+    place: string,
+  ) => ({
+    id,
+    title,
+    start: at(addDays(today, day), from),
+    end: at(addDays(today, day), to),
+    busy: true,
+    source: "demo" as const,
+    location: place,
+  });
+  events.push(
+    ahead("clase-fing", "Clase en la Facultad", 1, "14:00", "16:00", "Facultad"),
+    ahead("taller-cerro", "Taller en el Cerro", 2, "10:00", "11:30", "Club del Cerro"),
+  );
 
   // Meals of days already over: until two weeks ago lunch and dinner were earlier. Changing
   // the hours in Ajustes must not touch them.
@@ -216,6 +240,8 @@ export function pruebasData(now: number): AppData {
         name: "Casa",
         aliases: [],
         address: "Av. 18 de Julio 1234, Montevideo",
+        lat: -34.9055,
+        lon: -56.1905,
         isHome: true,
       },
       {
@@ -223,16 +249,24 @@ export function pruebasData(now: number): AppData {
         name: "Facultad",
         aliases: ["FING", "Facultad de Ingeniería"],
         address: "Julio Herrera y Reissig 565, Montevideo",
+        lat: -34.918,
+        lon: -56.166,
+        travelMode: "bus",
+      },
+      // By bus too, but the demo has no schedules there: the plan keeps the car's minutes.
+      {
+        id: "cerro",
+        name: "Club del Cerro",
+        aliases: [],
+        address: "Grecia 4100, Montevideo",
+        lat: -34.89,
+        lon: -56.26,
         travelMode: "bus",
       },
       // With an address the minutes can be worked out; without it they are typed.
       { id: "fran", name: "Casa Fran", aliases: [], address: "Bulevar Artigas 1500, Montevideo" },
       { id: "abuela", name: "Casa de la abuela Marta", aliases: [] },
     ],
-    tripModes: { "evento-gran": "bus" },
-    tripMinutes: {
-      "evento-gran": { minutes: 71, start: at(addDays(monday, 2), "13:00"), back: 80 },
-    },
     spots: [{ key: "atlantida 1213 bis", text: "Atlántida 1213 Bis", minutes: 55 }],
     mealRuns: runs,
     mealsFrozenThrough: addDays(today, -1),

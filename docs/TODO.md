@@ -129,7 +129,7 @@ Datos, servidor e interfaz mergeados (la interfaz en #185: modo por lugar, colum
 1. ✅ Que el plan reserve el tiempo del ómnibus (#190: minutos puerta a puerta guardados de `/api/transit`, ida y vuelta desde casa; sin dato, los de auto con aviso en la tarjeta).
 2. ✅ La vuelta (evento → casa) como viaje propio (#193).
 3. ✅ Rutas habituales (`bus_routes`) desde la interfaz (#193).
-4. Probar la tarjeta del evento con el Supabase local y proveedores falsos (la demo no tiene eventos futuros con lugar).
+4. ✅ Probar la tarjeta del evento: la «Demo de pruebas» trae dos eventos futuros en Ómnibus (con horarios inventados, `demoTransit.ts`, sin cuenta ni red: uno con plan y transbordo, otro en un lugar sin datos de tránsito) y `e2e/omnibus.spec.ts` lo recorre en WebKit 375×812: solo líneas y hora de salida de ida y vuelta, paradas y transbordos al tocar, el plan reserva los minutos del ómnibus antes y después, sin dato usa el auto con aviso, la fuente está en Ajustes (grupo Cuenta) y no en la tarjeta, sin desbordes y campos ≥ 16 px. Falta solo verlo con la cuenta real contra el Supabase y la API de verdad.
 
 ### 5.3 Refuerzos sueltos (hallados por el agente atacante)
 

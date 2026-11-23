@@ -26,8 +26,11 @@ describe("Demo de pruebas", () => {
     const gym = d.activities.find((a) => a.kind === "rutina");
     expect(Object.values(gym?.validHours?.days ?? {})).toContain(null);
     expect(Object.values(gym?.validHours?.days ?? {}).some((r) => r && r.start > 0)).toBe(true);
-    // A trip by bus, there and back.
-    expect(Object.values(d.tripMinutes ?? {})[0]?.back).toBeGreaterThan(0);
+    // Two future events by bus, at places with coordinates: the card can be tried any day.
+    const byBus = (d.places ?? []).filter((p) => p.travelMode === "bus" && p.lat != null);
+    expect(byBus.length).toBeGreaterThanOrEqual(2);
+    const ahead = d.events.filter((e) => e.start > NOW && byBus.some((p) => p.name === e.location));
+    expect(ahead.length).toBeGreaterThanOrEqual(2);
     // A parcial next week, parts with weights, and one task waiting to be assigned.
     expect(d.tasks.some((t) => t.exam && t.units.some((u) => u.weight))).toBe(true);
     expect(d.tasks.some((t) => t.needsReview)).toBe(true);
