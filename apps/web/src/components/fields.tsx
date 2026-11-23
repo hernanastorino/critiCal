@@ -80,13 +80,15 @@ export function Field({
   help?: string;
 }) {
   const helpId = useId();
+  const inputId = useId();
   const box = (children: React.ReactNode) =>
     help ? <div className="field-with-help">{children}</div> : children;
   return box(
     <>
-      <label className="field">
+      <label className="field" htmlFor={inputId}>
         <span>{label}</span>
         <input
+          id={inputId}
           type={type}
           aria-label={name}
           inputMode={type === "text" ? "decimal" : undefined}

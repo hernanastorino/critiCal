@@ -2,7 +2,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
-import { ADDRESS_MAX, ALIASES_FIELD_MAX, BACKUP_TEXT_MAX, NAME_MAX } from "../limits.js";
+import {
+  ADDRESS_MAX,
+  ALIASES_FIELD_MAX,
+  BACKUP_TEXT_MAX,
+  isBlank,
+  NAME_MAX,
+  stripInvisible,
+} from "../limits.js";
 import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
 import {
   keepableEvents,
@@ -480,7 +487,7 @@ function PlaceForm({
   const makesHome = isHome && !otherHome;
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
-  const empty = !name.trim();
+  const empty = isBlank(name);
   const longAlias = aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
   // The fields stop at their limits as you type; a pasted or restored draft is checked here.
   const longName = name.trim().length > NAME_MAX;
@@ -601,7 +608,7 @@ function PlaceForm({
             finish();
             onSave({
               ...place,
-              name: name.trim(),
+              name: stripInvisible(name),
               address: address.trim() || undefined,
               // A new address needs geocoding again.
               ...(address.trim() !== (place.address ?? "")
@@ -689,7 +696,7 @@ function SpotRow({ spot }: { spot: Spot }) {
   const taken = nameTaken(data.places ?? [], name);
   const takenId = useId();
   const saveSpot = () => {
-    if (name.trim() && !taken) dispatch({ type: "saveSpot", key: spot.key, name });
+    if (!isBlank(name) && !taken) dispatch({ type: "saveSpot", key: spot.key, name });
   };
   return (
     <div className="check" style={{ flexWrap: "wrap" }}>
@@ -739,7 +746,7 @@ function SpotRow({ spot }: { spot: Spot }) {
           <button
             type="button"
             className="btn small"
-            disabled={!name.trim() || taken}
+            disabled={isBlank(name) || taken}
             onClick={saveSpot}
           >
             Guardar

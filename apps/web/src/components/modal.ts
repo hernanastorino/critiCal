@@ -80,7 +80,7 @@ let lastDown = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY };
 let closed = { x: 0, y: 0, at: Number.NEGATIVE_INFINITY };
 
 /** Notes that a sheet closed now, from the press just before it (the tap on its button). */
-function noteClosed(now = Date.now()) {
+export function noteClosed(now = Date.now()) {
   if (now - lastDown.at < CLOSE_GRACE_MS) closed = { x: lastDown.x, y: lastDown.y, at: now };
 }
 

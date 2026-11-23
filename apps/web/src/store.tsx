@@ -28,6 +28,7 @@ import { lateNight } from "./lateNight.js";
 import {
   ADDRESS_MAX,
   BACKUP_TEXT_MAX,
+  isBlank,
   NAME_MAX,
   SESSIONS_PER_WEEK_MAX,
   stripBidi,
@@ -1356,7 +1357,7 @@ function apply(data: AppData, action: Action): AppData {
       const spot = (data.spots ?? []).find((s) => s.key === action.key);
       const at = home(data);
       const name = action.name.trim().slice(0, NAME_MAX);
-      if (!spot || !name) return data;
+      if (!spot || isBlank(name)) return data;
       // What the event says may be longer than a backup takes for an alias.
       const place: Place = {
         id: newId(),

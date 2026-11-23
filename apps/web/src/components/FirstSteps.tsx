@@ -3,6 +3,7 @@ import { useSync } from "../Connected.js";
 import { isTestDemo } from "../demoPruebas.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
+import { noteClosed } from "./modal.js";
 import type { PageId } from "./Settings.js";
 
 /**
@@ -135,6 +136,8 @@ export function FirstStepsCard({
           type="button"
           className="btn"
           onClick={() => {
+            // The card goes: the second tap of a double tap must not land on the week under it.
+            noteClosed();
             writeKey(owner, "skipped");
           }}
         >
