@@ -13,7 +13,7 @@ import {
   readBody,
   readEnv,
 } from "./_lib/server.js";
-import { sha256, widgetSilos } from "./_lib/widget.js";
+import { sha256, widgetSilos, widgetView } from "./_lib/widget.js";
 
 export function GET(req: Request): Promise<Response> {
   return read(req, readEnv());
@@ -42,7 +42,9 @@ export async function read(req: Request, env: Env, now = Date.now()): Promise<Re
   try {
     caller = await actAs(env, uid as string);
     const data = await loadData(caller.user);
-    return json({ updatedAt: now, silos: widgetSilos(data, now) });
+    // `silos` is what the first scripts read; `mode` and `rows` are what the new ones paint.
+    const silos = widgetSilos(data, now);
+    return json({ updatedAt: now, silos, ...widgetView(data, now, silos) });
   } catch (e) {
     console.error(e);
     await report(env, e, "widget");

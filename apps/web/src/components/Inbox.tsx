@@ -5,7 +5,6 @@ import {
   type Activity,
   localParts,
   MEAL_RANGE,
-  type MealKind,
   MINUTE,
   type OptionKind,
   type PlanBlock,
@@ -30,6 +29,7 @@ import {
   REPLANNED_TOAST,
   STILL_SHORT,
 } from "../friendly.js";
+import { EAT } from "../inbox.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
@@ -50,13 +50,6 @@ import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
 import { buzz, swipeAnswer } from "./useSwipe.js";
 import { useInboxAnswers } from "./useUndoable.js";
-
-const EAT: Record<MealKind, string> = {
-  desayuno: "desayunar",
-  almuerzo: "almorzar",
-  merienda: "merendar",
-  cena: "cenar",
-};
 
 /** Taps on «Hecho» / «No hecho» this soon after an answer are ignored (the list moved). */
 export const ANSWER_GUARD_MS = 600;
