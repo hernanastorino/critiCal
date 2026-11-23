@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 /**
  * What was typed in a form (Ajustes, the editor of a silo or entrega) and not saved yet.
@@ -7,7 +7,9 @@ import { useState } from "react";
  * It dies with the tab, and with the account (`clearDrafts`).
  */
 /** What was typed, with what it was compared to when the form was last saved. */
-type Entry = { value: unknown; base: unknown };
+type Entry = { value: unknown; base: unknown; page?: string };
+/** The screen of Ajustes a form lives on (set by Ajustes around each one), to know whose draft it is. */
+export const DraftPage = createContext<string | null>(null);
 const STORE = "critical.drafts";
 /** The editor of a silo or entrega keeps its draft under this prefix, apart from Ajustes'. */
 export const SHEET_PREFIX = "sheet:";
@@ -40,6 +42,21 @@ export function clearDrafts(): void {
   drafts.clear();
   persist();
   rememberSettingsPage(null);
+}
+
+/** Whether something typed on this screen of Ajustes waits unsaved (a draft of unknown screen counts). */
+export function hasPageDrafts(page: string): boolean {
+  for (const [k, e] of drafts)
+    if (!k.startsWith(SHEET_PREFIX) && (!e.page || e.page === page)) return true;
+  return false;
+}
+
+/** Forgets what was typed on this screen of Ajustes only (leaving it with «Descartar»). */
+export function clearPageDrafts(page: string): void {
+  for (const [k, e] of [...drafts]) {
+    if (!k.startsWith(SHEET_PREFIX) && (!e.page || e.page === page)) drafts.delete(k);
+  }
+  persist();
 }
 
 /** Whether something typed in Ajustes waits unsaved. */
@@ -94,6 +111,7 @@ export function writeSheetDraft(key: string, value: unknown): void {
  * `initial`; saving sets it back to what was saved and it goes clean.
  */
 export function useDraft<T>(key: string, initial: () => T) {
+  const page = useContext(DraftPage) ?? undefined;
   const [base, setBase] = useState<T>(() =>
     drafts.has(key) ? (drafts.get(key)?.base as T) : initial(),
   );
@@ -103,7 +121,7 @@ export function useDraft<T>(key: string, initial: () => T) {
   const set = (next: T) => {
     // Back to what it was compared to: nothing is pending, so nothing is kept.
     if (JSON.stringify(next) === JSON.stringify(base)) drafts.delete(key);
-    else drafts.set(key, { value: next, base });
+    else drafts.set(key, { value: next, base, page });
     persist();
     setValue(next);
   };

@@ -18,6 +18,7 @@ import {
 } from "./fields.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
+import { useTapOnce } from "./useTapOnce.js";
 
 /** The longest a semester may last: a year (an end typed with the wrong year says so). */
 const SEMESTER_MAX_DAYS = 366;
@@ -38,6 +39,7 @@ export function Semester() {
     date: "",
   }));
   const toast = useToast();
+  const once = useTapOnce();
   // The calendar's titles are only worked out once its screen is on view.
   const open = useSectionOpen();
   // Dates are saved with their button; the rest is typed for a button below.
@@ -98,7 +100,23 @@ export function Semester() {
     !!start &&
     !!end &&
     end > addDays(start, SEMESTER_MAX_DAYS);
+  // One day is not a cuatrimestre, and one already over plans nothing.
+  const tooShort = !backwards && !!start && !!end && !startProblem && !endProblem && end === start;
+  const ended = !backwards && !!end && !endProblem && end < today;
+  const rangeProblem = backwards
+    ? "«Termina» no puede ser anterior a «Empieza»."
+    : tooLong
+      ? "Un cuatrimestre dura como mucho 12 meses: revisá la fecha de «Termina»."
+      : tooShort
+        ? "Un cuatrimestre dura más de un día: «Termina» tiene que ser después de «Empieza»."
+        : ended
+          ? "Ese cuatrimestre ya terminó: poné una fecha de «Termina» de hoy en adelante."
+          : null;
   const addSubject = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Two taps in the same instant add one materia, not two.
+    once(`subject:${subject}`, () => addSubjectNow(e));
+  };
+  const addSubjectNow = (e: React.MouseEvent<HTMLButtonElement>) => {
     const name = subject.trim().replace(/\s+/g, " ");
     if (isBlank(name)) {
       setNameTried(true);
@@ -149,6 +167,10 @@ export function Semester() {
   };
 
   const addExam = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Two taps in the same instant add one entrega, not two.
+    once(`exam:${exam.activityId}:${exam.date}:${exam.title}`, () => addExamNow(e));
+  };
+  const addExamNow = (e: React.MouseEvent<HTMLButtonElement>) => {
     if (!exam.activityId || !exam.date) {
       setExamTried(true);
       askFocus(e.currentTarget);
@@ -206,11 +228,11 @@ export function Semester() {
                 value={end}
                 min="2000-01-01"
                 max={`${deadlineMaxYear(now)}-12-31`}
-                aria-invalid={backwards || tooLong || endProblem ? true : undefined}
+                aria-invalid={rangeProblem || endProblem ? true : undefined}
                 aria-describedby={
                   endProblem
                     ? "semester-end-date-error"
-                    : backwards || tooLong
+                    : rangeProblem
                       ? "semester-end-error"
                       : undefined
                 }
@@ -224,28 +246,19 @@ export function Semester() {
           </div>
           <Problem id="semester-start-error" text={startProblem} />
           <Problem id="semester-end-date-error" text={endProblem} />
-          <Problem
-            id="semester-end-error"
-            text={
-              backwards
-                ? "«Termina» no puede ser anterior a «Empieza»."
-                : tooLong
-                  ? "Un cuatrimestre dura como mucho 12 meses: revisá la fecha de «Termina»."
-                  : null
-            }
-          />
+          <Problem id="semester-end-error" text={rangeProblem} />
           <button
             type="button"
             className="btn"
             style={{ width: "100%" }}
-            aria-disabled={backwards || tooLong || startProblem || endProblem ? true : undefined}
+            aria-disabled={rangeProblem || startProblem || endProblem ? true : undefined}
             onClick={(e) => {
               if (!start || !end) {
                 setDatesTried(true);
                 askFocus(e.currentTarget);
                 return;
               }
-              if (backwards || tooLong || startProblem || endProblem) {
+              if (rangeProblem || startProblem || endProblem) {
                 focusFirstInvalid(e.currentTarget.parentElement);
                 return;
               }

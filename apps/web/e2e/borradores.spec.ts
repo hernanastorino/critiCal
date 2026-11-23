@@ -99,12 +99,15 @@ test.describe("borradores: Ajustes", () => {
     // Cerrar Ajustes con algo escrito pregunta antes de tirarlo.
     // Con la hoja ya armada (el foco llegó a «Volver»), como lo haría una persona.
     await expect(sheet(page).getByRole("button", { name: "Volver a Ajustes" })).toBeFocused();
-    // El primer Escape sale de la pantalla (a la lista); el segundo, de Ajustes: ahí pregunta.
-    await page.keyboard.press("Escape");
-    await expect(sheet(page)).toHaveAccessibleName("Ajustes");
+    // Escape con algo escrito en la pantalla pregunta (25.ª vuelta), igual que ✕ y el fondo.
     await page.keyboard.press("Escape");
     await expect(pregunta(page)).toBeVisible();
     await pregunta(page).getByRole("button", { name: "Seguir editando" }).click();
     await expect(pregunta(page)).toHaveCount(0);
+    await expect(sheet(page)).toHaveAccessibleName("Lugares y traslados");
+    // «Descartar» borra lo de la pantalla y vuelve a la lista de Ajustes.
+    await page.keyboard.press("Escape");
+    await pregunta(page).getByRole("button", { name: "Descartar" }).click();
+    await expect(sheet(page)).toHaveAccessibleName("Ajustes");
   });
 });

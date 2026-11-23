@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
-import { BACKUP_TEXT_MAX, NAME_MAX } from "../limits.js";
+import { ADDRESS_MAX, ALIASES_FIELD_MAX, BACKUP_TEXT_MAX, NAME_MAX } from "../limits.js";
 import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
 import {
   keepableEvents,
@@ -15,6 +15,7 @@ import {
 import { computeTravel } from "../remote.js";
 import { useStore } from "../store.js";
 import { BusRoutesList } from "./BusRoutesList.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
@@ -464,6 +465,8 @@ function PlaceForm({
   const setIsHome = (v: boolean) => setForm({ ...form, isHome: v });
   // Done with the form: what was typed is not kept.
   const finish = () => saved(fresh());
+  // «Cancelar» with something typed asks before throwing it away (as ✕ and Escape do).
+  const [leaving, setLeaving] = useState(false);
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
   // Only one home: with another place already marked, the switch is not offered.
@@ -513,6 +516,7 @@ function PlaceForm({
         <span>Dirección (para calcular tiempos)</span>
         <input
           value={address}
+          maxLength={ADDRESS_MAX}
           onChange={(e) => setAddress(e.target.value)}
           placeholder="Julio Herrera y Reissig 565, Montevideo"
           aria-describedby={noAddress ? `address-${place.id}` : undefined}
@@ -527,6 +531,7 @@ function PlaceForm({
         <span>Alias, separados por coma</span>
         <input
           value={aliases}
+          maxLength={ALIASES_FIELD_MAX}
           onChange={(e) => setAliases(e.target.value)}
           placeholder="FING, Facultad"
           aria-describedby={`aliases-help-${place.id}`}
@@ -608,6 +613,10 @@ function PlaceForm({
           type="button"
           className="btn"
           onClick={() => {
+            if (dirty) {
+              setLeaving(true);
+              return;
+            }
             finish();
             onCancel();
           }}
@@ -619,6 +628,16 @@ function PlaceForm({
         <button type="button" className="btn danger" style={{ width: "100%" }} onClick={onDelete}>
           Borrar lugar
         </button>
+      )}
+      {leaving && (
+        <ConfirmDiscard
+          onKeep={() => setLeaving(false)}
+          onDiscard={() => {
+            setLeaving(false);
+            finish();
+            onCancel();
+          }}
+        />
       )}
     </div>
   );

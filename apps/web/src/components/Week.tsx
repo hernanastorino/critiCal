@@ -20,6 +20,7 @@ import {
   weekdayShort,
 } from "../format.js";
 import { lanes } from "../lanes.js";
+import { deadlineMaxYear } from "../limits.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
 import { type MoveBounds, moveBounds, moveRefusal } from "../moveBounds.js";
 import {
@@ -195,6 +196,11 @@ export function Week({
       zonedInstant(tz, w[6] as string, 720),
     );
   };
+  /** The weeks the app takes: its years run 2000 to the last one a deadline may fall in, as everywhere else. */
+  const inRange = (o: number) => {
+    const year = Number(localParts(tz, now + o * 7 * DAY_MS).date.slice(0, 4));
+    return year >= 2000 && year <= deadlineMaxYear(now);
+  };
   // Opens on the week of `day`.
   const [offset, setOffset] = useState(() => (day ? weekOffset(day) : 0));
   const [replanning, setReplanning] = useState(false);
@@ -213,8 +219,8 @@ export function Week({
   const weekRef = useRef<HTMLDivElement>(null);
   useSwipe(weekRef, {
     enabled: !editing && !drag?.active,
-    onNext: () => setOffset((o) => o + 1),
-    onPrev: () => setOffset((o) => o - 1),
+    onNext: () => setOffset((o) => (inRange(o + 1) ? o + 1 : o)),
+    onPrev: () => setOffset((o) => (inRange(o - 1) ? o - 1 : o)),
   });
   const replanRef = useRef<HTMLButtonElement>(null);
   /**
@@ -700,6 +706,36 @@ export function Week({
     return mealKey(m);
   };
 
+  /**
+   * A meal that is over is not dragged (the past is not changed): a try to lift it (a long
+   * press, or a drag while editing) says so instead of doing nothing.
+   */
+  const pastPress = useRef<{ x: number; y: number; said: boolean } | null>(null);
+  const pastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const sayPast = () => {
+    if (!pastPress.current || pastPress.current.said) return;
+    pastPress.current.said = true;
+    toaster.show("Esa comida ya pasó: el pasado no se cambia.");
+  };
+  const startPastPress = (e: React.PointerEvent<HTMLElement>) => {
+    pastPress.current = { x: e.clientX, y: e.clientY, said: false };
+    clearTimeout(pastTimer.current);
+    if (!editing) pastTimer.current = setTimeout(sayPast, LONG_PRESS_MS);
+  };
+  const movePastPress = (e: React.PointerEvent<HTMLElement>) => {
+    const p = pastPress.current;
+    if (!p) return;
+    if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) {
+      clearTimeout(pastTimer.current);
+      // Moving a finger before the long press is a scroll; while editing it is a drag.
+      if (editing) sayPast();
+    }
+  };
+  const endPastPress = () => {
+    clearTimeout(pastTimer.current);
+    pastPress.current = null;
+  };
+
   /** A press on a block or meal: it drags at once while editing, after a long press otherwise. */
   const startPress = (
     e: React.PointerEvent<HTMLElement>,
@@ -799,7 +835,8 @@ export function Week({
             type="button"
             className="icon-btn"
             aria-label="Semana anterior"
-            onClick={() => setOffset(offset - 1)}
+            aria-disabled={inRange(offset - 1) ? undefined : true}
+            onClick={() => inRange(offset - 1) && setOffset(offset - 1)}
           >
             <ChevronLeft />
           </button>
@@ -834,7 +871,8 @@ export function Week({
             type="button"
             className="icon-btn"
             aria-label="Semana siguiente"
-            onClick={() => setOffset(offset + 1)}
+            aria-disabled={inRange(offset + 1) ? undefined : true}
+            onClick={() => inRange(offset + 1) && setOffset(offset + 1)}
           >
             <ChevronRight />
           </button>
@@ -1043,16 +1081,27 @@ export function Week({
                       onPointerDown={
                         future
                           ? (e) => startPress(e, key, (m.at.end - m.at.start) / MINUTE, m)
-                          : undefined
+                          : m.kind
+                            ? startPastPress
+                            : undefined
                       }
-                      onPointerMove={dragged ? (e) => movePress(e, drag) : undefined}
+                      onPointerMove={
+                        dragged
+                          ? (e) => movePress(e, drag)
+                          : m.kind && !future
+                            ? movePastPress
+                            : undefined
+                      }
+                      onPointerLeave={!future ? endPastPress : undefined}
                       onPointerCancel={
                         dragged
                           ? () => {
                               clearTimeout(pressTimer.current);
                               setDrag(null);
                             }
-                          : undefined
+                          : !future
+                            ? endPastPress
+                            : undefined
                       }
                       onPointerUp={
                         dragged
@@ -1067,7 +1116,9 @@ export function Week({
                               }
                               dropMeal(m, drag, e.clientX, e.clientY);
                             }
-                          : undefined
+                          : !future
+                            ? endPastPress
+                            : undefined
                       }
                       onKeyDown={
                         movable

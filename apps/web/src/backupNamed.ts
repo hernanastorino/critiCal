@@ -39,6 +39,8 @@ export const name: Ok = (v) =>
 /** An instant the database's timestamps hold (years 1900 to 9999). */
 export const instant: Ok = (v) =>
   num(v) && v >= Date.UTC(1900, 0, 1) && v <= Date.UTC(9999, 11, 31);
+/** Text that may be empty but not longer than a backup takes (an address). */
+const shortText: Ok = (v) => typeof v === "string" && v.length <= BACKUP_TEXT_MAX;
 export const strings: Ok = (v) => Array.isArray(v) && v.every((s) => typeof s === "string");
 export const shortStrings: Ok = (v) =>
   Array.isArray(v) && v.every((s) => typeof s === "string" && s.length <= BACKUP_TEXT_MAX);
@@ -258,7 +260,11 @@ const placeRules = (): Rule[] => [
   ["id", str, "tiene un identificador que no es texto"],
   ["name", name, `tiene un nombre vacío o de más de ${BACKUP_TEXT_MAX} caracteres`],
   ["aliases", shortStrings, `tiene alias que no son texto de hasta ${BACKUP_TEXT_MAX} caracteres`],
-  ["address", opt(text), "tiene una dirección que no es texto"],
+  [
+    "address",
+    opt(shortText),
+    `tiene una dirección que no es texto de hasta ${BACKUP_TEXT_MAX} caracteres`,
+  ],
   ["isHome", opt(bool), "tiene un dato de «es mi casa» que no es sí o no"],
   ["travelMode", opt(oneOf("car", "bus")), "tiene una forma de llegar que no es auto ni ómnibus"],
 ];

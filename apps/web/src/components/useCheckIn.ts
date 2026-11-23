@@ -4,6 +4,7 @@ import { newId } from "../model.js";
 import { standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { useToast } from "./Toast.js";
+import { useTapOnce } from "./useTapOnce.js";
 
 export type CheckInStatus = "done" | "missed" | "partial";
 
@@ -26,36 +27,38 @@ function said(status: CheckInStatus, corrects: boolean): string {
 export function useCheckIn(onUndone?: (blockId: string) => void) {
   const { data, dispatch } = useStore();
   const toast = useToast();
+  const once = useTapOnce();
   return (
     block: PlanBlock,
     status: CheckInStatus,
     opts: { minutesDone?: number; unitIds?: string[] } = {},
-  ) => {
-    const corrects = standingCheckIns(data).some((c) => c.blockId === block.id);
-    // The record is named here so «Deshacer» takes back this one and nothing newer.
-    const id = newId();
-    dispatch({
-      type: "checkIn",
-      checkIn: {
-        id,
-        blockId: block.id,
-        taskId: block.taskId,
-        status,
-        minutesDone:
-          status === "done"
-            ? (block.end - block.start) / MINUTE
-            : status === "partial"
-              ? (opts.minutesDone ?? 0)
-              : 0,
-        unitIds: status === "missed" ? [] : (opts.unitIds ?? []),
-      },
+  ) =>
+    once(`${block.id}:${status}:${opts.minutesDone ?? 0}`, () => {
+      const corrects = standingCheckIns(data).some((c) => c.blockId === block.id);
+      // The record is named here so «Deshacer» takes back this one and nothing newer.
+      const id = newId();
+      dispatch({
+        type: "checkIn",
+        checkIn: {
+          id,
+          blockId: block.id,
+          taskId: block.taskId,
+          status,
+          minutesDone:
+            status === "done"
+              ? (block.end - block.start) / MINUTE
+              : status === "partial"
+                ? (opts.minutesDone ?? 0)
+                : 0,
+          unitIds: status === "missed" ? [] : (opts.unitIds ?? []),
+        },
+      });
+      toast.show(said(status, corrects), {
+        ...(status === "missed" && !corrects ? { roy: "hombros" as const } : {}),
+        undo: () => {
+          dispatch({ type: "undoCheckIn", id });
+          onUndone?.(block.id);
+        },
+      });
     });
-    toast.show(said(status, corrects), {
-      ...(status === "missed" && !corrects ? { roy: "hombros" as const } : {}),
-      undo: () => {
-        dispatch({ type: "undoCheckIn", id });
-        onUndone?.(block.id);
-      },
-    });
-  };
 }

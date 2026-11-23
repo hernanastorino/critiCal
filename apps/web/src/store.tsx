@@ -26,9 +26,11 @@ import {
 } from "./engine.js";
 import { lateNight } from "./lateNight.js";
 import {
+  ADDRESS_MAX,
   BACKUP_TEXT_MAX,
   NAME_MAX,
   SESSIONS_PER_WEEK_MAX,
+  stripBidi,
   UNIT_MINUTES_MAX,
   UNIT_MINUTES_MIN,
 } from "./limits.js";
@@ -489,8 +491,39 @@ function withAfter(data: AppData, action: Action): AppData {
 }
 
 /** Applies `action` and records a plan version for the ones that can be undone. */
+/** The names a form saves, without direction-changing characters (see `stripBidi`). */
+function cleanNames(a: Action): Action {
+  const unit = (u: Unit): Unit =>
+    u.title === stripBidi(u.title) ? u : { ...u, title: stripBidi(u.title) };
+  switch (a.type) {
+    case "saveTask": {
+      const task = { ...a.task, title: stripBidi(a.task.title), units: a.task.units.map(unit) };
+      const activity = a.activity && { ...a.activity, name: stripBidi(a.activity.name) };
+      return { ...a, task, activity };
+    }
+    case "saveActivity":
+      return { ...a, activity: { ...a.activity, name: stripBidi(a.activity.name) } };
+    case "savePlace":
+      return {
+        ...a,
+        place: {
+          ...a.place,
+          name: stripBidi(a.place.name),
+          address: a.place.address === undefined ? undefined : stripBidi(a.place.address),
+          aliases: a.place.aliases.map(stripBidi),
+        },
+      };
+    case "saveRoutine":
+    case "newSubject":
+    case "saveSpot":
+      return { ...a, name: stripBidi(a.name) };
+    default:
+      return a;
+  }
+}
+
 export function reducer(data: AppData, input: Action): AppData {
-  const action = input;
+  const action = cleanNames(input);
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
   // The meals of the days gone by are written before anything else changes (SPEC §5).
@@ -1323,7 +1356,7 @@ function apply(data: AppData, action: Action): AppData {
         id: newId(),
         name,
         aliases: [spot.text.slice(0, BACKUP_TEXT_MAX)],
-        address: spot.text,
+        address: spot.text.slice(0, ADDRESS_MAX),
       };
       const travelTimes = [...(data.travelTimes ?? [])];
       if (at && spot.minutes !== undefined) {

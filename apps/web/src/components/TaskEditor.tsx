@@ -441,6 +441,12 @@ export function TaskEditor({
       dayBeforeOnly: (kind === "deliverable" && isExam && dayBefore) || undefined,
     };
     dispatch({ type: "saveTask", task: next, activity });
+    // Saved as asked, but said: a deadline already over gets no time in the plan.
+    if (due !== undefined && due <= now) {
+      toast.show(
+        `«${clipName(next.title)}» quedó con la fecha ya vencida: el plan no le reserva tiempo.`,
+      );
+    }
     onSaved?.(next);
     done();
   };
