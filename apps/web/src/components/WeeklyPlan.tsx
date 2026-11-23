@@ -3,6 +3,7 @@ import { zonedInstant } from "../engine.js";
 import { dayAndTime, dayDate, hours, weekdayLong } from "../format.js";
 import { useStore } from "../store.js";
 import { weekPlan, weekToPlan } from "../week-review.js";
+import { weekTypeLine } from "../weekType.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 
@@ -19,6 +20,7 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
     .sort((a, b) => a.start - b.start);
   const short = result.status.filter((s) => s.minDeficit > 0);
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
+  const typeLine = weekTypeLine(data);
   const max = Math.max(60, ...days.map((d) => d.minutes));
   const sheet = useRef<HTMLDivElement>(null);
 
@@ -60,6 +62,12 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
           {hours(days.reduce((s, d) => s + d.minutes, 0))} planificadas · {critical.length} bloques
           críticos
         </p>
+
+        {typeLine && (
+          <p className="meta" data-testid="week-type" style={{ overflowWrap: "anywhere" }}>
+            {typeLine}
+          </p>
+        )}
 
         <div className="week-bars">
           {days.map((d) => (
