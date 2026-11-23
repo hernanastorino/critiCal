@@ -2,7 +2,7 @@ import { act, cleanup, fireEvent, render, screen, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { Silos } from "./components/Silos.js";
 import { ToastProvider } from "./components/Toast.js";
-import { demoData } from "./demo.js";
+import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import type { AppData } from "./model.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 

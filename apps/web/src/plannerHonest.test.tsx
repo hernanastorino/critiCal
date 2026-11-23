@@ -47,9 +47,11 @@ const withFormulas = (d: AppData) =>
     now: NOW,
   });
 
+const routineIds = new Set<string>();
+// A routine that fell behind is not reported as missing (it plans what fits).
 const shortIds = (r: { status: { taskId: string; minDeficit: number }[] }) =>
   r.status
-    .filter((s) => s.minDeficit > 0)
+    .filter((s) => s.minDeficit > 0 && !routineIds.has(s.taskId))
     .map((s) => s.taskId)
     .sort();
 
@@ -57,6 +59,7 @@ const minimumOf = (d: AppData, id: string) => d.tasks.find((t) => t.id === id)?.
 
 describe("an activity that does not fit even alone", () => {
   const d = withFormulas(withRoutine(demo()));
+  for (const t of d.tasks) if (t.title === "Leer") routineIds.add(t.id);
   const r = refreshPlan(d, NOW);
   const dec = decisions(r.input, r.result);
 
@@ -83,34 +86,14 @@ describe("a routine of 14 × 60 in the demo", () => {
   const d = withRoutine(demo());
   const leer = d.tasks.find((t) => t.title === "Leer") as AppTask;
 
-  it("is no longer critical once its minimum is lowered, nor asked about again", () => {
-    expect(d.plan.some((b) => b.taskId === leer.id && b.level === "critical")).toBe(true);
+  it("a routine that fell behind plans what fits and asks nothing: no critical, no decision", () => {
+    // 14 sessions of 1 h from Wednesday night: not all of them fit in what is left of the week.
+    expect(d.plan.some((b) => b.taskId === leer.id && b.level === "critical")).toBe(false);
     const r = refreshPlan(d, NOW);
-    const lower = decisions(r.input, r.result).options.find(
-      (o) => o.id === `lower-minimum:${leer.id}`,
-    );
-    expect(lower?.label).toBe("Dedicarle menos a Leer (mínimo 10 h)");
-    expect(lower?.result.feasible).toBe(true);
-    const after = reducer(d, { type: "applyOption", optionId: lower?.id as string, now: NOW });
-    // It reaches every minimum, as it said: nothing critical, nothing left to decide.
-    expect(after.plan.filter((b) => b.end > NOW && b.level === "critical")).toEqual([]);
-    const next = refreshPlan(after, NOW);
-    expect(next.result.feasible).toBe(true);
-    expect(decisions(next.input, next.result).options).toEqual([]);
-  });
-
-  it("leaves the minimum it says even when part of the week is already done", () => {
-    // 2 h of Leer logged: what is left (12 h) is below its weekly minimum, so cutting the
-    // weekly minimum by the same 2 h would leave the clamp in place and cut nothing.
-    const logged = reducer(d, { type: "logProgress", taskId: leer.id, minutes: 120, now: NOW });
-    const r = refreshPlan(logged, NOW);
-    const lower = decisions(r.input, r.result).options.find(
-      (o) => o.id === `lower-minimum:${leer.id}`,
-    );
-    expect(lower?.label).toBe("Dedicarle menos a Leer (mínimo 10 h)");
-    const after = reducer(logged, { type: "applyOption", optionId: lower?.id as string, now: NOW });
-    const leerAfter = refreshPlan(after, NOW).input.tasks.find((t) => t.id === leer.id);
-    expect(leerAfter?.minRemainingMinutes).toBe(600);
+    expect(r.result.blocks.some((b) => b.taskId === leer.id && b.level === "critical")).toBe(false);
+    expect(r.result.status.find((s) => s.taskId === leer.id)?.minDeficit).toBe(0);
+    const options = decisions(r.input, r.result).options;
+    expect(options.some((o) => o.id === `lower-minimum:${leer.id}`)).toBe(false);
   });
 
   it("names the activity when only its objective is short", () => {
@@ -125,15 +108,9 @@ describe("a routine of 14 × 60 in the demo", () => {
       },
       now: NOW,
     });
-    const lowered = reducer(tight, {
-      type: "applyOption",
-      optionId: `lower-minimum:${leer.id}`,
-      now: NOW,
-    });
-    const r = refreshPlan(lowered, NOW);
+    const r = refreshPlan(tight, NOW);
     expect(decisions(r.input, r.result).options.map((o) => o.label)).toEqual([
-      "Quedarme con el mínimo de Informe Lab Física",
-      "Usar tiempo libre para llegar al objetivo de Informe Lab Física",
+      "Usar tiempo libre para llegar",
     ]);
   });
 });

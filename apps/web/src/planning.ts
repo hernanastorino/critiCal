@@ -883,46 +883,92 @@ export function pinShortfall(
 
 /**
  * The routines of the week after this one (SPEC §5.8): the plan always has this week and
- * the whole next one, Monday to Sunday, whatever the day. The main plan works the week
- * the habits count in; here a second pass puts each routine's next-week sessions around
- * everything already placed (this week's blocks only take room), within its valid hours,
- * its excluded days, its daily cap. Next week's shortfalls are not reported yet: they
- * become the week's own when it starts. Past days are never touched.
+ * the whole next one, Monday to Sunday, whatever the day. A routine is not left to what
+ * the studies leave free: its next-week sessions are placed first, around the events
+ * and what is already fixed for today, within its valid hours, its excluded days and its
+ * daily cap, and the main plan then works around them. Past days are never touched.
+ * `missing` is what could not be placed (target minutes by routine): it is reported with
+ * the rest of what does not fit.
  */
-function withNextWeekRoutines(
+function nextWeekRoutines(
   data: AppData,
   now: number,
   input: ScheduleInput,
-  result: ScheduleResult,
   keep: PlanBlock[],
-): ScheduleResult {
+): { blocks: PlanBlock[]; missing: Map<string, number> } {
+  const none = { blocks: [], missing: new Map<string, number>() };
   const tz = data.settings.timezone;
   const monday = zonedInstant(tz, nextWeekStart(tz, now), 0);
   const habits = new Set(data.tasks.filter((t) => t.kind === "habit").map((t) => t.id));
-  if (habits.size === 0) return result;
+  if (habits.size === 0) return none;
   // Counted as the first moment of that week: a routine left out «this week only» is back.
   const weekData = { ...data, tasks: data.tasks.filter((t) => habits.has(t.id)) };
   const tasks = toEngineTasks(weekData, monday + 720 * MINUTE).map((t) => ({
     ...t,
     earliestStart: Math.max(t.earliestStart ?? 0, monday),
   }));
-  if (tasks.length === 0) return result;
-  // This week's blocks of a routine only take room; they are not next week's sessions.
-  const taken = [...keep, ...result.blocks].map((b) =>
-    habits.has(b.taskId) && b.start < monday ? { ...b, taskId: `${b.taskId}#now` } : b,
-  );
+  if (tasks.length === 0) return none;
+  // What is fixed for today only takes room: a routine's block of today is not one of
+  // next week's sessions.
+  const taken = keep.map((b) => (habits.has(b.taskId) ? { ...b, taskId: `${b.taskId}#now` } : b));
   const second = schedule({
     ...input,
     horizonEnd: endOfWeek(tz, monday),
     tasks,
     frozen: taken,
   });
-  const have = new Set(result.blocks.map((b) => b.id));
-  const added = second.blocks.filter(
+  const have = new Set(keep.map((b) => b.id));
+  const blocks = second.blocks.filter(
     (b) => habits.has(b.taskId) && b.start >= monday && !have.has(b.id),
   );
-  if (added.length === 0) return result;
-  return { ...result, blocks: [...result.blocks, ...added].sort((a, b) => a.start - b.start) };
+  const missing = new Map(
+    second.status.filter((s) => s.targetDeficit > 0).map((s) => [s.taskId, s.targetDeficit]),
+  );
+  return { blocks, missing };
+}
+
+/** What the next week's routines could not place counts as missing, like anything that does not fit. */
+function withMissing(result: ScheduleResult, missing: Map<string, number>): ScheduleResult {
+  if (missing.size === 0) return result;
+  const status = result.status.map((s) => {
+    const m = missing.get(s.taskId) ?? 0;
+    return m > 0
+      ? {
+          ...s,
+          minDeficit: s.minDeficit + m,
+          targetDeficit: s.targetDeficit + m,
+          level: "critical" as const,
+        }
+      : s;
+  });
+  return { ...result, status };
+}
+
+/**
+ * A routine that fell behind in the week under way plans only the sessions that fit in
+ * what is left of it: one that would only fit as a critical block (at odd hours, late)
+ * is not done, and is not reported as missing either. The next week asks for all.
+ */
+function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
+  const late = new Set(
+    data.tasks
+      .filter(
+        (t) =>
+          t.kind === "habit" &&
+          data.activities.find((a) => a.id === t.activityId)?.kind === "rutina",
+      )
+      .map((t) => t.id),
+  );
+  const dropped = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const short = result.status.some((s) => late.has(s.taskId) && s.minDeficit > 0);
+  if (dropped.length === 0 && !short) return result;
+  return {
+    ...result,
+    blocks: result.blocks.filter((b) => !dropped.includes(b)),
+    status: result.status.map((s) =>
+      late.has(s.taskId) ? { ...s, minDeficit: 0, targetDeficit: 0, level: "ok" as const } : s,
+    ),
+  };
 }
 
 export function refreshPlan(data: AppData, now: number): Refresh {
@@ -980,7 +1026,19 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
-  const result = withNextWeekRoutines(data, now, input, schedule(input), keep);
+  const next = nextWeekRoutines(data, now, input, keep);
+  // Their time is taken before the studies are placed; as another task's, so they do not
+  // count as this week's sessions.
+  const held = next.blocks.map((b) => ({ ...b, taskId: `${b.taskId}#next` }));
+  const main = schedule({ ...input, frozen: [...keep, ...held] });
+  const placed = main.blocks.filter((b) => !b.taskId.endsWith("#next"));
+  const result = withMissing(
+    lateRoutines(data, {
+      ...main,
+      blocks: [...placed, ...next.blocks].sort((a, b) => a.start - b.start),
+    }),
+    next.missing,
+  );
   const plan = [...past, ...result.blocks.map((b) => ({ ...b, frozen: undefined }))];
   if (conflicts.length === 0) return { plan, input, result };
 

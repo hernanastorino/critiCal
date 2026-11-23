@@ -1,7 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
-import { demoData, TIMEZONE } from "./demo.js";
+import { TIMEZONE } from "./demo.js";
+import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import { zonedInstant } from "./engine.js";
 import { loadDemo, resetDemo, seedHistory } from "./store.js";
 

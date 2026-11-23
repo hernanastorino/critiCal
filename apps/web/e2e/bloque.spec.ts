@@ -4,7 +4,7 @@ import { IPHONE_375, openDemo, sheet, toast, undo } from "./helpers";
 test.use(IPHONE_375);
 
 // Con el reloj en el domingo 22/11 12:00, el bloque del sábado ya pasó y espera respuesta.
-const BLOQUE = /^Parcial Cálculo II, sáb 09:30 a 11:30/;
+const BLOQUE = /^Parcial Cálculo II, sáb 12:00 a 13:00/;
 
 const bloque = (page: Page) => page.getByTestId("week").getByRole("button", { name: BLOQUE });
 
@@ -73,7 +73,7 @@ test.describe("hoja de bloque: cada respuesta se puede deshacer", () => {
     await sheet(page).getByRole("button", { name: "Guardar parcial" }).click();
     await expect(toast(page)).toContainText("Anotado como parcial.");
     await abrir(page);
-    await expect(registrado(page)).toContainText("Ya registrado: parcial (1h)");
+    await expect(registrado(page)).toContainText("Ya registrado: parcial (30m)");
   });
 
   test("No: queda registrado y «Deshacer» lo deja sin responder", async ({ page }) => {

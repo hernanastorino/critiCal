@@ -14,16 +14,15 @@ test.use(IPHONE_375);
 
 // Domingo: la planificación semanal mira la semana que viene. Lo probado a mano en producción.
 test.describe("planificación semanal un domingo", () => {
-  test("muestra la semana próxima, la silo de la rutina la adopta y persiste al recargar", async ({
+  test("la rutina no es una silo, tiene sus 3 bloques la semana próxima y persiste al recargar", async ({
     page,
   }) => {
     await openDemo(page, SUNDAY);
 
-    // Antes de planificar, la rutina cuenta la semana en curso.
+    // Las rutinas se gestionan en Ajustes → Rutinas: no hay silo de Gym.
     await goTab(page, "Silos");
-    await expect
-      .poll(() => siloLabels(page))
-      .toContainEqual(expect.stringMatching(/^Gym: .*esta semana$/));
+    await expect.poll(() => siloLabels(page)).not.toHaveLength(0);
+    expect(await siloLabels(page)).not.toContainEqual(expect.stringMatching(/^Gym:/));
 
     await goTab(page, "Semana");
     await openSettings(page);
@@ -38,15 +37,22 @@ test.describe("planificación semanal un domingo", () => {
     await sheet(page).getByRole("button", { name: "Cerrar", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
-    await goTab(page, "Silos");
-    await expect
-      .poll(() => siloLabels(page))
-      .toContainEqual(expect.stringMatching(/^Gym: .*la semana próxima$/));
+    // La semana siguiente tiene las 3 sesiones de Gym, cada una un día distinto.
+    await page.getByRole("button", { name: "Semana siguiente" }).click();
+    await expect(page.getByRole("button", { name: /Volver a esta semana/ })).toContainText("23");
+    const gym = async () => {
+      const labels = await page
+        .getByTestId("week")
+        .locator(".pill.planned")
+        .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? ""));
+      return labels.filter((l) => l.startsWith("Gym, "));
+    };
+    await expect.poll(async () => (await gym()).length).toBe(3);
+    const dias = (await gym()).map((l) => l.split(", ")[1]?.split(" ")[0]);
+    expect(new Set(dias).size).toBe(3);
 
     await reload(page);
     await goTab(page, "Silos");
-    await expect
-      .poll(() => siloLabels(page))
-      .toContainEqual(expect.stringMatching(/^Gym: .*la semana próxima$/));
+    expect(await siloLabels(page)).not.toContainEqual(expect.stringMatching(/^Gym:/));
   });
 });

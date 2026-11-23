@@ -14,7 +14,7 @@ test.describe("Bandeja: cada acción tiene su «Deshacer»", () => {
     await openDemo(page);
     await goTab(page, "Bandeja");
     await expect(hechos(page)).toHaveCount(2);
-    await expect(elegir(page)).toHaveCount(1);
+    await expect(elegir(page)).toHaveCount(2);
   });
 
   test("Hecho", async ({ page }) => {
@@ -48,14 +48,14 @@ test.describe("Bandeja: cada acción tiene su «Deshacer»", () => {
   test("Elegir una opción: «Deshacer» en «Decisiones que tomaste» la trae de vuelta", async ({
     page,
   }) => {
-    await elegir(page).click();
+    await elegir(page).first().click();
     await expect(toast(page)).toContainText("Listo, reacomodé el plan");
     await expect(elegir(page)).toHaveCount(0);
     await expect(page.getByText("Decisiones que tomaste")).toBeVisible();
 
     await page.getByRole("button", { name: /^Deshacer: / }).click();
     await expect(toast(page)).toContainText("Deshecho:");
-    await expect(elegir(page)).toHaveCount(1);
+    await expect(elegir(page)).toHaveCount(2);
     await expect(page.getByText("Decisiones que tomaste")).toHaveCount(0);
   });
 });

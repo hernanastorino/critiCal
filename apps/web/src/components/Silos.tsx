@@ -43,9 +43,14 @@ export function Silos() {
     pastOpen = open;
     setShowPastState(open);
   };
+  // Routines (Gym, etc.) live in Ajustes → Rutinas: they are not silos to empty.
+  const isRoutine = (t: AppTask) =>
+    data.activities.find((a) => a.id === t.activityId)?.kind === "rutina";
   const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
   const { current: items, past } = splitPastSilos(
-    progress(data, now, focusWeekAt(data, now)).sort((a, b) => a.deadline - b.deadline),
+    progress(data, now, focusWeekAt(data, now))
+      .filter((p) => !isRoutine(p.task))
+      .sort((a, b) => a.deadline - b.deadline),
     tz,
     focusWeekAt(data, now),
   );
@@ -107,7 +112,9 @@ export function Silos() {
     );
   };
   // Weekly silos switched off (this week or until resumed), shown faded.
-  const off = data.tasks.filter((t) => t.status === "active" && !isRunning(t, now));
+  const off = data.tasks.filter(
+    (t) => t.status === "active" && !isRunning(t, now) && !isRoutine(t),
+  );
   const week = plannedVsDone(data, now).filter((r) => r.planned > 0 || r.done > 0);
 
   return (
@@ -121,8 +128,8 @@ export function Silos() {
         {items.length === 0 && off.length === 0 && (
           // An empty screen says what goes here and where to start (SPEC §14).
           <p className="empty">
-            Acá van tus entregas, parciales y rutinas: cada silo muestra cuánto te falta. Creá la
-            primera con «Nueva».
+            Acá van tus entregas y parciales: cada silo muestra cuánto te falta. Creá la primera con
+            «Nueva».
           </p>
         )}
         <div className="silos">
@@ -224,7 +231,10 @@ export function Silos() {
             <div className="pvd">
               {week.map((r) => (
                 <div key={r.taskId} style={{ display: "contents" }}>
-                  <span>{r.title}</span>
+                  <span>
+                    {r.title}
+                    {r.routine && <span className="meta"> · rutina</span>}
+                  </span>
                   <span className="meta" style={{ margin: 0 }}>
                     <CountUp value={r.done} /> de <CountUp value={r.planned} />
                   </span>
