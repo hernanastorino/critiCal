@@ -52,7 +52,9 @@ export function Silos() {
       .filter((p) => !isRoutine(p.task))
       .sort((a, b) => a.deadline - b.deadline),
     tz,
-    focusWeekAt(data, now),
+    // The real week, not the planned one: planning next week does not make this week's
+    // deliveries «anteriores» (they are still ahead or just due).
+    now,
   );
   // A task just saved with an old date leaves the view: say where it went.
   const pastIds = past.map((p) => p.task.id).join(" ");
@@ -248,6 +250,12 @@ export function Silos() {
                 </div>
               ))}
             </div>
+            {week.some((r) => data.tasks.find((t) => t.id === r.taskId)?.units.length) && (
+              <p className="meta">
+                Lo hecho cuenta los bloques que marcaste. En los silos con partes, «faltan» baja al
+                marcar las partes hechas.
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -49,7 +49,7 @@ import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
 import { buzz, swipeAnswer } from "./useSwipe.js";
-import { useInboxAnswers } from "./useUndoable.js";
+import { PLAN_KEYS, useInboxAnswers, useUndoable } from "./useUndoable.js";
 
 /** Taps on «Hecho» / «No hecho» this soon after an answer are ignored (the list moved). */
 export const ANSWER_GUARD_MS = 600;
@@ -664,6 +664,7 @@ function WhereCard({
   later?: boolean;
 }) {
   const { data, dispatch } = useStore();
+  const undoable = useUndoable();
   const tz = data.settings.timezone;
   const [minutes, setMinutes] = useState("");
   // An id without spaces: «Instituto Anglo» would split aria-describedby in two.
@@ -757,7 +758,13 @@ function WhereCard({
       <button
         type="button"
         className="btn small"
-        onClick={() => dispatch({ type: "locate", text: item.text, placeId: null })}
+        onClick={() =>
+          undoable(
+            "Sin traslado para este evento",
+            { type: "locate", text: item.text, placeId: null },
+            [...PLAN_KEYS, "noTravel", "spots"],
+          )
+        }
       >
         No hace falta traslado
       </button>

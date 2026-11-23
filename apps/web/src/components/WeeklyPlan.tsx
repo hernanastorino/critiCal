@@ -134,9 +134,14 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
 
         {inboxCount > 0 && (
           // The same total as the badge of the Bandeja tab.
-          <button type="button" className="btn" style={{ width: "100%" }} onClick={onInbox}>
-            Ver la Bandeja ({inboxCount})
-          </button>
+          <>
+            <p className="meta">
+              Lo de la Bandeja es de esta semana; el resumen de arriba es solo de la semana próxima.
+            </p>
+            <button type="button" className="btn" style={{ width: "100%" }} onClick={onInbox}>
+              Ver la Bandeja ({inboxCount})
+            </button>
+          </>
         )}
         <button
           type="button"
