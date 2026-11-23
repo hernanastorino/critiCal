@@ -137,7 +137,7 @@ export function rowsToData(r: {
         minutesDone: c.minutes_done as number,
         unitIds: (c.unit_ids as string[]) ?? [],
         createdAt: ms(c.created_at as string),
-        origin: c.origin === "undo" ? "undo" : undefined,
+        origin: c.origin === "undo" || c.origin === "slept" ? c.origin : undefined,
         factor: (c.block_factor as number | null) ?? undefined,
       }),
     ),

@@ -30,6 +30,7 @@ import {
   mealTimes,
   pinId,
   progress,
+  sleptBlockIds,
   standingCheckIns,
   wakingDay,
   weekDates,
@@ -62,13 +63,16 @@ import { useSwipe } from "./useSwipe.js";
  * except while editing, where each is its own to move. A run does not mix levels, pins or
  * what is already past, so the pill never hides one of those.
  */
-function planItems(plan: PlanBlock[], editing: boolean, now: number): Item[] {
+function planItems(plan: PlanBlock[], editing: boolean, now: number, slept: Set<string>): Item[] {
   const runs = editing
     ? plan.map((b) => [b])
     : blockRuns(
         plan,
         (a, b) =>
-          a.level === b.level && isPinned(a) === isPinned(b) && a.end <= now === b.end <= now,
+          a.level === b.level &&
+          isPinned(a) === isPinned(b) &&
+          a.end <= now === b.end <= now &&
+          slept.has(a.id) === slept.has(b.id),
       );
   return runs.map((run) => {
     const first = run[0] as PlanBlock;
@@ -451,12 +455,13 @@ export function Week({
   );
   const span = endMin - startMin;
 
+  const sleptIds = useMemo(() => sleptBlockIds(data), [data]);
   const items = useMemo(() => {
     const all: Item[] = [
       ...visibleEvents(data)
         .filter((e) => !e.allDay)
         .map((e) => ({ kind: "event" as const, id: e.id, start: e.start, end: e.end, event: e })),
-      ...planItems(data.plan, editing, now),
+      ...planItems(data.plan, editing, now, sleptBlockIds(data)),
     ];
     return all;
   }, [data, editing, now]);
@@ -1203,8 +1208,8 @@ export function Week({
                       data-at={item.start}
                       type="button"
                       data-level={b.level}
-                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
-                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${sleptIds.has(b.id) ? ", dormías" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
+                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${sleptIds.has(b.id) ? " slept" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                       style={{ ...style, ["--c" as string]: colorOf(b) }}
                       onPointerDown={
                         // A run of blocks is not dragged: editing shows each one apart.
@@ -1597,6 +1602,7 @@ function BubbleCard({
             )}
           </p>
         )}
+        {(item.run ?? [b]).every((x) => sleptBlockIds(data).has(x.id)) && <p>No hecho · dormías</p>}
         {isPinned(b) && item.start <= now && (
           <p>
             <Marks.pinned /> Fijado por vos

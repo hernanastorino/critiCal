@@ -211,7 +211,9 @@ export function CheckInForm({
         </p>
       )}
 
-      {answered && !correcting ? (
+      {answered?.origin === "slept" ? (
+        <p className="meta">No hecho · dormías</p>
+      ) : answered && !correcting ? (
         <>
           <p className="meta">
             Ya registrado:{" "}

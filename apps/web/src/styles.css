@@ -521,6 +521,16 @@ textarea {
   opacity: 0.4;
 }
 
+/* «Dormías»: no hecho, con una marca mínima. */
+.pill.planned.slept::after {
+  content: "dormías";
+  position: absolute;
+  inset: auto 2px 1px auto;
+  font-size: 7px;
+  line-height: 1;
+  color: var(--ink);
+}
+
 .pill.planned.critical {
   box-shadow:
     0 0 0 2px var(--bg),

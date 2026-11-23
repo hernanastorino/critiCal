@@ -7,7 +7,7 @@ import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppEvent, AppTask } from "./model.js";
-import { splitPastSilos } from "./planning.js";
+import { pendingConfirmations, splitPastSilos } from "./planning.js";
 import { reducer, StoreProvider, seedHistory } from "./store.js";
 
 // 29.ª vuelta del agente atacante (modo demo, 375×812).
@@ -68,6 +68,8 @@ describe("ALTA 2: cambiar la hora de levantarse no deja bloques futuros de madru
       override: { date: "2026-11-23", wake: 450, bed: 0 },
     });
     expect(d.plan.some((b) => b.start > later && b.start < at("2026-11-23", 7.5))).toBe(false);
+    // Lo que ya había pasado antes de esa hora queda «dormías»: no va a «¿Cómo te fue?».
+    expect(pendingConfirmations(d, later).some((b) => b.start < at("2026-11-23", 7.5))).toBe(false);
   });
 });
 

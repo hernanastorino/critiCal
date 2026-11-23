@@ -248,7 +248,7 @@ const checkInRules = (): Rule[] => [
     "tiene partes con identificadores que no son texto",
   ],
   ["createdAt", instant, "tiene una fecha que no es válida"],
-  ["origin", opt(oneOf("undo")), "tiene un origen que no es «undo»"],
+  ["origin", opt(oneOf("undo", "slept")), "tiene un origen que no es «undo» ni «slept»"],
 ];
 
 const checkInsProblem: Check = (d) =>

@@ -70,6 +70,7 @@ import {
   pinShortfall,
   refreshPlan,
   routinesBack,
+  sleptBlockIds,
   standingCheckIns,
   weekStart,
   withHandMarks,
@@ -583,6 +584,49 @@ function withRecord(data: AppData, record: CheckIn): AppData {
   return { ...data, checkIns: [...data.checkIns, record] };
 }
 
+/**
+ * «Dormías» (SPEC «El pasado no se recalcula»): when the user says they woke up at `wake`,
+ * today's blocks that started before it, are over and have no record are closed with a new
+ * «no hecho» record (`origin: 'slept'`). If the wake-up moves earlier, the «dormías» of blocks
+ * that no longer start before it are retired with an undo record. The log only grows.
+ */
+function settleSlept(data: AppData, now: number): AppData {
+  const tz = data.settings.timezone;
+  const date = localParts(tz, now).date;
+  const wake = data.overrides.find((o) => o.date === date)?.wake;
+  const wakeAt = wake === undefined ? undefined : zonedInstant(tz, date, wake);
+  const dayStart = zonedInstant(tz, date, 0);
+  const todays = data.plan.filter((b) => b.start >= dayStart && b.start < endOfDay(tz, now));
+  const asleep = sleptBlockIds(data);
+  const standing = new Set(standingCheckIns(data).map((c) => c.blockId));
+  const added: CheckIn[] = [];
+  for (const b of todays) {
+    if (asleep.has(b.id) && (wakeAt === undefined || b.start >= wakeAt))
+      added.push({
+        id: newId(),
+        blockId: b.id,
+        taskId: b.taskId,
+        status: "retired",
+        minutesDone: 0,
+        unitIds: [],
+        origin: "undo",
+        createdAt: stampAfter(data, b.id, now),
+      });
+    else if (wakeAt !== undefined && !standing.has(b.id) && b.end <= now && b.start < wakeAt)
+      added.push({
+        id: newId(),
+        blockId: b.id,
+        taskId: b.taskId,
+        status: "missed",
+        minutesDone: 0,
+        unitIds: [],
+        origin: "slept",
+        createdAt: stampAfter(data, b.id, now),
+      });
+  }
+  return added.length ? { ...data, checkIns: [...data.checkIns, ...added] } : data;
+}
+
 /** The data after `action`, planned again where it changes the plan. */
 function apply(data: AppData, action: Action): AppData {
   const now = action.now;
@@ -594,6 +638,8 @@ function apply(data: AppData, action: Action): AppData {
     case "checkIn": {
       const id = action.checkIn.id ?? newId();
       if (data.checkIns.some((c) => c.id === id)) return data;
+      // A block closed as «dormías» is not answered or corrected.
+      if (sleptBlockIds(data).has(action.checkIn.blockId)) return data;
       const checkIn: CheckIn = {
         ...action.checkIn,
         id,
@@ -607,6 +653,7 @@ function apply(data: AppData, action: Action): AppData {
       const newest = latestCheckIns(data);
       const gone = data.checkIns.find((c) => c.id === action.id);
       if (!gone || gone.status === "retired" || newest.get(gone.blockId) !== gone) return data;
+      if (gone.origin === "slept") return data;
       const before = data.checkIns
         .filter((c) => c.blockId === gone.blockId)
         .sort(byDate)
@@ -685,7 +732,9 @@ function apply(data: AppData, action: Action): AppData {
         ...data.overrides.filter((o) => o.date !== action.override.date),
         action.override,
       ];
-      return refresh({ ...data, overrides }, now);
+      const next = { ...data, overrides };
+      const today = localParts(data.settings.timezone, now).date;
+      return refresh(action.override.date === today ? settleSlept(next, now) : next, now);
     }
     case "acceptProposal": {
       const p = data.proposals.find((x) => x.id === action.id);
