@@ -5,6 +5,7 @@ import { Celebrations } from "./components/Celebrations.js";
 import { resumeFirstSteps } from "./components/FirstSteps.js";
 import { Inbox } from "./components/Inbox.js";
 import { InboxIcon, SiloIcon, WeekIcon } from "./components/icons.js";
+import { RoyLine } from "./components/Roy.js";
 import { type PageId, Settings } from "./components/Settings.js";
 import { Silos } from "./components/Silos.js";
 import { editorDraft } from "./components/TaskEditor.js";
@@ -14,6 +15,7 @@ import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { demoKind, isTestDemo, setDemoKind } from "./demoPruebas.js";
 import { localDev } from "./devAuth.js";
 import { clearDrafts, settingsToRestore } from "./drafts.js";
+import { loginProblem } from "./friendly.js";
 import type { AppData } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { disablePush } from "./push.js";
@@ -271,22 +273,45 @@ function demoFromUrl(): boolean {
   }
 }
 
+/** Reads a sign-in error the provider left in the address (query or hash) and cleans it up. */
+function signInProblemFromUrl(): string | null {
+  try {
+    const url = new URL(globalThis.location.href);
+    const hash = new URLSearchParams(url.hash.replace(/^#/, ""));
+    const found = loginProblem(url.searchParams) ?? loginProblem(hash);
+    if (found === null) return null;
+    for (const k of ["error", "error_code", "error_description"]) url.searchParams.delete(k);
+    globalThis.history.replaceState(null, "", `${url.pathname}${url.search}`);
+    return found;
+  } catch {
+    return null;
+  }
+}
+
 function Login({
   onDemo,
   onTestDemo,
   onGoogle,
   dev,
+  problem,
 }: {
   onDemo: () => void;
   onTestDemo: () => void;
   onGoogle?: () => void;
   dev?: ReactNode;
+  /** Why the last sign-in did not work (SPEC §18.1): Roy, no blame, and the button is right below. */
+  problem?: string | null;
 }) {
   return (
     <main className="login">
       <img src="/icon-192.png" alt="" />
       <h1>critiCal</h1>
       <p>Tu calendario que se reacomoda solo y te muestra qué no podés saltearte.</p>
+      {problem && (
+        <div className="notice warn" role="alert">
+          <RoyLine anim="desarmado">{problem}</RoyLine>
+        </div>
+      )}
       {onGoogle && (
         <button type="button" className="btn primary" onClick={onGoogle}>
           Entrar con Google
@@ -400,6 +425,8 @@ export function App({
     }
   });
   const [key, setKey] = useState(0);
+  /** What the address said about a sign-in that failed (an expired link, a refused permission). */
+  const [problem] = useState(() => signInProblemFromUrl());
   /** The demo as it was before «Reiniciar demo», while that can still be undone. */
   const [restored, setRestored] = useState<AppData | null>(null);
   const [before, setBefore] = useState<AppData | null>(null);
@@ -467,6 +494,7 @@ export function App({
         }}
         onGoogle={client ? () => void signInWithGoogle(client) : undefined}
         dev={client && localDev ? <DevLogin client={client} /> : undefined}
+        problem={problem}
       />
     );
   }

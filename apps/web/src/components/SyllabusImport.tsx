@@ -14,6 +14,7 @@ import { readSyllabus } from "../remote.js";
 import { useStore } from "../store.js";
 import { editedHours, type PlannedAssessment, type Syllabus, syllabusTasks } from "../syllabus.js";
 import { Loading } from "./Loading.js";
+import { RoyLine } from "./Roy.js";
 import { Section } from "./Section.js";
 
 const MAX_BYTES = 3_000_000;
@@ -202,9 +203,9 @@ export function SyllabusImport() {
       )}
       {busy && <Loading kind="ai" label="Leyendo el programa (puede tardar un rato)" />}
       {error && (
-        <p className="meta" style={{ color: CRITICAL }}>
-          {error}
-        </p>
+        <div role="alert" style={{ color: CRITICAL }}>
+          <RoyLine anim="desarmado">{error}</RoyLine>
+        </div>
       )}
       {error && retryFile && !busy && (
         <button type="button" className="btn small" onClick={() => void read(retryFile)}>

@@ -2,6 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { reportError } from "../monitoring.js";
 import { clearLocal } from "../offline.js";
 import { resetDemo } from "../store.js";
+import { RoyLine } from "./Roy.js";
 
 /**
  * A render error shows what to do next instead of a blank screen, and goes to Sentry.
@@ -26,7 +27,9 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { failed: 
     return (
       <main className="login" role="alert">
         <h1>Algo falló</h1>
-        <p>La pantalla se trabó (no fuiste vos). Recargá y seguimos.</p>
+        <RoyLine anim="desarmado" big>
+          La pantalla se trabó (no fuiste vos) y se me desarmó Roy. Recargá y seguimos.
+        </RoyLine>
         <button type="button" className="btn primary" onClick={() => window.location.reload()}>
           Recargar
         </button>
