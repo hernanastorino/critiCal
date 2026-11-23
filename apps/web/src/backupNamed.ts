@@ -473,6 +473,33 @@ const eventRules: Rule[] = [
 const eventsProblem: Check = (d) =>
   firstBroken(list(d.events), (e) => `El evento ${called(e, "title", "sin título")}`, eventRules);
 
+// The meals of the days gone by (§5): a run is a meal of a weekday at one time from a day to another.
+const mealRunOk = (r: unknown): boolean =>
+  isRec(r) &&
+  MEALS.includes(r.meal as string) &&
+  int(0, 6)(r.weekday) &&
+  isRealDate(r.from) &&
+  (r.to === undefined || (isRealDate(r.to) && r.to >= r.from)) &&
+  int(0, 2880)(r.start) &&
+  int(0, 2880)(r.end) &&
+  (r.end as number) > (r.start as number) &&
+  opt(str)(r.placeId);
+
+const mealRunsProblem: Check = (d) => {
+  const frozen = d.mealsFrozenThrough;
+  if (frozen !== undefined && !isRealDate(frozen))
+    return "El respaldo tiene una fecha de comidas pasadas que no existe.";
+  const runs = d.mealRuns;
+  if (runs === undefined) return null;
+  if (!Array.isArray(runs)) return "Las comidas pasadas del respaldo no son una lista.";
+  const bad = runs.find((r) => !mealRunOk(r));
+  if (bad !== undefined) return "Una comida pasada del respaldo tiene datos que no son válidos.";
+  const open = (runs as Rec[])
+    .filter((r) => r.to === undefined)
+    .map((r) => `${String(r.meal)}${String(r.weekday)}`);
+  return dupes(open) ? "El respaldo tiene comidas pasadas repetidas." : null;
+};
+
 const CHECKS: Check[] = [
   settingsProblem,
   activitiesProblem,
@@ -483,6 +510,7 @@ const CHECKS: Check[] = [
   placesProblem,
   overridesProblem,
   eventsProblem,
+  mealRunsProblem,
 ];
 
 /** The first thing in the file the database or the screens could not take, said for the user, or null. */
