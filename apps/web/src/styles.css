@@ -2873,3 +2873,19 @@ label.check {
   font-size: var(--text-xs);
   line-height: 1.35;
 }
+
+/* One line per way of the bus trip; touching it opens the detail (SPEC §15). */
+.bus-leg > summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-weight: 600;
+}
+.bus-leg[open] > summary {
+  margin-bottom: var(--space-1);
+}
+
+.settings-credits {
+  margin: var(--space-2) var(--space-3) 0;
+}

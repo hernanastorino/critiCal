@@ -311,6 +311,7 @@ describe("6. Importar JSON", () => {
 describe("7. Números enteros", () => {
   it("Rutinas: times and minutes with decimals are refused", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     set("Rutina", "Natación");
     set("Veces/sem.", "3.5");
     expect(alerts().join(" ")).toMatch(/solo números enteros/);
@@ -325,6 +326,7 @@ describe("7. Números enteros", () => {
 
   it("Rutinas: an invisible name is not added", () => {
     inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const before = latest?.activities.length;
     set("Rutina", "​​");
     click("Agregar rutina");

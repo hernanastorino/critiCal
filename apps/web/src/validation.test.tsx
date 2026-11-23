@@ -188,6 +188,7 @@ describe("habits from the editor", () => {
 describe("a routine edited in the editor", () => {
   it("keeps Rutinas' limits, so its backup still restores", () => {
     renderWith(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Remo" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
     fireEvent.click(screen.getByRole("button", { name: /^Remo, 3 por semana/ }));
@@ -219,6 +220,7 @@ describe("Rutinas", () => {
         <ActivitySettings />
       </>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Natación" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
     fireEvent.click(screen.getByRole("button", { name: /^Natación, 3 por semana/ }));
@@ -359,10 +361,12 @@ describe("second round of the attacker", () => {
 
   it("does not add a second routine with the same name", () => {
     renderWith(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     const name = screen.getByPlaceholderText("Gimnasio");
     fireEvent.change(name, { target: { value: "Nadar" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
-    fireEvent.change(name, { target: { value: " nadar " } });
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: " nadar " } });
     expect(
       (screen.getByRole("button", { name: "Agregar rutina" }) as HTMLButtonElement).disabled,
     ).toBe(true);

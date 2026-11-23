@@ -1,14 +1,14 @@
 // SPEC §15, interface: the car/bus pickers (per place and per event) and the bus plan card.
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import { BusPlan, EventTrip } from "./components/EventTrip.js";
+import { BusPlan, EventTrip, legLine } from "./components/EventTrip.js";
 import { Places } from "./components/Places.js";
 import { ToastProvider } from "./components/Toast.js";
 import { emptyData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppEvent, Place } from "./model.js";
 import { StoreProvider, useStore } from "./store.js";
-import { ATTRIBUTION, type PlanOk } from "./transit.js";
+import { ATTRIBUTION, type PlanOk, type TransitOption } from "./transit.js";
 
 afterEach(cleanup);
 
@@ -149,6 +149,7 @@ describe("el plan de ómnibus", () => {
   const show = (answer: Parameters<typeof BusPlan>[0]["answer"], waiting = false) =>
     render(
       <BusPlan
+        title="Ida"
         signedIn
         missing={null}
         answer={answer}
@@ -158,14 +159,28 @@ describe("el plan de ómnibus", () => {
       />,
     );
 
-  it("línea, parada, hora de pasada y la fuente", () => {
+  it("una línea por tramo con la hora de salida y las líneas en orden", () => {
+    show(ok);
+    expect(screen.getByText("Ida · salís 08:10 · 128")).toBeTruthy();
+    expect(legLine("Ida", ok.options[0] as TransitOption)).toBe("Ida · salís 08:10 · 128");
+    const two = {
+      ...(ok.options[0] as TransitOption),
+      legs: [
+        ...(ok.options[0] as TransitOption).legs,
+        { ...(ok.options[0] as TransitOption).legs[0], line: "710" },
+      ],
+    } as TransitOption;
+    expect(legLine("Vuelta", two)).toBe("Vuelta · salís 08:10 · 128 → 710");
+  });
+
+  it("el detalle trae línea, parada y hora de pasada; la fuente ya no va en la tarjeta", () => {
     show(ok);
     expect(screen.getByText("Salí a las 08:10 · llegás a las 08:52 (42 min)")).toBeTruthy();
     expect(
       screen.getByText(/Línea 128 a Ciudad Vieja · parada Rivera y Ellauri a las 08:15/),
     ).toBeTruthy();
-    expect(screen.getByText(/Horario teórico/)).toBeTruthy();
-    expect(screen.getByText((t) => t.includes(ATTRIBUTION))).toBeTruthy();
+    expect(screen.queryByText(/Horario teórico/)).toBeNull();
+    expect(screen.queryByText((t) => t.includes(ATTRIBUTION))).toBeNull();
   });
 
   it("dice qué pasa cuando no hay ómnibus, falta ubicar un lugar o falla el servidor", () => {

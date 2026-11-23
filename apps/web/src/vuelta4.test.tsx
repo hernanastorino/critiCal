@@ -170,10 +170,12 @@ describe("names, labels and small fixes", () => {
 
   it("goes back to the defaults after «Agregar rutina»", () => {
     wrap(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Yoga" } });
     fireEvent.change(screen.getByLabelText("Veces/sem."), { target: { value: "5" } });
     fireEvent.change(screen.getByLabelText("Minutos"), { target: { value: "45" } });
     fireEvent.click(screen.getByRole("button", { name: "Agregar rutina" }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     expect((screen.getByLabelText("Veces/sem.") as HTMLInputElement).value).toBe("3");
     expect((screen.getByLabelText("Minutos") as HTMLInputElement).value).toBe("60");
   });

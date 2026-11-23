@@ -43,6 +43,7 @@ describe("13th round: a franja that does not fall on the grid", () => {
         <Routines />
       </StoreProvider>,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByLabelText("Rutina"), { target: { value: "Correr" } });
     fireEvent.change(screen.getByLabelText("Desde, todos los días"), { target: { value: "7:10" } });
     fireEvent.change(screen.getByLabelText("Hasta, todos los días"), { target: { value: "8:10" } });

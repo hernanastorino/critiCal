@@ -43,6 +43,7 @@ describe("what is typed in Ajustes and not saved", () => {
 
   it("keeps a half-typed routine", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Rutinas/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
     fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Nadar" } });
     reload();
     expect((screen.getByPlaceholderText("Gimnasio") as HTMLInputElement).value).toBe("Nadar");

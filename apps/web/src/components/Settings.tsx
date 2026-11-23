@@ -11,6 +11,7 @@ import { home } from "../places.js";
 import { mealsOf } from "../planning.js";
 import type { SyncResult } from "../remote.js";
 import { useStore } from "../store.js";
+import { ATTRIBUTION } from "../transit.js";
 import { Account } from "./Account.js";
 import { Backup } from "./Backup.js";
 import { Calendars, describe, healthy } from "./Calendars.js";
@@ -93,6 +94,8 @@ const KEYWORDS: Record<PageId, string> = {
 const EXTRA_WORDS = {
   weekly: "planificacion semanal plan armar la semana",
   privacy: "politica de privacidad datos legal",
+  credits:
+    "atribucion fuente datos abiertos stm mtop intendencia montevideo teoricos horarios omnibus",
   steps: "primeros pasos guia tutorial empezar",
   reset: "reiniciar demo borrar datos de ejemplo",
   out: "salir cerrar sesion",
@@ -562,6 +565,12 @@ export function Settings({
       <ChevronRight />
     </a>
   );
+  // Where the bus times come from: the cards of the trips no longer carry it (SPEC §15).
+  const creditsRow = (
+    <p key="credits" className="meta settings-credits">
+      {ATTRIBUTION} Son horarios teóricos, sin tiempo real.
+    </p>
+  );
   const testDemo = !sync && isTestDemo();
   const stepsRow = (sync || testDemo) && (
     <Row
@@ -595,6 +604,11 @@ export function Settings({
               key: "privacy",
               words: `Política de privacidad ${EXTRA_WORDS.privacy}`,
               row: privacyRow,
+            },
+            {
+              key: "credits",
+              words: `Horarios de ómnibus ${EXTRA_WORDS.credits}`,
+              row: creditsRow,
             },
             ...(stepsRow
               ? [{ key: "steps", words: `Primeros pasos ${EXTRA_WORDS.steps}`, row: stepsRow }]
@@ -773,6 +787,7 @@ export function Settings({
                             </p>
                           )}
                           {privacyRow}
+                          {creditsRow}
                           {stepsRow}
                           {resetRow}
                           {outRow}
