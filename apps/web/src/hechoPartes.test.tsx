@@ -83,9 +83,9 @@ describe("«Hecho» pregunta las partes (SPEC §3)", () => {
 
   it("deslizar a la derecha también pregunta", () => {
     open();
-    const card = hechos().at(0)?.closest(".card") ?? document.body;
-    fireEvent.touchStart(card, { touches: [{ clientX: 200, clientY: 300 }], timeStamp: 1000 });
-    fireEvent.touchEnd(card, {
+    const cardEl = hechos().at(0)?.closest(".cardEl") ?? document.body;
+    fireEvent.touchStart(cardEl, { touches: [{ clientX: 200, clientY: 300 }], timeStamp: 1000 });
+    fireEvent.touchEnd(cardEl, {
       changedTouches: [{ clientX: 320, clientY: 300 }],
       timeStamp: 1200,
     });
