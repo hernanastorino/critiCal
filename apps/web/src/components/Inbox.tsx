@@ -48,6 +48,7 @@ import { SubjectSearch } from "./SubjectSearch.js";
 import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
+import { buzz, swipeAnswer } from "./useSwipe.js";
 import { useInboxAnswers } from "./useUndoable.js";
 
 const EAT: Record<MealKind, string> = {
@@ -191,6 +192,7 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
   const quick = (b: PlanBlock, status: "done" | "missed") => {
     if (Date.now() - lastAnswer.current < ANSWER_GUARD_MS) return;
     lastAnswer.current = Date.now();
+    buzz();
     answer(b, status);
   };
 
@@ -575,9 +577,10 @@ export function Inbox({ onDay }: { onDay?: (date: string) => void }) {
         {pending.map((b) => (
           <div
             key={b.id}
-            className="card"
+            className="card swipeable"
             data-block-id={b.id}
             style={{ ["--c" as string]: colorOf(b) }}
+            {...swipeAnswer((status) => quick(b, status))}
           >
             <button
               type="button"
