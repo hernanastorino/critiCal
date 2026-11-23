@@ -609,7 +609,7 @@ export function mealTimes(data: AppData, now: number, from: number, to: number):
   const today = localParts(tz, now).date;
   return worked.map((m) => {
     if (m.date >= today || !m.kind || !m.at) return m;
-    const run = runAt(runs, m.kind, m.date);
+    const run = runAt(runs, m.kind, m.date) ?? firstRun(runs, m.kind, m.date);
     if (!run) return m;
     const midnight = zonedInstant(tz, m.date, 0);
     return { ...m, at: { start: midnight + run.start * MINUTE, end: midnight + run.end * MINUTE } };
@@ -622,6 +622,20 @@ export function runAt(runs: readonly MealRun[], meal: MealKind, date: string): M
   return runs.find(
     (r) => r.meal === meal && r.weekday === weekday && r.from <= date && (!r.to || date <= r.to),
   );
+}
+
+/**
+ * A day before the first run of its series (older than the longest catch-up): the first
+ * run is the best record of what was shown, so the past still does not move with settings.
+ */
+function firstRun(runs: readonly MealRun[], meal: MealKind, date: string): MealRun | undefined {
+  const weekday = weekdayOf(date);
+  const series = runs.filter((r) => r.meal === meal && r.weekday === weekday);
+  const first = series.reduce<MealRun | undefined>(
+    (a, r) => (!a || r.from < a.from ? r : a),
+    undefined,
+  );
+  return first && date < first.from ? first : undefined;
 }
 
 function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
@@ -644,9 +658,11 @@ function workedMealTimes(data: AppData, now: number, from: number, to: number): 
   );
 }
 
-/** How many days back the first catch-up goes when no day was ever frozen. */
-const FREEZE_FIRST_DAYS = 1;
-/** The longest catch-up: a long absence does not freeze months of guesses. */
+/**
+ * The longest catch-up. It is also how far back the very first one goes (a new account,
+ * a demo just created, the first time this version opens): every day before today shows
+ * what the settings in force say, never what a later change would make of it.
+ */
 const FREEZE_MAX_DAYS = 60;
 
 /**
@@ -662,22 +678,22 @@ export function freezeMeals(data: AppData, now: number): AppData {
   const yesterday = addDays(today, -1);
   const last = data.mealsFrozenThrough;
   if (last !== undefined && last >= yesterday) return data;
-  const first = last === undefined ? addDays(today, -FREEZE_FIRST_DAYS) : addDays(last, 1);
   const earliest = addDays(today, -FREEZE_MAX_DAYS);
+  const first = last === undefined || addDays(last, 1) < earliest ? earliest : addDays(last, 1);
+  // One pass over the whole stretch, then written day by day in order.
+  const worked = workedMealTimes(data, now, zonedInstant(tz, first, 0), zonedInstant(tz, today, 0));
   let runs = [...(data.mealRuns ?? [])];
-  for (let date = first < earliest ? earliest : first; date <= yesterday; date = addDays(date, 1)) {
-    runs = freezeDay(data, now, date, runs);
+  for (let date = first; date <= yesterday; date = addDays(date, 1)) {
+    runs = freezeDay(zonedInstant(tz, date, 0), date, worked, runs);
   }
   return { ...data, mealRuns: runs, mealsFrozenThrough: yesterday };
 }
 
 /** `runs` with the meals of `date` written in (see `freezeMeals`). */
-function freezeDay(data: AppData, now: number, date: string, runs: MealRun[]): MealRun[] {
-  const tz = data.settings.timezone;
-  const midnight = zonedInstant(tz, date, 0);
+function freezeDay(midnight: number, date: string, worked: MealTime[], runs: MealRun[]): MealRun[] {
   const weekday = weekdayOf(date);
   let out = runs;
-  for (const m of workedMealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0))) {
+  for (const m of worked) {
     if (!m.at || !m.kind || m.date !== date) continue;
     const start = Math.round((m.at.start - midnight) / MINUTE);
     const end = Math.round((m.at.end - midnight) / MINUTE);
@@ -812,6 +828,50 @@ export function pinShortfall(
   return { pins, short };
 }
 
+/**
+ * The routines of the week after this one (SPEC §5.8): the plan always has this week and
+ * the whole next one, Monday to Sunday, whatever the day. The main plan works the week
+ * the habits count in; here a second pass puts each routine's next-week sessions around
+ * everything already placed (this week's blocks only take room), within its valid hours,
+ * its excluded days, its daily cap. Next week's shortfalls are not reported yet: they
+ * become the week's own when it starts. Past days are never touched.
+ */
+function withNextWeekRoutines(
+  data: AppData,
+  now: number,
+  input: ScheduleInput,
+  result: ScheduleResult,
+  keep: PlanBlock[],
+): ScheduleResult {
+  const tz = data.settings.timezone;
+  const monday = zonedInstant(tz, nextWeekStart(tz, now), 0);
+  const habits = new Set(data.tasks.filter((t) => t.kind === "habit").map((t) => t.id));
+  if (habits.size === 0) return result;
+  // Counted as the first moment of that week: a routine left out «this week only» is back.
+  const weekData = { ...data, tasks: data.tasks.filter((t) => habits.has(t.id)) };
+  const tasks = toEngineTasks(weekData, monday + 720 * MINUTE).map((t) => ({
+    ...t,
+    earliestStart: Math.max(t.earliestStart ?? 0, monday),
+  }));
+  if (tasks.length === 0) return result;
+  // This week's blocks of a routine only take room; they are not next week's sessions.
+  const taken = [...keep, ...result.blocks].map((b) =>
+    habits.has(b.taskId) && b.start < monday ? { ...b, taskId: `${b.taskId}#now` } : b,
+  );
+  const second = schedule({
+    ...input,
+    horizonEnd: endOfWeek(tz, monday),
+    tasks,
+    frozen: taken,
+  });
+  const have = new Set(result.blocks.map((b) => b.id));
+  const added = second.blocks.filter(
+    (b) => habits.has(b.taskId) && b.start >= monday && !have.has(b.id),
+  );
+  if (added.length === 0) return result;
+  return { ...result, blocks: [...result.blocks, ...added].sort((a, b) => a.start - b.start) };
+}
+
 export function refreshPlan(data: AppData, now: number): Refresh {
   const tz = data.settings.timezone;
   const todayEnd = endOfDay(tz, now);
@@ -867,7 +927,7 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const keep = [...unpinned.filter((b) => !conflicts.includes(b) && !displaced(b)), ...pins];
 
   const input = scheduleInput(data, now, keep);
-  const result = schedule(input);
+  const result = withNextWeekRoutines(data, now, input, schedule(input), keep);
   const plan = [...past, ...result.blocks.map((b) => ({ ...b, frozen: undefined }))];
   if (conflicts.length === 0) return { plan, input, result };
 
