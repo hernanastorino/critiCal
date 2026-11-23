@@ -2,6 +2,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App } from "./App.js";
 import { ErrorBoundary } from "./components/ErrorBoundary.js";
+import { watchRootFontSize } from "./fontCap.js";
 import { startMonitoring } from "./monitoring.js";
 import "./styles.css";
 import { watchUpdates } from "./updates.js";
@@ -11,6 +12,9 @@ import { watchUpdates } from "./updates.js";
 for (const type of ["gesturestart", "gesturechange"]) {
   document.addEventListener(type, (e) => e.preventDefault(), { passive: false });
 }
+
+// The text follows the system size, up to a cap.
+watchRootFontSize();
 
 void startMonitoring();
 // A start that failed offline tries again when the connection is back.

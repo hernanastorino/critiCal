@@ -1,6 +1,6 @@
 import { useRef } from "react";
 import { zonedInstant } from "../engine.js";
-import { dayAndTime, dayDate, hours } from "../format.js";
+import { dayAndTime, dayDate, hours, weekdayLong } from "../format.js";
 import { useStore } from "../store.js";
 import { weekPlan, weekToPlan } from "../week-review.js";
 import { Marks } from "./icons.js";
@@ -70,7 +70,21 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
                   style={{ height: `${(d.minutes / max) * 100}%` }}
                 />
               </div>
-              <span>{dayDate(tz, zonedInstant(tz, d.date, 720)).split(" ")[0]}</span>
+              {/* With big text the three letters do not fit: the initial shows, the name stays whole. */}
+              <span
+                className="week-day"
+                role="img"
+                aria-label={weekdayLong(tz, zonedInstant(tz, d.date, 720))}
+              >
+                <span className="day-short">
+                  {dayDate(tz, zonedInstant(tz, d.date, 720)).split(" ")[0]}
+                </span>
+                <span className="day-initial">
+                  {weekdayLong(tz, zonedInstant(tz, d.date, 720))
+                    .charAt(0)
+                    .toUpperCase()}
+                </span>
+              </span>
               <span className="meta" style={{ margin: 0 }}>
                 {d.holiday ? "feriado" : hours(d.minutes)}
               </span>

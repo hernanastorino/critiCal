@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
-import { goTab, IPHONE_375, openDemo, sheet } from "./helpers";
+import { IPHONE_375, openDemo } from "./helpers";
+import { PANTALLAS } from "./pantallas";
 
 test.use(IPHONE_375);
 
@@ -67,77 +68,6 @@ const FONTS = [
   { px: 32, nombre: "letra enorme" },
 ] as const;
 
-const ajustes = (page: Page) => page.getByRole("button", { name: "Ajustes", exact: true });
-const pantallaDeAjustes = (nombre: string) => async (page: Page) => {
-  await ajustes(page).click();
-  await sheet(page)
-    .getByRole("button", { name: new RegExp(`^${nombre}`) })
-    .click();
-  await expect(sheet(page)).toHaveAccessibleName(nombre);
-};
-
-/** Cada lugar de la app donde se mira el desborde: cómo llegar ahí desde la Semana. */
-const PANTALLAS: { nombre: string; abrir: (page: Page) => Promise<void> }[] = [
-  { nombre: "Semana", abrir: async () => undefined },
-  {
-    nombre: "Silos",
-    abrir: async (page) => {
-      await goTab(page, "Silos");
-      await expect(page.getByRole("heading", { name: "Lo que falta" })).toBeVisible();
-    },
-  },
-  {
-    nombre: "Bandeja",
-    abrir: async (page) => {
-      await goTab(page, "Bandeja");
-      await expect(page.getByRole("heading", { name: "Bandeja" })).toBeVisible();
-    },
-  },
-  {
-    nombre: "Ajustes",
-    abrir: async (page) => {
-      await ajustes(page).click();
-      await expect(sheet(page)).toHaveAccessibleName("Ajustes");
-    },
-  },
-  ...[
-    "Mi semana",
-    "Materias",
-    "Rutinas",
-    "Reglas",
-    "Lugares y traslados",
-    "Notificaciones",
-    "Respaldo",
-  ].map((nombre) => ({ nombre: `Ajustes › ${nombre}`, abrir: pantallaDeAjustes(nombre) })),
-  {
-    nombre: "Planificación semanal",
-    abrir: async (page) => {
-      await ajustes(page).click();
-      await sheet(page).getByRole("button", { name: "Planificación semanal" }).click();
-      await expect(page.getByRole("dialog", { name: "Planificación semanal" })).toBeVisible();
-    },
-  },
-  {
-    nombre: "Hoja de un bloque",
-    abrir: async (page) => {
-      await page
-        .getByTestId("week")
-        .getByRole("button", { name: /^Parcial Cálculo II, sáb 09:30/ })
-        .click();
-      await page.locator(".bubble").click();
-      await expect(sheet(page).getByRole("heading", { name: "Parcial Cálculo II" })).toBeVisible();
-    },
-  },
-  {
-    nombre: "Hoja de un silo",
-    abrir: async (page) => {
-      await goTab(page, "Silos");
-      await page.locator('.silo[data-task="parcial-calc"]').click();
-      await expect(sheet(page).getByRole("heading", { name: "Parcial Cálculo II" })).toBeVisible();
-    },
-  },
-];
-
 for (const scheme of ["light", "dark"] as const) {
   for (const font of FONTS) {
     test.describe(`${font.nombre} (${font.px}px), tema ${scheme === "dark" ? "oscuro" : "claro"}`, () => {
@@ -154,32 +84,21 @@ for (const scheme of ["light", "dark"] as const) {
       });
 
       for (const pantalla of PANTALLAS) {
-        // ERRORES REALES (ver el PR; se ven con las tipografías de Linux, que ensanchan el texto):
-        // la lista de Ajustes se sale por la derecha con letra grande, y los siete días de la
-        // Planificación semanal no entran a 32 px.
-        const roto =
-          pantalla.nombre === "Ajustes" ||
-          (font.px === 32 && pantalla.nombre === "Planificación semanal");
-        (roto ? test.fixme : test)(`${pantalla.nombre}: nada se sale`, async ({ page }) => {
+        test(`${pantalla.nombre}: nada se sale`, async ({ page }) => {
           await pantalla.abrir(page);
           await sinDesborde(page, pantalla.nombre, true);
         });
       }
 
-      // ERROR REAL (ver el PR): con la letra a 32px la ✕ de las hojas se asoma 5 px fuera de la pantalla.
-      (font.px === 32 ? test.fixme : test)(
-        "la ✕ de las hojas queda dentro de la pantalla",
-        async ({ page }) => {
-          await PANTALLAS[PANTALLAS.length - 2]?.abrir(page);
-          const fuera = await page
-            .locator(".sheet-close")
-            .evaluateAll(
-              (els) =>
-                els.filter((e) => e.getBoundingClientRect().right > window.innerWidth).length,
-            );
-          expect(fuera).toBe(0);
-        },
-      );
+      test("la ✕ de las hojas queda dentro de la pantalla", async ({ page }) => {
+        await PANTALLAS[PANTALLAS.length - 2]?.abrir(page);
+        const fuera = await page
+          .locator(".sheet-close")
+          .evaluateAll(
+            (els) => els.filter((e) => e.getBoundingClientRect().right > window.innerWidth).length,
+          );
+        expect(fuera).toBe(0);
+      });
     });
   }
 }

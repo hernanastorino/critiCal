@@ -16,6 +16,9 @@ export const time = (tz: string, t: number) =>
 export const weekdayShort = (tz: string, t: number) =>
   fmt(tz, { weekday: "short" }).format(t).replace(".", "").slice(0, 3);
 
+/** "viernes" */
+export const weekdayLong = (tz: string, t: number) => fmt(tz, { weekday: "long" }).format(t);
+
 /** "vie 22/10" */
 export const dayDate = (tz: string, t: number) => {
   const p = fmt(tz, { day: "numeric", month: "numeric" }).formatToParts(t);
