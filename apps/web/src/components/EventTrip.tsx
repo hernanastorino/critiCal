@@ -24,6 +24,8 @@ import {
   wayMinutes,
 } from "../busTrip.js";
 import { useSync } from "../Connected.js";
+import { isTestDemo } from "../demoPruebas.js";
+import { demoPlan } from "../demoTransit.js";
 import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
 import { busFeedVersion, planBus } from "../remote.js";
@@ -64,6 +66,8 @@ type Result = { for: string; res: PlanResponse } | null;
 export function EventTrip({ event }: { event: AppEvent }) {
   const { data, now, dispatch } = useStore();
   const sync = useSync();
+  // The test demo has no account: its bus plans are invented (demoTransit.ts).
+  const demo = !sync && isTestDemo();
   const tz = data.settings.timezone;
   const trip = tripOf(data, event);
   // A trip already made is history; one with no saved place or home has nothing to choose.
@@ -112,7 +116,15 @@ export function EventTrip({ event }: { event: AppEvent }) {
       )}
       {trip.mode === "bus" &&
         (["there", "back"] as const).map((way) => (
-          <BusWay key={way} event={event} trip={trip} way={way} tz={tz} signedIn={!!sync} />
+          <BusWay
+            key={way}
+            event={event}
+            trip={trip}
+            way={way}
+            tz={tz}
+            signedIn={!!sync || demo}
+            demo={demo}
+          />
         ))}
       {trip.mode === "bus" && busMinutes(data, event) === undefined && (
         <p className="meta">Todavía no tengo los minutos del ómnibus: el plan usa los del auto.</p>
@@ -128,17 +140,19 @@ function BusWay({
   way,
   tz,
   signedIn,
+  demo,
 }: {
   event: AppEvent;
   trip: Trip;
   way: Way;
   tz: string;
   signedIn: boolean;
+  demo: boolean;
 }) {
   const { dispatch } = useStore();
   const client = useSync()?.client;
   const routes = useBusRoutes();
-  const request = client ? planRequestFor(trip, event, tz, way) : null;
+  const request = client || demo ? planRequestFor(trip, event, tz, way) : null;
   const slot = request ? slotOf(trip, event, tz, way, request) : null;
   const route = slot ? findRoute(routes, slot) : undefined;
 
@@ -170,7 +184,11 @@ function BusWay({
   latest.current = asked;
   useEffect(() => {
     const question = latest.current;
-    if (!client || !question || !key) return;
+    if (!question || !key) return;
+    if (!client) {
+      if (demo) setResult({ for: key, res: demoPlan(question) });
+      return;
+    }
     let live = true;
     void planBus(client, question).then((res) => {
       if (live) setResult({ for: key, res });
@@ -178,7 +196,7 @@ function BusWay({
     return () => {
       live = false;
     };
-  }, [client, key]);
+  }, [client, demo, key]);
 
   const answer: PlanResponse | null = saved
     ? routeAnswer(saved)
@@ -228,7 +246,7 @@ function BusWay({
         {route && stale && (
           <p className="meta">{staleNote(stale)} Esto es lo que dan los horarios de hoy.</p>
         )}
-        {best && !saved && slot && (
+        {client && best && !saved && slot && (
           <button type="button" className="btn small" onClick={() => void keep()}>
             {route ? "Actualizar ruta habitual" : "Guardar como ruta habitual"}
           </button>
