@@ -30,6 +30,11 @@ test.describe("planificación semanal un domingo", () => {
     const plan = page.getByRole("dialog", { name: "Planificación semanal" });
     // Domingo 22/11 → la semana que viene es lun 23/11 – dom 29/11.
     await expect(plan).toContainText("Semana del lun 23/11 al dom 29/11");
+    // «Tu semana tipo»: conteos reales de lo armado, sin desborde en 375 px.
+    const tipo = plan.getByTestId("week-type");
+    await expect(tipo).toContainText(/^Tu semana tipo: \d+ materias?/);
+    const box = await tipo.boundingBox();
+    expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
 
     await plan.getByRole("button", { name: "Cerrar resumen" }).click();
     // Se abrió desde Ajustes: cerrar vuelve ahí.
