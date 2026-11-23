@@ -792,44 +792,43 @@ export function keepStartedMeals(prev: AppData, next: AppData, now: number): App
   const tz = prev.settings.timezone;
   const today = localParts(tz, now).date;
   const midnight = zonedInstant(tz, today, 0);
-  const span = [midnight, zonedInstant(tz, addDays(today, 1), 0)] as const;
-  const before = mealTimes(prev, now, span[0], span[1]).filter(
+  const end = zonedInstant(tz, addDays(today, 1), 0);
+  const started = mealTimes(prev, now, midnight, end).filter(
     (m) => m.date === today && m.kind && m.at && m.at.start <= now,
   );
-  if (!before.length) return next;
-  const after = mealTimes(next, now, span[0], span[1]);
-  let runs = [...(next.mealRuns ?? [])];
+  const after = mealTimes(next, now, midnight, end);
   const weekday = weekdayOf(today);
-  for (const m of before) {
-    const at = m.at;
-    const kind = m.kind;
-    if (!at || !kind) continue;
+  const old = next.mealRuns ?? [];
+  let runs = old;
+  for (const m of started) {
+    const { kind, at } = m;
+    if (!kind || !at) continue;
+    const written = runs.some((r) => r.meal === kind && r.weekday === weekday && r.from === today);
     const same = after.some(
-      (a) => a.kind === kind && a.date === today && a.at?.start === at.start && a.at.end === at.end,
+      (a) => a.kind === kind && a.at?.start === at.start && a.at.end === at.end,
     );
-    const has = runs.some((r) => r.meal === kind && r.weekday === weekday && r.from === today);
-    if (same || has) continue;
-    // Written even when the run standing says the same: today's own run is what keeps it.
-    const standing = runs.find((r) => r.meal === kind && r.weekday === weekday && !r.to);
-    runs = [
-      ...runs.map((r) => (r === standing ? { ...r, to: addDays(today, -1) } : r)),
-      {
-        meal: kind,
-        weekday,
-        from: today,
-        start: Math.round((at.start - midnight) / MINUTE),
-        end: Math.round((at.end - midnight) / MINUTE),
-      },
-    ];
+    if (written || same) continue;
+    const run = {
+      meal: kind,
+      weekday,
+      from: today,
+      start: Math.round((at.start - midnight) / MINUTE),
+      end: Math.round((at.end - midnight) / MINUTE),
+    };
+    runs = openFromToday(runs, run);
   }
-  return runs.length === (next.mealRuns ?? []).length &&
-    runs.every((r, i) => r === next.mealRuns?.[i])
-    ? next
-    : {
-        ...next,
-        mealRuns: runs,
-        mealsFrozenThrough: next.mealsFrozenThrough ?? addDays(today, -1),
-      };
+  if (runs === old) return next;
+  return {
+    ...next,
+    mealRuns: runs,
+    mealsFrozenThrough: next.mealsFrozenThrough ?? addDays(today, -1),
+  };
+}
+
+/** `runs` with `run` standing from today, even when the standing one says the same time. */
+function openFromToday(runs: MealRun[], run: MealRun): MealRun[] {
+  const standing = runs.find((r) => r.meal === run.meal && r.weekday === run.weekday && !r.to);
+  return [...runs.map((r) => (r === standing ? { ...r, to: addDays(run.from, -1) } : r)), run];
 }
 
 /** `runs` with `run` standing from its date: the open run of its series closes the day before. */

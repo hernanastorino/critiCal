@@ -20,6 +20,5 @@ test("letra grande: la Semana con «Primeros pasos» deja la grilla usable", asy
   });
   await expect(page.getByText(/^Primeros pasos/)).toBeVisible();
   const semana = await page.getByTestId("week").boundingBox();
-  const tarjeta = await page.locator(".first-steps").boundingBox();
   expect(semana?.height ?? 0).toBeGreaterThanOrEqual(GRILLA_MIN);
 });
