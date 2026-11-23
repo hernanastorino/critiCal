@@ -15,6 +15,7 @@ import type { AppData } from "./model.js";
 import { decisions, refreshPlan } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 import { parseUnit } from "./taskForm.js";
+import { tapDone } from "./testDone.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -265,7 +266,7 @@ describe("7. Bandeja: el foco después de «Deshacer»", () => {
     render(<App fixedNow={MON} initial={seeded} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     const done = screen.getAllByLabelText(/^Hecho:/)[0] as HTMLElement;
-    fireEvent.click(done);
+    tapDone(done);
     const undo = screen.getByRole("button", { name: "Deshacer" });
     undo.focus();
     act(() => {

@@ -37,7 +37,7 @@ describe("ALTA 1: «faltan» se mide por partes y la pantalla lo dice", () => {
     inside(<Silos />, () => seedHistory(demoData(NOW), NOW));
     expect(screen.getByText("Esta semana: planificado vs. hecho")).toBeTruthy();
     expect(screen.getByLabelText(/^Parcial Cálculo II: faltan 10h/)).toBeTruthy();
-    expect(screen.getByText(/«faltan» baja al marcar las partes hechas/)).toBeTruthy();
+    expect(screen.queryByText(/«faltan» baja al marcar/)).toBeNull();
   });
 });
 
@@ -141,13 +141,13 @@ describe("MEDIA 4: la Planificación semanal aclara de qué semana es la Bandeja
     busy: true,
     source: "google",
   };
-  it("con pendientes, dice que son de esta semana y el resumen de la próxima", () => {
+  it("con pendientes, ofrece el botón sin notas explicativas", () => {
     inside(
       <WeeklyPlan onClose={noop} onInbox={noop} />,
       () => ({ ...emptyData(), places: [casa], events: [pending] }),
       at("2026-11-22", 18),
     );
-    expect(screen.getByText(/Lo de la Bandeja es de esta semana/)).toBeTruthy();
+    expect(screen.queryByText(/Lo de la Bandeja es de esta semana/)).toBeNull();
     expect(screen.getByRole("button", { name: /Ver la Bandeja/ })).toBeTruthy();
   });
   it("sin pendientes no hay aviso ni botón", () => {
