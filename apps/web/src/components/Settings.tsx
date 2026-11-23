@@ -3,7 +3,14 @@ import { useSync } from "../Connected.js";
 import { normalize } from "../calendars.js";
 import { awakeProblem } from "../dayLength.js";
 import { isTestDemo } from "../demoPruebas.js";
-import { clearSettingsDrafts, hasSettingsDrafts, rememberSettingsPage } from "../drafts.js";
+import {
+  clearPageDrafts,
+  clearSettingsDrafts,
+  DraftPage,
+  hasPageDrafts,
+  hasSettingsDrafts,
+  rememberSettingsPage,
+} from "../drafts.js";
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
@@ -357,8 +364,12 @@ export function Settings({
   const toList = () => setPage(null);
   // Leaving Ajustes with something typed and unsaved asks first (SPEC §14); a reload
   // brings back the screen that was open (the drafts are kept in sessionStorage).
-  const [asking, setAsking] = useState(false);
-  const askClose = () => (hasSettingsDrafts() ? setAsking(true) : onClose());
+  const [asking, setAsking] = useState<false | "close" | "back">(false);
+  const askClose = () => (hasSettingsDrafts() ? setAsking("close") : onClose());
+  // Leaving a screen with its form half filled asks too (Escape, pulling the sheet, «‹ Ajustes»),
+  // as ✕ and the backdrop do; «Descartar» wipes that screen's form and lands on the list.
+  const [epochs, setEpochs] = useState<Record<string, number>>({});
+  const askBack = () => (page && hasPageDrafts(page) ? setAsking("back") : close());
   useEffect(() => {
     rememberSettingsPage(page);
   }, [page]);
@@ -370,7 +381,7 @@ export function Settings({
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
   const justOpened = useModal(
     sheet,
-    () => (page ? close() : askClose()),
+    () => (page ? askBack() : askClose()),
     !initialPage,
     () => document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
   );
@@ -805,24 +816,39 @@ export function Settings({
 
         {/* Every section stays mounted, so a half-filled form survives going back. */}
         {all.map((p) => (
-          <div key={p.id} className="settings-page" hidden={page !== p.id} inert={page !== p.id}>
+          <div
+            key={`${p.id}:${epochs[p.id] ?? 0}`}
+            className="settings-page"
+            hidden={page !== p.id}
+            inert={page !== p.id}
+          >
             <button
               ref={page === p.id ? back : undefined}
               type="button"
               className="settings-back"
               aria-label="Volver a Ajustes"
-              onClick={close}
+              onClick={askBack}
             >
               <ChevronLeft /> Ajustes
             </button>
             <h2>{p.title}</h2>
-            <SectionOpen.Provider value={page === p.id}>{p.content}</SectionOpen.Provider>
+            <DraftPage.Provider value={p.id}>
+              <SectionOpen.Provider value={page === p.id}>{p.content}</SectionOpen.Provider>
+            </DraftPage.Provider>
           </div>
         ))}
       </div>
       {asking && (
         <ConfirmDiscard
           onDiscard={() => {
+            if (asking === "back" && page) {
+              clearPageDrafts(page);
+              // The screen starts over, as if never opened.
+              setEpochs((e) => ({ ...e, [page]: (e[page] ?? 0) + 1 }));
+              setAsking(false);
+              close();
+              return;
+            }
             clearSettingsDrafts();
             onClose();
           }}

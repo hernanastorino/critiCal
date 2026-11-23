@@ -65,6 +65,16 @@ export const NAME_MAX = 60;
 export const TITLE_MAX = 80;
 /** What a backup may carry: more than the app lets you type, so old data still imports. */
 export const BACKUP_TEXT_MAX = 300;
+/** Longest address of a place (what the travel function reads of it). */
+export const ADDRESS_MAX = SPOT_TEXT_MAX;
+/** Longest text of the «Alias» field (all of them, with their commas). */
+export const ALIASES_FIELD_MAX = 500;
+
+/**
+ * Text without the characters that turn the writing direction (U+202A–U+202E, U+2066–U+2069):
+ * pasted into a name they flip the text around it, the list and the notices that quote it.
+ */
+export const stripBidi = (s: string) => s.replace(/[‪-‮⁦-⁩]/g, "");
 
 /** Nothing to read in it: empty, spaces, or only characters that draw nothing (zero width). */
 export const isBlank = (s: string) =>
