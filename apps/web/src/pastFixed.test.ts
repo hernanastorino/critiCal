@@ -209,7 +209,10 @@ describe("meal runs travel to the database and back", () => {
 
   it("a copy with two runs under the same key never differs from itself (no endless save)", () => {
     const run = { meal: "almuerzo", weekday: 1, from: "2026-11-01", start: 720, end: 780 } as const;
-    const data = { ...demoData(Date.parse("2026-11-04T15:00:00Z")), mealRuns: [run, { ...run, to: "2026-11-10" }] } as AppData;
+    const data = {
+      ...demoData(Date.parse("2026-11-04T15:00:00Z")),
+      mealRuns: [run, { ...run, to: "2026-11-10" }],
+    } as AppData;
     const writes = diffData(data, data);
     expect(writes.upserts.filter((u) => u.table === "meal_runs")).toEqual([]);
   });
