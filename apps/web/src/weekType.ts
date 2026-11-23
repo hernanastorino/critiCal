@@ -8,9 +8,16 @@ export function weekTypeCounts(data: AppData): {
   rutinas: number;
   lugares: number;
 } {
-  const rutinas = data.activities.filter((a) => a.kind === "rutina").length;
+  // Only the routines that still make blocks: a paused, ended or dropped one does not.
+  const running = new Set(
+    data.tasks
+      .filter((t) => t.kind === "habit" && t.status === "active" && !t.paused && !t.endedAt)
+      .map((t) => t.activityId),
+  );
+  const rutinas = data.activities.filter((a) => a.kind === "rutina" && running.has(a.id)).length;
+  const routineCount = data.activities.filter((a) => a.kind === "rutina").length;
   return {
-    materias: data.activities.length - rutinas,
+    materias: data.activities.length - routineCount,
     rutinas,
     lugares: (data.places ?? []).length,
   };

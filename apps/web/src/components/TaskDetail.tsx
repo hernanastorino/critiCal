@@ -161,7 +161,18 @@ export function TaskDetail({
         <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
           <Marks.close />
         </button>
-        <h2>{task.title}</h2>
+        {/* A very long title (imported or seeded) is cut at three lines: it must not push the form away. */}
+        <h2
+          style={{
+            overflowWrap: "anywhere",
+            display: "-webkit-box",
+            WebkitBoxOrient: "vertical",
+            WebkitLineClamp: 3,
+            overflow: "hidden",
+          }}
+        >
+          {task.title}
+        </h2>
         <p className="meta">
           {weeklyLabel ??
             (p && `Faltan ${hours(p.remainingMinutes)} (mínimo ${hours(p.minRemainingMinutes)})`)}
