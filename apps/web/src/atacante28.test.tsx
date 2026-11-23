@@ -44,10 +44,10 @@ const inside = (ui: React.ReactNode, initial: () => AppData, fixedNow = NOW) =>
 describe("ALTA: la entrega con una materia nueva de nombre repetido no desaparece", () => {
   const withCalculo = (): AppData => {
     const d = demoData(NOW);
-    const activities = d.activities
+    const extra = d.activities
       .slice(0, 1)
       .map((a) => ({ ...a, id: "calc", name: "Cálculo II", kind: "materia" as const }));
-    return { ...d, activities };
+    return { ...d, activities: [...d.activities, ...extra] };
   };
 
   for (const typed of ["cálculo ii", "  cálculo   ii ", "CÁLCULO II"]) {
@@ -87,10 +87,10 @@ describe("ALTA: una entrega no queda colgada de una rutina", () => {
       />,
       () => {
         const d = demoData(NOW);
-        const activities = d.activities
+        const extra = d.activities
           .slice(0, 1)
           .map((a) => ({ ...a, id: "gym", name: "Gimnasio", kind: "rutina" as const }));
-        return { ...d, activities };
+        return { ...d, activities: [...d.activities, ...extra] };
       },
     );
     fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
