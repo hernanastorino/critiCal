@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { readSheetDraft, writeSheetDraft } from "../drafts.js";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
+import { learnedHours, learnedNote } from "../learnedDefaults.js";
 import {
   dateYearInRange,
   deadlineInRange,
@@ -129,6 +130,10 @@ export function TaskEditor({
   const toast = useToast();
   const answer = useUndoable();
   const tz = data.settings.timezone;
+  // A new delivery starts from the hours of the earlier ones (SPEC §18.1); the fixed ones
+  // stand without history.
+  const firstActivity = data.activities.find((a) => a.kind !== "rutina")?.id;
+  const startLearned = task ? null : learnedHours(data.tasks, false, firstActivity);
   // What the form is when untouched, and what it was left as (a draft of this same task).
   const base = useRef<EditorForm>({
     title: task?.title ?? "",
@@ -136,8 +141,8 @@ export function TaskEditor({
     newActivity: "",
     kind: task?.kind ?? "deliverable",
     deadline: toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
-    estimate: String((task?.estimateMinutes ?? 240) / 60),
-    minimum: String((task?.minMinutes ?? 120) / 60),
+    estimate: String((task?.estimateMinutes ?? startLearned?.estimateMinutes ?? 240) / 60),
+    minimum: String((task?.minMinutes ?? startLearned?.minMinutes ?? 120) / 60),
     sessions: String(task?.sessionsPerWeek ?? 3),
     sessionMin: String(task?.sessionMinutes ?? 60),
     priority: task?.priority ?? 2,
@@ -167,8 +172,18 @@ export function TaskEditor({
   const activityId =
     picked === "new" || choices.some((a) => a.id === picked) ? picked : (choices[0]?.id ?? "new");
   const [deadline, setDeadline] = useState(start.deadline);
-  const [estimate, setEstimate] = useState(start.estimate);
-  const [minimum, setMinimum] = useState(start.minimum);
+  const [estimate, setEstimateTyped] = useState(start.estimate);
+  const [minimum, setMinimumTyped] = useState(start.minimum);
+  // Once the user touches the hours (or a draft brings them back) they are theirs.
+  const hoursTouched = useRef(!!task || !!kept);
+  const setEstimate = (v: string) => {
+    hoursTouched.current = true;
+    setEstimateTyped(v);
+  };
+  const setMinimum = (v: string) => {
+    hoursTouched.current = true;
+    setMinimumTyped(v);
+  };
   const [sessions, setSessions] = useState(start.sessions);
   const [sessionMin, setSessionMin] = useState(start.sessionMin);
   const [priority, setPriority] = useState(start.priority);
@@ -205,6 +220,18 @@ export function TaskEditor({
         : (kept.startAfter ?? undefined)
       : task?.startAfter,
   );
+  const learned =
+    task || kind !== "deliverable"
+      ? null
+      : learnedHours(data.tasks, isExam, activityId === "new" ? undefined : activityId);
+  const learnedKey = learned ? `${learned.estimateMinutes}/${learned.minMinutes}` : "fixed";
+  // Changing the materia or «Es un parcial» re-proposes the hours, until they are typed.
+  useEffect(() => {
+    if (hoursTouched.current || kind !== "deliverable") return;
+    const [e, m] = learnedKey === "fixed" ? [240, 120] : learnedKey.split("/").map(Number);
+    setEstimateTyped(String((e as number) / 60));
+    setMinimumTyped(String((m as number) / 60));
+  }, [learnedKey, kind]);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */
   const [focusTick, setFocusTick] = useState(0);
@@ -647,6 +674,11 @@ export function TaskEditor({
                 />
               </label>
             </div>
+            {learned && !hoursTouched.current && (
+              <p className="meta" style={{ margin: 0 }}>
+                {learnedNote(learned, isExam)}
+              </p>
+            )}
             <FieldError id="estimate-error" text={estimateError} role={alertRole} />
             <FieldError id="minimum-error" text={minimumError} role={alertRole} />
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
