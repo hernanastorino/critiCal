@@ -44,9 +44,10 @@ const inside = (ui: React.ReactNode, initial: () => AppData, fixedNow = NOW) =>
 describe("ALTA: la entrega con una materia nueva de nombre repetido no desaparece", () => {
   const withCalculo = (): AppData => {
     const d = demoData(NOW);
-    const first = d.activities[0];
-    if (!first) throw new Error("the demo has activities");
-    return { ...d, activities: [{ ...first, id: "calc", name: "Cálculo II", kind: "materia" }] };
+    const activities = d.activities
+      .slice(0, 1)
+      .map((a) => ({ ...a, id: "calc", name: "Cálculo II", kind: "materia" as const }));
+    return { ...d, activities };
   };
 
   for (const typed of ["cálculo ii", "  cálculo   ii ", "CÁLCULO II"]) {
@@ -86,10 +87,10 @@ describe("ALTA: una entrega no queda colgada de una rutina", () => {
       />,
       () => {
         const d = demoData(NOW);
-        const first = d.activities[0];
-        return first
-          ? { ...d, activities: [{ ...first, id: "gym", name: "Gimnasio", kind: "rutina" }] }
-          : d;
+        const activities = d.activities
+          .slice(0, 1)
+          .map((a) => ({ ...a, id: "gym", name: "Gimnasio", kind: "rutina" as const }));
+        return { ...d, activities };
       },
     );
     fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
