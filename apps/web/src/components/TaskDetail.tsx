@@ -19,6 +19,15 @@ export const MAX_TOPICS = 500;
 const MAX_LOG_MINUTES = 1440;
 
 /** What is wrong with the minutes typed in the log, if anything (empty is fine: 0). */
+/** Why a weekly silo is not running right now, if it is not. */
+function offText(live: AppTask, tz: string, now: number): string | null {
+  if (live.paused) return "Pausado hasta que lo reactives.";
+  if ((live.skipUntil ?? 0) > now) {
+    return `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`;
+  }
+  return null;
+}
+
 export function minutesError(text: string): string | null {
   if (text.trim() === "") return null;
   const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
@@ -126,11 +135,7 @@ export function TaskDetail({
     setAsk(null);
     if (change !== "resume") onClose();
   };
-  const offState = live.paused
-    ? "Pausado hasta que lo reactives."
-    : (live.skipUntil ?? 0) > now
-      ? `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`
-      : null;
+  const offState = offText(live, tz, now);
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const badMinutes = minutesError(minutes);

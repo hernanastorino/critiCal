@@ -456,6 +456,16 @@ function MinutesInput({
   );
 }
 
+/** Said under the aliases field when one is already another place's name or alias. */
+function AliasTaken({ id, alias }: { id: string; alias?: string }) {
+  if (!alias) return null;
+  return (
+    <p className="meta" id={id} role="alert" style={{ color: "var(--critical)" }}>
+      «{alias}» ya es el nombre o un alias de otro lugar: elegí otro.
+    </p>
+  );
+}
+
 function PlaceForm({
   place,
   onSave,
@@ -497,6 +507,7 @@ function PlaceForm({
   // The fields stop at their limits as you type; a pasted or restored draft is checked here.
   const longName = name.trim().length > NAME_MAX;
   const longAddress = address.trim().length > ADDRESS_MAX;
+  const blocked = !!(empty || taken || aliasDup || longAlias || longName || longAddress);
   const problem = taken
     ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
     : longName
@@ -563,16 +574,7 @@ function PlaceForm({
           aria-describedby={aliasDup ? `alias-taken-${place.id}` : `aliases-help-${place.id}`}
         />
       </label>
-      {aliasDup && (
-        <p
-          className="meta"
-          id={`alias-taken-${place.id}`}
-          role="alert"
-          style={{ color: "var(--critical)" }}
-        >
-          «{aliasDup}» ya es el nombre o un alias de otro lugar: elegí otro.
-        </p>
-      )}
+      <AliasTaken id={`alias-taken-${place.id}`} alias={aliasDup} />
       <Help
         id={`aliases-help-${place.id}`}
         text="Otros nombres con los que aparece este lugar en tus eventos."
@@ -614,11 +616,9 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          aria-disabled={
-            empty || taken || aliasDup || longAlias || longName || longAddress ? true : undefined
-          }
+          aria-disabled={blocked ? true : undefined}
           onClick={() => {
-            if (empty || taken || aliasDup || longAlias || longName || longAddress) {
+            if (blocked) {
               setTried(true);
               nameField.current?.focus();
               return;

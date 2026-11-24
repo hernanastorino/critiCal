@@ -35,7 +35,9 @@ const open = () => {
   fireEvent.click(screen.getByLabelText(/^Gym,/));
 };
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(cleanup);
 
 describe("30th round", () => {
