@@ -1,17 +1,16 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
-import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
-import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
+import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { isBlank, NAME_MAX, stripBidi } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
-import { MEAL_NAMES, mealsOf } from "../planning.js";
+import { mealsOf } from "../planning.js";
 import { describeHours, emptyHoursForm, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
 import { detectedProblem, detectedToReset } from "../taskForm.js";
-import { clockText, weekMinutesProblem } from "../weekForm.js";
+import { clockText, type WeekProblem, weekProblems } from "../weekForm.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import {
   clampMinutes,
@@ -42,13 +41,6 @@ const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const DAYS_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
-/** The form field of each meal, to say which one an error is about. */
-const MEAL_FIELD = {
-  desayuno: "Desayuno",
-  almuerzo: "Almuerzo",
-  merienda: "Merienda",
-  cena: "Cena",
-} as const;
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
@@ -74,134 +66,50 @@ export function WeekSettings() {
     setForm({ ...form, [k]: e.target.value });
   };
 
-  const [failure, setFailure] = useState<{
-    message: string | null;
-    /** The field a minutes error is about, so its input says it is invalid. */
-    field: string | string[] | null;
-    /** The form it was found in: any change to the form (or the days) clears it. */
-    form: typeof form;
-  } | null>(null);
-  const setError = (message: string | null) =>
-    setFailure(message ? { message, field: null, form } : null);
-  const current = failure?.form === form ? failure : null;
-  const error = current?.message ?? null;
-  const badField = current?.field ?? null;
-  const isBad = (name: string) =>
-    Array.isArray(badField) ? badField.includes(name) : badField === name;
-  // The message sits under the row of the field it is about (the first one, when several).
-  const anchor = Array.isArray(badField) ? badField[0] : badField;
+  // Every problem found by a save, each under its own field; any change to the form clears them.
+  const [failure, setFailure] = useState<{ problems: WeekProblem[]; form: typeof form } | null>(
+    null,
+  );
+  const problems = failure?.form === form ? failure.problems : [];
+  const isBad = (name: string) => problems.some((p) => p.fields.includes(name));
+  // A message sits under the row of the first field it is about.
   const msgFor = (...names: string[]) =>
-    error && anchor && names.includes(anchor) ? (
-      <p
-        id="week-error"
-        className="meta field-help-wide"
-        role="alert"
-        style={{ color: "var(--critical)" }}
-      >
-        {error}
-      </p>
-    ) : null;
+    problems
+      .filter((p) => names.includes(p.fields[0] as string))
+      .map((p) => (
+        <p
+          key={p.message}
+          id={p === problems[0] ? "week-error" : undefined}
+          className="meta field-help-wide"
+          role="alert"
+          style={{ color: "var(--critical)" }}
+        >
+          {p.message}
+        </p>
+      ));
   const save = () => {
+    const found = weekProblems(form);
+    if (found.length > 0) {
+      setFailure({ problems: found, form });
+      return;
+    }
+    const wake = hhmmToMinutes(form.wake);
+    const bed = hhmmToMinutes(form.bed);
+    // Going to bed after midnight: what comes after midnight belongs to the same day
+    // (dinner at 00:45 is 24:45, not this morning).
+    const late = (m: number) => (bed < wake && m < wake ? m + 1440 : m);
     const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
       kind,
       start: hhmmToMinutes(at),
       // At most 4 h: a 99999-minute breakfast would not even fit a backup.
       end: hhmmToMinutes(at) + (clampMinutes(minutes, 0, 240) ?? 0),
     });
-    const badMinutes = weekMinutesProblem(form);
-    if (badMinutes) {
-      setFailure({ ...badMinutes, form });
-      return;
-    }
-    // A time that is not one (a blank or impossible hour) would be read as midnight.
-    const badTime = (
-      [
-        ["Me levanto", form.wake, "1"],
-        ["Me acuesto", form.bed, "1"],
-        ["Nada de estudio desde", form.freeFrom, "1"],
-        ["Desayuno", form.breakfast, form.breakfastMin],
-        ["Almuerzo", form.lunch, form.lunchMin],
-        ["Merienda", form.snack, form.snackMin],
-        ["Cena", form.dinner, form.dinnerMin],
-      ] as const
-    ).find(([, v, minutes]) => Number(minutes) > 0 && parseClock(v) === null);
-    if (badTime) {
-      setFailure({ message: "Hora inválida.", field: badTime[0], form });
-      return;
-    }
-    const wake = hhmmToMinutes(form.wake);
-    const bed = hhmmToMinutes(form.bed);
-    if (wake === bed) {
-      setFailure({
-        message: "Me levanto y me acuesto no pueden ser a la misma hora.",
-        field: ["Me levanto", "Me acuesto"],
-        form,
-      });
-      return;
-    }
-    // Going to bed after midnight: what comes after midnight belongs to the same day
-    // (dinner at 00:45 is 24:45, not this morning).
-    const late = (m: number) => (bed < wake && m < wake ? m + 1440 : m);
     const meals = [
       meal("desayuno", form.breakfast, form.breakfastMin),
       meal("almuerzo", form.lunch, form.lunchMin),
       meal("merienda", form.snack, form.snackMin),
       meal("cena", form.dinner, form.dinnerMin),
     ].filter((m) => m.end > m.start);
-    // A meal while asleep (breakfast 07:30 when getting up at 23:00) would vanish silently.
-    // The whole meal, not just its start: a 2 h dinner at 22:45 with bed at 23:00 does not fit.
-    const bedEnd = wake < bed ? bed : bed + 1440;
-    const fits = (m: Meal) => {
-      const start = m.start < wake ? m.start + 1440 : m.start;
-      return start >= wake && start + (m.end - m.start) <= bedEnd;
-    };
-    const asleep = meals.find((m) => !fits(m));
-    if (asleep) {
-      setFailure({
-        message: `${asleep.kind ? MEAL_NAMES[asleep.kind] : "Una comida"} a las ${minutesToHhmm(asleep.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
-        field: asleep.kind ? MEAL_FIELD[asleep.kind] : null,
-        form,
-      });
-      return;
-    }
-    // Between waking up and going to bed (after midnight, the gap is the hours of sleep).
-    const free = hhmmToMinutes(form.freeFrom);
-    if (bed < wake ? free > bed && free < wake : free < wake) {
-      setFailure({
-        message: `«Nada de estudio desde» (${form.freeFrom}) cae antes de que te levantes (${form.wake}).`,
-        field: "Nada de estudio desde",
-        form,
-      });
-      return;
-    }
-    if (bed > wake && free > bed) {
-      setFailure({
-        message: `«Nada de estudio desde» (${form.freeFrom}) cae después de que te acuestes (${form.bed}).`,
-        field: "Nada de estudio desde",
-        form,
-      });
-      return;
-    }
-    // Breakfast, lunch, snack and dinner in that order (the later one never before).
-    const inOrder = meals.map((m) => ({ ...m, at: m.start < wake ? m.start + 1440 : m.start }));
-    const early = inOrder.find((m, i) => i > 0 && m.at < (inOrder[i - 1] as { at: number }).at);
-    if (early?.kind) {
-      const before = inOrder[inOrder.indexOf(early) - 1];
-      setFailure({
-        message: `${MEAL_NAMES[early.kind]} (${minutesToHhmm(early.start)}) no puede ir antes que ${before?.kind ? MEAL_NAMES[before.kind].toLowerCase() : "la comida anterior"} (${minutesToHhmm(before?.start ?? 0)}): las comidas van en orden, de desayuno a cena.`,
-        field: MEAL_FIELD[early.kind],
-        form,
-      });
-      return;
-    }
-    // The same day «Hoy» and a backup take: awake 4 to 22 h (said after what is about the
-    // meals and the free time, which fall asleep first in a day that is not one).
-    const tooLong = awakeProblem(form.wake, form.bed);
-    if (tooLong) {
-      setFailure({ message: tooLong, field: ["Me levanto", "Me acuesto"], form });
-      return;
-    }
-    setError(null);
     const day: DaySettings = {
       wake,
       morningMinutes: clampMinutes(form.morning, 0, 240) ?? 0,
@@ -283,7 +191,7 @@ export function WeekSettings() {
           helpId={morningHelp}
           value={form.morning}
           onChange={set("morning")}
-          invalid={badField === "Arreglarse, traslado (min)"}
+          invalid={isBad("Arreglarse, traslado (min)")}
         />
         {msgFor("Me levanto", "Arreglarse, traslado (min)")}
         <Help
@@ -296,14 +204,14 @@ export function WeekSettings() {
           type="time"
           value={form.breakfast}
           onChange={set("breakfast")}
-          invalid={badField === "Desayuno"}
+          invalid={isBad("Desayuno")}
         />
         <Field
           label="Dura (min)"
           name="Dura (min), desayuno"
           value={form.breakfastMin}
           onChange={set("breakfastMin")}
-          invalid={badField === "Dura (min), desayuno"}
+          invalid={isBad("Dura (min), desayuno")}
         />
         {msgFor("Desayuno", "Dura (min), desayuno")}
         <Field
@@ -311,14 +219,14 @@ export function WeekSettings() {
           type="time"
           value={form.lunch}
           onChange={set("lunch")}
-          invalid={badField === "Almuerzo"}
+          invalid={isBad("Almuerzo")}
         />
         <Field
           label="Dura (min)"
           name="Dura (min), almuerzo"
           value={form.lunchMin}
           onChange={set("lunchMin")}
-          invalid={badField === "Dura (min), almuerzo"}
+          invalid={isBad("Dura (min), almuerzo")}
         />
         {msgFor("Almuerzo", "Dura (min), almuerzo")}
         <Field
@@ -326,14 +234,14 @@ export function WeekSettings() {
           type="time"
           value={form.snack}
           onChange={set("snack")}
-          invalid={badField === "Merienda"}
+          invalid={isBad("Merienda")}
         />
         <Field
           label="Dura (min)"
           name="Dura (min), merienda"
           value={form.snackMin}
           onChange={set("snackMin")}
-          invalid={badField === "Dura (min), merienda"}
+          invalid={isBad("Dura (min), merienda")}
         />
         {msgFor("Merienda", "Dura (min), merienda")}
         <Field
@@ -341,14 +249,14 @@ export function WeekSettings() {
           type="time"
           value={form.dinner}
           onChange={set("dinner")}
-          invalid={badField === "Cena"}
+          invalid={isBad("Cena")}
         />
         <Field
           label="Dura (min)"
           name="Dura (min), cena"
           value={form.dinnerMin}
           onChange={set("dinnerMin")}
-          invalid={badField === "Dura (min), cena"}
+          invalid={isBad("Dura (min), cena")}
         />
         {msgFor("Cena", "Dura (min), cena")}
         <Field
@@ -357,7 +265,7 @@ export function WeekSettings() {
           type="time"
           value={form.freeFrom}
           onChange={set("freeFrom")}
-          invalid={badField === "Nada de estudio desde"}
+          invalid={isBad("Nada de estudio desde")}
         />
         <Field
           label="Me acuesto"
@@ -400,11 +308,6 @@ export function WeekSettings() {
       >
         {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS_SHORT[d]).join(" ")}`}
       </button>
-      {error && !anchor && (
-        <p id="week-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
-          {error}
-        </p>
-      )}
     </Section>
   );
 }

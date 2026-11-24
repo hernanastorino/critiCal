@@ -172,9 +172,9 @@ describe("planning", () => {
         },
       ],
     });
-    // The screens show the parts left; the planner sizes them by the learned ratio.
-    expect(progress(data, MON)[0]?.remainingMinutes).toBe(120);
-    expect(toEngineTasks(data, MON)[0]?.remainingMinutes).toBeGreaterThan(120);
+    // The screens show what the planner reserves: the parts left by the learned ratio.
+    expect(progress(data, MON)[0]?.remainingMinutes).toBe(170);
+    expect(toEngineTasks(data, MON)[0]?.remainingMinutes).toBeGreaterThanOrEqual(170);
   });
 
   it("keeps history and today's blocks, and proposes when an event clashes", () => {

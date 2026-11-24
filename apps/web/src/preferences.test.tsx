@@ -44,6 +44,23 @@ describe("fixed settings", () => {
     expect(screen.getByText("Mi semana guardada")).toBeTruthy();
   });
 
+  it("marks every invalid field at once, each with its message", () => {
+    const set = (name: string, value: string) =>
+      fireEvent.change(screen.getByLabelText(name), { target: { value } });
+    set("Arreglarse, traslado (min)", "-5");
+    set("Dura (min), cena", "abc");
+    set("Nada de estudio desde", "03:00");
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    for (const name of ["Arreglarse, traslado (min)", "Dura (min), cena", "Nada de estudio desde"])
+      expect(screen.getByLabelText(name).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByLabelText("Desayuno").getAttribute("aria-invalid")).toBeNull();
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(3);
+    // Any change clears them; saving again lists what is still wrong.
+    set("Arreglarse, traslado (min)", "30");
+    fireEvent.click(screen.getByText(/^Guardar para/));
+    expect(document.querySelectorAll('[role="alert"]')).toHaveLength(2);
+  });
+
   it("does not save a negative morning, and says which field it is", () => {
     const field = screen.getByLabelText("Arreglarse, traslado (min)") as HTMLInputElement;
     const before = stored().settings.week[1].morningMinutes;

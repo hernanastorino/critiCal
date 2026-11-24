@@ -219,12 +219,6 @@ export function TaskDetail({
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
-        {task.units.length > 0 && p && (
-          <p className="meta">
-            «Faltan» se mide por las partes: marcá las que hiciste para bajarlo (los minutos solos
-            no lo mueven).
-          </p>
-        )}
         {startsAt !== undefined &&
           startsAt > now &&
           (task.deadline !== undefined && startsAt >= task.deadline ? (

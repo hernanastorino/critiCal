@@ -254,6 +254,8 @@ export interface TaskProgress {
   remainingMinutes: number;
   minRemainingMinutes: number;
   deadline: number;
+  /** The learned effort ratio that adjusted the parts (only for tasks with parts). */
+  ratio?: number;
 }
 
 /**
@@ -314,12 +316,18 @@ export function focusWeekAt(data: AppData, now: number): number {
   return data.settings.weekPlannedFor === next ? zonedInstant(tz, next, 720) : now;
 }
 
+/** Parts' minutes adjusted by the learned ratio, never above the estimate (what the plan reserves). */
+const scaled = (task: AppTask, minutes: number, ratio: number) =>
+  Math.min(task.estimateMinutes, Math.round(minutes * ratio));
+
 /**
- * What is left of each active task: its unmarked parts, or its estimate minus what was
- * logged. `weekAt`: an instant of the week the weekly habits are counted in (default `now`).
+ * What is left of each active task: its unmarked parts adjusted by the materia's learned
+ * effort ratio (what the plan reserves, so «Faltan» and the calendar agree), or its estimate
+ * minus what was logged. `weekAt`: an instant of the week the weekly habits are counted in (default `now`).
  */
 export function progress(data: AppData, now: number, weekAt = now): TaskProgress[] {
   const tz = data.settings.timezone;
+  const effort = samples(data);
   return data.tasks
     .filter((t) => isRunning(t, now))
     .map((task) => {
@@ -352,27 +360,29 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
                 .reduce((sum, u) => sum + u.estimateMinutes, 0),
             )
           : capLeft;
+      const ratio = task.units.length > 0 ? effortRatio(effort, task.activityId) : undefined;
       return {
         task,
         totalMinutes: task.estimateMinutes,
-        remainingMinutes: remaining,
+        remainingMinutes: ratio === undefined ? remaining : scaled(task, remaining, ratio),
         minRemainingMinutes: Math.min(remaining, Math.max(0, task.minMinutes - done)),
         deadline: task.deadline ?? endOfWeek(tz, now),
+        ratio,
       };
     });
 }
 
 /**
  * The total a silo shows next to what is left. With parts, «faltan» is the parts still
- * unmarked (capped by the estimate), so the total is all the parts (same cap): an estimate
- * above their sum would read as hours missing that no part holds.
+ * unmarked at the learned ratio (capped by the estimate), so the total is all the parts at
+ * that ratio (same cap): an estimate above their sum would read as hours no part holds.
  */
 export function shownTotal(p: TaskProgress): number {
   if (p.task.kind === "habit" || p.task.units.length === 0) return p.totalMinutes;
   const parts = p.task.units
     .filter((u) => !u.skipped)
     .reduce((sum, u) => sum + u.estimateMinutes, 0);
-  return Math.max(p.remainingMinutes, Math.min(p.totalMinutes, parts));
+  return Math.max(p.remainingMinutes, Math.min(p.totalMinutes, Math.round(parts * (p.ratio ?? 1))));
 }
 
 /**
@@ -453,15 +463,9 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
   const effort = samples(data);
   const tz = data.settings.timezone;
   const kept = keptDays(data, now);
-  // With parts the planner sizes the rest by the materia's learned effort ratio; what
-  // the screens show (progress) stays the plain parts that are left.
-  const planned = (p: TaskProgress) =>
-    p.task.units.length > 0 && p.task.kind !== "habit"
-      ? Math.min(
-          p.task.estimateMinutes,
-          Math.round(p.remainingMinutes * effortRatio(effort, p.task.activityId)),
-        )
-      : p.remainingMinutes;
+  // What the planner reserves is what the screens show as «Faltan» (progress applies the
+  // materia's learned effort ratio), so they cannot diverge.
+  const planned = (p: TaskProgress) => p.remainingMinutes;
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
     .map((p) => {

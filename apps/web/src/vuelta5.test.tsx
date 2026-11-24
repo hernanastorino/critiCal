@@ -95,7 +95,7 @@ describe("Avance por entrega y «faltan» por partes", () => {
         },
       ],
     };
-    expect(progress(data, NOW).find((p) => p.task.id === "fresh")?.remainingMinutes).toBe(60);
+    expect(progress(data, NOW).find((p) => p.task.id === "fresh")?.remainingMinutes).toBe(31);
   });
 
   it("with parts, «faltan» is the parts left, not minus the minutes logged", () => {
@@ -121,7 +121,8 @@ describe("Avance por entrega y «faltan» por partes", () => {
         },
       ],
     };
-    expect(progress(data, NOW)[0]?.remainingMinutes).toBe(120);
+    // 120 min of parts left by the materia's learned ratio (1.225): what the plan reserves.
+    expect(progress(data, NOW)[0]?.remainingMinutes).toBe(147);
     expect(toEngineTasks(data, NOW)[0]?.remainingMinutes).toBeGreaterThan(0);
   });
 });

@@ -116,7 +116,8 @@ describe("Mi semana", () => {
     fireEvent.change(screen.getByLabelText("Me levanto"), { target: { value: "23:00" } });
     fireEvent.change(screen.getByLabelText("Me acuesto"), { target: { value: "01:00" } });
     fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
-    expect(screen.getByRole("alert").textContent).toMatch(
+    // Every meal that falls asleep is said, each under its own field.
+    expect(screen.getAllByRole("alert")[0]?.textContent).toMatch(
       /Desayuno a las 07:30 cae, o termina, cuando estás dormido/,
     );
     expect(latest?.settings.week).toBe(before);
