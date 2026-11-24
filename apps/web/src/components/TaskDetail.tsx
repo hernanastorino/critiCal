@@ -138,6 +138,29 @@ export function TaskDetail({
       });
       return;
     }
+    if (change === "pause" || change === "skipWeek") {
+      // With «Deshacer», like taking it away: the silo and the plan come back as they were.
+      const before = snapshotOf(data, ["plan"], [live]);
+      dispatch({ type: "recurrence", taskId: task.id, change }, (after) =>
+        settleSnapshot(before, after),
+      );
+      toast.show(
+        change === "pause"
+          ? `${clipName(task.title)} en pausa`
+          : `${clipName(task.title)} salteada esta semana`,
+        {
+          undo: () => {
+            dispatch({ type: "restoreState", before });
+            requestAnimationFrame(() =>
+              document.querySelector<HTMLElement>(`[data-task="${CSS.escape(task.id)}"]`)?.focus(),
+            );
+          },
+        },
+      );
+      setAsk(null);
+      onClose();
+      return;
+    }
     dispatch({ type: "recurrence", taskId: task.id, change });
     setAsk(null);
     if (change !== "resume") onClose();
@@ -379,7 +402,6 @@ export function TaskDetail({
             },
             {
               label: "Hasta que lo reactive",
-              detail: "Lo podés volver a prender desde este silo",
               onPick: () => repeat("pause"),
             },
           ]}

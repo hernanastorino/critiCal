@@ -214,7 +214,7 @@ function Row({
       type="button"
       className={`settings-row${danger ? " danger" : ""}`}
       // VoiceOver reads «Calendarios, Google ✓», not the two run together.
-      aria-label={value ? `${label}, ${value}` : undefined}
+      aria-label={value ? `${label}, ${value}` : label}
       onClick={onClick}
     >
       <span className="settings-icon">
