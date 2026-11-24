@@ -39,12 +39,20 @@ const label = (name: string) => (isBlank(name) ? "Sin nombre" : name);
 /** How the address line is cut: «…» (false) or a fade at the end (true, `.place-addr--fade`). */
 const ADDRESS_FADE = false;
 
-/** The street address as typed, one line: never the aliases or the events it was used in. */
+/** Looks like a map address: letters, a door number and at least two words. */
+const looksLikeAddress = (text: string) =>
+  /\p{L}/u.test(text) && /\d/.test(text) && text.split(" ").length >= 2;
+
+/**
+ * The street address, one line: `address`, else the longest alias that looks like one (the
+ * location Google Calendar gave an event). Never the other aliases or event names.
+ */
 export const placeAddress = (p: Place): string | undefined => {
-  const text = stripInvisible(p.address ?? "")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text || undefined;
+  const clean = (t: string) => stripInvisible(t).replace(/\s+/g, " ").trim();
+  const own = clean(p.address ?? "");
+  if (own) return own;
+  const found = p.aliases.map(clean).filter(looksLikeAddress);
+  return found.sort((x, y) => y.length - x.length).at(0);
 };
 
 /** Saved places and the driving times between them. */
@@ -179,7 +187,6 @@ export function Places() {
               <span className="place-line">
                 <span className="place-name">
                   {p.isHome && <Marks.home />}
-                  {p.isHome ? " " : ""}
                   {label(p.name)}
                 </span>
                 <span className="place-mode" aria-hidden="true">
@@ -190,9 +197,11 @@ export function Places() {
                   {p.travelMode === "bus" ? "Ómnibus" : "Auto"}
                 </span>
               </span>
-              <span className={`meta place-addr${ADDRESS_FADE ? " place-addr--fade" : ""}`}>
-                {placeAddress(p) ?? "Sin dirección"}
-              </span>
+              {placeAddress(p) && (
+                <span className={`meta place-addr${ADDRESS_FADE ? " place-addr--fade" : ""}`}>
+                  {placeAddress(p)}
+                </span>
+              )}
             </span>
             <button
               type="button"

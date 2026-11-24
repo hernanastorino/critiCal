@@ -2825,6 +2825,7 @@ label.check {
 .place-name {
   display: flex;
   align-items: center;
+  gap: 0.3em;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;

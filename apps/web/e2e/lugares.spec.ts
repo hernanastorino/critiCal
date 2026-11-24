@@ -46,9 +46,9 @@ test.describe("lugares y la casa", () => {
     await openDemo(page);
     await openSettingsPage(page, "Lugares y traslados");
     await addPlace(page, "Casa", { home: true });
-    await expect(sheet(page).locator(".place-row", { hasText: "Casa · Auto" })).toContainText(
-      "Sin dirección",
-    );
+    const casa = sheet(page).locator(".place-row", { hasText: "Casa · Auto" });
+    await expect(casa).toBeVisible();
+    await expect(casa.locator(".place-addr")).toHaveCount(0);
 
     await backToList(page);
     await expect(avisos(page)).toContainText("Tu casa no tiene dirección");
@@ -82,7 +82,7 @@ test.describe("lugares y la casa", () => {
 
     // Una sola marcada como casa, y la abuela no es «Casa» ni cuenta como repetida.
     await expect(sheet(page).locator(".place-row .place-name svg")).toHaveCount(1);
-    await expect(sheet(page).getByText("Sin dirección", { exact: true })).toHaveCount(1);
+    await expect(sheet(page).getByText("Sin dirección", { exact: true })).toHaveCount(0);
     await expect(sheet(page).getByRole("alert")).toHaveCount(0);
 
     // Sigue así tras recargar (la demo vive en el aparato).
