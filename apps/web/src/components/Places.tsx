@@ -466,6 +466,30 @@ function AliasTaken({ id, alias }: { id: string; alias?: string }) {
   );
 }
 
+/** What is wrong with the place form, if anything: the message under the name, and whether it blocks saving. */
+function placeProblem(x: {
+  form: { name: string; address: string; aliases: string };
+  taken: boolean;
+  aliasDup?: string;
+  empty: boolean;
+  tried: boolean;
+}): { problem: string | null; blocked: boolean } {
+  const { form, taken, aliasDup, empty, tried } = x;
+  const longAlias = form.aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
+  // The fields stop at their limits as you type; a pasted or restored draft is checked here.
+  const longName = form.name.trim().length > NAME_MAX;
+  const longAddress = form.address.trim().length > ADDRESS_MAX;
+  const blocked = !!(empty || taken || aliasDup || longAlias || longName || longAddress);
+  const messages: [boolean, string][] = [
+    [taken, "Ya tenés un lugar con ese nombre: elegí otro o editá ese."],
+    [longName, `El nombre tiene como máximo ${NAME_MAX} caracteres.`],
+    [longAddress, `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`],
+    [longAlias, `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`],
+    [empty && tried, "Poné un nombre para el lugar."],
+  ];
+  return { problem: messages.find(([on]) => on)?.[1] ?? null, blocked };
+}
+
 function PlaceForm({
   place,
   onSave,
@@ -503,22 +527,7 @@ function PlaceForm({
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
   const empty = isBlank(name);
-  const longAlias = aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
-  // The fields stop at their limits as you type; a pasted or restored draft is checked here.
-  const longName = name.trim().length > NAME_MAX;
-  const longAddress = address.trim().length > ADDRESS_MAX;
-  const blocked = !!(empty || taken || aliasDup || longAlias || longName || longAddress);
-  const problem = taken
-    ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
-    : longName
-      ? `El nombre tiene como máximo ${NAME_MAX} caracteres.`
-      : longAddress
-        ? `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`
-        : longAlias
-          ? `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`
-          : empty && tried
-            ? "Poné un nombre para el lugar."
-            : null;
+  const { problem, blocked } = placeProblem({ form, taken, aliasDup, empty, tried });
   // Bus times are worked out from the addresses: without one there is nothing to compute.
   const noAddress = travelMode === "bus" && !address.trim();
   const nameField = useRef<HTMLInputElement>(null);
