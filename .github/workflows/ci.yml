@@ -76,6 +76,10 @@ jobs:
     timeout-minutes: 30
     needs: [quality, playwright-image]
     container: ${{ needs.playwright-image.outputs.image }}
+    # Jobs in a container default to sh; the steps use bash syntax, as on the bare runner.
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v7
         with:

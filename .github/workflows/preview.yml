@@ -51,6 +51,10 @@ jobs:
     needs: playwright-image
     runs-on: ubuntu-latest
     container: ${{ needs.playwright-image.outputs.image }}
+    # Jobs in a container default to sh; the steps use bash syntax, as on the bare runner.
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 30
     environment: staging
     steps:
