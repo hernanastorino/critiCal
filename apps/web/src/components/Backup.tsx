@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
+import { forgetImport, rememberImport } from "../importUndo.js";
 import { type AppData, CRITICAL } from "../model.js";
 import { standingCheckIns, withOrphanMarks } from "../planning.js";
 import { refresh } from "../refresh.js";
@@ -98,10 +99,15 @@ export function Backup() {
     // No question (§14): the data before the import is kept, and «Deshacer» puts it back.
     const before = data;
     dispatch({ type: "replace", data: restored });
+    // The header's «Deshacer» says «importar» too, until something else is changed.
+    rememberImport(before, restored);
     setMessage(null);
     const left = parsed.dropped?.length ? `. Quedó afuera: ${parsed.dropped.join(", ")}` : "";
     toast.show(`Datos importados${left}`, {
-      undo: () => dispatch({ type: "replace", data: before }),
+      undo: () => {
+        forgetImport();
+        dispatch({ type: "replace", data: before });
+      },
     });
   };
 

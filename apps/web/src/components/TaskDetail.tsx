@@ -216,39 +216,41 @@ export function TaskDetail({
             Registrar avance
           </div>
         )}
-        <label className="field" hidden={live.paused}>
-          <span>Le dediqué (minutos)</span>
-          <input
-            inputMode="numeric"
-            value={minutes}
-            onChange={(e) => setMinutes(e.target.value)}
-            placeholder="40"
-            aria-invalid={badMinutes ? true : undefined}
-            aria-describedby={
-              [badMinutes && "minutes-error", factor > 1 && "break-note"]
-                .filter(Boolean)
-                .join(" ") || undefined
-            }
-          />
-          {badMinutes && (
-            <span
-              className="meta"
-              id="minutes-error"
-              role="alert"
-              style={{ margin: 0, color: "var(--critical)" }}
-            >
-              {badMinutes}
-            </span>
-          )}
-          {factor > 1 && (
-            <span className="meta" id="break-note" style={{ margin: 0 }}>
-              Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
-              {hours(Math.round(240 / factor))} de estudio.
-              {task.units.length > 0 &&
-                " Marcá también las partes hechas: lo que falta se mide por ellas."}
-            </span>
-          )}
-        </label>
+        {!live.paused && (
+          <label className="field">
+            <span>Le dediqué (minutos)</span>
+            <input
+              inputMode="numeric"
+              value={minutes}
+              onChange={(e) => setMinutes(e.target.value)}
+              placeholder="40"
+              aria-invalid={badMinutes ? true : undefined}
+              aria-describedby={
+                [badMinutes && "minutes-error", factor > 1 && "break-note"]
+                  .filter(Boolean)
+                  .join(" ") || undefined
+              }
+            />
+            {badMinutes && (
+              <span
+                className="meta"
+                id="minutes-error"
+                role="alert"
+                style={{ margin: 0, color: "var(--critical)" }}
+              >
+                {badMinutes}
+              </span>
+            )}
+            {factor > 1 && (
+              <span className="meta" id="break-note" style={{ margin: 0 }}>
+                Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
+                {hours(Math.round(240 / factor))} de estudio.
+                {task.units.length > 0 &&
+                  " Marcá también las partes hechas: lo que falta se mide por ellas."}
+              </span>
+            )}
+          </label>
+        )}
         {live.paused ? null : task.units.length > 0 ? (
           <div className="field">
             <span>

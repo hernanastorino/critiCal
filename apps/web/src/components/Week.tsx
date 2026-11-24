@@ -19,6 +19,7 @@ import {
   time,
   weekdayShort,
 } from "../format.js";
+import { forgetImport, importToUndo } from "../importUndo.js";
 import { lanes } from "../lanes.js";
 import { deadlineMaxYear } from "../limits.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
@@ -422,7 +423,9 @@ export function Week({
         ? endYear
         : `${startYear}–${endYear}`;
   const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
-  const lastChange = data.planHistory?.at(-1)?.label;
+  // An import is the last change until something else is changed.
+  const imported = importToUndo(data);
+  const lastChange = imported ? "importar" : data.planHistory?.at(-1)?.label;
 
   // Meals of the week shown, placed around fixed events and pins as the planner does.
   const firstDay = dates[0] as string;
@@ -958,6 +961,13 @@ export function Week({
             disabled={!lastChange}
             onClick={() => {
               if (!lastChange) return;
+              if (imported) {
+                forgetImport();
+                dispatch({ type: "replace", data: imported });
+                flash("Deshecho: importar");
+                setSpoken("");
+                return;
+              }
               const last = (data.planHistory ?? []).length === 1;
               // What the change touched, if it is in another week: go there, so the
               // undo is seen and not blind.
