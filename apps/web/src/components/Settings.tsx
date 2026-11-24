@@ -62,6 +62,7 @@ export type PageId =
   | "invites"
   | "backup"
   | "about"
+  | "demo"
   | "account";
 
 interface Page {
@@ -98,6 +99,7 @@ const KEYWORDS: Record<PageId, string> = {
   backup: "respaldo exportar importar json copia",
   about:
     "acerca de politica de privacidad datos legal atribucion fuente datos abiertos stm mtop intendencia montevideo teoricos horarios omnibus",
+  demo: "demo de pruebas datos armados casos reiniciar ejemplo",
   account: "cuenta borrar eliminar revocar datos plan calendario",
 };
 
@@ -476,6 +478,7 @@ export function Settings({
     (d) => routineKey(d) === routineKey(data.settings.week[0] as typeof d),
   );
 
+  const testDemo = !sync && isTestDemo();
   const groups: { label: string; pages: (Page | false)[] }[] = [
     {
       label: "Planificar",
@@ -570,6 +573,17 @@ export function Settings({
         owner && { id: "invites", title: "Invitaciones", icon: I.users, content: <Invites /> },
         { id: "backup", title: "Respaldo", icon: I.box, content: <Backup /> },
         { id: "about", title: "Acerca de", icon: I.shield, content: <About /> },
+        testDemo && {
+          id: "demo",
+          title: "Demo de pruebas",
+          icon: I.doc,
+          content: (
+            <p className="meta">
+              Datos armados para probar cada caso, solo en este dispositivo. «Reiniciar demo» los
+              vuelve a cargar.
+            </p>
+          ),
+        },
       ],
     },
   ];
@@ -605,7 +619,6 @@ export function Settings({
   const weeklyRow = onWeeklyPlan && (
     <Row key="weekly" icon={I.plan} label="Planificación semanal" onClick={onWeeklyPlan} />
   );
-  const testDemo = !sync && isTestDemo();
   const stepsRow = (sync || testDemo) && (
     <Row
       key="steps"
@@ -806,12 +819,6 @@ export function Settings({
                       {shown.map(pageRow)}
                       {g.label === "Cuenta" && (
                         <>
-                          {testDemo && (
-                            <p className="meta">
-                              Demo de pruebas: datos armados para probar cada caso, solo en este
-                              dispositivo. «Reiniciar demo» los vuelve a cargar.
-                            </p>
-                          )}
                           {stepsRow}
                           {resetRow}
                           {outRow}
