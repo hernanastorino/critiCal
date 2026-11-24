@@ -19,6 +19,13 @@ export const MAX_TOPICS = 500;
 const MAX_LOG_MINUTES = 1440;
 
 /** What is wrong with the minutes typed in the log, if anything (empty is fine: 0). */
+/** What the notice says once progress is saved. */
+function savedText(logged: number, title: string): string {
+  return logged > 0
+    ? `Avance guardado: ${hours(logged)} en ${clipName(title)}`
+    : `Avance guardado en ${clipName(title)}`;
+}
+
 /** Why a weekly silo is not running right now, if it is not. */
 function offText(live: AppTask, tz: string, now: number): string | null {
   if (live.paused) return "Pausado hasta que lo reactives.";
@@ -323,11 +330,7 @@ export function TaskDetail({
                   topics: total || undefined,
                   topicsDone: Number(topicsDone) || 0,
                 });
-                toast.show(
-                  logged > 0
-                    ? `Avance guardado: ${hours(logged)} en ${clipName(task.title)}`
-                    : `Avance guardado en ${clipName(task.title)}`,
-                );
+                toast.show(savedText(logged, task.title));
                 onClose();
               }}
             >
