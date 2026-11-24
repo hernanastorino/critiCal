@@ -117,7 +117,7 @@ describe("Editar entrega: horas estimadas y partes", () => {
     fireEvent.change(hours, { target: { value: "0" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     expect(hours.getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByRole("alert").textContent).toMatch(/partes suman 10 h/);
+    expect(screen.getByRole("alert").textContent).toMatch(/partes suman 10h/);
     expect(document.activeElement).toBe(hours);
   });
 });

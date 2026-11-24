@@ -1,4 +1,4 @@
-import { parseClock } from "./format.js";
+import { hours, parseClock } from "./format.js";
 
 /** The shortest and longest awake day «Hoy» takes (the SPEC sets no limit; see §4). */
 const MIN_AWAKE = 4 * 60;
@@ -14,11 +14,8 @@ export function awakeMinutes(wake: string, bed: string): number {
   return b <= w ? b + 1440 - w : b - w;
 }
 
-/** «3 h 59 min», «22 h 1 min», «23 h»: the exact length, so the edge never contradicts itself. */
-export function awakeText(minutes: number): string {
-  const [h, m] = [Math.floor(minutes / 60), minutes % 60];
-  return m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
-}
+/** «3h59», «22h01», «23h»: the exact length, so the edge never contradicts itself. */
+export const awakeText = hours;
 
 /** An error for a day that is too short or too long to plan, or null when it is fine. */
 export function awakeProblem(wake: string, bed: string): string | null {

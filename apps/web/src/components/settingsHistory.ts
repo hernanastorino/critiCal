@@ -1,4 +1,22 @@
-import { useEffect, useRef } from "react";
+import { createContext, type RefObject, useContext, useEffect, useRef } from "react";
+
+/**
+ * What Escape does on a screen of Ajustes that has a level of its own (a form inside it):
+ * the screen sets it, and Escape goes one level back there instead of to the list.
+ */
+export const ScreenEscape = createContext<RefObject<(() => void) | null> | null>(null);
+
+/** Registers `back` as Escape's way back from this screen while `back` is set. */
+export function useScreenEscape(back: (() => void) | null) {
+  const slot = useContext(ScreenEscape);
+  useEffect(() => {
+    if (!slot || !back) return;
+    slot.current = back;
+    return () => {
+      if (slot.current === back) slot.current = null;
+    };
+  }, [slot, back]);
+}
 
 /** Ajustes open on its list is history entry 1; on one of its screens, entry 2. */
 const KEY = "critiCal.settings";

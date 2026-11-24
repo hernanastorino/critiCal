@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
@@ -30,6 +30,7 @@ import {
 } from "./fields.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { Section } from "./Section.js";
+import { useScreenEscape } from "./settingsHistory.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { editorDraft, TaskEditor } from "./TaskEditor.js";
 import { useToast } from "./Toast.js";
@@ -44,6 +45,8 @@ const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
+  const morningHelp = useId();
+  const freeHelp = useId();
   const { data, dispatch } = useStore();
   const [{ days, form, held }, setDraft, saved, dirty] = useDraft("week", () => ({
     days: [1, 2, 3, 4, 5],
@@ -145,6 +148,14 @@ export function WeekSettings() {
       });
       return;
     }
+    if (bed > wake && free > bed) {
+      setFailure({
+        message: `«Nada de estudio desde» (${form.freeFrom}) cae después de que te acuestes (${form.bed}).`,
+        field: "Nada de estudio desde",
+        form,
+      });
+      return;
+    }
     // Breakfast, lunch, snack and dinner in that order (the later one never before).
     const inOrder = meals.map((m) => ({ ...m, at: m.start < wake ? m.start + 1440 : m.start }));
     const early = inOrder.find((m, i) => i > 0 && m.at < (inOrder[i - 1] as { at: number }).at);
@@ -240,10 +251,15 @@ export function WeekSettings() {
         />
         <Field
           label="Arreglarse, traslado (min)"
-          help="Desde que te levantás hasta que podés empezar a estudiar."
+          helpId={morningHelp}
           value={form.morning}
           onChange={set("morning")}
           invalid={badField === "Arreglarse, traslado (min)"}
+        />
+        <Help
+          id={morningHelp}
+          text="Desde que te levantás hasta que podés empezar a estudiar."
+          wide
         />
         <Field
           label="Desayuno"
@@ -303,7 +319,7 @@ export function WeekSettings() {
         />
         <Field
           label="Nada de estudio desde"
-          help="Después de esta hora no se planifica estudio."
+          helpId={freeHelp}
           type="time"
           value={form.freeFrom}
           onChange={set("freeFrom")}
@@ -316,6 +332,7 @@ export function WeekSettings() {
           onChange={set("bed")}
           invalid={isBad("Me acuesto")}
         />
+        <Help id={freeHelp} text="Después de esta hora no se planifica estudio." wide />
       </div>
       <p className="meta">
         No se planifica nada antes de{" "}
@@ -734,6 +751,8 @@ export function Routines() {
     if (dirty) setLeaving(true);
     else setCreating(false);
   };
+  // Escape on the form goes back to the list, asking first when it is half filled.
+  useScreenEscape(creating ? leave : null);
   const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key !== "Enter") return;
     e.preventDefault();

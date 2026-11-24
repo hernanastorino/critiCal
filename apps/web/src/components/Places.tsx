@@ -473,7 +473,7 @@ function placeProblem(x: {
   aliasDup?: string;
   empty: boolean;
   tried: boolean;
-}): { problem: string | null; blocked: boolean } {
+}): { problem: string | null; blocked: boolean; field: "name" | "address" | "aliases" } {
   const { form, taken, aliasDup, empty, tried } = x;
   const longAlias = form.aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
   // The fields stop at their limits as you type; a pasted or restored draft is checked here.
@@ -487,7 +487,9 @@ function placeProblem(x: {
     [longAlias, `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`],
     [empty && tried, "Poné un nombre para el lugar."],
   ];
-  return { problem: messages.find(([on]) => on)?.[1] ?? null, blocked };
+  // The first field, top to bottom, that stops the save: where the keyboard goes on «Guardar».
+  const field = empty || taken || longName ? "name" : longAddress ? "address" : "aliases";
+  return { problem: messages.find(([on]) => on)?.[1] ?? null, blocked, field };
 }
 
 function PlaceForm({
@@ -527,10 +529,13 @@ function PlaceForm({
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
   const empty = isBlank(name);
-  const { problem, blocked } = placeProblem({ form, taken, aliasDup, empty, tried });
+  const { problem, blocked, field } = placeProblem({ form, taken, aliasDup, empty, tried });
   // Bus times are worked out from the addresses: without one there is nothing to compute.
   const noAddress = travelMode === "bus" && !address.trim();
   const nameField = useRef<HTMLInputElement>(null);
+  const addressField = useRef<HTMLInputElement>(null);
+  const aliasField = useRef<HTMLInputElement>(null);
+  const fields = { name: nameField, address: addressField, aliases: aliasField };
   // Opened from «Agregar lugar» or «Editar»: the keyboard lands on the first field.
   useEffect(() => nameField.current?.focus(), []);
   return (
@@ -560,6 +565,7 @@ function PlaceForm({
       <label className="field">
         <span>Dirección (para calcular tiempos)</span>
         <input
+          ref={addressField}
           value={address}
           maxLength={ADDRESS_MAX}
           onChange={(e) => setAddress(e.target.value)}
@@ -575,6 +581,7 @@ function PlaceForm({
       <label className="field">
         <span>Alias, separados por coma</span>
         <input
+          ref={aliasField}
           value={aliases}
           maxLength={ALIASES_FIELD_MAX}
           onChange={(e) => setAliases(e.target.value)}
@@ -629,7 +636,7 @@ function PlaceForm({
           onClick={() => {
             if (blocked) {
               setTried(true);
-              nameField.current?.focus();
+              fields[field].current?.focus();
               return;
             }
             finish();

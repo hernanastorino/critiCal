@@ -56,9 +56,9 @@ describe("1. Mi semana y el respaldo piden el mismo día", () => {
   const save = () => click(/^Guardar para/);
 
   it.each([
-    ["07:30", "07:00", /23 h 30 min/],
-    ["00:00", "23:59", /23 h 59 min/],
-    ["08:00", "11:00", /3 h:/],
+    ["07:30", "07:00", /23h30/],
+    ["00:00", "23:59", /23h59/],
+    ["08:00", "11:00", /3h:/],
   ])("%s a %s is refused in the day's fields", (wake, bed, said) => {
     inside(<WeekSettings />);
     const before = week();
@@ -85,7 +85,7 @@ describe("1. Mi semana y el respaldo piden el mismo día", () => {
       bed: 420,
     };
     const out = parseBackup(exportJson(d, NOW));
-    expect("error" in out && out.error).toMatch(/^El lunes tiene 23 h 30 min despierto/);
+    expect("error" in out && out.error).toMatch(/^El lunes tiene 23h30 despierto/);
   });
 
   it("whatever the app saves in Mi semana imports back", () => {
