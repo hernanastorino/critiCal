@@ -46,17 +46,20 @@ test("Silos: con letra enorme el nombre no se parte a mitad de palabra", async (
       const texto = el.firstChild as Text;
       const r = document.createRange();
       const out: string[] = [];
+      let linea = "";
       let top = Number.NaN;
       for (let i = 0; i < texto.length; i++) {
         r.setStart(texto, i);
         r.setEnd(texto, i + 1);
         const y = Math.round(r.getBoundingClientRect().top);
-        if (y !== top) {
-          out.push("");
-          top = y;
+        if (y !== top && linea) {
+          out.push(linea);
+          linea = "";
         }
-        out[out.length - 1] += texto.data[i];
+        top = y;
+        linea += texto.data.charAt(i);
       }
+      out.push(linea);
       return out.map((l) => l.trim());
     });
   expect(lineas.join(" ")).toBe("Programación 2");
