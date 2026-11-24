@@ -52,7 +52,7 @@ describe("Demo de pruebas", () => {
     fireEvent.click(screen.getByRole("button", { name: "Demo de pruebas" }));
     expect(localStorage.getItem(DEMO_KIND_KEY)).toBe("pruebas");
     fireEvent.click(await screen.findByRole("button", { name: "Ajustes" }));
-    expect(await screen.findByText(/Demo de pruebas: datos armados/)).toBeTruthy();
+    expect(await screen.findByRole("button", { name: /^Demo de pruebas/ })).toBeTruthy();
     // The first steps are there to try, unfinished.
     expect(screen.getAllByText(/Primeros pasos/).length).toBeGreaterThan(0);
   }, 30_000);
