@@ -14,6 +14,7 @@ import {
   isFigure,
   isWhole,
   Problem,
+  ProblemSlot,
   toHours,
   Unsaved,
 } from "./fields.js";
@@ -316,7 +317,9 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </label>
-          <Problem id={`${key}-name-error`} text={nameProblem} />
+          <ProblemSlot>
+            <Problem id={`${key}-name-error`} text={nameProblem} />
+          </ProblemSlot>
           <fieldset className="swatches" aria-label="Color">
             {PALETTE.map((c) => (
               <button
@@ -378,12 +381,14 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
               onChange={(e) => setForm({ ...form, to: e.target.value })}
             />
           </div>
-          <Problem id={`${key}-max-error`} text={numbers.max} />
-          <Problem id={`${key}-min-error`} text={numbers.min} />
-          <Problem id={`${key}-study-error`} text={numbers.study} />
-          <Problem id={`${key}-rest-error`} text={numbers.rest} />
-          <Problem id={`${key}-block-error`} text={blockProblem} />
-          <Problem id={`${key}-window-error`} text={windowProblem?.message ?? null} />
+          <ProblemSlot>
+            <Problem id={`${key}-max-error`} text={numbers.max} />
+            <Problem id={`${key}-min-error`} text={numbers.min} />
+            <Problem id={`${key}-study-error`} text={numbers.study} />
+            <Problem id={`${key}-rest-error`} text={numbers.rest} />
+            <Problem id={`${key}-block-error`} text={blockProblem} />
+            <Problem id={`${key}-window-error`} text={windowProblem?.message ?? null} />
+          </ProblemSlot>
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
@@ -427,7 +432,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
             />
             Es estudio (respeta «nada de estudio desde»)
           </label>
-          {dirty && <Unsaved />}
+          <Unsaved show={dirty} />
           <button
             type="button"
             className="btn primary"

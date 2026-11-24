@@ -2961,3 +2961,26 @@ label.check {
 .settings-page:has(.routine-form-view) > h2 {
   display: none;
 }
+
+/* The place of one line of messages: a message that comes or goes moves nothing under it. */
+.problem-slot {
+  display: flow-root;
+  font-size: var(--text-m);
+  min-height: calc(1lh + var(--space-4));
+}
+
+/* Ajustes keeps its height whatever the search leaves: a tap where the field was never lands on the scrim. */
+.sheet.settings {
+  min-height: min(88vh, calc(100dvh - var(--safe-t) - 84px));
+}
+
+/* With a sheet open the notice stays in the strip the sheet leaves free (84 px): at the very top
+   even on the week, and at most two lines, so it never covers a title or the header buttons. */
+body:has(.sheet) .toasts.toasts:not(.low) {
+  top: calc(var(--safe-t) + 8px);
+}
+
+body:has(.sheet) .toasts:not(.low) .snack > span {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
