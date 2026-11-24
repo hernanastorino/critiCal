@@ -68,7 +68,7 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 - ~~Verde de «hecho» en Partes hechas~~: respondida el 2026-11-24: sí, verde.
 - ~~Margen de 13 px en Lugares~~: respondida el 2026-11-24 con un rediseño de la lista: nombre · ícono de traslado (sin texto «Auto»/«Ómnibus», ícono de auto nuevo), una línea con la dirección real (de `address` o del alias que parece dirección) con fundido al final, sin «Tu casa» ni los alias/eventos, «Editar» centrado. PR #260.
 - ~~Pedidos directos del 2026-11-24~~ (hechos en #261): «dormías» centrado (horizontal y vertical) en cada evento dormido; aviso en la Bandeja cuando la franja preferida de una rutina cae fuera de la válida (Gym en la demo: «Preferís 17:00–21:00, pero solo puede ir 09:00–17:00.» con «Editar rutina»); la atribución de horarios de STM/MTOP pasó a una fila «Acerca de» en Cuenta (con el link a la política de privacidad), sin texto suelto entre categorías.
-- **Nota «Demo de pruebas: …» en Cuenta**: sigue como párrafo suelto entre «Acerca de» y «Primeros pasos». ¿La pasamos también adentro de una fila?
+- ~~Nota «Demo de pruebas: …» en Cuenta~~: respondida el 2026-11-24: sí, ahora es una fila «Demo de pruebas» en Cuenta. PR #264.
 
 ## 0. Antes de empezar algo nuevo
 
