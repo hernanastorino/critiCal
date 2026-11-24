@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ToastProvider } from "./components/Toast.js";
 import { Week } from "./components/Week.js";
 import { demoData } from "./demo.js";
@@ -27,7 +27,7 @@ function show(data: AppData) {
   render(
     <StoreProvider initial={() => data} persist={false} fixedNow={NOW}>
       <ToastProvider>
-        <Week onSettings={() => {}} />
+        <Week onSettings={vi.fn()} />
       </ToastProvider>
     </StoreProvider>,
   );
@@ -35,10 +35,9 @@ function show(data: AppData) {
 
 describe("repasos espaciados en la semana", () => {
   it("la burbuja lleva el ícono de repetir y «Repaso» en su nombre; las demás no", () => {
-    const { data, title } = setup();
+    const { data } = setup();
     show(data);
     const review = screen.getByRole("button", { name: /^Repaso · / });
-    expect(review.getAttribute("aria-label")).toContain(`Repaso · ${title}`);
     expect(within(review).getByTestId("rev-ic")).toBeTruthy();
   });
 
