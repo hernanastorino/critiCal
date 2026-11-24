@@ -238,7 +238,7 @@ export function Silos() {
                     {r.routine && <span className="meta"> · rutina</span>}
                   </span>
                   <span className="meta" style={{ margin: 0 }}>
-                    <CountUp value={r.done} /> de <CountUp value={r.planned} />
+                    <CountUp value={r.done} /> / <CountUp value={r.planned} />
                   </span>
                   <div className="track" style={{ ["--c" as string]: r.color }}>
                     <div

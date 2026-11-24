@@ -4,7 +4,7 @@ import { useDraft } from "../drafts.js";
 import { addDays, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
-import { dateError, deadlineMaxYear, isBlank, TITLE_MAX } from "../limits.js";
+import { dateError, deadlineMaxYear, isBlank, stripInvisible, TITLE_MAX } from "../limits.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, sameName, subjectsOf } from "../subjects.js";
@@ -117,7 +117,7 @@ export function Semester() {
     once(`subject:${subject}`, () => addSubjectNow(e));
   };
   const addSubjectNow = (e: React.MouseEvent<HTMLButtonElement>) => {
-    const name = subject.trim().replace(/\s+/g, " ");
+    const name = stripInvisible(subject);
     if (isBlank(name)) {
       setNameTried(true);
       askFocus(e.currentTarget);

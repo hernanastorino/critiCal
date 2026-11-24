@@ -1208,7 +1208,7 @@ export function Week({
                       data-at={item.start}
                       type="button"
                       data-level={b.level}
-                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${sleptIds.has(b.id) ? ", dormías" : ""}${b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
+                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${sleptIds.has(b.id) ? ", no hecho: dormías" : b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
                       className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${sleptIds.has(b.id) ? " slept" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                       style={{ ...style, ["--c" as string]: colorOf(b) }}
                       onPointerDown={
