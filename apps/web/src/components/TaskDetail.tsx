@@ -4,6 +4,7 @@ import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
 import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
@@ -167,7 +168,11 @@ export function TaskDetail({
   };
   const offState = offText(live, tz, now);
   const sheet = useRef<HTMLDivElement>(null);
-  const justOpened = useModal(sheet, onClose);
+  // Typed or marked and not saved: closing (✕, Escape, the backdrop) asks first, like the editors.
+  const [discarding, setDiscarding] = useState(false);
+  const pending = !!(minutes || topics || topicsDone || units.length || reopen.length);
+  const askClose = () => (pending ? setDiscarding(true) : onClose());
+  const justOpened = useModal(sheet, askClose);
   const badMinutes = minutesError(minutes);
   const badTopics = topicsError(topics, task.estimateMinutes);
   const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
@@ -189,11 +194,11 @@ export function TaskDetail({
         aria-hidden="true"
         tabIndex={-1}
         onClick={() => {
-          if (!justOpened()) onClose();
+          if (!justOpened()) askClose();
         }}
       />
       <div ref={sheet} className="sheet" role="dialog" aria-modal="true" aria-label={task.title}>
-        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={askClose}>
           <Marks.close />
         </button>
         {/* A very long title (imported or seeded) is cut at three lines: it must not push the form away. */}
@@ -389,6 +394,7 @@ export function TaskDetail({
           </div>
         )}
       </div>
+      {discarding && <ConfirmDiscard onDiscard={onClose} onKeep={() => setDiscarding(false)} />}
       {ask === "off" && (
         <ActionSheet
           title={`Desactivar ${task.title}`}
