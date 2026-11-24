@@ -17,9 +17,9 @@ test("un bloque de repaso muestra el ícono y «Repaso» en el globito", async (
   await expect(repasos.first().locator(".rev-ic svg")).toBeVisible();
   // Solo los repasos llevan ícono.
   await expect(page.locator(".pill.planned .rev-ic")).toHaveCount(await repasos.count());
-  const nombre = (await repasos.first().getAttribute("aria-label")) ?? "";
+  const nombre = await repasos.first().getAttribute("aria-label");
   expect(nombre).toMatch(/^Repaso · /);
   await repasos.first().click();
-  const titulo = nombre.split(",")[0] ?? "";
+  const titulo = String(nombre).split(",", 1).join("");
   await expect(page.getByRole("dialog").getByRole("heading", { name: titulo })).toBeVisible();
 });

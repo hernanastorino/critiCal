@@ -172,7 +172,7 @@ export function rowsToData(r: {
         end: ms(b.end_at as string),
         level: b.level as PlanBlock["level"],
         soft: b.soft as boolean,
-        review: (b.review as boolean) || undefined,
+        review: b.review === true ? true : undefined,
       }),
     ),
     calendars: (r.calendars ?? []).map(

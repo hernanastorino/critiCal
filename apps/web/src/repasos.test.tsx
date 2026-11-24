@@ -37,16 +37,16 @@ describe("repasos espaciados en la semana", () => {
   it("la burbuja lleva el ícono de repetir y «Repaso» en su nombre; las demás no", () => {
     const { data, title } = setup();
     show(data);
-    const reviews = screen.getAllByRole("button", { name: new RegExp(`^Repaso · ${title}`) });
-    expect(reviews).toHaveLength(1);
-    expect(reviews[0]?.querySelector(".rev-ic svg")).not.toBeNull();
+    const review = screen.getByRole("button", { name: /^Repaso · / });
+    expect(review.getAttribute("aria-label")).toContain(`Repaso · ${title}`);
+    expect(review.querySelector(".rev-ic svg")).not.toBeNull();
     expect(document.querySelectorAll(".pill.planned .rev-ic")).toHaveLength(1);
   });
 
   it("el globito dice «Repaso · tarea»", () => {
     const { data, title } = setup();
     show(data);
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(`^Repaso · ${title}`) }));
+    fireEvent.click(screen.getByRole("button", { name: /^Repaso · / }));
     const bubble = screen.getByRole("dialog");
     expect(within(bubble).getByRole("heading", { name: `Repaso · ${title}` })).toBeTruthy();
   });
