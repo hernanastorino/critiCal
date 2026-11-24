@@ -12,7 +12,14 @@ test("Mi semana: un error al guardar lleva el foco y el scroll al campo, y Guard
   await openSettingsPage(page, "Mi semana");
   const hoja = sheet(page);
   const guardar = hoja.getByRole("button", { name: /^Guardar para/ });
-  const altura = async () => Math.round((await guardar.boundingBox())?.y ?? -1);
+  // Su lugar en el contenido de la hoja (el scroll que hace el foco no cuenta como salto).
+  const altura = async () =>
+    guardar.evaluate((el) => {
+      const hoja = el.closest('[role="dialog"]') as HTMLElement;
+      return Math.round(
+        el.getBoundingClientRect().top - hoja.getBoundingClientRect().top + hoja.scrollTop,
+      );
+    });
 
   const antes = await altura();
   const acuesto = hoja.getByLabel("Me acuesto", { exact: true });
