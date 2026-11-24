@@ -43,7 +43,7 @@ import { Roy } from "./Roy.js";
 import { SectionOpen } from "./Section.js";
 import { Semester } from "./Semester.js";
 import { SyllabusImport } from "./SyllabusImport.js";
-import { useSettingsHistory } from "./settingsHistory.js";
+import { ScreenEscape, useSettingsHistory } from "./settingsHistory.js";
 import { WidgetSetup } from "./WidgetSetup.js";
 
 export type PageId =
@@ -377,6 +377,8 @@ export function Settings({
     rememberSettingsPage(page);
   }, [page]);
   const popScreen = useSettingsHistory(page, toList, onClose);
+  // A form inside a screen (a new routine) takes Escape one level back, to its own list.
+  const screenEscape = useRef<(() => void) | null>(null);
   const close = () => {
     popScreen();
     toList();
@@ -384,7 +386,7 @@ export function Settings({
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
   const justOpened = useModal(
     sheet,
-    () => (page ? askBack() : askClose()),
+    () => (page ? (screenEscape.current ?? askBack)() : askClose()),
     !initialPage,
     () => document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
   );
@@ -844,7 +846,11 @@ export function Settings({
             </button>
             <h2>{p.title}</h2>
             <DraftPage.Provider value={p.id}>
-              <SectionOpen.Provider value={page === p.id}>{p.content}</SectionOpen.Provider>
+              <SectionOpen.Provider value={page === p.id}>
+                <ScreenEscape.Provider value={page === p.id ? screenEscape : null}>
+                  {p.content}
+                </ScreenEscape.Provider>
+              </SectionOpen.Provider>
             </DraftPage.Provider>
           </div>
         ))}

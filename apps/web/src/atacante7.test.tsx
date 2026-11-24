@@ -89,7 +89,7 @@ describe("2. Partes junto a la estimación", () => {
       ],
     };
     inside(<TaskEditor task={task} onClose={() => {}} />);
-    expect(screen.getByText(/Partes: 2 h de 3 h estimadas/)).toBeTruthy();
+    expect(screen.getByText(/Partes: 2h de 3h estimadas/)).toBeTruthy();
   });
 
   it("shows nothing without parts", () => {

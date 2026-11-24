@@ -1,5 +1,6 @@
 // What the silo form checks before saving: each problem is said beside its field.
 import { DEFAULTS, eventRole } from "./calendars.js";
+import { hours } from "./format.js";
 import { MAX_HOURS, TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
@@ -70,12 +71,8 @@ export function estimateProblem(v: string, partsMinutes: number): string | null 
     : null;
 }
 
-/** Minutes as «2 h», «1 h 30 min» or «45 min». */
-export function durationLabel(minutes: number): string {
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m === 0 ? `${h} h` : h === 0 ? `${m} min` : `${h} h ${m} min`;
-}
+/** Minutes as the rest of the app writes them: «2h», «1h30» or «45m». */
+export const durationLabel = hours;
 
 /**
  * What the parts add up to beside the estimate, so a silo showing less than the estimate

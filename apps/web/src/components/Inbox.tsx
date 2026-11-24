@@ -727,8 +727,16 @@ function WhereCard({
   const canUse = valid && !(save && (!name.trim() || taken));
   const use = () => {
     if (!canUse) return;
-    dispatch({ type: "spotMinutes", text: item.text, minutes: typed });
-    if (save) dispatch({ type: "saveSpot", key: spotKey(item.text), name });
+    undoable(
+      save ? `«${name.trim()}» guardado como lugar` : `${typed} min para «${item.event.title}»`,
+      save
+        ? [
+            { type: "spotMinutes", text: item.text, minutes: typed },
+            { type: "saveSpot", key: spotKey(item.text), name },
+          ]
+        : { type: "spotMinutes", text: item.text, minutes: typed },
+      [...PLAN_KEYS, "spots", "places", "travelTimes"],
+    );
   };
   const onEnter = (e: React.KeyboardEvent) => {
     if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;

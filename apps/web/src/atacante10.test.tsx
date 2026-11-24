@@ -199,9 +199,9 @@ describe("7. Horas para lo detectado", () => {
 });
 
 describe("8. Hábito: horas como en el resto", () => {
-  it("says 233 h 20 min, not 233.3 h", () => {
+  it("says 233h20, not 233.3 h", () => {
     const { minutes } = habitProblems("14", "1000", 0, false);
-    expect(minutes).toMatch(/233 h 20 min/);
+    expect(minutes).toMatch(/233h20/);
     expect(minutes).not.toMatch(/233\.3/);
   });
 });

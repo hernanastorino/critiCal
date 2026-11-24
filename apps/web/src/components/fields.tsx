@@ -66,6 +66,7 @@ export function Field({
   invalid,
   errorId = "week-error",
   help,
+  helpId: outerHelpId,
 }: {
   label: string;
   /** What a screen reader says when several fields share the same visible label. */
@@ -79,8 +80,11 @@ export function Field({
   errorId?: string;
   /** A short line under the field for what its label does not say (what it is for, an example). */
   help?: string;
+  /** The id of a help line shown apart from the field (a full row under its pair in a grid). */
+  helpId?: string;
 }) {
-  const helpId = useId();
+  const ownHelpId = useId();
+  const helpId = outerHelpId ?? ownHelpId;
   const inputId = useId();
   const box = (children: React.ReactNode) =>
     help ? <div className="field-with-help">{children}</div> : children;
@@ -96,7 +100,10 @@ export function Field({
           value={value}
           onChange={onChange}
           aria-invalid={invalid ? true : undefined}
-          aria-describedby={describedBy(invalid ? errorId : undefined, help ? helpId : undefined)}
+          aria-describedby={describedBy(
+            invalid ? errorId : undefined,
+            help || outerHelpId ? helpId : undefined,
+          )}
         />
       </label>
       {help && <Help id={helpId} text={help} />}
@@ -109,9 +116,9 @@ export const describedBy = (...ids: (string | undefined)[]) =>
   ids.filter(Boolean).join(" ") || undefined;
 
 /** The help line under a field: short, and tied to it with `aria-describedby`. */
-export function Help({ id, text }: { id: string; text: string }) {
+export function Help({ id, text, wide }: { id: string; text: string; wide?: boolean }) {
   return (
-    <small id={id} className="meta field-help">
+    <small id={id} className={`meta field-help${wide ? " field-help-wide" : ""}`}>
       {text}
     </small>
   );

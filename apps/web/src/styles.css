@@ -1161,7 +1161,8 @@ input[type="radio"]:disabled {
 
 .silos {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  /* The column grows with the letter size, so a name's words keep fitting in it. */
+  grid-template-columns: repeat(auto-fill, minmax(max(96px, 6rem), 1fr));
   gap: var(--space-4) var(--space-3);
 }
 
@@ -1250,7 +1251,8 @@ input[type="radio"]:disabled {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  overflow-wrap: anywhere;
+  /* Between words; a word is cut only when it is longer than the line. */
+  overflow-wrap: break-word;
 }
 
 .silo .due {
@@ -2927,6 +2929,11 @@ label.check {
   margin: calc(var(--space-1) - var(--space-3)) 0 var(--space-3);
   font-size: var(--text-xs);
   line-height: 1.35;
+}
+
+/* Help for one field of a two-column grid: a full row under its pair, so the pair stays level. */
+.field-help-wide {
+  grid-column: 1 / -1;
 }
 
 /* One line per way of the bus trip; touching it opens the detail (SPEC §15). */

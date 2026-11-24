@@ -30,13 +30,21 @@ export function useUndoable(onBack?: (key: string) => void) {
   const toast = useToast();
   return (
     message: string,
-    doing: Doing,
+    doing: Doing | readonly Doing[],
     keys: readonly (keyof AppData)[],
     opts: { tasks?: readonly AppTask[]; key?: string } = {},
   ) => {
     const before = snapshotOf(data, keys, opts.tasks);
-    dispatch(doing, (after) => {
-      settleSnapshot(before, after);
+    const steps = Array.isArray(doing) ? (doing as readonly Doing[]) : [doing as Doing];
+    steps.forEach((step, i) => {
+      dispatch(
+        step,
+        i === steps.length - 1
+          ? (after) => {
+              settleSnapshot(before, after);
+            }
+          : undefined,
+      );
     });
     toast.show(message, {
       undo: () => {

@@ -195,11 +195,13 @@ export function Week({
   /** «2 – 8 nov» for the week of `date`. */
   const weekLabel = (date: string) => {
     const w = weekDates(tz, zonedInstant(tz, date, 720));
-    return dayRange(
+    const days = dayRange(
       tz,
       zonedInstant(tz, w[0] as string, 720),
       zonedInstant(tz, w[6] as string, 720),
     );
+    const year = yearsOf(w, localParts(tz, now).date.slice(0, 4));
+    return year ? `${days} ${year}` : days;
   };
   /** The weeks the app takes: its years run 2000 to the last one a deadline may fall in, as everywhere else. */
   const inRange = (o: number) => {
@@ -286,10 +288,22 @@ export function Week({
   };
   const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
   const openMeal = (e: React.MouseEvent | React.PointerEvent, meal: MealBubble["meal"]) => {
+    bubbleFrom.current = e.currentTarget as HTMLElement;
     setBubble(null);
     setMealBubble({ meal, x: e.clientX, y: e.clientY });
   };
   const [open, setOpen] = useState<Item | null>(null);
+  // Another week has other blocks: a bubble left open would be about one that is gone.
+  const bubbleOpen = useRef(false);
+  bubbleOpen.current = !!bubble || !!mealBubble;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closes when the week changes
+  useEffect(() => {
+    if (!bubbleOpen.current) return;
+    setBubble(null);
+    setMealBubble(null);
+    // The block it was about is gone with the week: the title keeps the focus.
+    requestAnimationFrame(() => titleRef.current?.focus());
+  }, [offset]);
 
   const replanTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const flash = (message: string, undo?: () => void, version?: PlanVersion, tone?: "alert") => {
@@ -414,14 +428,7 @@ export function Week({
   // Another year's week says which one, so it is never mistaken for this one.
   const rangeDays = dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd);
   // Any part in another year names the years: «2026», or «2025–2026» across New Year.
-  const [startYear, endYear] = [dates[0] as string, dates[6] as string].map((d) => d.slice(0, 4));
-  const thisYear = today.slice(0, 4);
-  const rangeYear =
-    startYear === thisYear && endYear === thisYear
-      ? ""
-      : startYear === endYear
-        ? endYear
-        : `${startYear}–${endYear}`;
+  const rangeYear = yearsOf(dates, today.slice(0, 4));
   const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
   // An import is the last change until something else is changed.
   const imported = importToUndo(data);
@@ -1423,12 +1430,8 @@ export function Week({
           item={open}
           onClose={() => setOpen(null)}
           // The bubble that opened it is gone by then: back to its block.
-          // If replanning took the block away («Soltar»), to the gear: always there.
-          returnTo={() =>
-            bubbleFrom.current?.isConnected
-              ? bubbleFrom.current
-              : document.querySelector<HTMLElement>('button[aria-label="Ajustes"]')
-          }
+          // If replanning took the block away («Soltar»), to the title: always there.
+          returnTo={() => (bubbleFrom.current?.isConnected ? bubbleFrom.current : titleRef.current)}
         />
       )}
     </div>
@@ -1437,6 +1440,13 @@ export function Week({
   function titleOf(b: PlanBlock) {
     return data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque";
   }
+}
+
+/** The year(s) of a week when it is not all in `thisYear`: «2027», or «2026–2027» across New Year. */
+function yearsOf(week: string[], thisYear: string): string {
+  const [startYear, endYear] = [week[0] as string, week[6] as string].map((d) => d.slice(0, 4));
+  if (startYear === thisYear && endYear === thisYear) return "";
+  return startYear === endYear ? (endYear as string) : `${startYear}–${endYear}`;
 }
 
 /** Minutes shown above and below the dragged block in the loupe. */
