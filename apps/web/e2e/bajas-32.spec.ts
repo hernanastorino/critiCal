@@ -15,10 +15,9 @@ test("Mi semana: un error al guardar lleva el foco y el scroll al campo, y Guard
   // Su lugar en el contenido de la hoja (el scroll que hace el foco no cuenta como salto).
   const altura = async () =>
     guardar.evaluate((el) => {
-      const hoja = el.closest('[role="dialog"]') as HTMLElement;
-      return Math.round(
-        el.getBoundingClientRect().top - hoja.getBoundingClientRect().top + hoja.scrollTop,
-      );
+      const marco = el.closest('[role="dialog"]');
+      const arriba = marco?.getBoundingClientRect().top ?? 0;
+      return Math.round(el.getBoundingClientRect().top - arriba + (marco?.scrollTop ?? 0));
     });
 
   const antes = await altura();
