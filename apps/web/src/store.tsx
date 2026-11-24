@@ -25,7 +25,7 @@ import {
   type ValidHours,
   zonedInstant,
 } from "./engine.js";
-import { lateNight } from "./lateNight.js";
+import { asking, type InboxInputs, inboxCards } from "./inbox.js";
 import {
   ADDRESS_MAX,
   BACKUP_TEXT_MAX,
@@ -82,12 +82,9 @@ import {
   fitRoutine,
   isNoSubject,
   markLegacyStudy,
-  newClassTitles,
   sameName,
   studyOf,
   studyTitle,
-  unassignedTasks,
-  unsortedActivities,
   validRoutine,
 } from "./subjects.js";
 import { hold } from "./updates.js";
@@ -1795,7 +1792,7 @@ export function StoreProvider({
       },
     };
   }, [data, now]);
-  const counted = useRef<number | null>(null);
+  const counted = useRef<InboxInputs["asked"] | null>(null);
   const [settled, setSettled] = useState(plan);
   useEffect(() => {
     if (plan.peek()) {
@@ -1817,7 +1814,11 @@ export function StoreProvider({
     const asked =
       (settled === plan ? plan.get() : plan.peek()) ??
       (counted.current === null ? plan.get() : undefined);
-    if (asked) counted.current = (asked.options.length > 0 ? 1 : 0) + asked.recommendations.length;
+    if (asked)
+      counted.current = {
+        choose: asked.options.length > 0,
+        recommendations: asked.recommendations,
+      };
     // Signed in, the server times event addresses by itself; the demo has no server.
     const where = unlocated(data, visibleEvents(data), now).map((u) =>
       persist ? { ...u, lookup: false } : u,
@@ -1843,22 +1844,18 @@ export function StoreProvider({
       pinShort,
       clashes,
       missedMeals: meals,
-      inboxCount:
-        (data.movedEvents?.length ?? 0) +
-        (lateNight(data, now) ? 1 : 0) +
-        // Addresses still being timed are not questions yet.
-        where.filter((u) => !u.lookup).length +
-        newClassTitles(data).length +
-        unassignedTasks(data).length +
-        unsortedActivities(data).length +
-        (pinShort.short.length > 0 ? 1 : 0) +
-        clashes.length +
-        meals.length +
-        pending.length +
-        data.proposals.length +
-        // «No llegás a todo» is one decision, whatever its options.
-        (counted.current ?? 0) +
-        data.tasks.filter((t) => t.needsReview && t.status === "active").length,
+      inboxCount: asking(
+        inboxCards({
+          data,
+          now,
+          pending,
+          unlocated: where,
+          pinShort,
+          clashes,
+          missedMeals: meals,
+          asked: counted.current ?? { choose: false, recommendations: [] },
+        }),
+      ).length,
     };
   }, [data, now, fixedNow, persist, plan, settled]);
 

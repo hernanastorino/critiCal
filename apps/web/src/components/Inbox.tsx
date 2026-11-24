@@ -29,7 +29,7 @@ import {
   REPLANNED_TOAST,
   STILL_SHORT,
 } from "../friendly.js";
-import { EAT } from "../inbox.js";
+import { EAT, inboxCards } from "../inbox.js";
 import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
@@ -139,21 +139,16 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
     return d.before.length === 0 || undoable(data, d).length > 0;
   });
   const empty =
-    unlocated.length +
-      pending.length +
-      clashes.length +
-      pinShort.short.length +
-      missedMeals.length +
-      data.proposals.length +
-      decisions.options.length +
-      decisions.recommendations.length +
-      review.length +
-      moves.length +
-      (late ? 1 : 0) +
-      classes.length +
-      unassigned.length +
-      unsorted.length ===
-    0;
+    inboxCards({
+      data,
+      now,
+      pending,
+      unlocated,
+      pinShort,
+      clashes,
+      missedMeals,
+      asked: { choose: decisions.options.length > 0, recommendations: decisions.recommendations },
+    }).length === 0;
 
   // Addresses being timed now, and the most there were at once: «Calculando traslados 3 de 8».
   const looking = offline ? 0 : unlocated.filter((u) => u.lookup).length;

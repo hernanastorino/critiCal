@@ -32,92 +32,127 @@ export interface InboxRow {
   color?: string;
 }
 
-/** Rows about the calendar: events to move, the wake-up, places. */
-function calendarRows(data: AppData, now: number): InboxRow[] {
-  const rows: InboxRow[] = [];
+/** A card of the Bandeja: a row, and whether it is only «Calculando el traslado…». */
+export interface InboxCard extends InboxRow {
+  /** An address being timed: the app shows it, but it is not a question yet. */
+  lookup?: boolean;
+}
+
+/** What the cards are worked out from: the derived pieces, so each caller reuses its own. */
+export interface InboxInputs {
+  data: AppData;
+  now: number;
+  pending: ReturnType<typeof pendingConfirmations>;
+  unlocated: ReturnType<typeof unlocated>;
+  pinShort: ReturnType<typeof pinShortfall>;
+  clashes: ReturnType<typeof pinClashes>;
+  missedMeals: ReturnType<typeof missedMeals>;
+  /** «No llegás a todo» is one decision, whatever its options. */
+  asked: { choose: boolean; recommendations: readonly { message: string }[] };
+}
+
+/** Cards about the calendar: events to move, the wake-up, places. */
+function calendarCards(i: InboxInputs): InboxCard[] {
+  const { data, now } = i;
+  const cards: InboxCard[] = [];
   for (const m of data.movedEvents ?? []) {
     const event = data.events.find((e) => e.id === m.eventId);
-    if (event) rows.push({ title: event.title, detail: "Para mover en tu calendario" });
+    if (event) cards.push({ title: event.title, detail: "Para mover en tu calendario" });
   }
   const late = lateNight(data, now);
   if (late)
-    rows.push({ title: "¿A qué hora te levantaste?", detail: `Anoche «${late.event.title}»` });
-  // The server times addresses by itself, so they are not questions while being timed.
-  for (const u of unlocated(data, visibleEvents(data), now)) {
-    if (!u.lookup) rows.push({ title: u.event.title, detail: "¿Dónde es?" });
+    cards.push({ title: "¿A qué hora te levantaste?", detail: `Anoche «${late.event.title}»` });
+  for (const u of i.unlocated) {
+    cards.push({ title: u.event.title, detail: "¿Dónde es?", lookup: u.lookup });
   }
-  return rows;
+  return cards;
 }
 
-/** Rows about materias and what was detected or proposed. */
-function subjectRows(data: AppData): InboxRow[] {
-  const rows: InboxRow[] = [];
+/** Cards about materias and what was detected or proposed. */
+function subjectCards(data: AppData): InboxCard[] {
+  const cards: InboxCard[] = [];
   for (const c of newClassTitles(data)) {
-    rows.push({ title: c.title, detail: "Clase nueva en tu calendario" });
+    cards.push({ title: c.title, detail: "Clase nueva en tu calendario" });
   }
   for (const t of unassignedTasks(data))
-    rows.push({ title: t.title, detail: "¿De qué materia es?" });
+    cards.push({ title: t.title, detail: "¿De qué materia es?" });
   for (const a of unsortedActivities(data)) {
-    rows.push({ title: a.name, detail: "Ordenar tus actividades", color: a.color });
+    cards.push({ title: a.name, detail: "Ordenar tus actividades", color: a.color });
   }
   for (const t of data.tasks.filter((x) => x.needsReview && x.status === "active")) {
-    rows.push({
+    cards.push({
       title: t.title,
       detail: "Detectado en tu calendario",
       color: data.activities.find((a) => a.id === t.activityId)?.color,
     });
   }
-  for (const p of data.proposals) rows.push({ title: p.message, detail: "Cambios para hoy" });
-  return rows;
+  for (const p of data.proposals) cards.push({ title: p.message, detail: "Cambios para hoy" });
+  return cards;
 }
 
-/** Rows about the plan: pins, meals and what does not fit. */
-function planRows(data: AppData, now: number, plan: ReturnType<typeof refreshPlan>): InboxRow[] {
+/** Cards about the plan: pins, meals and what does not fit. */
+function planCards(i: InboxInputs): InboxCard[] {
+  const { data } = i;
   const tz = data.settings.timezone;
-  const rows: InboxRow[] = [];
-  const asked = decisions(plan.input, plan.result, { data, now });
-  for (const { pin, event } of pinClashes(data, now, plan.input)) {
+  const cards: InboxCard[] = [];
+  for (const { pin, event } of i.clashes) {
     const title = data.tasks.find((t) => t.id === pin.taskId)?.title ?? "Bloque";
-    rows.push({
+    cards.push({
       title: `${title} · ${dayAndTime(tz, pin.start)}`,
       detail: `Fijado que choca con ${event.title}`,
     });
   }
-  if (pinShortfall(data, now, plan.result).short.length > 0) {
-    rows.push({ title: "Lo que fijaste no te deja llegar", detail: "Movelos o soltá alguno" });
+  if (i.pinShort.short.length > 0) {
+    cards.push({ title: "Lo que fijaste no te deja llegar", detail: "Movelos o soltá alguno" });
   }
-  for (const m of missedMeals(data, now)) {
+  for (const m of i.missedMeals) {
     const eat = m.kind ? EAT[m.kind] : "comer";
-    rows.push({
+    cards.push({
       title: `Sin lugar para ${eat} · ${dayDate(tz, m.preferred.start)}`,
       detail: "Comidas sin lugar",
     });
   }
-  // «No llegás a todo» is one decision, whatever its options.
-  if (asked.options.length > 0) {
-    rows.push({ title: "No llegás a todo", detail: "Elegí cómo acomodarlo" });
-  }
-  for (const r of asked.recommendations) rows.push({ title: "Sugerencia", detail: r.message });
-  return rows;
+  if (i.asked.choose) cards.push({ title: "No llegás a todo", detail: "Elegí cómo acomodarlo" });
+  for (const r of i.asked.recommendations) cards.push({ title: "Sugerencia", detail: r.message });
+  return cards;
 }
 
 /** «¿Cómo te fue?»: blocks that ended and were not answered. */
-function answerRows(data: AppData, now: number): InboxRow[] {
+function answerCards(i: InboxInputs): InboxCard[] {
+  const { data } = i;
   const tz = data.settings.timezone;
-  return pendingConfirmations(data, now).map((b) => ({
+  return i.pending.map((b) => ({
     title: clipName(data.tasks.find((t) => t.id === b.taskId)?.title ?? "Bloque"),
     detail: `¿Cómo te fue? · ${dayAndTime(tz, b.start)} – ${time(tz, b.end)}`,
     color: data.activities.find((a) => a.id === b.activityId)?.color,
   }));
 }
 
-/** Everything the Bandeja asks the user to decide or register (its tab counts these). */
+/**
+ * Every card the Bandeja holds, in the order it shows them. The one place that says what
+ * enters: the screen, its tab count and the widget all read it.
+ */
+export function inboxCards(i: InboxInputs): InboxCard[] {
+  return [...calendarCards(i), ...subjectCards(i.data), ...planCards(i), ...answerCards(i)];
+}
+
+/** Cards that are questions already (the tab counts these). */
+export const asking = (cards: InboxCard[]): InboxCard[] => cards.filter((c) => !c.lookup);
+
+/** Everything the Bandeja asks the user to decide or register, from the data alone. */
 export function inboxRows(data: AppData, now: number): InboxRow[] {
   const plan = refreshPlan(data, now);
-  return [
-    ...calendarRows(data, now),
-    ...subjectRows(data),
-    ...planRows(data, now, plan),
-    ...answerRows(data, now),
-  ];
+  const asked = decisions(plan.input, plan.result, { data, now });
+  // The server times addresses by itself, so they are not questions while being timed.
+  const cards = inboxCards({
+    data,
+    now,
+    pending: pendingConfirmations(data, now),
+    unlocated: unlocated(data, visibleEvents(data), now),
+    pinShort: pinShortfall(data, now, plan.result),
+    clashes: pinClashes(data, now, plan.input),
+    missedMeals: missedMeals(data, now),
+    asked: { choose: asked.options.length > 0, recommendations: asked.recommendations },
+  });
+  return asking(cards).map(({ title, detail, color }) => ({ title, detail, color }));
 }
