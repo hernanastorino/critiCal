@@ -2,10 +2,11 @@
 import { useEffect, useId, useRef, useState } from "react";
 
 /** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
-export function Unsaved() {
+export function Unsaved({ show = true }: { show?: boolean }) {
+  // Always there, empty until needed: the button under it does not move with the first letter.
   return (
     <p className="meta" style={{ margin: "6px 0 0" }}>
-      Cambios sin guardar
+      {show ? "Cambios sin guardar" : " "}
     </p>
   );
 }
@@ -119,6 +120,11 @@ export function Help({ id, text }: { id: string; text: string }) {
 /** Planning rules that apply to every day. */
 
 /** A form error, right under its fields; empty when there is none. */
+/** Keeps the place of one line of messages, so a message coming or going moves nothing below. */
+export function ProblemSlot({ children }: { children: React.ReactNode }) {
+  return <div className="problem-slot">{children}</div>;
+}
+
 export function Problem({ id, text }: { id: string; text: string | null }) {
   return text ? (
     <p id={id} className="meta" role="alert" style={{ color: "var(--critical)" }}>

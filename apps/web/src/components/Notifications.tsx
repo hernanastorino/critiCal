@@ -77,6 +77,7 @@ export function Notifications() {
           id="notif-critical"
           type="checkbox"
           checked={prefs.critical}
+          disabled={!sync}
           onChange={(e) => save({ critical: e.target.checked })}
         />
         <label htmlFor="notif-critical" style={{ flex: 1 }}>
@@ -84,6 +85,7 @@ export function Notifications() {
         </label>
         <select
           aria-label="Minutos antes"
+          disabled={!sync}
           style={{ width: "auto" }}
           value={prefs.leadMinutes}
           onChange={(e) => save({ leadMinutes: Number(e.target.value) })}
@@ -99,6 +101,7 @@ export function Notifications() {
         <input
           type="checkbox"
           checked={prefs.proposals}
+          disabled={!sync}
           onChange={(e) => save({ proposals: e.target.checked })}
         />
         <span style={{ flex: 1 }}>Cuando un evento nuevo cambia el plan de hoy</span>
@@ -107,6 +110,7 @@ export function Notifications() {
         <input
           type="checkbox"
           checked={prefs.sunday}
+          disabled={!sync}
           onChange={(e) => save({ sunday: e.target.checked })}
         />
         <span style={{ flex: 1 }}>Planificación semanal del domingo</span>
@@ -116,7 +120,7 @@ export function Notifications() {
         <input
           type="time"
           aria-label="Hora del recordatorio"
-          disabled={!prefs.sunday}
+          disabled={!sync || !prefs.sunday}
           style={{ width: "auto" }}
           value={minutesToHhmm(prefs.sundayAt)}
           onChange={(e) => save({ sundayAt: hhmmToMinutes(e.target.value) })}

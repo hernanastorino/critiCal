@@ -4,7 +4,7 @@ import { awakeProblem } from "../dayLength.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
-import { isBlank, stripBidi } from "../limits.js";
+import { isBlank, NAME_MAX, stripBidi } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { MEAL_NAMES, mealsOf } from "../planning.js";
 import { describeHours, emptyHoursForm, type HoursForm, readHours } from "../routineHours.js";
@@ -23,6 +23,7 @@ import {
   isFigure,
   isWhole,
   Problem,
+  ProblemSlot,
   toHours,
   Unsaved,
   useFocusInvalid,
@@ -332,7 +333,7 @@ export function WeekSettings() {
         antes o después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja
         avisa. Con duración 0 no hay esa comida (la merienda viene en 0).
       </p>
-      {dirty && <Unsaved />}
+      <Unsaved show={dirty} />
       <button
         type="button"
         className="btn primary"
@@ -493,7 +494,7 @@ export function RuleSettings() {
           {problem.message}
         </p>
       )}
-      {dirty && <Unsaved />}
+      <Unsaved show={dirty} />
       <button
         type="button"
         className="btn primary"
@@ -612,7 +613,7 @@ export function DetectedDefaults() {
           </div>
         );
       })}
-      {dirty && <Unsaved />}
+      <Unsaved show={dirty} />
       <button
         type="button"
         className="btn primary"
@@ -796,7 +797,7 @@ export function Routines() {
           <input
             ref={nameField}
             value={name}
-            maxLength={60}
+            maxLength={NAME_MAX}
             aria-invalid={blank || (repeated && name.trim()) ? true : undefined}
             aria-describedby={
               blank
@@ -856,11 +857,13 @@ export function Routines() {
         errorId="routine-hours-error"
         onEnter={onEnter}
       />
-      <Problem id="routine-hours-error" text={hoursSummary(read.problems)} />
-      <Problem id="routine-blank-error" text={blank ? "Poné un nombre." : null} />
-      <Problem id="routine-times-error" text={problem.times} />
-      <Problem id="routine-minutes-error" text={problem.minutes} />
-      {dirty && <Unsaved />}
+      <ProblemSlot>
+        <Problem id="routine-hours-error" text={hoursSummary(read.problems)} />
+        <Problem id="routine-blank-error" text={blank ? "Poné un nombre." : null} />
+        <Problem id="routine-times-error" text={problem.times} />
+        <Problem id="routine-minutes-error" text={problem.minutes} />
+      </ProblemSlot>
+      <Unsaved show={dirty} />
       <button
         type="button"
         className="btn"
