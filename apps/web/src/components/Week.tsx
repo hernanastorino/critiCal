@@ -1298,7 +1298,13 @@ export function Week({
                         // Pointer taps on movable blocks open from onPointerUp; keyboard clicks (detail 0) here.
                         if (!movable || e.detail === 0) openBubble(e, item);
                       }}
-                    />
+                    >
+                      {sleptIds.has(b.id) && (
+                        <span className="slept-label" aria-hidden="true">
+                          dormías
+                        </span>
+                      )}
+                    </button>
                   );
                 }),
               ])}

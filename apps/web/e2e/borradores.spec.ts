@@ -105,9 +105,12 @@ test.describe("borradores: Ajustes", () => {
     await pregunta(page).getByRole("button", { name: "Seguir editando" }).click();
     await expect(pregunta(page)).toHaveCount(0);
     await expect(sheet(page)).toHaveAccessibleName("Lugares y traslados");
-    // «Descartar» borra lo de la pantalla y vuelve a la lista de Ajustes.
+    // «Descartar» borra lo escrito y vuelve un nivel: a la lista de lugares; otro Escape, a Ajustes.
     await page.keyboard.press("Escape");
     await pregunta(page).getByRole("button", { name: "Descartar" }).click();
+    await expect(sheet(page)).toHaveAccessibleName("Lugares y traslados");
+    await expect(sheet(page).getByLabel("Nombre", { exact: true })).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await expect(sheet(page)).toHaveAccessibleName("Ajustes");
   });
 });

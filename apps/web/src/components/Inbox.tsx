@@ -34,6 +34,7 @@ import { lateNight } from "../lateNight.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
 import { DECISIONS_SHOWN_MS, endOfDay, onlyImpossibleLeft } from "../planning.js";
+import { hoursRange, preferenceMisfits } from "../preferredHours.js";
 import { hoursTooShort } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "../subjects.js";
@@ -91,7 +92,16 @@ const OPTION_POSE: Record<OptionKind, RoyAnim> = {
 };
 
 /** The inbox: everything waiting on the user (questions, proposals, clashes, options). */
-export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWeek?: () => void }) {
+export function Inbox({
+  onDay,
+  onWeek,
+  onRoutine,
+}: {
+  onDay?: (date: string) => void;
+  onWeek?: () => void;
+  /** Opens Ajustes on that routine, to edit it. */
+  onRoutine?: (activityId: string) => void;
+}) {
   const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
     useStore();
   const { result: plan } = useStore();
@@ -129,6 +139,7 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
   const classes = newClassTitles(data);
   const unassigned = unassignedTasks(data);
   const unsorted = unsortedActivities(data);
+  const misfits = preferenceMisfits(data);
   // Only decisions something can still be undone in (free-time ones never had tasks),
   // from the last week: older ones are archived. One about a routine holds for its week
   // only, so it goes when that week ends.
@@ -385,6 +396,26 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
                 Planificar así
               </button>
             </div>
+          </div>
+        ))}
+
+        {misfits.length > 0 && <div className="section-title">Franja de rutina</div>}
+        {misfits.map((m) => (
+          <div
+            key={m.activity.id}
+            className="card"
+            data-block-id={m.activity.id}
+            style={{ ["--c" as string]: m.activity.color }}
+          >
+            <div className="title">{m.activity.name}</div>
+            <p className="meta">
+              Preferís {hoursRange(m.preferred)}, pero solo puede ir {m.allowed}.
+            </p>
+            {onRoutine && (
+              <button type="button" className="btn small" onClick={() => onRoutine(m.activity.id)}>
+                Editar rutina
+              </button>
+            )}
           </div>
         ))}
 

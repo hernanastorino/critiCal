@@ -148,7 +148,14 @@ function nameError(name: string, repeated: boolean): string | null {
 }
 
 /** Per-subject colour and study rules. */
-export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }) {
+export function ActivitySettings({
+  onOpen,
+  openId,
+}: {
+  onOpen?: (page: PageId) => void;
+  /** A row that starts open (the Bandeja sends you to edit a routine). */
+  openId?: string;
+}) {
   const { data, dispatch } = useStore();
   const toast = useToast();
   // A routine left without its silo (old data) is not in «Rutinas» and not here either.
@@ -231,13 +238,21 @@ export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }
         </>
       )}
       {subjects.map((a) => (
-        <ActivityRow key={a.id} activity={a} onRemove={() => remove(a)} />
+        <ActivityRow key={a.id} activity={a} open0={a.id === openId} onRemove={() => remove(a)} />
       ))}
     </Section>
   );
 }
 
-function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () => void }) {
+function ActivityRow({
+  activity,
+  open0,
+  onRemove,
+}: {
+  activity: Activity;
+  open0?: boolean;
+  onRemove: () => void;
+}) {
   const { data, now, dispatch } = useStore();
   const key = `activity:${activity.id}`;
   const [startAfter, setStartAfter, startSaved, startDirty] = useDraft<
@@ -263,7 +278,7 @@ function ActivityRow({ activity, onRemove }: { activity: Activity; onRemove: () 
   const [weekly, setWeekly, weeklySaved, weeklyDirty] = useDraft(`${key}:weekly`, () => studyHours);
   const dirty = formDirty || weeklyDirty || startDirty;
   // A draft waiting there opens the row on it.
-  const [open, setOpen] = useState(dirty);
+  const [open, setOpen] = useState(dirty || !!open0);
   const studies = subjectsOf(data).some((a) => a.id === activity.id);
   const hours = Number(weekly.replace(",", "."));
   // Blank means none; at most a whole week.
