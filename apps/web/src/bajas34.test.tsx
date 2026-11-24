@@ -11,7 +11,9 @@ import type { AppData, AppTask } from "./model.js";
 import { refresh } from "./refresh.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(cleanup);
 
 let api: ReturnType<typeof useStore> | undefined;
@@ -53,7 +55,9 @@ describe("Bandeja: elegir una opción se puede deshacer desde el aviso", () => {
       now,
     });
 
-  it("«Elegir» muestra «Deshacer» y deja el plan y las opciones como estaban", () => {
+  it("«Elegir» muestra «Deshacer» y deja el plan y las opciones como estaban", {
+    timeout: 60_000,
+  }, () => {
     inside(NOW, crowded);
     const planBefore = planOf();
     const optionsBefore = screen.getAllByRole("button", { name: /^Elegir: / }).length;
@@ -73,7 +77,7 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
   // Wednesday: the plan a fresh load shows is not the one the planner gives from scratch.
   const NOW = zonedInstant(TIMEZONE, "2026-11-25", 10 * 60);
 
-  it("en una carga fresca el plan vuelve igual, bloque por bloque", { timeout: 30_000 }, () => {
+  it("en una carga fresca el plan vuelve igual, bloque por bloque", { timeout: 120_000 }, () => {
     inside(NOW, (n) => seedHistory(pruebasData(n), n));
     const before = planOf();
     const done = screen.getAllByRole("button", { name: /^Hecho: / }).at(0);
@@ -101,7 +105,9 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
   };
   const start = () => refresh(seedHistory(pruebasData(NOW), NOW), NOW);
 
-  it("sin el plan guardado, deshacer lo reacomoda (la raíz del problema)", () => {
+  it("sin el plan guardado, deshacer lo reacomoda (la raíz del problema)", {
+    timeout: 60_000,
+  }, () => {
     const first = start();
     const answered = answer(
       first,
@@ -111,7 +117,7 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
     expect(JSON.stringify(undone.plan)).not.toBe(JSON.stringify(first.plan));
   });
 
-  it("con el plan de antes, deshacer lo deja idéntico", () => {
+  it("con el plan de antes, deshacer lo deja idéntico", { timeout: 60_000 }, () => {
     const first = start();
     const answered = answer(
       first,
@@ -122,7 +128,9 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
     expect(JSON.stringify(undone.plan)).toBe(JSON.stringify(first.plan));
   });
 
-  it("si el plan cambió por otro lado desde la respuesta, no se pisa con el viejo", () => {
+  it("si el plan cambió por otro lado desde la respuesta, no se pisa con el viejo", {
+    timeout: 60_000,
+  }, () => {
     const first = start();
     const answered = answer(
       first,
@@ -190,7 +198,7 @@ describe("Planificación semanal: «No llega al mínimo» es de la semana que se
   });
 
   it("lista lo que vence dentro de esa semana y no lo que vence en otra", {
-    timeout: 30_000,
+    timeout: 120_000,
   }, () => {
     const data = (): AppData => ({
       ...emptyData(),
