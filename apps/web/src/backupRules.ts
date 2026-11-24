@@ -312,3 +312,12 @@ export function weekProblem(week: unknown): string | null {
   const at = days.findIndex((w) => timesOk(w) && dayProblem(w as Rec, 0) !== null);
   return at >= 0 ? dayProblem(days.at(at) as Rec, at) : null;
 }
+
+/** The time zone or the hours of «Mi semana» that are not real, said for the user, or null. */
+export function settingsProblem(settings: unknown): string | null {
+  if (!isRec(settings)) return null;
+  if (!zone(settings.timezone)) return "El huso horario del respaldo no es válido.";
+  const day = shape(dayTests.slice(0, -1));
+  const bad = Array.isArray(settings.week) && settings.week.some((w) => !day(w));
+  return bad ? "Las horas de Mi semana del respaldo no son válidas." : null;
+}

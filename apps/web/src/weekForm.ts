@@ -55,6 +55,10 @@ function minutesProblems(form: WeekFormValues): WeekProblem[] {
     }));
 }
 
+/** Whether a duration leaves the meal standing: only blank or a whole 0 takes its time away. */
+const hasTime = (minutes: string) =>
+  minutes.trim() !== "" && !(isWhole(minutes) && Number(minutes) === 0);
+
 /** A time that is not one (a blank or impossible hour) would be read as midnight. */
 function timeProblems(form: WeekFormValues): WeekProblem[] {
   const times: [string, string, string][] = [
@@ -64,7 +68,7 @@ function timeProblems(form: WeekFormValues): WeekProblem[] {
     ...mealRows(form).map((m): [string, string, string] => [m.field, m.at, m.minutes]),
   ];
   return times
-    .filter(([, v, minutes]) => Number(minutes) > 0 && parseClock(v) === null)
+    .filter(([, v, minutes]) => hasTime(minutes) && parseClock(v) === null)
     .map(([field]) => ({ message: "Hora inválida.", fields: [field] }));
 }
 
@@ -78,7 +82,13 @@ interface PlacedMeal {
 function placedMeals(form: WeekFormValues): PlacedMeal[] {
   return mealRows(form).flatMap((m) => {
     const start = parseClock(m.at);
-    const length = isWhole(m.minutes) && Number(m.minutes) <= 240 ? Number(m.minutes) : 0;
+    // A figure out of range has its own error; its time is still checked (as a minute long).
+    const length =
+      isWhole(m.minutes) && Number(m.minutes) <= 240
+        ? Number(m.minutes)
+        : isFigure(m.minutes)
+          ? 1
+          : 0;
     return length > 0 && start !== null ? [{ field: m.field, start, length }] : [];
   });
 }

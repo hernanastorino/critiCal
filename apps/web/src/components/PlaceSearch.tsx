@@ -21,7 +21,7 @@ export function PlaceSearch({ label, onPick }: { label: string; onPick: (place: 
         type="search"
         aria-label={label}
         aria-describedby={status}
-        placeholder="Buscar un lugar guardado…"
+        placeholder="Buscar lugar…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />

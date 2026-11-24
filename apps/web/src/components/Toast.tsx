@@ -22,12 +22,21 @@ export interface Toast {
   tone?: "alert";
   /** The message with its names whole: the notice shows them cut, this is its `title`. */
   full?: string;
+  /** A notice that goes in place of the older one with the same key (a delete in a row). */
+  replaces?: unknown;
 }
 
 interface ToastApi {
   show: (
     message: string,
-    opts?: { undo?: () => void; tag?: unknown; roy?: RoyAnim; tone?: "alert"; full?: string },
+    opts?: {
+      undo?: () => void;
+      tag?: unknown;
+      roy?: RoyAnim;
+      tone?: "alert";
+      full?: string;
+      replaces?: unknown;
+    },
   ) => void;
   /** Takes the notice away, only if it is still the one tagged `tag` when given. */
   clear: (tag?: unknown) => void;
@@ -73,51 +82,53 @@ export function useLargeText(): boolean {
   return big;
 }
 
-export function ToastProvider({ children }: { children: ReactNode }) {
-  const [current, setCurrent] = useState<Toast | null>(null);
-  const [pinned, setPinned] = useState<ReactNode>(null);
+/** A notice on screen, with the number that tells it from the others. */
+type Shown = Toast & { id: number };
+
+/** Notices that offer «Deshacer» pile up (a second one must not take the first one's away). */
+const MAX_UNDOABLE = 2;
+
+/** A finger leaves no hover behind (WebKit keeps :hover after a tap): only count it with a mouse. */
+const hovers = () =>
+  typeof window.matchMedia !== "function" || !window.matchMedia("(hover: none)").matches;
+
+/** One notice: it stays while the pointer or the keyboard is on it (SPEC §14), then goes by itself. */
+function Snack({
+  toast,
+  onDone,
+  onUndo,
+}: {
+  toast: Shown;
+  onDone: (id: number) => void;
+  onUndo: (t: Shown, back: HTMLElement | null) => void;
+}) {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  // It stays while the pointer or the keyboard is on it (SPEC §14).
   // Two holds, kept apart: the notice goes only once neither the pointer nor focus is on it.
   const hover = useRef(false);
   const focus = useRef(false);
   /** Where keyboard focus was before it went to the notice: «Deshacer» gives it back there. */
   const cameFrom = useRef<HTMLElement | null>(null);
-  const startTimer = useCallback((t: Toast) => {
+  const box = useRef<HTMLDivElement>(null);
+  const startTimer = useCallback(() => {
     clearTimeout(timer.current);
     timer.current = setTimeout(
       () => {
-        if (!(hover.current || focus.current)) setCurrent((c) => (c === t ? null : c));
+        if (!(hover.current || focus.current)) onDone(toast.id);
       },
-      t.undo ? UNDO_MS : TOAST_MS,
+      toast.undo ? UNDO_MS : TOAST_MS,
     );
-  }, []);
-  const show = useCallback<ToastApi["show"]>((message, opts) => {
-    const t = { message, ...opts };
-    setCurrent(t);
-  }, []);
-  const clear = useCallback<ToastApi["clear"]>((tag) => {
-    setCurrent((c) => (tag === undefined || c?.tag === tag ? null : c));
-  }, []);
-  const box = useRef<HTMLDivElement>(null);
-  // Held is what the page says after each change, not what events said: Firefox fires no
-  // blur for a removed button, and React may keep a focused «Deshacer» for the next notice.
+  }, [toast, onDone]);
+  // Held is what the page says when it appears, not what events said.
   useEffect(() => {
     const el = box.current;
-    hover.current = !!current && !!el && el.matches(":hover");
-    focus.current = !!current && !!el && el.contains(document.activeElement);
-    if (!focus.current) cameFrom.current = null;
-    if (current && !(hover.current || focus.current)) startTimer(current);
-  }, [current, startTimer]);
-  useEffect(() => () => clearTimeout(timer.current), []);
-  const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
+    hover.current = !!el && hovers() && el.matches(":hover");
+    focus.current = !!el && el.contains(document.activeElement);
+    if (!(hover.current || focus.current)) startTimer();
+    return () => clearTimeout(timer.current);
+  }, [startTimer]);
   const release = (which: { current: boolean }) => {
     which.current = false;
-    if (current && !(hover.current || focus.current)) startTimer(current);
-  };
-  // It can sit over a button: tapping it (not its «Deshacer») puts it away.
-  const tapAway = (e: React.MouseEvent) => {
-    if (!(e.target instanceof Element && e.target.closest("button"))) setCurrent(null);
+    if (!(hover.current || focus.current)) startTimer();
   };
   const takeFocus = (e: React.FocusEvent<HTMLElement>) => {
     focus.current = true;
@@ -126,46 +137,79 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       cameFrom.current = from instanceof HTMLElement ? from : null;
     }
   };
-  const undo = (was: Toast) => {
-    const back = cameFrom.current;
-    was.undo?.();
-    // The notice goes away with the focus on it: back to where it was.
-    setTimeout(() => {
-      if (back?.isConnected && !back.closest("[inert]")) back.focus();
-    }, 0);
-    // The undo may show a notice of its own: only this one goes.
-    setCurrent((c) => (c === was ? null : c));
+  // It can sit over a button: tapping it (not its «Deshacer») puts it away.
+  const tapAway = (e: React.MouseEvent) => {
+    if (!(e.target instanceof Element && e.target.closest("button"))) onDone(toast.id);
   };
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
+    // biome-ignore lint/a11y/useKeyWithClickEvents: a tap only puts it away early; it goes by itself.
+    <div
+      ref={box}
+      className={`snack${toast.tone === "alert" ? " alert" : ""}`}
+      onClick={tapAway}
+      onPointerEnter={(e) => {
+        hover.current = e.pointerType !== "touch";
+      }}
+      onPointerLeave={() => release(hover)}
+      onFocus={takeFocus}
+      onBlur={() => release(focus)}
+    >
+      {toast.roy && <Roy anim={toast.roy} size={56} maxWidth={72} once />}
+      <span className="snack-text" title={toast.full}>
+        {toast.message}
+      </span>
+      {toast.undo && (
+        <button
+          type="button"
+          className="btn small snack-btn"
+          onClick={() => onUndo(toast, cameFrom.current)}
+        >
+          Deshacer
+        </button>
+      )}
+    </div>
+  );
+}
+
+export function ToastProvider({ children }: { children: ReactNode }) {
+  const [list, setList] = useState<Shown[]>([]);
+  const [pinned, setPinned] = useState<ReactNode>(null);
+  const count = useRef(0);
+  const current = list.at(-1) ?? null;
+  const show = useCallback<ToastApi["show"]>((message, opts) => {
+    count.current += 1;
+    const t: Shown = { message, ...opts, id: count.current };
+    // A plain notice replaces what was there; one with «Deshacer» only piles on the others'.
+    const kept = (x: Shown) => x.undo && (t.replaces === undefined || x.replaces !== t.replaces);
+    setList((l) => (t.undo ? [...l.filter(kept), t].slice(-MAX_UNDOABLE) : [t]));
+  }, []);
+  const clear = useCallback<ToastApi["clear"]>((tag) => {
+    setList((l) => (tag === undefined ? [] : l.filter((x) => x.tag !== tag)));
+  }, []);
+  const done = useCallback((id: number) => {
+    setList((l) => l.filter((x) => x.id !== id));
+  }, []);
+  const undo = useCallback(
+    (was: Shown, back: HTMLElement | null) => {
+      was.undo?.();
+      // The notice goes away with the focus on it: back to where it was.
+      setTimeout(() => {
+        if (back?.isConnected && !back.closest("[inert]")) back.focus();
+      }, 0);
+      // The undo may show a notice of its own: only this one goes.
+      done(was.id);
+    },
+    [done],
+  );
+  const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
   const noticeBox = (
     <div className="toasts low">
       {/* Its own region: a new notice is announced alone, not with the standing summary. */}
       <div role="status">
-        {current && (
-          // Holding it (pointer or keyboard on it) keeps it from going away: §14.
-          // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
-          // biome-ignore lint/a11y/useKeyWithClickEvents: a tap only puts it away early; it goes by itself.
-          <div
-            ref={box}
-            className={`snack${current.tone === "alert" ? " alert" : ""}`}
-            onClick={tapAway}
-            onPointerEnter={() => {
-              hover.current = true;
-            }}
-            onPointerLeave={() => release(hover)}
-            onFocus={takeFocus}
-            onBlur={() => release(focus)}
-          >
-            {current.roy && <Roy anim={current.roy} size={56} maxWidth={72} once />}
-            <span className="snack-text" title={current.full}>
-              {current.message}
-            </span>
-            {current.undo && (
-              <button type="button" className="btn small snack-btn" onClick={() => undo(current)}>
-                Deshacer
-              </button>
-            )}
-          </div>
-        )}
+        {list.map((t) => (
+          <Snack key={t.id} toast={t} onDone={done} onUndo={undo} />
+        ))}
       </div>
     </div>
   );

@@ -31,6 +31,7 @@ import {
 } from "../friendly.js";
 import { EAT, inboxCards } from "../inbox.js";
 import { lateNight } from "../lateNight.js";
+import { isBlank } from "../limits.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
 import { DECISIONS_SHOWN_MS, endOfDay, onlyImpossibleLeft } from "../planning.js";
@@ -762,7 +763,10 @@ function WhereCard({
   const valid = /^\s*\d+(?:[.,]\d+)?\s*$/.test(minutes) && typed <= 1440;
   const takenId = `${helpId}-taken`;
   const taken = save && nameTaken(data.places ?? [], name);
-  const canUse = valid && !(save && (!name.trim() || taken));
+  const blank = save && isBlank(name);
+  const canUse = valid && !(blank || taken);
+  // «Usar» is off for lack of a name: say so once the name was touched or the minutes are there.
+  const nameMissing = blank && (name !== "" || valid);
   const use = () => {
     if (!canUse) return;
     undoable(
@@ -837,8 +841,8 @@ function WhereCard({
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={onEnter}
-            aria-invalid={taken ? true : undefined}
-            aria-describedby={taken ? takenId : undefined}
+            aria-invalid={taken || nameMissing ? true : undefined}
+            aria-describedby={taken || nameMissing ? takenId : undefined}
             placeholder="Casa de Clara"
           />
           {taken && (
@@ -847,6 +851,12 @@ function WhereCard({
             </span>
           )}
         </label>
+      )}
+      {nameMissing && (
+        // Outside the label: the field keeps its name.
+        <p className="meta" id={takenId} role="alert" style={{ color: "var(--critical)" }}>
+          Poné un nombre para el lugar.
+        </p>
       )}
       <button
         type="button"

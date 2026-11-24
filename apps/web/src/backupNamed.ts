@@ -302,6 +302,8 @@ const placesProblem: Check = (d) => {
   );
   if (found) return found;
   if (dupes(places.map((p) => p.id))) return "El respaldo tiene lugares repetidos.";
+  if (places.filter((p) => p.isHome === true).length > 1)
+    return "El respaldo tiene más de un lugar marcado como casa.";
   const known = new Set(places.map((p) => p.id));
   const trips = list(d.travelTimes);
   const lost = trips.some((t) => !known.has(t.from) || !known.has(t.to));

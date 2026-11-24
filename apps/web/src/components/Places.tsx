@@ -503,7 +503,7 @@ function placeProblem(x: {
     [longName, `El nombre tiene como máximo ${NAME_MAX} caracteres.`],
     [longAddress, `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`],
     [longAlias, `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`],
-    [empty && tried, "Poné un nombre para el lugar."],
+    [empty && (tried || form.name !== ""), "Poné un nombre para el lugar."],
   ];
   // The first field, top to bottom, that stops the save: where the keyboard goes on «Guardar».
   const field = empty || taken || longName ? "name" : longAddress ? "address" : "aliases";
@@ -748,6 +748,8 @@ function SpotRow({ spot }: { spot: Spot }) {
   const [naming, setNaming] = useState(false);
   const [name, setName] = useState("");
   const taken = nameTaken(data.places ?? [], name);
+  // Spaces or invisible characters only: «Guardar» stays off and says why.
+  const blank = name !== "" && isBlank(name);
   const takenId = useId();
   const saveSpot = () => {
     if (!isBlank(name) && !taken) dispatch({ type: "saveSpot", key: spot.key, name });
@@ -782,19 +784,19 @@ function SpotRow({ spot }: { spot: Spot }) {
               e.preventDefault();
               saveSpot();
             }}
-            aria-invalid={taken ? true : undefined}
-            aria-describedby={taken ? takenId : undefined}
+            aria-invalid={taken || blank ? true : undefined}
+            aria-describedby={taken || blank ? takenId : undefined}
             placeholder="Casa de Clara"
             style={{ flex: 1 }}
           />
-          {taken && (
+          {(taken || blank) && (
             <span
               className="meta"
               id={takenId}
               role="alert"
               style={{ width: "100%", color: "var(--critical)" }}
             >
-              Ya tenés un lugar con ese nombre.
+              {taken ? "Ya tenés un lugar con ese nombre." : "Poné un nombre para el lugar."}
             </span>
           )}
           <button

@@ -127,8 +127,8 @@ describe("14th round: answering a block from its sheet", () => {
     expect(logOf(b.id).map((c) => c.status)).toEqual(["done", "missed"]);
     expect(done(b.taskId)).toBe(before);
     expect(screen.getByText(/no lo hice/)).toBeTruthy();
-    // «Deshacer» of the correction brings the first answer back.
-    press("Deshacer");
+    // «Deshacer» of the correction (the newest notice) brings the first answer back.
+    fireEvent.click(need(screen.getAllByRole("button", { name: "Deshacer" }).at(-1), "Deshacer"));
     expect(standsOf(b.id)).toHaveLength(1);
     expect(done(b.taskId)).toBe(afterDone);
     expect(screen.getByText(/hecho ✓/)).toBeTruthy();
