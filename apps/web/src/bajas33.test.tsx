@@ -63,7 +63,7 @@ describe("Bandeja: Enter en los minutos de «¿Dónde es?»", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    const first = screen.getAllByLabelText(/^O minutos desde casa para/)[0];
+    const first = screen.getAllByLabelText(/^O minutos desde casa para/).at(0);
     if (!first) throw new Error("falta el campo de minutos");
     first.focus();
     fireEvent.change(first, { target: { value: "15" } });
