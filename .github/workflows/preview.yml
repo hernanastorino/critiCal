@@ -21,6 +21,26 @@ env:
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
 
 jobs:
+  # The Playwright image tag follows the @playwright/test version in bun.lock, so a
+  # Dependabot bump needs no manual edit here. The image already carries WebKit and its
+  # system libraries: no apt-get at run time (it used to hang for 10 minutes).
+  playwright-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.v.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: bun.lock
+          sparse-checkout-cone-mode: false
+      - id: v
+        run: |
+          version=$(grep -oE '"@playwright/test@[0-9]+\.[0-9]+\.[0-9]+"' bun.lock | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          [ -n "$version" ] || { echo "::error::@playwright/test not found in bun.lock"; exit 1; }
+          echo "image=mcr.microsoft.com/playwright:v${version}-noble" >> "$GITHUB_OUTPUT"
+
   preview:
     # Secrets never reach PRs from forks, nor Dependabot's: without the Vercel token the
     # deploy can only fail, so those PRs skip the preview (CI still runs their E2E locally).
@@ -28,7 +48,9 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       !github.event.pull_request.draft &&
       github.event.pull_request.user.login != 'dependabot[bot]'
+    needs: playwright-image
     runs-on: ubuntu-latest
+    container: ${{ needs.playwright-image.outputs.image }}
     timeout-minutes: 30
     environment: staging
     steps:
@@ -71,36 +93,6 @@ jobs:
           else
             gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
           fi
-      - name: Playwright version
-        id: playwright-version
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-      - name: Install Playwright WebKit
-        timeout-minutes: 12
-        env:
-          CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
-        run: |
-          # The download has hung for 10+ minutes before: bound each attempt and retry once.
-          if [ "$CACHE_HIT" = "true" ]; then
-            cmd="bunx playwright install-deps webkit"
-          else
-            cmd="bunx playwright install --with-deps webkit"
-          fi
-          for attempt in 1 2; do
-            timeout 300 $cmd && exit 0
-            echo "Attempt $attempt failed or timed out"
-            # A killed run leaves apt/dpkg holding the lock: clean up before retrying.
-            sudo pkill apt-get || true
-            sudo pkill dpkg || true
-            sleep 3
-            sudo dpkg --configure -a || true
-          done
-          exit 1
       - name: E2E against the preview
         run: bun run e2e
         env:
