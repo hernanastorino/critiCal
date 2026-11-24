@@ -58,8 +58,8 @@ describe("Lugares: alias repetido", () => {
     fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "Biblioteca" } });
     fireEvent.change(screen.getByLabelText(/^Alias/), { target: { value: "biblioteca, Sala" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(screen.getByText("Sala")).toBeTruthy();
-    expect(screen.queryByText("biblioteca, Sala")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Editar Biblioteca/ }));
+    expect(screen.getByLabelText(/^Alias/)).toHaveProperty("value", "Sala");
   });
 });
 
