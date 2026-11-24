@@ -45,9 +45,9 @@ describe("Lugares: «Cancelar»", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
     edit();
-    expect((screen.getByLabelText("Nombre") as HTMLInputElement).value).toBe("Casa");
-    expect((screen.getByLabelText(/^Alias/) as HTMLInputElement).value).toBe("Hogar");
-    expect((screen.getByLabelText("Mi casa") as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByLabelText("Nombre")).toHaveProperty("value", "Casa");
+    expect(screen.getByLabelText(/^Alias/)).toHaveProperty("value", "Hogar");
+    expect(screen.getByLabelText("Mi casa")).toHaveProperty("checked", true);
   });
 });
 
