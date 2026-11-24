@@ -280,7 +280,7 @@ export function TaskDetail({
               Partes hechas ({done} de {parts.length})
             </span>
             {parts.map((u) => (
-              <label key={u.id} className="check">
+              <label key={u.id} className="check part">
                 <input
                   type="checkbox"
                   checked={isDone(u)}

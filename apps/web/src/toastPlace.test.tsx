@@ -17,9 +17,9 @@ const place = () => {
 };
 
 describe("where notices go (SPEC §18.12)", () => {
-  it("at the top with the usual text size", () => {
+  it("above the tab bar with the usual text size too", () => {
     document.documentElement.style.fontSize = "17px";
-    expect(place()).toBe("toasts");
+    expect(place()).toBe("toasts low");
   });
 
   it("above the tab bar with large text (past 150 %)", () => {

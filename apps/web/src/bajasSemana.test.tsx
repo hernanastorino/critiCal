@@ -86,12 +86,18 @@ describe("notices and the standing summary", () => {
     expect(rule(".toasts.low")).toMatch(/position:\s*static/);
   });
 
-  it("keep their usual places with the usual text size", () => {
+  it("stack the same way with the usual text size (no notice over a header or a title)", () => {
     document.documentElement.style.fontSize = "17px";
     mount("Listo");
-    expect(document.querySelector(".snacks.stacked")).toBeNull();
-    expect(document.querySelector(".snacks")?.textContent).toBe("Resumen crítico");
-    expect(document.querySelector(".toasts")?.className).toBe("toasts");
+    expect(document.querySelector(".snacks.stacked")?.textContent).toBe("ListoResumen crítico");
+    expect(document.querySelector(".toasts")?.className).toBe("toasts low");
+    expect(rule(".toasts")).not.toMatch(/top:/);
+  });
+
+  it("with a sheet open the notice goes to the free strip at the top", () => {
+    const sheetRule = rule("body:has(.sheet) .toasts.toasts.low");
+    expect(sheetRule).toMatch(/position:\s*fixed/);
+    expect(sheetRule).toMatch(/top:/);
   });
 
   it.each([
@@ -103,7 +109,6 @@ describe("notices and the standing summary", () => {
     const box = document.querySelector(".toasts");
     expect(box?.className).toBe("toasts low");
     expect(box?.textContent).toBe(message);
-    expect(rule(".toasts")).toMatch(/top:/);
     expect(rule(".toasts.low")).not.toMatch(/top:/);
   });
 });

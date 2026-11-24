@@ -627,15 +627,10 @@ textarea {
   z-index: 60;
 }
 
-/* The notices go at the very top, under the status bar: over nothing that is edited. On a
-   wide screen they sit at the right. Touches pass through around the notice itself. */
+/* The notices sit above the tab bar, in the column of the standing summary (over it): they cover
+   no header and no title. Touches pass through around the notice itself. */
 .toasts {
-  position: fixed;
-  top: calc(var(--safe-t) + 8px);
-  left: 12px;
-  right: 12px;
   pointer-events: none;
-  z-index: 60;
 }
 
 .toasts > [role="status"] {
@@ -645,8 +640,6 @@ textarea {
   gap: var(--space-2);
 }
 
-/* Large text: the notice goes above the tab bar, not over the week's bar (SPEC §18.12). It sits
-   in the same column as the standing summary, over it, so they stack and never overlap. */
 .snacks.stacked {
   right: 12px;
 }
@@ -659,22 +652,6 @@ textarea {
 .toasts.low {
   position: static;
   align-self: stretch;
-}
-
-/* On the week the notice goes under the bar, so it never covers the arrows, the range or the tools. */
-body:has(.header .week-nav) .toasts:not(.low) {
-  top: calc(var(--safe-t) + 72px);
-}
-
-@media (min-width: 720px) {
-  .toasts:not(.low) {
-    left: auto;
-    width: 380px;
-  }
-
-  .toasts > [role="status"] {
-    align-items: flex-end;
-  }
 }
 
 /* The notice itself takes the pointer (so it stays while hovered); around it, touches pass. */
@@ -1127,6 +1104,19 @@ input[type="radio"]:disabled {
 @media (prefers-color-scheme: dark) {
   input[type="checkbox"]:checked {
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%2312141a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.4l2.6 2.6L11 4.4'/%3E%3C/svg%3E");
+  }
+}
+
+/* A part done reads as done (the green of «hecho»), not as the dark primary button. */
+.check.part input[type="checkbox"]:checked {
+  border-color: var(--ok-ink);
+  background-color: color-mix(in srgb, var(--ok) 18%, transparent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%230b7236' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.4l2.6 2.6L11 4.4'/%3E%3C/svg%3E");
+}
+
+@media (prefers-color-scheme: dark) {
+  .check.part input[type="checkbox"]:checked {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 14 14' fill='none' stroke='%234cd98a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 7.4l2.6 2.6L11 4.4'/%3E%3C/svg%3E");
   }
 }
 
@@ -1817,6 +1807,8 @@ input[type="datetime-local"] {
 
 .chip {
   flex: 1;
+  /* The seven days always fit the row: none is pushed out (and clipped) at the right. */
+  min-width: 0;
   height: 36px;
   border-radius: var(--radius-m);
   background: var(--glass);
@@ -2983,11 +2975,25 @@ label.check {
 
 /* With a sheet open the notice stays in the strip the sheet leaves free (84 px): at the very top
    even on the week, and at most two lines, so it never covers a title or the header buttons. */
-body:has(.sheet) .toasts.toasts:not(.low) {
+body:has(.sheet) .toasts.toasts.low {
+  position: fixed;
   top: calc(var(--safe-t) + 8px);
+  left: 12px;
+  right: 12px;
 }
 
-body:has(.sheet) .toasts:not(.low) .snack > span {
+@media (min-width: 720px) {
+  body:has(.sheet) .toasts.toasts.low {
+    left: auto;
+    width: 380px;
+  }
+
+  body:has(.sheet) .toasts > [role="status"] {
+    align-items: flex-end;
+  }
+}
+
+body:has(.sheet) .toasts .snack > span {
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }

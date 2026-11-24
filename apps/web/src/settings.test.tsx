@@ -168,7 +168,7 @@ describe("sheets on top of each other", () => {
     expect(screen.getByText("Detrás", { selector: "button" }).inert).toBeFalsy();
   });
 
-  it("lets Escape close an open time picker first", () => {
+  it("closes Ajustes with Escape from a time field, like from any other field", () => {
     const onClose = vi.fn();
     render(
       <StoreProvider initial={withHome} persist={false}>
@@ -176,7 +176,7 @@ describe("sheets on top of each other", () => {
       </StoreProvider>,
     );
     fireEvent.keyDown(screen.getByLabelText("Me levanté a las"), { key: "Escape" });
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledOnce();
   });
 });
 
