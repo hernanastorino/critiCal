@@ -2955,3 +2955,9 @@ label.check {
 .card.swipeable[data-swiping="missed"] {
   box-shadow: inset -4px 0 0 var(--warn);
 }
+
+/* Crear rutina nueva: un solo «‹ Rutinas» para volver; ni «‹ Ajustes» ni el título «Rutinas» arriba. */
+.settings-page:has(.routine-form-view) > .settings-back,
+.settings-page:has(.routine-form-view) > h2 {
+  display: none;
+}

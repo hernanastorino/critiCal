@@ -21,17 +21,14 @@ test.describe("Ajustes: lo escrito y no guardado se confirma igual salga por don
     await expect(sheet(page).getByPlaceholder("Gimnasio")).toHaveValue("Nadar");
   });
 
-  test("«‹ Ajustes» pregunta y «Descartar» vuelve a la lista sin el borrador", async ({ page }) => {
+  test("«‹ Rutinas» pregunta y «Descartar» vuelve a la lista sin el borrador", async ({ page }) => {
     await rutinaNueva(page);
-    await sheet(page).getByRole("button", { name: "Volver a Ajustes" }).click();
+    await sheet(page).getByRole("button", { name: "‹ Rutinas" }).click();
     await expect(pregunta(page)).toBeVisible();
     await pregunta(page).getByRole("button", { name: "Descartar" }).click();
     await expect(pregunta(page)).toHaveCount(0);
-    await expect(sheet(page)).toHaveAccessibleName("Ajustes");
-    await sheet(page)
-      .getByRole("button", { name: /^Rutinas/ })
-      .click();
     await expect(sheet(page).getByPlaceholder("Gimnasio")).toHaveCount(0);
+    await expect(sheet(page).getByRole("button", { name: "Crear rutina nueva" })).toBeVisible();
   });
 });
 

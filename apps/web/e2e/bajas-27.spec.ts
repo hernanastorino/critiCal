@@ -1,5 +1,5 @@
 import { expect, type Page, test } from "@playwright/test";
-import { goTab, IPHONE_375, openDemo, reload, toast } from "./helpers";
+import { goTab, IPHONE_375, openDemo, openNewRoutine, reload, toast } from "./helpers";
 
 test.use(IPHONE_375);
 
@@ -71,4 +71,13 @@ test("las tarjetas «¿Dónde es?» no estiran la página: solo scrollea la list
     vista: window.innerHeight,
   }));
   expect(doc).toBe(vista);
+});
+
+test("Crear rutina nueva muestra una sola miga: «‹ Rutinas»", async ({ page }) => {
+  await openDemo(page);
+  await openNewRoutine(page);
+  const hoja = page.getByRole("dialog").last();
+  await expect(hoja.getByRole("button", { name: "‹ Rutinas" })).toBeVisible();
+  await expect(hoja.getByRole("button", { name: "Volver a Ajustes" })).toBeHidden();
+  await expect(hoja.getByRole("heading", { name: "Rutinas", exact: true })).toBeHidden();
 });

@@ -785,7 +785,7 @@ export function Routines() {
     </>
   );
   const form = (
-    <>
+    <div className="routine-form-view">
       <button type="button" className="settings-back" onClick={leave}>
         ‹ Rutinas
       </button>
@@ -875,7 +875,7 @@ export function Routines() {
         id="routine-name-error"
         text={repeated && name.trim() ? "Ya hay una materia o rutina con ese nombre." : null}
       />
-    </>
+    </div>
   );
   return (
     <Section>
