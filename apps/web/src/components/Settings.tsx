@@ -406,7 +406,13 @@ export function Settings({
     target?.scrollIntoView?.({ block: "nearest" });
   }, [page]);
 
-  const routines = data.activities.filter((a) => a.kind === "rutina").length;
+  // Only the routines that show in «Rutinas» (with their silo); one left without it is not counted.
+  const routines = data.activities.filter(
+    (a) =>
+      a.kind === "rutina" &&
+      data.tasks.some((t) => t.activityId === a.id && t.kind === "habit" && t.status === "active"),
+  ).length;
+  const subjects = data.activities.filter((a) => a.kind !== "rutina").length;
   const google = sync?.status.google;
   const icloud = sync?.status.icloud;
   const calendarsValue = sync
@@ -467,7 +473,7 @@ export function Settings({
           id: "subjects",
           title: "Materias",
           icon: I.book,
-          value: String(data.activities.length - routines),
+          value: String(subjects),
           content: <ActivitySettings onOpen={(id) => open(id)} />,
         },
         {

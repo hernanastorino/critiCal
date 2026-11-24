@@ -75,7 +75,8 @@ export function Silos() {
 
   const silo = (p: TaskProgress) => {
     const color = data.activities.find((a) => a.id === p.task.activityId)?.color ?? "#888";
-    const total = shownTotal(p);
+    // A closed delivery shows what is left (0h), not the hours it once had.
+    const total = p.remainingMinutes <= 0 ? 0 : shownTotal(p);
     const ratio = total > 0 ? Math.min(1, p.remainingMinutes / total) : 0;
     const level = levels.get(p.task.id) ?? "ok";
     // Once next week is planned, a routine's silo counts that one.

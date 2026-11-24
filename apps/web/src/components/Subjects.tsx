@@ -150,6 +150,12 @@ function nameError(name: string, repeated: boolean): string | null {
 export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }) {
   const { data, dispatch } = useStore();
   const toast = useToast();
+  // A routine left without its silo (old data) is not in «Rutinas» and not here either.
+  const subjects = data.activities.filter(
+    (a) =>
+      a.kind !== "rutina" ||
+      data.tasks.some((t) => t.activityId === a.id && t.kind === "habit" && t.status === "active"),
+  );
   /** Where focus goes once a row is gone: the next (or previous) row, else the empty note. */
   const [focusId, setFocusId] = useState<string | null>(null);
   useEffect(() => {
@@ -164,8 +170,8 @@ export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }
   const remove = (activity: Activity) => {
     const removed = removedWith(data, activity.id);
     if (!removed) return;
-    const at0 = data.activities.findIndex((a) => a.id === activity.id);
-    const near = data.activities[at0 + 1] ?? data.activities[at0 - 1];
+    const at0 = subjects.findIndex((a) => a.id === activity.id);
+    const near = subjects[at0 + 1] ?? subjects[at0 - 1];
     setFocusId(near ? near.id : "empty");
     const at = Date.now();
     // Only the ones still gone: a different demo or one already back is not part of this.
@@ -197,13 +203,13 @@ export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }
   return (
     <Section>
       <p className="meta">Cada una tiene su color en la semana y en los silos.</p>
-      {data.activities.length === 0 && (
+      {subjects.length === 0 && (
         <p className="meta" id="subjects-empty" tabIndex={-1}>
           No tenés materias ni rutinas. Las materias se crean en «Inicio de cuatrimestre» y las
           rutinas en «Rutinas».
         </p>
       )}
-      {data.activities.length === 0 && onOpen && (
+      {subjects.length === 0 && onOpen && (
         <>
           <button
             type="button"
@@ -223,7 +229,7 @@ export function ActivitySettings({ onOpen }: { onOpen?: (page: PageId) => void }
           </button>
         </>
       )}
-      {data.activities.map((a) => (
+      {subjects.map((a) => (
         <ActivityRow key={a.id} activity={a} onRemove={() => remove(a)} />
       ))}
     </Section>
