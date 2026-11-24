@@ -2836,25 +2836,24 @@ label.check {
   color: var(--ink-soft);
 }
 
+.place-mode svg {
+  width: 1.5em;
+  height: 1.5em;
+}
+
 .place-aliases {
   display: block;
   margin: calc(var(--space-2) * -1) 0 0;
   font-size: var(--text-s);
 }
 
-/* The address on one line; what does not fit is not shown. Default: «…» at the cut. */
+/* The address on one line; what does not fit fades out at the end. */
 .place-addr {
   display: block;
   margin: 0;
   font-size: var(--text-s);
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Variant: the end fades out instead of showing «…». Add --fade to the class to use it. */
-.place-addr--fade {
-  text-overflow: clip;
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }

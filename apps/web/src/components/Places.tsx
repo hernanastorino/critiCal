@@ -36,9 +36,6 @@ const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 /** A place whose name is only invisible characters (seeded data) still shows as a row. */
 const label = (name: string) => (isBlank(name) ? "Sin nombre" : name);
 
-/** How the address line is cut: «…» (false) or a fade at the end (true, `.place-addr--fade`). */
-const ADDRESS_FADE = false;
-
 /** Looks like a map address: letters, a door number and at least two words. */
 const looksLikeAddress = (text: string) =>
   /\p{L}/u.test(text) && /\d/.test(text) && text.split(" ").length >= 2;
@@ -192,16 +189,16 @@ export function Places() {
                 <span className="place-mode" aria-hidden="true">
                   {" · "}
                 </span>
-                <span className="place-mode">
-                  {p.travelMode === "bus" ? <Marks.bus /> : <Marks.car />}{" "}
-                  {p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                <span
+                  className="place-mode"
+                  role="img"
+                  aria-label={p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                  title={p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                >
+                  {p.travelMode === "bus" ? <Marks.bus /> : <Marks.car />}
                 </span>
               </span>
-              {placeAddress(p) && (
-                <span className={`meta place-addr${ADDRESS_FADE ? " place-addr--fade" : ""}`}>
-                  {placeAddress(p)}
-                </span>
-              )}
+              {placeAddress(p) && <span className="meta place-addr">{placeAddress(p)}</span>}
             </span>
             <button
               type="button"

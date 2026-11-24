@@ -95,9 +95,14 @@ describe("vuelta 22: Lugares en ómnibus sin dirección", () => {
         <Places />
       </StoreProvider>,
     );
-    const rows = [...document.querySelectorAll(".place-row")].map((r) => r.textContent ?? "");
-    expect(rows.find((r) => r.includes("Casa"))).toMatch(/Casa · +Auto/);
-    expect(rows.find((r) => r.includes("Trabajo"))).toMatch(/Trabajo · +Ómnibus(?!.*Sin)/);
+    const rows = [...document.querySelectorAll(".place-row")];
+    const modeOf = (name: string) =>
+      rows
+        .find((r) => r.textContent?.includes(name))
+        ?.querySelector(".place-mode[role='img']")
+        ?.getAttribute("aria-label");
+    expect(modeOf("Casa")).toBe("Auto");
+    expect(modeOf("Trabajo")).toBe("Ómnibus");
   });
 });
 
@@ -206,12 +211,19 @@ describe("filas de Lugares", () => {
       </StoreProvider>,
     );
     const rows = [...document.querySelectorAll(".place-row")];
-    expect(rows.at(0)?.querySelector(".place-line")?.textContent).toMatch(/^Casa Fran · +Auto$/);
+    expect(rows.at(0)?.querySelector(".place-line")?.textContent).toMatch(/^Casa Fran · *$/);
+    expect(rows.at(0)?.querySelector(".place-mode[role='img']")?.getAttribute("aria-label")).toBe(
+      "Auto",
+    );
+    expect(rows.at(0)?.querySelector(".place-mode svg")).not.toBeNull();
     expect(rows.at(0)?.querySelector(".place-addr")?.textContent).toBe(
       "Bulevar Artigas 1500, Montevideo",
     );
     expect(rows.at(0)?.textContent).not.toMatch(/piscinada|juntada/);
-    expect(rows.at(1)?.querySelector(".place-line")?.textContent).toMatch(/Casa · .*Ómnibus/);
+    expect(rows.at(1)?.querySelector(".place-line")?.textContent).toMatch(/Casa · *$/);
+    expect(rows.at(1)?.querySelector(".place-mode[role='img']")?.getAttribute("title")).toBe(
+      "Ómnibus",
+    );
     expect(rows.at(1)?.querySelector(".place-addr")).toBeNull();
     // Sin dirección propia: el alias que parece dirección (el más largo); si ninguno, nada.
     expect(rows.at(2)?.querySelector(".place-addr")?.textContent).toBe(

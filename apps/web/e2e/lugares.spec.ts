@@ -46,7 +46,10 @@ test.describe("lugares y la casa", () => {
     await openDemo(page);
     await openSettingsPage(page, "Lugares y traslados");
     await addPlace(page, "Casa", { home: true });
-    const casa = sheet(page).locator(".place-row", { hasText: "Casa · Auto" });
+    const casa = sheet(page)
+      .locator(".place-row")
+      .filter({ has: page.getByRole("img", { name: "Auto" }) })
+      .filter({ hasText: "Casa" });
     await expect(casa).toBeVisible();
     await expect(casa.locator(".place-addr")).toHaveCount(0);
 
@@ -149,7 +152,7 @@ test.describe("filas de lugares", () => {
     await page.getByRole("button", { name: "Demo de pruebas" }).click();
     await openSettingsPage(page, "Lugares y traslados");
     const fila = sheet(page).locator(".place-row", { hasText: "Club Remeros" });
-    await expect(fila).toContainText("Club Remeros · Auto");
+    await expect(fila.getByRole("img", { name: "Auto" })).toBeVisible();
     await expect(fila).not.toContainText("piscinada");
     const dir = fila.locator(".place-addr");
     const box = await dir.boundingBox();
