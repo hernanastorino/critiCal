@@ -42,6 +42,13 @@ const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 const DAYS_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
+/** The form field of each meal, to say which one an error is about. */
+const MEAL_FIELD = {
+  desayuno: "Desayuno",
+  almuerzo: "Almuerzo",
+  merienda: "Merienda",
+  cena: "Cena",
+} as const;
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
@@ -112,7 +119,11 @@ export function WeekSettings() {
     const wake = hhmmToMinutes(form.wake);
     const bed = hhmmToMinutes(form.bed);
     if (wake === bed) {
-      setError("Me levanto y me acuesto no pueden ser a la misma hora.");
+      setFailure({
+        message: "Me levanto y me acuesto no pueden ser a la misma hora.",
+        field: ["Me levanto", "Me acuesto"],
+        form,
+      });
       return;
     }
     // Going to bed after midnight: what comes after midnight belongs to the same day
@@ -133,9 +144,11 @@ export function WeekSettings() {
     };
     const asleep = meals.find((m) => !fits(m));
     if (asleep) {
-      setError(
-        `${asleep.kind ? MEAL_NAMES[asleep.kind] : "Una comida"} a las ${minutesToHhmm(asleep.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
-      );
+      setFailure({
+        message: `${asleep.kind ? MEAL_NAMES[asleep.kind] : "Una comida"} a las ${minutesToHhmm(asleep.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
+        field: asleep.kind ? MEAL_FIELD[asleep.kind] : null,
+        form,
+      });
       return;
     }
     // Between waking up and going to bed (after midnight, the gap is the hours of sleep).
@@ -163,14 +176,7 @@ export function WeekSettings() {
       const before = inOrder[inOrder.indexOf(early) - 1];
       setFailure({
         message: `${MEAL_NAMES[early.kind]} (${minutesToHhmm(early.start)}) no puede ir antes que ${before?.kind ? MEAL_NAMES[before.kind].toLowerCase() : "la comida anterior"} (${minutesToHhmm(before?.start ?? 0)}): las comidas van en orden, de desayuno a cena.`,
-        field: (
-          {
-            desayuno: "Desayuno",
-            almuerzo: "Almuerzo",
-            merienda: "Merienda",
-            cena: "Cena",
-          } as const
-        )[early.kind],
+        field: MEAL_FIELD[early.kind],
         form,
       });
       return;

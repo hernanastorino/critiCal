@@ -121,6 +121,9 @@ export const nameTaken = (places: readonly Place[], name: string, exceptId?: str
 /** A name or alias with no case, spaces or invisible characters, to tell if two are the same. */
 const aliasKey = (text: string) => spotKey(stripInvisible(text)).replace(/\s/g, "");
 
+/** Whether two names are the same for the app (case, spaces and invisible characters aside). */
+export const sameName = (a: string, b: string) => !!aliasKey(a) && aliasKey(a) === aliasKey(b);
+
 /** The first of the comma-separated `aliases` that another place already has as name or alias. */
 export const aliasTaken = (places: readonly Place[], aliases: string, exceptId?: string) =>
   aliases

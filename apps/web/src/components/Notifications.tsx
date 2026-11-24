@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useSync } from "../Connected.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { CRITICAL, NOTIFY_DEFAULTS, type NotificationPrefs } from "../model.js";
@@ -21,6 +21,8 @@ export function Notifications() {
   const [state, setState] = useState<PushState | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const proposalsId = useId();
+  const sundayId = useId();
 
   useEffect(() => {
     pushState()
@@ -100,20 +102,26 @@ export function Notifications() {
       <label className="check">
         <input
           type="checkbox"
+          aria-labelledby={proposalsId}
           checked={prefs.proposals}
           disabled={!sync}
           onChange={(e) => save({ proposals: e.target.checked })}
         />
-        <span style={{ flex: 1 }}>Cuando un evento nuevo cambia el plan de hoy</span>
+        <span id={proposalsId} style={{ flex: 1 }}>
+          Cuando un evento nuevo cambia el plan de hoy
+        </span>
       </label>
       <label className="check">
         <input
           type="checkbox"
+          aria-labelledby={sundayId}
           checked={prefs.sunday}
           disabled={!sync}
           onChange={(e) => save({ sunday: e.target.checked })}
         />
-        <span style={{ flex: 1 }}>Planificación semanal del domingo</span>
+        <span id={sundayId} style={{ flex: 1 }}>
+          Planificación semanal del domingo
+        </span>
       </label>
       <div className="check">
         <span style={{ flex: 1 }}>Hora del recordatorio</span>

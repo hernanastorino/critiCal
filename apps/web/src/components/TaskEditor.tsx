@@ -690,10 +690,13 @@ export function TaskEditor({
               <input
                 id={examId}
                 type="checkbox"
+                aria-labelledby={`${examId}-label`}
                 checked={isExam}
                 onChange={(e) => setIsExam(e.target.checked)}
               />
-              <span>Es un parcial: repaso espaciado (una semana, tres días y un día antes)</span>
+              <span id={`${examId}-label`}>
+                Es un parcial: repaso espaciado (una semana, tres días y un día antes)
+              </span>
             </label>
             {isExam && (
               <label className="check">

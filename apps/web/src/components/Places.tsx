@@ -18,6 +18,7 @@ import {
   minutesBetween,
   nameTaken,
   type PlacePair,
+  sameName,
   tripPairs,
 } from "../places.js";
 import { computeTravel } from "../remote.js";
@@ -654,7 +655,10 @@ function PlaceForm({
                 .map((a) => a.trim())
                 .filter(
                   (a, i, all) =>
-                    a && all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i,
+                    a &&
+                    all.findIndex((b) => b.toLowerCase() === a.toLowerCase()) === i &&
+                    // Its own name is not another way to call it.
+                    !sameName(a, name),
                 ),
               isHome: makesHome || undefined,
               travelMode: travelMode === "bus" ? "bus" : undefined,
