@@ -111,7 +111,6 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [current, startTimer]);
   useEffect(() => () => clearTimeout(timer.current), []);
   const api = useMemo(() => ({ show, clear, current, setPinned }), [show, clear, current]);
-  const big = useLargeText();
   const release = (which: { current: boolean }) => {
     which.current = false;
     if (current && !(hover.current || focus.current)) startTimer(current);
@@ -138,7 +137,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setCurrent((c) => (c === was ? null : c));
   };
   const noticeBox = (
-    <div className={big ? "toasts low" : "toasts"}>
+    <div className="toasts low">
       {/* Its own region: a new notice is announced alone, not with the standing summary. */}
       <div role="status">
         {current && (
@@ -173,15 +172,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      {/* The standing summary above the tab bar; touches pass through but the notice. With large
-          text the notice goes down too (SPEC §18.12: three or four lines at the top would cover
-          the week's bar) and joins it in one column, so the two stack and never cover each other.
-          Otherwise the notice sits at the very top, over nothing that is edited (SPEC §18.10). */}
-      <div className={big ? "snacks stacked" : "snacks"}>
-        {big && noticeBox}
+      {/* Notice and standing summary share one column above the tab bar: the notice over the
+          summary, so they never overlap and no notice covers a header or a title. With a sheet
+          open the notice goes to the strip the sheet leaves free, at the top (styles.css). */}
+      <div className="snacks stacked">
+        {noticeBox}
         <div role="status">{pinned}</div>
       </div>
-      {!big && noticeBox}
     </Ctx.Provider>
   );
 }

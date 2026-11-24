@@ -118,11 +118,8 @@ if (typeof document !== "undefined") {
 // One listener for every sheet, so Escape works even after a tap left focus on the page.
 function onKey(e: KeyboardEvent) {
   if (e.key !== "Escape" || e.defaultPrevented) return;
-  // An open native picker (time, date) closes itself first.
-  const t = e.target;
-  if (t instanceof HTMLInputElement && /^(time|date|datetime-local|month|week)$/.test(t.type)) {
-    return;
-  }
+  // A native picker that is open closes itself first (its Escape never reaches the page): with
+  // the focus on a time or date field and no picker, Escape is the sheet's like anywhere else.
   const top = stack[stack.length - 1];
   if (!top) return;
   e.preventDefault();
