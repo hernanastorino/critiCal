@@ -26,21 +26,23 @@ const campo = (page: Page): Locator =>
     .first();
 
 /** Cambia el campo: a otra hora si es de hora, si no le agrega texto. */
-async function tocar(campo: Locator) {
+async function tocar(campo: Locator): Promise<void> {
   const tipo = await campo.getAttribute("type");
-  if (tipo === "time") await campo.fill("03:15");
-  else if (tipo === "date") await campo.fill("2026-12-30");
-  else await campo.fill(`${await campo.inputValue()}7`);
+  const actual = await campo.inputValue();
+  const nuevo = tipo === "time" ? "03:15" : tipo === "date" ? "2026-12-30" : `${actual}7`;
+  await campo.fill(nuevo);
 }
+
+type Paso<T = void> = (...args: [Page]) => Promise<T>;
 
 interface Caso {
   nombre: string;
   /** Llega al formulario. */
-  abrir: (page: Page) => Promise<void>;
+  abrir: Paso;
   /** Qué hoja queda abierta (por su nombre) al volver un nivel con Escape; null: se cierra todo. */
   vuelve: string | null;
   /** Hace un cambio sin guardar; devuelve cómo ver que sigue ahí. */
-  cambiar: (page: Page) => Promise<() => Promise<void>>;
+  cambiar: Paso<() => Promise<void>>;
   /** El formulario guarda al instante: Escape no pregunta, y el cambio queda. */
   instantaneo?: boolean;
   /** No tiene nada que escribir (acá, sin cuenta): solo se prueba el cierre sin cambios. */

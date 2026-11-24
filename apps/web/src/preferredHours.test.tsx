@@ -31,9 +31,10 @@ afterEach(cleanup);
 
 describe("a routine's preferred hours outside its valid hours", () => {
   it("is found when the preference never meets the valid hours", () => {
-    const [m] = preferenceMisfits(withMisfit(demoData(NOW)));
-    expect(m?.activity.id).toBe("gym");
-    expect(m?.allowed).toBe("09:00–17:00");
+    const m = preferenceMisfits(withMisfit(demoData(NOW))).at(0);
+    if (!m) throw new Error("no misfit found");
+    expect(m.activity.id).toBe("gym");
+    expect(m.allowed).toBe("09:00–17:00");
   });
 
   it("is not found when they overlap, when there is no preference, or on a materia", () => {
