@@ -50,6 +50,7 @@ import {
   EditIcon,
   GearIcon,
   Marks,
+  RepeatIcon,
   ReplanIcon,
   UndoIcon,
 } from "./icons.js";
@@ -1225,8 +1226,8 @@ export function Week({
                       data-at={item.start}
                       type="button"
                       data-level={b.level}
-                      aria-label={`${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${sleptIds.has(b.id) ? ", no hecho: dormías" : b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
-                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${sleptIds.has(b.id) ? " slept" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
+                      aria-label={`${b.review ? "Repaso · " : ""}${titleOf(b)}, ${weekdayShort(tz, item.start)} ${time(tz, item.start)} a ${time(tz, item.end)}${item.run ? `, ${item.run.length} bloques seguidos` : ""}${isPinned(b) ? ", fijado" : ""}${sleptIds.has(b.id) ? ", no hecho: dormías" : b.level === "critical" ? ", crítico: no llega a tiempo" : b.level === "warn" ? ", justo de tiempo" : ""}`}
+                      className={`pill planned ${b.level ?? "ok"}${past ? " past" : ""}${sleptIds.has(b.id) ? " slept" : ""}${isPinned(b) ? " pinned" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${displaced(b) ? " displaced" : ""}${item.run ? " run" : ""}${b.review ? " review" : ""}${bubble?.item.id === item.id ? " selected" : ""}`}
                       style={{ ...style, ["--c" as string]: colorOf(b) }}
                       onPointerDown={
                         // A run of blocks is not dragged: editing shows each one apart.
@@ -1302,6 +1303,11 @@ export function Week({
                       {sleptIds.has(b.id) && (
                         <span className="slept-label" aria-hidden="true">
                           dormías
+                        </span>
+                      )}
+                      {b.review && !sleptIds.has(b.id) && (
+                        <span className="rev-ic" data-testid="rev-ic">
+                          <RepeatIcon />
                         </span>
                       )}
                     </button>
@@ -1596,17 +1602,19 @@ function BubbleCard({
       (item.run ?? [b]).map((x) => data.tasks.find((t) => t.id === x.taskId)?.title ?? "Bloque"),
     ),
   ].join(" · ");
+  // Spaced review before an exam: the heading says so.
+  const heading = b.review ? `Repaso · ${titles}` : titles;
   // Already registered: the sheet offers to correct it, not to mark how it went.
   const answeredIds = new Set(standingCheckIns(data).map((c) => c.blockId));
   const unanswered = (item.run ?? [b]).some((x) => !answeredIds.has(x.id));
   return (
     <BubbleDialog
-      label={titles}
+      label={heading}
       onClose={onClose}
       style={{ left, top, ["--c" as string]: activity?.color }}
     >
       <button type="button" className="bubble" onClick={onOpen}>
-        <h3>{titles}</h3>
+        <h3>{heading}</h3>
         <p>
           {activity?.name} · {dayAndTime(tz, item.start)} – {time(tz, item.end)}
           {item.run && ` · ${item.run.length} bloques seguidos`}

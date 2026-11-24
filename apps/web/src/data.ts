@@ -172,6 +172,7 @@ export function rowsToData(r: {
         end: ms(b.end_at as string),
         level: b.level as PlanBlock["level"],
         soft: b.soft as boolean,
+        review: b.review === true ? true : undefined,
       }),
     ),
     calendars: (r.calendars ?? []).map(
@@ -658,6 +659,7 @@ export function diffData(prev: AppData, next: AppData): Writes {
         end_at: iso(b.end),
         level: b.level ?? "ok",
         soft: !!b.soft,
+        review: !!b.review,
       })),
     });
   }

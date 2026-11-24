@@ -157,4 +157,14 @@ export const SettingsIcons = {
   warn: line("M12 3l10 18H2zM12 10v5M12 18h.01"),
 };
 
+/** Repeat: two arrows chasing each other in a circle. */
+export const RepeatIcon = () => (
+  <svg {...base} width={12} height={12} aria-hidden="true">
+    <path d="M20 12a8 8 0 0 0-14-5.3L4 9" />
+    <path d="M4 4v5h5" />
+    <path d="M4 12a8 8 0 0 0 14 5.3L20 15" />
+    <path d="M20 20v-5h-5" />
+  </svg>
+);
+
 export const SearchIcon = line("M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4");

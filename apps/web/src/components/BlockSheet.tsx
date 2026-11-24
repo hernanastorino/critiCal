@@ -222,7 +222,7 @@ export function CheckInForm({
         </h2>
       ) : (
         <>
-          <h2>{task?.title ?? "Bloque"}</h2>
+          <h2>{`${block.review ? "Repaso · " : ""}${task?.title ?? "Bloque"}`}</h2>
           <p className="meta">
             {activity?.name} · {dayAndTime(tz, block.start)} – {time(tz, block.end)} (
             {hours(length)}){task?.deadline && ` · entrega ${dayMonth(tz, task.deadline)}`}
