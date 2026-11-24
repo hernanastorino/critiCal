@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Notifications } from "./components/Notifications.js";
 import { demoData } from "./demo.js";
@@ -107,7 +107,7 @@ function Prefs() {
 }
 
 describe("notification settings", () => {
-  it("saves which notifications to send, even without an account", async () => {
+  it("greys every setting without an account: they would do nothing", () => {
     browser(false);
     render(
       <StoreProvider initial={demoData} persist={false}>
@@ -116,19 +116,11 @@ describe("notification settings", () => {
       </StoreProvider>,
     );
     expect(screen.getByText(/Entrá con Google/)).toBeTruthy();
-    await act(async () => {
-      fireEvent.click(screen.getByLabelText("Cuando un evento nuevo cambia el plan de hoy"));
-    });
-    fireEvent.change(screen.getByLabelText("Minutos antes"), { target: { value: "30" } });
-    fireEvent.change(screen.getByLabelText("Hora del recordatorio"), {
-      target: { value: "20:30" },
-    });
-    await waitFor(() =>
-      expect(JSON.parse(screen.getByTestId("prefs").textContent ?? "{}")).toEqual({
-        proposals: false,
-        leadMinutes: 30,
-        sundayAt: 20 * 60 + 30,
-      }),
+    for (const box of screen.getAllByRole("checkbox"))
+      expect((box as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Minutos antes") as HTMLSelectElement).disabled).toBe(true);
+    expect((screen.getByLabelText("Hora del recordatorio") as HTMLInputElement).disabled).toBe(
+      true,
     );
   });
 });

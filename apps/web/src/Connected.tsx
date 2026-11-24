@@ -54,7 +54,7 @@ export interface SyncStatus {
   rejected?: number;
 }
 
-interface SyncApi {
+export interface SyncApi {
   client: SupabaseClient;
   status: SyncStatus;
   syncNow: () => Promise<void>;
@@ -68,7 +68,7 @@ interface SyncApi {
   disconnectICloud: () => Promise<void>;
 }
 
-const SyncContext = createContext<SyncApi | null>(null);
+export const SyncContext = createContext<SyncApi | null>(null);
 
 /** Sync controls for the signed-in app; null in demo mode. */
 export const useSync = () => useContext(SyncContext);

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
+import { type SyncApi, SyncContext } from "./Connected.js";
 import { BlockSheet } from "./components/BlockSheet.js";
 import { Notifications } from "./components/Notifications.js";
 import { DetectedDefaults, Routines } from "./components/Preferences.js";
@@ -143,7 +144,12 @@ describe("names, labels and small fixes", () => {
   });
 
   it("reads the critical-block checkbox alone and greys the Sunday hour with it off", () => {
-    wrap(<Notifications />);
+    const account = { client: {} } as unknown as SyncApi;
+    wrap(
+      <SyncContext.Provider value={account}>
+        <Notifications />
+      </SyncContext.Provider>,
+    );
     expect(screen.getByRole("checkbox", { name: "Antes de cada bloque crítico" })).toBeTruthy();
     const hour = screen.getByLabelText("Hora del recordatorio") as HTMLInputElement;
     expect(hour.disabled).toBe(false);

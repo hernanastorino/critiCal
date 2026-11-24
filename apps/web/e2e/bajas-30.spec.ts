@@ -63,7 +63,9 @@ test("un aviso largo con una hoja abierta no baja de la franja que la hoja deja 
   await page.evaluate(() => {
     const t = document.createElement("div");
     t.className = "snack";
-    t.innerHTML = `<span>${"Aviso muy largo ".repeat(40)}</span>`;
+    const texto = document.createElement("span");
+    texto.textContent = "Aviso muy largo ".repeat(40);
+    t.append(texto);
     document.querySelector(".toasts [role=status]")?.append(t);
   });
   const aviso = await page.locator(".toasts .snack").boundingBox();
@@ -77,6 +79,6 @@ test("tema claro: la hoja de Ajustes es opaca", async ({ browser }) => {
   await openDemo(page, MONDAY);
   await openSettings(page);
   const fondo = await sheet(page).evaluate((e) => getComputedStyle(e).backgroundColor);
-  expect(fondo).not.toMatch(/rgba\(.*, 0(\.\d+)?\)$/);
+  expect(fondo.startsWith("rgb(")).toBe(true);
   await ctx.close();
 });
