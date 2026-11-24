@@ -1,4 +1,11 @@
-import { createContext, type RefObject, useContext, useEffect, useRef } from "react";
+import {
+  createContext,
+  type RefObject,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+} from "react";
 
 /**
  * What Escape does on a screen of Ajustes that has a level of its own (a form inside it):
@@ -64,11 +71,13 @@ if (typeof window !== "undefined") {
  * `popScreen` is for the sheet's own «Volver»: it takes the screen's entry off, and the
  * sheet shows the list itself.
  */
+// The entries are pushed before the sheet is painted, as soon as it is on screen (a sheet that
+// a reload brings back included), so «atrás» never finds it without them.
 export function useSettingsHistory(page: unknown, onList: () => void, onClose: () => void) {
   const handlers = useRef<Handlers>({ onList, onClose });
   handlers.current = { onList, onClose };
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     live++;
     current = handlers;
     // Settled right away: the pending pops of an earlier sheet are what is in flight.
@@ -86,7 +95,7 @@ export function useSettingsHistory(page: unknown, onList: () => void, onClose: (
     };
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (page && level() !== 2) history.pushState({ [KEY]: 2 }, "");
   }, [page]);
 

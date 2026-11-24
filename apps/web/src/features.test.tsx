@@ -276,7 +276,7 @@ describe("decisions and defaults", () => {
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     fireEvent.click(screen.getAllByText("Elegir")[0] as HTMLElement);
     expect(screen.getByText("Decisiones que tomaste")).toBeTruthy();
-    fireEvent.click(screen.getByText("Deshacer"));
+    fireEvent.click(screen.getByRole("button", { name: /^Deshacer: / }));
     expect(screen.queryByText("Decisiones que tomaste")).toBeNull();
   });
 

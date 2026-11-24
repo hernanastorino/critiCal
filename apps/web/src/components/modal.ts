@@ -115,8 +115,46 @@ if (typeof document !== "undefined") {
   );
 }
 
+const FOCUSABLE =
+  'a[href], button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"])';
+
+/** What Tab can reach inside `top`, then the buttons of the open notices (their «Deshacer»). */
+function tabStops(top: HTMLElement): HTMLElement[] {
+  const reachable = (el: HTMLElement) =>
+    !el.matches(":disabled") &&
+    !el.closest("[inert], [hidden]") &&
+    (typeof el.checkVisibility !== "function" || el.checkVisibility());
+  return [
+    ...top.querySelectorAll<HTMLElement>(FOCUSABLE),
+    ...document.querySelectorAll<HTMLElement>(".snack button"),
+  ].filter(reachable);
+}
+
+/**
+ * Tab and Shift+Tab go round inside the top sheet (and the notices over it) instead of
+ * leaving the page, where the focus would end up on nothing.
+ */
+function keepTabInside(e: KeyboardEvent, top: HTMLElement) {
+  const stops = tabStops(top);
+  const [first, last] = [stops.at(0), stops.at(-1)];
+  if (!first || !last) return;
+  const active = document.activeElement;
+  const inside = active instanceof HTMLElement && stops.includes(active);
+  // A heading that took the focus is not a stop: Shift+Tab from it goes to the end.
+  const lost = !top.contains(active) && !inside;
+  const edge = lost || (e.shiftKey ? !inside || active === first : active === last);
+  if (!edge) return;
+  e.preventDefault();
+  (e.shiftKey ? last : first).focus({ preventScroll: true });
+}
+
 // One listener for every sheet, so Escape works even after a tap left focus on the page.
 function onKey(e: KeyboardEvent) {
+  if (e.key === "Tab" && !e.defaultPrevented) {
+    const open = stack[stack.length - 1];
+    if (open) keepTabInside(e, open.sheet);
+    return;
+  }
   if (e.key !== "Escape" || e.defaultPrevented) return;
   // A native picker that is open closes itself first (its Escape never reaches the page): with
   // the focus on a time or date field and no picker, Escape is the sheet's like anywhere else.

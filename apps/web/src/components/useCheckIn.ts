@@ -37,26 +37,33 @@ export function useCheckIn(onUndone?: (blockId: string) => void) {
       const corrects = standingCheckIns(data).some((c) => c.blockId === block.id);
       // The record is named here so «Deshacer» takes back this one and nothing newer.
       const id = newId();
-      dispatch({
-        type: "checkIn",
-        checkIn: {
-          id,
-          blockId: block.id,
-          taskId: block.taskId,
-          status,
-          minutesDone:
-            status === "done"
-              ? (block.end - block.start) / MINUTE
-              : status === "partial"
-                ? (opts.minutesDone ?? 0)
-                : 0,
-          unitIds: status === "missed" ? [] : (opts.unitIds ?? []),
+      // The plan before the answer and right after it: «Deshacer» puts the first one back.
+      const plans = { before: data.plan, after: data.plan };
+      dispatch(
+        {
+          type: "checkIn",
+          checkIn: {
+            id,
+            blockId: block.id,
+            taskId: block.taskId,
+            status,
+            minutesDone:
+              status === "done"
+                ? (block.end - block.start) / MINUTE
+                : status === "partial"
+                  ? (opts.minutesDone ?? 0)
+                  : 0,
+            unitIds: status === "missed" ? [] : (opts.unitIds ?? []),
+          },
         },
-      });
+        (after) => {
+          plans.after = after.plan;
+        },
+      );
       toast.show(said(status, corrects), {
         ...(status === "missed" && !corrects ? { roy: "hombros" as const } : {}),
         undo: () => {
-          dispatch({ type: "undoCheckIn", id });
+          dispatch({ type: "undoCheckIn", id, plans });
           onUndone?.(block.id);
         },
       });

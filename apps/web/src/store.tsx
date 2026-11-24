@@ -107,7 +107,13 @@ export type Action =
    * Takes the newest check-in of a block back, e.g. on «Deshacer». The log only grows, so
    * it adds a record: the earlier answer again, or «retired» when there was none.
    */
-  | { type: "undoCheckIn"; id: string; now: number }
+  | {
+      type: "undoCheckIn";
+      id: string;
+      now: number;
+      /** The plan before the answer and right after it, to put the first one back. */
+      plans?: { before: PlanBlock[]; after: PlanBlock[] };
+    }
   | { type: "override"; override: DayOverride; now: number }
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
@@ -673,7 +679,11 @@ function apply(data: AppData, action: Action): AppData {
               origin: "undo",
               createdAt: stampAfter(data, gone.blockId, now),
             };
-      return refresh(withRecord(data, back), now);
+      const undone = refresh(withRecord(data, back), now);
+      // The plan is not a function of the answers alone (today's blocks stay where they were
+      // put): if nothing moved it since the answer, it goes back exactly as it was.
+      const { plans } = action;
+      return plans && same(data.plan, plans.after) ? { ...undone, plan: plans.before } : undone;
     }
     case "unarchive": {
       if (!data.tasks.some((t) => t.id === action.taskId && t.status === "dropped")) return data;
