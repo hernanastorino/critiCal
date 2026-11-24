@@ -81,7 +81,7 @@ describe("Planificación semanal no contradice a la Bandeja", () => {
   it("con tareas que no entran dice cuántas en vez de «hay margen en todo»", () => {
     render(
       <StoreProvider initial={tooShort} persist={false} fixedNow={MON}>
-        <WeeklyPlan onClose={() => {}} onInbox={() => {}} />
+        <WeeklyPlan onClose={vi.fn()} onInbox={vi.fn()} />
       </StoreProvider>,
     );
     expect(screen.getByText(/No llegás a todo: \d+ tareas? no entra/)).toBeTruthy();
@@ -92,7 +92,7 @@ describe("Planificación semanal no contradice a la Bandeja", () => {
   it("sin tareas que no entran sigue diciendo que hay margen", () => {
     render(
       <StoreProvider initial={emptyData} persist={false} fixedNow={MON}>
-        <WeeklyPlan onClose={() => {}} onInbox={() => {}} />
+        <WeeklyPlan onClose={vi.fn()} onInbox={vi.fn()} />
       </StoreProvider>,
     );
     expect(screen.queryByText(/No llegás a todo/)).toBeNull();
@@ -104,13 +104,28 @@ function Pair({ first, second }: { first: () => void; second: () => void }) {
   const toast = useToast();
   return (
     <>
-      <button type="button" onClick={() => toast.show("Primero", { undo: first })}>
+      <button
+        type="button"
+        onClick={() => {
+          toast.show("Primero", { undo: first });
+        }}
+      >
         Uno
       </button>
-      <button type="button" onClick={() => toast.show("Segundo", { undo: second })}>
+      <button
+        type="button"
+        onClick={() => {
+          toast.show("Segundo", { undo: second });
+        }}
+      >
         Dos
       </button>
-      <button type="button" onClick={() => toast.show("Aparte")}>
+      <button
+        type="button"
+        onClick={() => {
+          toast.show("Aparte");
+        }}
+      >
         Aparte
       </button>
     </>
@@ -137,7 +152,7 @@ describe("avisos con «Deshacer»: se apilan", () => {
     fireEvent.click(screen.getByText("Uno"));
     fireEvent.click(screen.getByText("Dos"));
     expect(screen.getAllByRole("button", { name: "Deshacer" })).toHaveLength(2);
-    const [older] = screen.getAllByRole("button", { name: "Deshacer" });
+    const older = screen.getAllByRole("button", { name: "Deshacer" }).at(0);
     if (!older) throw new Error("falta el primer Deshacer");
     fireEvent.click(older);
     expect(first).toHaveBeenCalledOnce();
