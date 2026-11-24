@@ -6,7 +6,8 @@ const FOCUSABLE = "button, input, a[href], select, textarea";
  * Keeps keyboard and screen-reader focus from falling to <body> when the card the user
  * just acted on disappears: it goes to the card that took its place (the next one, or the
  * previous when it was the last) and, with none left, to `fallback` (the screen title).
- * Wire the returned handler as `onClickCapture` on the list that holds the `.card`s.
+ * Wire the returned handler as `onClickCapture` (and, for Enter in a field, `onKeyDownCapture`)
+ * on the list that holds the `.card`s.
  */
 export function useKeepFocus(
   list: RefObject<HTMLElement | null>,
@@ -25,9 +26,14 @@ export function useKeepFocus(
     if (active && active !== document.body && active.isConnected) return;
     const cards = [...root.querySelectorAll<HTMLElement>(".card")];
     const near = cards[index] ?? cards[index - 1];
-    (near?.querySelector<HTMLElement>(FOCUSABLE) ?? fallback.current)?.focus();
+    // A button before a field: landing on a place search would open a keyboard to type in.
+    (
+      near?.querySelector<HTMLElement>("button:not(:disabled)") ??
+      near?.querySelector<HTMLElement>(FOCUSABLE) ??
+      fallback.current
+    )?.focus();
   });
-  const handler = (e: React.MouseEvent<HTMLElement>) => {
+  const handler = (e: React.SyntheticEvent<HTMLElement>) => {
     const card = (e.target as HTMLElement).closest(".card");
     const cards = [...e.currentTarget.querySelectorAll(".card")];
     // A card marked `data-focus-title` hands focus to the screen title, not to a neighbor
