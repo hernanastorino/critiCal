@@ -11,7 +11,9 @@ import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 
 // Bajas de la 29.ª vuelta del agente atacante.
 const NOW = zonedInstant(TIMEZONE, "2026-11-23", 15 * 60);
-const DIRTY = "  Zeta‮​   uno  ";
+const RLO = String.fromCharCode(0x202e);
+const ZWSP = String.fromCharCode(0x200b);
+const DIRTY = `  Zeta${RLO}${ZWSP}   uno  `;
 
 beforeEach(() => {
   localStorage.clear();
@@ -48,7 +50,7 @@ describe("nombres sin espacios de más ni invisibles en el dato", () => {
       now: NOW,
     });
     expect(d.activities.some((a) => a.name === "Zeta uno")).toBe(true);
-    d = reducer(d, { type: "newSubject", name: "  Otra​   materia ", now: NOW });
+    d = reducer(d, { type: "newSubject", name: `  Otra${ZWSP}   materia `, now: NOW });
     expect(d.activities.some((a) => a.name === "Otra materia")).toBe(true);
   });
 
@@ -56,7 +58,9 @@ describe("nombres sin espacios de más ni invisibles en el dato", () => {
     inside(<TaskEditor onClose={() => undefined} />, () => demoData(NOW));
     fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
     fireEvent.change(screen.getByLabelText("Nombre de la materia"), { target: { value: DIRTY } });
-    fireEvent.change(screen.getByLabelText("Nombre"), { target: { value: "  TP​   final " } });
+    fireEvent.change(screen.getByLabelText("Nombre"), {
+      target: { value: `  TP${ZWSP}   final ` },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     const zeta = latest?.activities.find((a) => a.name === "Zeta uno");
     expect(zeta?.kind).toBe("materia");
