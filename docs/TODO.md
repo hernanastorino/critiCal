@@ -59,14 +59,16 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 - **Tope de «Guardar avance» en rutinas** (30.ª vuelta, 2026-11-24): hoy acepta hasta 1440 min por registro, como cualquier tarea, así que en una rutina de 5×60 un solo registro de 24 h la deja «ya está completa». ¿Ponemos tope en el campo (por ejemplo, lo que falta de la semana) o se deja así? No se tocó nada.
 - **Lugares: «Cancelar» con cambios** (31.ª vuelta): hoy pregunta «¿Descartar los cambios?» con «Seguir editando» como botón por defecto; el atacante creyó que «Cancelar» no descartaba (no se reprodujo: con «Descartar» se olvida el borrador). ¿Preferís que «Cancelar» descarte sin preguntar (hay borrador al recargar igual)?
 - **Tema claro, hoja de Ajustes transparente** (23.ª vuelta): no se reprodujo, la hoja es opaca (E2E en #249). Si lo ves, ¿en qué momento pasaba (al abrir, al arrastrar)?
-- **«Faltan» vs lo que reserva el plan** (32.ª vuelta): tras marcar «Hecho» con pocos minutos, el ratio aprendido baja y la Bandeja dice «Semana tranquila ✓» mientras el silo dice «Faltan 7h». La SPEC fija que «Faltan» muestre las partes sin ratio. ¿Preferís que muestre lo mismo que reserva el plan?
-- **Etiquetar los repasos** (32.ª vuelta): los bloques de repaso espaciado se ven igual que los de estudio. ¿Los rotulamos («Repaso · …»)? La SPEC no lo pide; no se hizo.
-- **Escape en rutinas** (#253): lo que se arregló fue Escape en «Rutina nueva» (vuelve a Rutinas, probado en producción). En la hoja de una rutina existente no se reprodujo que volviera a la raíz de Ajustes. ¿Era el formulario nuevo?
-- **Formato compacto en «despierto»** (#253): los avisos de día despierto pasaron también a «3h59 despierto». ¿Ok?
-- **Aviso con Deshacer de 8 s** (#257): subió de 6 s a 8 s para que dé tiempo a tocar «Deshacer». ¿Te parece bien?
-- **Errores de Mi semana de a uno** (#257): ahora el campo con error se marca en rojo y el mensaje sale debajo, pero se muestra un error por vez. ¿Querés que se marquen todos juntos?
-- **Verde de «hecho» en Partes hechas** (#256): la casilla marcada ahora se ve verde para no confundirse con el botón principal. ¿Te sirve?
-- **Margen de 13 px en Lugares** (32.ª vuelta): no se reprodujo; todo mide 16 px. Si lo ves, ¿nos pasás una captura?
+- ~~«Faltan» vs lo que reserva el plan~~: respondida el 2026-11-24: «Faltan» muestra siempre lo que el plan reserva, ajustado al ritmo (así la persona decide en qué usa el tiempo extra). PR #262.
+- ~~Etiquetar los repasos~~: respondida el 2026-11-24 (vio tres variantes con capturas): ícono de repetir dentro de la burbuja + «Repaso · …» en el detalle. PR #263.
+- ~~Escape en rutinas~~: respondida el 2026-11-24: probar Escape en todos los formularios. Hecho en #261 (`e2e/escape-formularios.spec.ts`, 16 formularios; arreglados Lugares nuevo vacío y la hoja de un bloque).
+- ~~Formato compacto en «despierto»~~: respondida el 2026-11-24: sí, formato corto.
+- ~~Aviso con Deshacer de 8 s~~: respondida el 2026-11-24: 4 s. Hecho en #261.
+- ~~Errores de Mi semana de a uno~~: respondida el 2026-11-24 (vio las dos con capturas): todos juntos, también horas. PR #262.
+- ~~Verde de «hecho» en Partes hechas~~: respondida el 2026-11-24: sí, verde.
+- ~~Margen de 13 px en Lugares~~: respondida el 2026-11-24 con un rediseño de la lista: nombre · ícono de traslado (sin texto «Auto»/«Ómnibus», ícono de auto nuevo), una línea con la dirección real (de `address` o del alias que parece dirección) con fundido al final, sin «Tu casa» ni los alias/eventos, «Editar» centrado. PR #260.
+- ~~Pedidos directos del 2026-11-24~~ (hechos en #261): «dormías» centrado (horizontal y vertical) en cada evento dormido; aviso en la Bandeja cuando la franja preferida de una rutina cae fuera de la válida (Gym en la demo: «Preferís 17:00–21:00, pero solo puede ir 09:00–17:00.» con «Editar rutina»); la atribución de horarios de STM/MTOP pasó a una fila «Acerca de» en Cuenta (con el link a la política de privacidad), sin texto suelto entre categorías.
+- **Nota «Demo de pruebas: …» en Cuenta**: sigue como párrafo suelto entre «Acerca de» y «Primeros pasos». ¿La pasamos también adentro de una fila?
 
 ## 0. Antes de empezar algo nuevo
 
