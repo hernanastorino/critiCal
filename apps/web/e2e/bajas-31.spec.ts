@@ -11,8 +11,11 @@ test("Mi semana: cada campo queda a la misma altura que su par, también con ayu
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Mi semana");
   const hoja = sheet(page);
-  const top = async (nombre: string) =>
-    Math.round((await hoja.getByLabel(nombre, { exact: true }).boundingBox())?.y ?? -1);
+  // El borde de abajo: un campo de hora y uno de texto pueden diferir unos px de alto.
+  const top = async (nombre: string) => {
+    const caja = await hoja.getByLabel(nombre, { exact: true }).boundingBox();
+    return Math.round((caja?.y ?? -1) + (caja?.height ?? 0));
+  };
   const pares = [
     ["Me levanto", "Arreglarse, traslado (min)"],
     ["Desayuno", "Dura (min), desayuno"],
