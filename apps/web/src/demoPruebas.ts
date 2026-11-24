@@ -264,8 +264,27 @@ export function pruebasData(now: number): AppData {
         travelMode: "bus",
       },
       // With an address the minutes can be worked out; without it they are typed.
-      { id: "fran", name: "Casa Fran", aliases: [], address: "Bulevar Artigas 1500, Montevideo" },
+      {
+        id: "fran",
+        name: "Casa Fran",
+        aliases: ["juntada patas?"],
+        address: "Bulevar Artigas 1500, Montevideo",
+      },
+      // A long address: the one line cuts it.
+      {
+        id: "club",
+        name: "Club Remeros",
+        aliases: ["piscinada"],
+        address:
+          "Avenida Doctor Luis Alberto de Herrera 3365, Barrio Parque Batlle, Montevideo, Uruguay",
+      },
       { id: "abuela", name: "Casa de la abuela Marta", aliases: [] },
+      // No address typed: the one in its aliases (the calendar's location) is shown.
+      {
+        id: "mariano",
+        name: "Casa de Mariano",
+        aliases: ["Fiesta 2026", "Mariano Uriarte 6134 11500 Montevideo Montevideo Uruguay"],
+      },
     ],
     spots: [{ key: "atlantida 1213 bis", text: "Atlántida 1213 Bis", minutes: 55 }],
     mealRuns: runs,

@@ -95,9 +95,14 @@ describe("vuelta 22: Lugares en ómnibus sin dirección", () => {
         <Places />
       </StoreProvider>,
     );
-    const rows = [...document.querySelectorAll(".place-row")].map((r) => r.textContent ?? "");
-    expect(rows.find((r) => r.includes("Casa"))).toMatch(/Tu casa · Auto/);
-    expect(rows.find((r) => r.includes("Trabajo"))).toMatch(/Ómnibus · sin dirección/);
+    const rows = [...document.querySelectorAll(".place-row")];
+    const modeOf = (name: string) =>
+      rows
+        .find((r) => r.textContent?.includes(name))
+        ?.querySelector(".place-mode[role='img']")
+        ?.getAttribute("aria-label");
+    expect(modeOf("Casa")).toBe("Auto");
+    expect(modeOf("Trabajo")).toBe("Ómnibus");
   });
 });
 
@@ -172,5 +177,59 @@ describe("vuelta 22: el mismo «Agregar» dos veces seguidas", () => {
     });
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.tasks.filter((t) => t.title === "Tanda")).toHaveLength(1);
+  });
+});
+
+describe("filas de Lugares", () => {
+  it("la línea de dirección es solo la dirección: sin alias, sin «Tu casa»", () => {
+    const data = {
+      ...demoData(NOW),
+      places: [
+        {
+          id: "f",
+          name: "Casa Fran",
+          aliases: ["juntada patas?", "piscinada"],
+          address: "Bulevar  Artigas 1500, Montevideo",
+        },
+        { id: "h", name: "Casa", aliases: [], isHome: true, travelMode: "bus" as const },
+        {
+          id: "m",
+          name: "Casa de Mariano",
+          aliases: [
+            "piscinada",
+            "Hernan",
+            "Mariano Uriarte 6134 11500 Montevideo Uruguay",
+            "Uriarte 6134 Montevideo",
+          ],
+        },
+        { id: "z", name: "Zona", aliases: ["piscinada", "Montevideo Uruguay"] },
+      ],
+    };
+    render(
+      <StoreProvider initial={() => data} persist={false} fixedNow={NOW}>
+        <Places />
+      </StoreProvider>,
+    );
+    const rows = [...document.querySelectorAll(".place-row")];
+    expect(rows.at(0)?.querySelector(".place-line")?.textContent).toMatch(/^Casa Fran · *$/);
+    expect(rows.at(0)?.querySelector(".place-mode[role='img']")?.getAttribute("aria-label")).toBe(
+      "Auto",
+    );
+    expect(rows.at(0)?.querySelector(".place-mode svg")).not.toBeNull();
+    expect(rows.at(0)?.querySelector(".place-addr")?.textContent).toBe(
+      "Bulevar Artigas 1500, Montevideo",
+    );
+    expect(rows.at(0)?.textContent).not.toMatch(/piscinada|juntada/);
+    expect(rows.at(1)?.querySelector(".place-line")?.textContent).toMatch(/Casa · *$/);
+    expect(rows.at(1)?.querySelector(".place-mode[role='img']")?.getAttribute("title")).toBe(
+      "Ómnibus",
+    );
+    expect(rows.at(1)?.querySelector(".place-addr")).toBeNull();
+    // Sin dirección propia: el alias que parece dirección (el más largo); si ninguno, nada.
+    expect(rows.at(2)?.querySelector(".place-addr")?.textContent).toBe(
+      "Mariano Uriarte 6134 11500 Montevideo Uruguay",
+    );
+    expect(rows.at(3)?.querySelector(".place-addr")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/Tu casa/);
   });
 });

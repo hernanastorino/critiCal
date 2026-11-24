@@ -46,7 +46,12 @@ test.describe("lugares y la casa", () => {
     await openDemo(page);
     await openSettingsPage(page, "Lugares y traslados");
     await addPlace(page, "Casa", { home: true });
-    await expect(sheet(page).getByText("Tu casa · Auto · sin dirección")).toBeVisible();
+    const casa = sheet(page)
+      .locator(".place-row")
+      .filter({ has: page.getByRole("img", { name: "Auto" }) })
+      .filter({ hasText: "Casa" });
+    await expect(casa).toBeVisible();
+    await expect(casa.locator(".place-addr")).toHaveCount(0);
 
     await backToList(page);
     await expect(avisos(page)).toContainText("Tu casa no tiene dirección");
@@ -79,14 +84,14 @@ test.describe("lugares y la casa", () => {
     await expect(fila(page, "Casa de la abuela Marta")).toBeVisible();
 
     // Una sola marcada como casa, y la abuela no es «Casa» ni cuenta como repetida.
-    await expect(sheet(page).getByText(/^Tu casa( ·|$)/)).toHaveCount(1);
-    await expect(sheet(page).getByText("Auto · sin dirección")).toHaveCount(1);
+    await expect(sheet(page).locator(".place-row .place-name svg")).toHaveCount(1);
+    await expect(sheet(page).getByText("Sin dirección", { exact: true })).toHaveCount(0);
     await expect(sheet(page).getByRole("alert")).toHaveCount(0);
 
     // Sigue así tras recargar (la demo vive en el aparato).
     await reload(page);
     await openSettingsPage(page, "Lugares y traslados");
-    await expect(sheet(page).getByText(/^Tu casa( ·|$)/)).toHaveCount(1);
+    await expect(sheet(page).locator(".place-row .place-name svg")).toHaveCount(1);
     await expect(fila(page, "Casa de la abuela Marta")).toBeVisible();
   });
 
@@ -107,7 +112,7 @@ test.describe("lugares y la casa", () => {
     await sheet(page).getByRole("button", { name: "Editar Casa", exact: true }).click();
     await sheet(page).getByLabel("Mi casa").uncheck();
     await guardar(page).click();
-    await expect(sheet(page).getByText(/^Tu casa( ·|$)/)).toHaveCount(0);
+    await expect(sheet(page).locator(".place-row .place-name svg")).toHaveCount(0);
 
     await backToList(page);
     await expect(avisos(page)).toContainText("Falta tu casa");
@@ -119,7 +124,7 @@ test.describe("lugares y la casa", () => {
     await sheet(page).getByRole("button", { name: "Editar Casa de la abuela Marta" }).click();
     await sheet(page).getByLabel("Mi casa").check();
     await guardar(page).click();
-    await expect(sheet(page).getByText(/^Tu casa( ·|$)/)).toHaveCount(1);
+    await expect(sheet(page).locator(".place-row .place-name svg")).toHaveCount(1);
     await backToList(page);
     await expect(avisos(page)).toHaveCount(0);
   });
@@ -136,5 +141,28 @@ test.describe("lugares y la casa", () => {
     await guardar(page).click({ force: true });
     // Sigue el formulario abierto.
     await expect(nombre(page)).toBeVisible();
+  });
+});
+
+// La lista: una fila por lugar, nombre · modo y la dirección en una sola línea.
+test.describe("filas de lugares", () => {
+  test("la dirección ocupa una línea y Editar queda centrado", async ({ page }) => {
+    await page.clock.install({ time: new Date("2026-11-22T12:00:00-03:00") });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Demo de pruebas" }).click();
+    await openSettingsPage(page, "Lugares y traslados");
+    const fila = sheet(page).locator(".place-row", { hasText: "Club Remeros" });
+    await expect(fila.getByRole("img", { name: "Auto" })).toBeVisible();
+    await expect(fila).not.toContainText("piscinada");
+    const dir = fila.locator(".place-addr");
+    const box = await dir.boundingBox();
+    const fontSize = await dir.evaluate((el) => Number.parseFloat(getComputedStyle(el).fontSize));
+    expect(box?.height).toBeLessThan(fontSize * 1.8);
+    // Más ancho que lo visible: se corta, no se parte en otra línea.
+    expect(await dir.evaluate((el) => el.scrollWidth > el.clientWidth)).toBe(true);
+    const row = await fila.boundingBox();
+    const boton = await fila.getByRole("button", { name: /^Editar/ }).boundingBox();
+    if (!row || !boton) throw new Error("sin cajas");
+    expect(Math.abs(boton.y + boton.height / 2 - (row.y + row.height / 2))).toBeLessThanOrEqual(2);
   });
 });

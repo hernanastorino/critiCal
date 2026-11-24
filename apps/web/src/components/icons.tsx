@@ -116,6 +116,21 @@ export const Marks = {
   ),
   pinned: mark("M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"),
   home: mark("M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-6h4v6"),
+  // Side views: body, and two wheels.
+  car: mark(
+    "M5.5 16.5H3v-4l3-.8 2.2-4.2h7.6l2.8 4.2 3.4.8v4h-2.5M9.5 16.5h5M6 11.7h12M12 7.5v4.2",
+    <>
+      <circle cx="7.5" cy="16.5" r="2" />
+      <circle cx="16.5" cy="16.5" r="2" />
+    </>,
+  ),
+  bus: mark(
+    "M5.5 17H3V7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10h-2.5M9.5 17h5M3 12h18M9 5v7M15 5v7",
+    <>
+      <circle cx="7.5" cy="17" r="2" />
+      <circle cx="16.5" cy="17" r="2" />
+    </>,
+  ),
 };
 
 export const SettingsIcons = {

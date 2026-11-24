@@ -37,6 +37,22 @@ const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 /** A place whose name is only invisible characters (seeded data) still shows as a row. */
 const label = (name: string) => (isBlank(name) ? "Sin nombre" : name);
 
+/** Looks like a map address: letters, a door number and at least two words. */
+const looksLikeAddress = (text: string) =>
+  /\p{L}/u.test(text) && /\d/.test(text) && text.split(" ").length >= 2;
+
+/**
+ * The street address, one line: `address`, else the longest alias that looks like one (the
+ * location Google Calendar gave an event). Never the other aliases or event names.
+ */
+export const placeAddress = (p: Place): string | undefined => {
+  const clean = (t: string) => stripInvisible(t).replace(/\s+/g, " ").trim();
+  const own = clean(p.address ?? "");
+  if (own) return own;
+  const found = p.aliases.map(clean).filter(looksLikeAddress);
+  return found.sort((x, y) => y.length - x.length).at(0);
+};
+
 /** Saved places and the driving times between them. */
 export function Places() {
   const { data, now, dispatch } = useStore();
@@ -165,25 +181,25 @@ export function Places() {
           />
         ) : (
           <div key={p.id} id={`place-${p.id}`} tabIndex={-1} className="check place-row">
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="place-name">
-                {p.isHome && <Marks.home />}
-                {p.isHome ? " " : ""}
-                {label(p.name)}
+            <span className="place-text">
+              <span className="place-line">
+                <span className="place-name">
+                  {p.isHome && <Marks.home />}
+                  {label(p.name)}
+                </span>
+                <span className="place-mode" aria-hidden="true">
+                  {" · "}
+                </span>
+                <span
+                  className="place-mode"
+                  role="img"
+                  aria-label={p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                  title={p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                >
+                  {p.travelMode === "bus" ? <Marks.bus /> : <Marks.car />}
+                </span>
               </span>
-              {p.aliases.length > 0 && (
-                <span className="meta place-aliases">{p.aliases.join(", ")}</span>
-              )}
-              {/* So «Falta tu casa» is understood: which one is home, and how each is reached. */}
-              <span className="meta place-aliases">
-                {[
-                  p.isHome ? "Tu casa" : null,
-                  p.travelMode === "bus" ? "Ómnibus" : "Auto",
-                  !p.address?.trim() && p.lat === undefined ? "sin dirección" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </span>
+              {placeAddress(p) && <span className="meta place-addr">{placeAddress(p)}</span>}
             </span>
             <button
               type="button"
