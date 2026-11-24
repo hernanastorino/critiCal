@@ -33,7 +33,9 @@ async function tocar(campo: Locator): Promise<void> {
   await campo.fill(nuevo);
 }
 
-type Paso<T = void> = (...args: [Page]) => Promise<T>;
+// El nombre del parámetro de un tipo de función no se usa: es un falso positivo de la regla.
+// eslint-disable-next-line no-unused-vars
+type Paso<T = void> = (page: Page) => Promise<T>;
 
 interface Caso {
   nombre: string;
