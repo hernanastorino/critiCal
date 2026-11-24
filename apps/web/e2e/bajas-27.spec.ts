@@ -10,7 +10,6 @@ async function conPreguntaDeLugar(page: Page): Promise<void> {
   await openDemo(page);
   await page.evaluate(() => {
     const d = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
-    const t = d.events[0].start + 2 * 86_400_000;
     // Varias tarjetas: la lista se pasa de la pantalla y el estado de cada buscador queda lejos.
     for (const [i, lugar] of [
       "Instituto Anglo",
