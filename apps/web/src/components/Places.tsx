@@ -12,6 +12,7 @@ import {
 } from "../limits.js";
 import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
 import {
+  aliasTaken,
   keepableEvents,
   keptTravel,
   minutesBetween,
@@ -455,6 +456,40 @@ function MinutesInput({
   );
 }
 
+/** Said under the aliases field when one is already another place's name or alias. */
+function AliasTaken({ id, alias }: { id: string; alias?: string }) {
+  if (!alias) return null;
+  return (
+    <p className="meta" id={id} role="alert" style={{ color: "var(--critical)" }}>
+      «{alias}» ya es el nombre o un alias de otro lugar: elegí otro.
+    </p>
+  );
+}
+
+/** What is wrong with the place form, if anything: the message under the name, and whether it blocks saving. */
+function placeProblem(x: {
+  form: { name: string; address: string; aliases: string };
+  taken: boolean;
+  aliasDup?: string;
+  empty: boolean;
+  tried: boolean;
+}): { problem: string | null; blocked: boolean } {
+  const { form, taken, aliasDup, empty, tried } = x;
+  const longAlias = form.aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
+  // The fields stop at their limits as you type; a pasted or restored draft is checked here.
+  const longName = form.name.trim().length > NAME_MAX;
+  const longAddress = form.address.trim().length > ADDRESS_MAX;
+  const blocked = !!(empty || taken || aliasDup || longAlias || longName || longAddress);
+  const messages: [boolean, string][] = [
+    [taken, "Ya tenés un lugar con ese nombre: elegí otro o editá ese."],
+    [longName, `El nombre tiene como máximo ${NAME_MAX} caracteres.`],
+    [longAddress, `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`],
+    [longAlias, `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`],
+    [empty && tried, "Poné un nombre para el lugar."],
+  ];
+  return { problem: messages.find(([on]) => on)?.[1] ?? null, blocked };
+}
+
 function PlaceForm({
   place,
   onSave,
@@ -485,27 +520,14 @@ function PlaceForm({
   const [leaving, setLeaving] = useState(false);
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
+  const aliasDup = aliasTaken(data.places ?? [], aliases, place.id);
   // Only one home: with another place already marked, the switch is not offered.
   const otherHome = (data.places ?? []).find((p) => p.isHome && p.id !== place.id);
   const makesHome = isHome && !otherHome;
   // A tap on a greyed «Guardar» says why; an empty name is only an error after that.
   const [tried, setTried] = useState(false);
   const empty = isBlank(name);
-  const longAlias = aliases.split(",").some((a) => a.trim().length > BACKUP_TEXT_MAX);
-  // The fields stop at their limits as you type; a pasted or restored draft is checked here.
-  const longName = name.trim().length > NAME_MAX;
-  const longAddress = address.trim().length > ADDRESS_MAX;
-  const problem = taken
-    ? "Ya tenés un lugar con ese nombre: elegí otro o editá ese."
-    : longName
-      ? `El nombre tiene como máximo ${NAME_MAX} caracteres.`
-      : longAddress
-        ? `La dirección tiene como máximo ${ADDRESS_MAX} caracteres.`
-        : longAlias
-          ? `Cada alias tiene como máximo ${BACKUP_TEXT_MAX} caracteres.`
-          : empty && tried
-            ? "Poné un nombre para el lugar."
-            : null;
+  const { problem, blocked } = placeProblem({ form, taken, aliasDup, empty, tried });
   // Bus times are worked out from the addresses: without one there is nothing to compute.
   const noAddress = travelMode === "bus" && !address.trim();
   const nameField = useRef<HTMLInputElement>(null);
@@ -557,9 +579,11 @@ function PlaceForm({
           maxLength={ALIASES_FIELD_MAX}
           onChange={(e) => setAliases(e.target.value)}
           placeholder="FING, Facultad"
-          aria-describedby={`aliases-help-${place.id}`}
+          aria-invalid={aliasDup ? true : undefined}
+          aria-describedby={aliasDup ? `alias-taken-${place.id}` : `aliases-help-${place.id}`}
         />
       </label>
+      <AliasTaken id={`alias-taken-${place.id}`} alias={aliasDup} />
       <Help
         id={`aliases-help-${place.id}`}
         text="Otros nombres con los que aparece este lugar en tus eventos."
@@ -601,9 +625,9 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          aria-disabled={empty || taken || longAlias || longName || longAddress ? true : undefined}
+          aria-disabled={blocked ? true : undefined}
           onClick={() => {
-            if (empty || taken || longAlias || longName || longAddress) {
+            if (blocked) {
               setTried(true);
               nameField.current?.focus();
               return;

@@ -1,6 +1,7 @@
 // Saved places and driving times → the engine's travel options. Pure.
 import { normalize } from "./calendars.js";
 import type { CalendarEvent, TravelOptions } from "./engine.js";
+import { stripInvisible } from "./limits.js";
 import type { AppData, AppEvent, Place, Spot } from "./model.js";
 
 /** Origin is the previous event's place if it ended less than this ago, else home. */
@@ -116,6 +117,24 @@ export const nameTaken = (places: readonly Place[], name: string, exceptId?: str
   const key = spotKey(name);
   return !!key && places.some((p) => p.id !== exceptId && spotKey(p.name) === key);
 };
+
+/** A name or alias with no case, spaces or invisible characters, to tell if two are the same. */
+const aliasKey = (text: string) => spotKey(stripInvisible(text)).replace(/\s/g, "");
+
+/** The first of the comma-separated `aliases` that another place already has as name or alias. */
+export const aliasTaken = (places: readonly Place[], aliases: string, exceptId?: string) =>
+  aliases
+    .split(",")
+    .map((a) => a.trim())
+    .find((a) => {
+      const key = aliasKey(a);
+      return (
+        !!key &&
+        places.some(
+          (p) => p.id !== exceptId && [p.name, ...p.aliases].some((w) => aliasKey(w) === key),
+        )
+      );
+    });
 
 /** The one-off address an event's text refers to, if the app already has it. */
 export const spotFor = (data: AppData, text: string | undefined): Spot | undefined =>

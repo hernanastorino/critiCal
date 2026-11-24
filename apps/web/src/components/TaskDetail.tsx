@@ -10,7 +10,7 @@ import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 
 /** What deleting a silo may change, to put back exactly on «Deshacer». */
-const GONE_KEYS = ["tasks", "checkIns", "plan", "pins", "applied"] as const;
+const GONE_KEYS = ["tasks", "checkIns", "plan", "pins", "applied", "activities"] as const;
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 export const MAX_TOPICS = 500;
@@ -19,6 +19,22 @@ export const MAX_TOPICS = 500;
 const MAX_LOG_MINUTES = 1440;
 
 /** What is wrong with the minutes typed in the log, if anything (empty is fine: 0). */
+/** What the notice says once progress is saved. */
+function savedText(logged: number, title: string): string {
+  return logged > 0
+    ? `Avance guardado: ${hours(logged)} en ${clipName(title)}`
+    : `Avance guardado en ${clipName(title)}`;
+}
+
+/** Why a weekly silo is not running right now, if it is not. */
+function offText(live: AppTask, tz: string, now: number): string | null {
+  if (live.paused) return "Pausado hasta que lo reactives.";
+  if ((live.skipUntil ?? 0) > now) {
+    return `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`;
+  }
+  return null;
+}
+
 export function minutesError(text: string): string | null {
   if (text.trim() === "") return null;
   const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
@@ -126,11 +142,7 @@ export function TaskDetail({
     setAsk(null);
     if (change !== "resume") onClose();
   };
-  const offState = live.paused
-    ? "Pausado hasta que lo reactives."
-    : (live.skipUntil ?? 0) > now
-      ? `Salteado esta semana · vuelve el ${dayDate(tz, live.skipUntil as number)}.`
-      : null;
+  const offState = offText(live, tz, now);
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const badMinutes = minutesError(minutes);
@@ -199,10 +211,12 @@ export function TaskDetail({
             </p>
           ))}
 
-        <div className="section-title" style={{ marginTop: 4 }}>
-          Registrar avance
-        </div>
-        <label className="field">
+        {!live.paused && (
+          <div className="section-title" style={{ marginTop: 4 }}>
+            Registrar avance
+          </div>
+        )}
+        <label className="field" hidden={live.paused}>
           <span>Le dediqué (minutos)</span>
           <input
             inputMode="numeric"
@@ -235,7 +249,7 @@ export function TaskDetail({
             </span>
           )}
         </label>
-        {task.units.length > 0 ? (
+        {live.paused ? null : task.units.length > 0 ? (
           <div className="field">
             <span>
               Partes hechas ({done} de {parts.length})
@@ -291,40 +305,38 @@ export function TaskDetail({
           <button type="button" className="btn" onClick={onEdit}>
             Editar
           </button>
-          <button
-            type="button"
-            className="btn primary"
-            aria-disabled={invalid ? true : undefined}
-            onClick={() => {
-              if (invalid) {
-                focusFirstInvalid(sheet.current);
-                return;
-              }
-              const total = topics.trim() === "" ? 0 : Number(topics);
-              const logged = Number(minutes.replace(",", ".")) || 0;
-              if (logged <= 0 && total === 0 && units.length === 0 && reopen.length === 0) {
-                setEmptyAt(form);
-                return;
-              }
-              dispatch({
-                type: "logProgress",
-                taskId: task.id,
-                minutes: logged,
-                unitIds: units,
-                reopenUnitIds: reopen,
-                topics: total || undefined,
-                topicsDone: Number(topicsDone) || 0,
-              });
-              toast.show(
-                logged > 0
-                  ? `Avance guardado: ${hours(logged)} en ${clipName(task.title)}`
-                  : `Avance guardado en ${clipName(task.title)}`,
-              );
-              onClose();
-            }}
-          >
-            Guardar avance
-          </button>
+          {!live.paused && (
+            <button
+              type="button"
+              className="btn primary"
+              aria-disabled={invalid ? true : undefined}
+              onClick={() => {
+                if (invalid) {
+                  focusFirstInvalid(sheet.current);
+                  return;
+                }
+                const total = topics.trim() === "" ? 0 : Number(topics);
+                const logged = Number(minutes.replace(",", ".")) || 0;
+                if (logged <= 0 && total === 0 && units.length === 0 && reopen.length === 0) {
+                  setEmptyAt(form);
+                  return;
+                }
+                dispatch({
+                  type: "logProgress",
+                  taskId: task.id,
+                  minutes: logged,
+                  unitIds: units,
+                  reopenUnitIds: reopen,
+                  topics: total || undefined,
+                  topicsDone: Number(topicsDone) || 0,
+                });
+                toast.show(savedText(logged, task.title));
+                onClose();
+              }}
+            >
+              Guardar avance
+            </button>
+          )}
         </div>
         <Problem
           id="no-progress"
