@@ -661,6 +661,11 @@ textarea {
   align-self: stretch;
 }
 
+/* On the week the notice goes under the bar, so it never covers the arrows, the range or the tools. */
+body:has(.header .week-nav) .toasts:not(.low) {
+  top: calc(var(--safe-t) + 72px);
+}
+
 @media (min-width: 720px) {
   .toasts:not(.low) {
     left: auto;
@@ -1147,6 +1152,9 @@ input[type="radio"]:disabled {
 
 .scroll {
   flex: 1;
+  /* The sr-only texts inside (a card's status) anchor here, not to the page: otherwise they stretch
+     the document and the page scrolls under the list. */
+  position: relative;
   overflow-y: auto;
   padding-bottom: calc(var(--tab-h) + var(--space-5));
 }
