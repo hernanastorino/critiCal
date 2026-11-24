@@ -33,6 +33,7 @@ import {
   NAME_MAX,
   SESSIONS_PER_WEEK_MAX,
   stripBidi,
+  stripInvisible,
   UNIT_MINUTES_MAX,
   UNIT_MINUTES_MIN,
 } from "./limits.js";
@@ -1283,7 +1284,7 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(dropEmptyNoSubject(reassign(learned, task.id, action.activityId)), now);
     }
     case "newSubject": {
-      const name = action.name.trim();
+      const name = stripInvisible(action.name);
       if (!name) return data;
       const created = materia(data, name);
       const added = { ...data, activities: [...data.activities, created] };
@@ -1335,7 +1336,7 @@ function apply(data: AppData, action: Action): AppData {
       return refresh({ ...data, tasks }, now);
     }
     case "saveRoutine": {
-      const name = action.name.trim();
+      const name = stripInvisible(action.name);
       if (!name || !validRoutine(action.sessionsPerWeek, action.sessionMinutes)) return data;
       // A second tap on «Agregar» does not add the same routine twice.
       if (data.activities.some((a) => sameName(a.name, name))) return data;
@@ -1399,7 +1400,7 @@ function apply(data: AppData, action: Action): AppData {
     case "saveSpot": {
       const spot = (data.spots ?? []).find((s) => s.key === action.key);
       const at = home(data);
-      const name = action.name.trim().slice(0, NAME_MAX);
+      const name = stripInvisible(action.name).slice(0, NAME_MAX);
       if (!spot || isBlank(name)) return data;
       // What the event says may be longer than a backup takes for an alias.
       const place: Place = {
@@ -1872,7 +1873,7 @@ export function useStore(): Store {
 function materia(data: AppData, name: string): Activity {
   return {
     id: newId(),
-    name: name.trim(),
+    name: stripInvisible(name),
     color: nextColor(data.activities),
     academic: true,
     kind: "materia",

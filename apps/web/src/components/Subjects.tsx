@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
 import { clipName, minutesToHhmm, parseClock } from "../format.js";
-import { isBlank, NAME_MAX } from "../limits.js";
+import { isBlank, NAME_MAX, stripInvisible } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
 import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
@@ -59,7 +59,7 @@ function savedActivity(
 ): Activity {
   return {
     ...activity,
-    name: form.name.trim() || activity.name,
+    name: stripInvisible(form.name) || activity.name,
     academic: form.academic,
     maxSessionMinutes: maxSession,
     minBlockMinutes: minBlock,

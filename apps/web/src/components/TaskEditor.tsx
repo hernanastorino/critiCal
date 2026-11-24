@@ -10,6 +10,7 @@ import {
   isBlank,
   isRealDate,
   NAME_MAX,
+  stripInvisible,
   TITLE_MAX,
 } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
@@ -474,9 +475,10 @@ export function TaskEditor({
       actId = freshIds.current.activity;
       activity = {
         id: actId,
-        name: newActivity.trim(),
+        name: stripInvisible(newActivity),
         color: nextColor(data.activities),
         academic: kind === "deliverable",
+        ...(kind === "deliverable" ? { kind: "materia" as const } : {}),
         maxSessionMinutes: 120,
         minBlockMinutes: 60,
       };
@@ -490,7 +492,7 @@ export function TaskEditor({
       ...task,
       id: task?.id ?? freshIds.current.task,
       activityId: actId,
-      title: title.trim(),
+      title: stripInvisible(title),
       kind,
       deadline: due,
       estimateMinutes:
