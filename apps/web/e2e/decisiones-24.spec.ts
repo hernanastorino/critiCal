@@ -36,5 +36,5 @@ test("«Faltan» del silo y del detalle de la entrega dicen lo mismo", async ({ 
   const falta = etiqueta.match(/faltan (\w+)/)?.[1] ?? "";
   expect(falta).not.toBe("");
   await silo.click();
-  await expect(sheet(page).getByText(new RegExp(`Faltan ${falta} \\(mínimo`))).toBeVisible();
+  await expect(sheet(page).getByText(`Faltan ${falta} (mínimo`)).toBeVisible();
 });
