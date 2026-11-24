@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
@@ -44,8 +44,6 @@ const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
 /** Fixed weekly routine: wake/bed, morning, meals and when study time ends, per weekday. */
 export function WeekSettings() {
-  const morningHelp = useId();
-  const freeHelp = useId();
   const { data, dispatch } = useStore();
   const [{ days, form, held }, setDraft, saved, dirty] = useDraft("week", () => ({
     days: [1, 2, 3, 4, 5],
@@ -160,9 +158,6 @@ export function WeekSettings() {
 
   return (
     <Section>
-      <p className="meta">
-        Lo que casi nunca cambia. Para un día puntual usá «Hoy» arriba. Elegí los días y editá:
-      </p>
       <div className="day-chips">
         {ORDER.map((d) => (
           <button
@@ -188,17 +183,11 @@ export function WeekSettings() {
         />
         <Field
           label="Arreglarse, traslado (min)"
-          helpId={morningHelp}
           value={form.morning}
           onChange={set("morning")}
           invalid={isBad("Arreglarse, traslado (min)")}
         />
         {msgFor("Me levanto", "Arreglarse, traslado (min)")}
-        <Help
-          id={morningHelp}
-          text="Desde que te levantás hasta que podés empezar a estudiar."
-          wide
-        />
         <Field
           label="Desayuno"
           type="time"
@@ -261,7 +250,6 @@ export function WeekSettings() {
         {msgFor("Cena", "Dura (min), cena")}
         <Field
           label="Nada de estudio desde"
-          helpId={freeHelp}
           type="time"
           value={form.freeFrom}
           onChange={set("freeFrom")}
@@ -275,24 +263,7 @@ export function WeekSettings() {
           invalid={isBad("Me acuesto")}
         />
         {msgFor("Nada de estudio desde", "Me acuesto")}
-        <Help id={freeHelp} text="Después de esta hora no se planifica estudio." wide />
       </div>
-      <p className="meta">
-        No se planifica nada antes de{" "}
-        {minutesToHhmm(hhmmToMinutes(form.wake) + (clampMinutes(form.morning, 0, 240) ?? 0))}
-        {[form.breakfastMin, form.lunchMin, form.snackMin, form.dinnerMin].some(
-          (m) => Number(m) > 0,
-        )
-          ? ""
-          : " (sin comidas cargadas)"}
-        .
-      </p>
-      <p className="meta">
-        Siempre hay lugar para comer y nunca va estudio encima de una comida. Si un evento fijo o un
-        bloque fijado cae a esa hora, la comida se corre sola al hueco más cercano, hasta 1 h 30
-        antes o después; si no hay ninguno, queda a su hora encima de lo que haya y la Bandeja
-        avisa. Con duración 0 no hay esa comida (la merienda viene en 0).
-      </p>
       <Unsaved show={dirty} />
       <button
         ref={saveButton}

@@ -28,7 +28,6 @@ describe("fixed settings", () => {
     fireEvent.change(screen.getByLabelText("Nada de estudio desde"), {
       target: { value: "19:00" },
     });
-    expect(screen.getByText(/No se planifica nada antes de 08:15/)).toBeTruthy();
     // Días con tres letras: «M M J» no dice cuál es el martes y cuál el miércoles.
     expect(screen.queryByText(/Guardar para L M M J V/)).toBeNull();
     fireEvent.click(screen.getByText("Guardar para mar mié jue vie sáb"));
@@ -105,7 +104,6 @@ describe("fixed settings", () => {
     fireEvent.click(screen.getByLabelText("Ajustes"));
     const [breakfastMin] = screen.getAllByLabelText("Dura (min)") as HTMLInputElement[];
     expect(breakfastMin?.value).toBe("0");
-    expect(screen.getByText(/sin comidas cargadas/)).toBeTruthy();
   });
 
   it("shows a breakfast on waking for routines saved before breakfast was a meal", () => {

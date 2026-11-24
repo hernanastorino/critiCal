@@ -133,16 +133,6 @@ describe("Mi semana", () => {
     fireEvent.click(screen.getByRole("button", { name: /^Guardar para/ }));
     expect(screen.getByRole("alert").textContent).toMatch(/Cena a las 22:45 cae, o termina/);
   });
-
-  it("explains the planning start with the morning as it will be saved", () => {
-    renderWith(<WeekSettings />);
-    fireEvent.change(screen.getByLabelText("Arreglarse, traslado (min)"), {
-      target: { value: "-100" },
-    });
-    expect(screen.getByText(/No se planifica nada antes de/).textContent).toContain(
-      latest?.settings.week[1] ? "07:30" : "",
-    );
-  });
 });
 
 describe("Materias", () => {

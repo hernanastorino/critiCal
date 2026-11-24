@@ -35,6 +35,41 @@ describe("Mi semana: Enter en un campo", () => {
   });
 });
 
+describe("Mi semana: Enter en un campo de hora", () => {
+  it("guarda desde «Me levanto»", async () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    fireEvent.click(screen.getByRole("button", { name: /^Mi semana/ }));
+    const wake = screen.getByLabelText("Me levanto");
+    fireEvent.change(wake, { target: { value: "07:00" } });
+    fireEvent.keyDown(wake, { key: "Enter" });
+    await tick();
+    expect(screen.getByText("Mi semana guardada")).toBeTruthy();
+  });
+
+  it("con un error no guarda y manda el foco al primer campo marcado", async () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    fireEvent.click(screen.getByRole("button", { name: /^Mi semana/ }));
+    const meal = screen.getByLabelText("Cena");
+    fireEvent.change(meal, { target: { value: "03:00" } });
+    fireEvent.keyDown(meal, { key: "Enter" });
+    await tick();
+    expect(screen.queryByText("Mi semana guardada")).toBeNull();
+    const focused = document.activeElement;
+    expect(focused instanceof HTMLElement && focused.matches('[aria-invalid="true"]')).toBe(true);
+  });
+
+  it("no deja párrafos explicativos", () => {
+    render(<App fixedNow={NOW} initial={demoData} />);
+    fireEvent.click(screen.getByLabelText("Ajustes"));
+    fireEvent.click(screen.getByRole("button", { name: /^Mi semana/ }));
+    expect(screen.queryByText(/Siempre hay lugar para comer/)).toBeNull();
+    expect(screen.queryByText(/No se planifica nada antes de/)).toBeNull();
+    expect(screen.queryByText(/casi nunca cambia/)).toBeNull();
+  });
+});
+
 describe("Bandeja: Enter en los minutos de «¿Dónde es?»", () => {
   it("el foco pasa a la tarjeta siguiente, a un botón y no al buscador de lugar", () => {
     const casa = { id: "casa", name: "Casa", aliases: [], isHome: true, address: "Rivera 1234" };
