@@ -3,6 +3,11 @@ name: Deploy
 on:
   push:
     branches: [main]
+    # Docs and Markdown (TODO, SPEC) cannot change the app: no Vercel deploy for them
+    # (100 a day on Hobby). A mixed push still deploys. Run it by hand if ever needed.
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
   workflow_dispatch:
 
 permissions:

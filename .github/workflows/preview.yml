@@ -21,6 +21,24 @@ env:
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
 
 jobs:
+  # Vercel allows 100 deploys a day (Hobby): a PR that only touches docs or Markdown
+  # (TODO, SPEC) cannot change the app, so it does not spend one. The preview job is
+  # then skipped, which still counts as passed for the required check.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      app: ${{ steps.files.outputs.app }}
+    steps:
+      - id: files
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          files=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR/files" --jq '.[].filename')
+          other=$(echo "$files" | grep -vE '^docs/|[.]md$' || true)
+          if [ -n "$other" ]; then echo "app=true" >> "$GITHUB_OUTPUT"; else echo "app=false" >> "$GITHUB_OUTPUT"; fi
+
   # The Playwright image tag follows the @playwright/test version in bun.lock, so a
   # Dependabot bump needs no manual edit here. The image already carries WebKit and its
   # system libraries: no apt-get at run time (it used to hang for 10 minutes).
@@ -45,10 +63,11 @@ jobs:
     # Secrets never reach PRs from forks, nor Dependabot's: without the Vercel token the
     # deploy can only fail, so those PRs skip the preview (CI still runs their E2E locally).
     if: >-
+      needs.changes.outputs.app == 'true' &&
       github.event.pull_request.head.repo.full_name == github.repository &&
       !github.event.pull_request.draft &&
       github.event.pull_request.user.login != 'dependabot[bot]'
-    needs: playwright-image
+    needs: [changes, playwright-image]
     runs-on: ubuntu-latest
     container: ${{ needs.playwright-image.outputs.image }}
     # Jobs in a container default to sh; the steps use bash syntax, as on the bare runner.

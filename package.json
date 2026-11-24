@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
     "e2e": "bun run --cwd apps/web e2e",
+    "deploys": "bash scripts/vercel-deploys.sh",
     "bench": "bun packages/engine/bench/schedule.bench.ts",
     "bench:node": "bun build packages/engine/bench/schedule.bench.ts --target=node --outfile=node_modules/.cache/schedule.bench.mjs && node node_modules/.cache/schedule.bench.mjs"
   },
