@@ -3009,3 +3009,13 @@ body:has(.sheet) .toasts .snack > span {
   -webkit-line-clamp: 2;
   line-clamp: 2;
 }
+
+/* Repaso espaciado: ícono de «repetir» centrado en la burbuja. */
+.pill.planned.review .rev-ic {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  pointer-events: none;
+}

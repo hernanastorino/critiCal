@@ -401,8 +401,10 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     }
     return false;
   };
-  for (const b of blocks)
+  for (const b of blocks) {
     b.level = blockLevel(b, prepared, statusById, settings, couldUse, impossible);
+    if (isReviewBlock(prepared, b, settings.timezone)) b.review = true;
+  }
   // Frozen blocks keep their time, not the level they had when planned: a decision
   // since (a lower minimum) may have taken them out of danger.
   for (const b of frozen) {
@@ -575,6 +577,12 @@ function statuses(
       level,
     };
   });
+}
+
+/** A block on one of its task's review dates (a week, three days, one day before an exam). */
+function isReviewBlock(prepared: Prepared[], block: PlanBlock, timezone: string): boolean {
+  const own = prepared.find((p) => p.task.id === block.taskId);
+  return !!own?.task.reviewDates?.includes(localParts(timezone, block.start).date);
 }
 
 function blockLevel(

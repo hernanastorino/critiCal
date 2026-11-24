@@ -157,7 +157,7 @@ Solo al cargar datos: proponer unidades y estimaciones a partir de un PDF de pro
 Hecho y en producción, además de las fases 0–5 (incluidos el widget de Scriptable y la IA para cargar programas):
 
 - **Descansos por materia**: estudio + descanso (50/10 por defecto, editable). El plan reserva bloques con el descanso incluido; los registros guardan el factor con que se hicieron.
-- **Repaso espaciado** antes de parciales (7, 3 y 1 días antes) y opción «día anterior solo para esta materia»; un bloque de otra materia en ese día pasa a propuesta.
+- **Repaso espaciado** antes de parciales (7, 3 y 1 días antes) y opción «día anterior solo para esta materia»; un bloque de otra materia en ese día pasa a propuesta. El motor marca esos bloques (`review`) y se guardan así; en la Semana llevan un ícono de «repetir» centrado en la burbuja y su nombre y el detalle dicen «Repaso · tarea».
 - **Eventos tentativos**: el plan cuenta con ellos; si uno de hoy se cae, el plan B llega como propuesta (no se aplica solo) y vence con el día.
 - **Desvelo**: si un evento terminó pasada la hora de dormir, la bandeja pregunta a qué hora me levanté; mientras tanto se asumen las horas de sueño habituales desde que terminó.
 - **Opciones de infactibilidad completas**: mover un evento flexible (se muestra en la bandeja para moverlo en el calendario), versión mínima de una entrega (la mitad del mínimo) y priorizar temas por peso (% del parcial, propuesto por la IA del programa).

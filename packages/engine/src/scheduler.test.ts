@@ -946,6 +946,32 @@ describe("exam review", () => {
     expect(on(spaced)).toBeGreaterThan(on(plain));
   });
 
+  it("marks as review the blocks on its review dates and no others", () => {
+    const reviewDates = ["2026-11-02", "2026-11-06", "2026-11-08"];
+    const exam = task("parcial", "mate", at("2026-11-09", "08:00"), {
+      remainingMinutes: 480,
+      minRemainingMinutes: 480,
+      maxPerDayMinutes: 90,
+      reviewDates,
+    });
+    const r = schedule(
+      base({
+        tasks: [
+          exam,
+          task("otra", "fisica", at("2026-11-09", "08:00"), {
+            remainingMinutes: 120,
+            minRemainingMinutes: 120,
+          }),
+        ],
+      }),
+    );
+    const mine = r.blocks.filter((b) => b.taskId === "parcial");
+    expect(mine.some((b) => b.review)).toBe(true);
+    expect(mine.some((b) => !b.review)).toBe(true);
+    for (const b of mine) expect(!!b.review).toBe(reviewDates.includes(dayOf(b)));
+    expect(r.blocks.filter((b) => b.taskId === "otra").some((b) => b.review)).toBe(false);
+  });
+
   it("leaves a later task the slots only it can use", () => {
     // A fits only Monday 15–17 or Tuesday 08–09 (a review day); B avoids Monday.
     const r = schedule(

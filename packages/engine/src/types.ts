@@ -193,6 +193,8 @@ export interface PlanBlock {
   /** Placed inside free time. */
   soft?: boolean;
   level?: Level;
+  /** Spaced review before an exam: on one of the task's review dates. */
+  review?: boolean;
 }
 
 export interface TaskStatus {
