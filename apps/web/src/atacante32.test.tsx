@@ -2,12 +2,14 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { Routines } from "./components/Preferences.js";
+import { Silos } from "./components/Silos.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData } from "./demo.js";
 import { clearDrafts } from "./drafts.js";
+import { hours } from "./format.js";
 import { forgetImport } from "./importUndo.js";
 import type { AppData } from "./model.js";
-import { progress, refreshPlan, toEngineTasks } from "./planning.js";
+import { blockFactor, progress, refreshPlan, toEngineTasks } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 
 // Hallazgos de la 32.ª vuelta del agente atacante.
@@ -137,7 +139,7 @@ describe("Lo que la SPEC dice que es así", () => {
   // Lunes 23/11 10:00 en Montevideo; el parcial vence el jueves 26/11 08:00.
   const monday = Date.UTC(2026, 10, 23, 13);
 
-  it("«Faltan» muestra las partes sin el ratio y el plan cubre lo que el ratio deja (SPEC §13, aprendizaje)", () => {
+  it("«Faltan» es lo que el plan reserva: las partes por el ratio aprendido (SPEC §13, aprendizaje)", () => {
     let d = reducer(demoData(monday), { type: "refresh", now: monday });
     const deadline = Date.UTC(2026, 10, 26, 11);
     d = {
@@ -159,10 +161,20 @@ describe("Lo que la SPEC dice que es así", () => {
       now: monday,
     });
     const shown = progress(d, monday).find((p) => p.task.id === "parcial-calc");
-    expect(shown?.remainingMinutes).toBe(420);
     const planned = toEngineTasks(d, monday).find((t) => t.id === "parcial-calc");
-    // Lo que se planifica es lo que queda por el ratio aprendido, no las partes tal cual.
-    expect(planned?.remainingMinutes).toBeLessThan(420);
+    // «Faltan» y lo que se planifica son lo mismo: las partes por el ratio aprendido.
+    expect(shown?.remainingMinutes).toBeLessThan(420);
+    const k = blockFactor(d.activities.find((a) => a.id === shown?.task.activityId));
+    expect(planned?.remainingMinutes).toBe(Math.ceil((shown?.remainingMinutes ?? 0) * k));
+    // El silo dice lo mismo que lo que el plan reserva.
+    render(
+      <StoreProvider initial={() => d} persist={false} fixedNow={monday}>
+        <Silos />
+      </StoreProvider>,
+    );
+    expect(
+      document.querySelector("[data-task='parcial-calc']")?.getAttribute("aria-label"),
+    ).toContain(`faltan ${hours(shown?.remainingMinutes ?? 0)}`);
     const { result } = refreshPlan(d, monday);
     const status = result.status.find((s) => s.taskId === "parcial-calc");
     expect(status?.minDeficit).toBe(0);

@@ -5,7 +5,7 @@ import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
-import { pendingConfirmations, progress } from "./planning.js";
+import { pendingConfirmations } from "./planning.js";
 import { StoreProvider, seedHistory, useStore } from "./store.js";
 
 const LATER = zonedInstant(TIMEZONE, "2026-11-04", 17 * 60 + 50);
@@ -64,18 +64,14 @@ describe("16th round: correcting keeps the parts the record declares", () => {
     fireEvent.click(screen.getByLabelText(/Tema uno/));
     press("Hecho");
     expect(units().find((u) => u.id === "u1")?.doneAt).toBeDefined();
-    const left = progress(store().data, LATER).find(
-      (p) => p.task.id === b.taskId,
-    )?.remainingMinutes;
+    const open = () => units().filter((u) => !u.doneAt).length;
+    const left = open();
     press("Corregir");
     // Offered although done, and ticked from the start.
     expect(screen.getByRole("checkbox", { name: /Tema uno/ })).toHaveProperty("checked", true);
     press("Parcial");
     press("Guardar parcial");
     expect(units().find((u) => u.id === "u1")?.doneAt).toBeDefined();
-    const after = progress(store().data, LATER).find(
-      (p) => p.task.id === b.taskId,
-    )?.remainingMinutes;
-    expect(after).toBe(left);
+    expect(open()).toBe(left);
   });
 });

@@ -35,7 +35,7 @@ const withParts = (estimateMinutes: number): { data: AppData; task: AppTask } =>
 };
 
 describe("«Guardar avance» de una entrega con partes", () => {
-  it("avisa lo que se guardó y aclara que «Faltan» se mide por las partes", () => {
+  it("avisa lo que se guardó", () => {
     const { data, task } = withParts(600);
     render(
       <ToastProvider>
@@ -44,7 +44,7 @@ describe("«Guardar avance» de una entrega con partes", () => {
         </StoreProvider>
       </ToastProvider>,
     );
-    expect(screen.getByText(/«Faltan» se mide por las partes/)).toBeTruthy();
+    expect(screen.queryByText(/se mide por las partes/)).toBeNull();
     fireEvent.change(screen.getByPlaceholderText("40"), { target: { value: "60" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar avance" }));
     expect(screen.getByText("Avance guardado: 1h en Informe Lab Física")).toBeTruthy();

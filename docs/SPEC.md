@@ -75,7 +75,7 @@ Paquete independiente, determinista, que corre igual en el cliente y en Edge Fun
 6. **Infactibilidad → opciones** (cada una con vista previa de la semana):
    abandonar X · bajar X a su mínimo · recorte proporcional · usar franja libre / extender hoy · mover un evento flexible · versión mínima viable de una entrega · priorizar temas por peso en un parcial.
 7. **Estabilidad**: mover lo mínimo; el bloque en curso y lo ya visto de hoy quedan congelados. Cambios que afectan hoy → **propuesta** en la bandeja + push; no se aplican sin OK. De mañana en adelante se reorganiza solo.
-8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras. Confirmado el 2026-11-18: sigue por materia. «Faltan» muestra las partes que quedan sin el ratio; el ratio solo ajusta lo que se planifica.
+8. **Aprendizaje estadístico**: ratio real/estimado por materia (ej. Física 1,3×) que ajusta estimaciones futuras. Confirmado el 2026-11-18: sigue por materia. Decisión del 2026-11-24: «Faltan» (silo, detalle de la entrega y donde se muestre lo que falta de una tarea) es siempre lo que el plan reserva en el calendario: las partes que quedan, ajustadas por el ratio aprendido, con el mismo cálculo del motor para que no puedan divergir.
 9. **Ajuste por desvelo**: después de un evento nocturno, la bandeja pregunta a qué hora me levanté en vez de asumir el horario normal.
 
 ### El pasado no se recalcula (regla general, decidida el 2026-11-22)
