@@ -21,6 +21,26 @@ env:
   VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
 
 jobs:
+  # The Playwright image tag follows the @playwright/test version in bun.lock, so a
+  # Dependabot bump needs no manual edit here. The image already carries WebKit and its
+  # system libraries: no apt-get at run time (it used to hang for 10 minutes).
+  playwright-image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      image: ${{ steps.v.outputs.image }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+          sparse-checkout: bun.lock
+          sparse-checkout-cone-mode: false
+      - id: v
+        run: |
+          version=$(grep -oE '"@playwright/test@[0-9]+\.[0-9]+\.[0-9]+"' bun.lock | head -n1 | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+          [ -n "$version" ] || { echo "::error::@playwright/test not found in bun.lock"; exit 1; }
+          echo "image=mcr.microsoft.com/playwright:v${version}-noble" >> "$GITHUB_OUTPUT"
+
   preview:
     # Secrets never reach PRs from forks, nor Dependabot's: without the Vercel token the
     # deploy can only fail, so those PRs skip the preview (CI still runs their E2E locally).
@@ -28,7 +48,13 @@ jobs:
       github.event.pull_request.head.repo.full_name == github.repository &&
       !github.event.pull_request.draft &&
       github.event.pull_request.user.login != 'dependabot[bot]'
+    needs: playwright-image
     runs-on: ubuntu-latest
+    container: ${{ needs.playwright-image.outputs.image }}
+    # Jobs in a container default to sh; the steps use bash syntax, as on the bare runner.
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 30
     environment: staging
     steps:
@@ -38,9 +64,10 @@ jobs:
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version: 1.4.5
+      # setup-bun needs unzip, which the Playwright image lacks (and installing it would
+      # bring apt back): Bun's npm package ships the same binary. Keep in step with
+      # packageManager in package.json.
+      - run: npm install -g bun@1.4.5
       - uses: actions/cache@v6
         with:
           path: ~/.bun/install/cache
@@ -61,46 +88,33 @@ jobs:
           URL: ${{ steps.deploy.outputs.url }}
           PR: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
+        # The Playwright image has no gh CLI: same logic through the REST API with Node.
+        shell: node {0}
         run: |
-          body="Preview de este PR (protegida, Supabase de staging, sin las migraciones del PR): $URL — commit ${SHA::7}"
-          # One comment per PR, updated on every push.
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("Preview de este PR")))][0].id // empty')
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
-          fi
-      - name: Playwright version
-        id: playwright-version
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@v6
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-      - name: Install Playwright WebKit
-        timeout-minutes: 12
-        env:
-          CACHE_HIT: ${{ steps.playwright-cache.outputs.cache-hit }}
-        run: |
-          # The download has hung for 10+ minutes before: bound each attempt and retry once.
-          if [ "$CACHE_HIT" = "true" ]; then
-            cmd="bunx playwright install-deps webkit"
-          else
-            cmd="bunx playwright install --with-deps webkit"
-          fi
-          for attempt in 1 2; do
-            timeout 300 $cmd && exit 0
-            echo "Attempt $attempt failed or timed out"
-            # A killed run leaves apt/dpkg holding the lock: clean up before retrying.
-            sudo pkill apt-get || true
-            sudo pkill dpkg || true
-            sleep 3
-            sudo dpkg --configure -a || true
-          done
-          exit 1
+          (async () => {
+          const { GH_TOKEN, URL, PR, SHA, GITHUB_REPOSITORY } = process.env;
+          const body = `Preview de este PR (protegida, Supabase de staging, sin las migraciones del PR): ${URL} — commit ${SHA.slice(0, 7)}`;
+          const api = `https://api.github.com/repos/${GITHUB_REPOSITORY}/issues`;
+          const call = async (url, method, payload) => {
+            const res = await fetch(url, {
+              method,
+              headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github+json" },
+              body: payload && JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(`${method} ${url}: ${res.status}`);
+            return res.json();
+          };
+          // One comment per PR, updated on every push.
+          const comments = await call(`${api}/${PR}/comments?per_page=100`, "GET");
+          const mine = comments.find(
+            (c) => c.user.login === "github-actions[bot]" && c.body.startsWith("Preview de este PR"),
+          );
+          if (mine) await call(`${api}/comments/${mine.id}`, "PATCH", { body });
+          else await call(`${api}/${PR}/comments`, "POST", { body });
+          })().catch((e) => {
+            console.error(e);
+            process.exit(1);
+          });
       - name: E2E against the preview
         run: bun run e2e
         env:
