@@ -63,11 +63,10 @@ describe("Bandeja: Enter en los minutos de «¿Dónde es?»", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    const first = screen.getAllByLabelText(/^O minutos desde casa para/)[0] as HTMLInputElement;
+    const first = screen.getAllByLabelText(/^O minutos desde casa para/)[0];
     first.focus();
     fireEvent.change(first, { target: { value: "15" } });
     fireEvent.keyDown(first, { key: "Enter" });
-    const active = document.activeElement as HTMLElement;
-    expect(active.tagName).toBe("BUTTON");
+    expect(document.activeElement?.tagName).toBe("BUTTON");
   });
 });
