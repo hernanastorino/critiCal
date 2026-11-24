@@ -48,7 +48,7 @@ describe("nombres sin espacios de más ni invisibles en el dato", () => {
       now: NOW,
     });
     expect(d.activities.some((a) => a.name === "Zeta uno")).toBe(true);
-    d = reducer(d, { type: "newSubject", name: "  Otra​   materia " });
+    d = reducer(d, { type: "newSubject", name: "  Otra​   materia ", now: NOW });
     expect(d.activities.some((a) => a.name === "Otra materia")).toBe(true);
   });
 
