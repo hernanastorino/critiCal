@@ -12,6 +12,7 @@ import {
 } from "../limits.js";
 import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
 import {
+  aliasTaken,
   keepableEvents,
   keptTravel,
   minutesBetween,
@@ -485,6 +486,7 @@ function PlaceForm({
   const [leaving, setLeaving] = useState(false);
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
+  const aliasDup = aliasTaken(data.places ?? [], aliases, place.id);
   // Only one home: with another place already marked, the switch is not offered.
   const otherHome = (data.places ?? []).find((p) => p.isHome && p.id !== place.id);
   const makesHome = isHome && !otherHome;
@@ -557,9 +559,20 @@ function PlaceForm({
           maxLength={ALIASES_FIELD_MAX}
           onChange={(e) => setAliases(e.target.value)}
           placeholder="FING, Facultad"
-          aria-describedby={`aliases-help-${place.id}`}
+          aria-invalid={aliasDup ? true : undefined}
+          aria-describedby={aliasDup ? `alias-taken-${place.id}` : `aliases-help-${place.id}`}
         />
       </label>
+      {aliasDup && (
+        <p
+          className="meta"
+          id={`alias-taken-${place.id}`}
+          role="alert"
+          style={{ color: "var(--critical)" }}
+        >
+          «{aliasDup}» ya es el nombre o un alias de otro lugar: elegí otro.
+        </p>
+      )}
       <Help
         id={`aliases-help-${place.id}`}
         text="Otros nombres con los que aparece este lugar en tus eventos."
@@ -601,9 +614,11 @@ function PlaceForm({
         <button
           type="button"
           className="btn primary"
-          aria-disabled={empty || taken || longAlias || longName || longAddress ? true : undefined}
+          aria-disabled={
+            empty || taken || aliasDup || longAlias || longName || longAddress ? true : undefined
+          }
           onClick={() => {
-            if (empty || taken || longAlias || longName || longAddress) {
+            if (empty || taken || aliasDup || longAlias || longName || longAddress) {
               setTried(true);
               nameField.current?.focus();
               return;

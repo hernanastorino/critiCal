@@ -1028,9 +1028,16 @@ function apply(data: AppData, action: Action): AppData {
     case "recurrence": {
       const id = action.taskId;
       if (action.change === "deleteAll") {
+        // A routine's own activity goes with its silo, or it stays behind with no way to see it.
+        const owner = data.tasks.find((t) => t.id === id)?.activityId;
+        const orphan =
+          owner !== undefined &&
+          data.activities.some((a) => a.id === owner && a.kind === "rutina") &&
+          !data.tasks.some((t) => t.id !== id && t.activityId === owner);
         return refresh(
           {
             ...data,
+            activities: orphan ? data.activities.filter((a) => a.id !== owner) : data.activities,
             tasks: data.tasks.filter((t) => t.id !== id),
             checkIns: data.checkIns.filter((c) => c.taskId !== id),
             plan: data.plan.filter((b) => b.taskId !== id),
