@@ -75,7 +75,7 @@ export function WeekSettings() {
   // A message sits under the row of the first field it is about.
   const msgFor = (...names: string[]) =>
     problems
-      .filter((p) => names.includes(p.fields[0] as string))
+      .filter((p) => names.some((n) => n === p.fields[0]))
       .map((p) => (
         <p
           key={p.message}

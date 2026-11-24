@@ -2,7 +2,6 @@
 import { isFigure, isWhole } from "./components/fields.js";
 import { awakeProblem } from "./dayLength.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "./format.js";
-import { MEAL_NAMES } from "./planning.js";
 
 export interface WeekFormValues {
   wake: string;
@@ -25,16 +24,12 @@ export interface WeekProblem {
   fields: string[];
 }
 
-type MealName = "desayuno" | "almuerzo" | "merienda" | "cena";
-
 /** Each meal with the time and the minutes typed for it. */
-const mealRows = (
-  f: WeekFormValues,
-): { kind: MealName; field: string; at: string; minutes: string }[] => [
-  { kind: "desayuno", field: "Desayuno", at: f.breakfast, minutes: f.breakfastMin },
-  { kind: "almuerzo", field: "Almuerzo", at: f.lunch, minutes: f.lunchMin },
-  { kind: "merienda", field: "Merienda", at: f.snack, minutes: f.snackMin },
-  { kind: "cena", field: "Cena", at: f.dinner, minutes: f.dinnerMin },
+const mealRows = (f: WeekFormValues): { field: string; at: string; minutes: string }[] => [
+  { field: "Desayuno", at: f.breakfast, minutes: f.breakfastMin },
+  { field: "Almuerzo", at: f.lunch, minutes: f.lunchMin },
+  { field: "Merienda", at: f.snack, minutes: f.snackMin },
+  { field: "Cena", at: f.dinner, minutes: f.dinnerMin },
 ];
 
 /** Every minutes field that is not a whole number from 0 to 240, each said for its field. */
@@ -74,7 +69,6 @@ function timeProblems(form: WeekFormValues): WeekProblem[] {
 }
 
 interface PlacedMeal {
-  kind: MealName;
   field: string;
   start: number;
   length: number;
@@ -85,7 +79,7 @@ function placedMeals(form: WeekFormValues): PlacedMeal[] {
   return mealRows(form).flatMap((m) => {
     const start = parseClock(m.at);
     const length = isWhole(m.minutes) && Number(m.minutes) <= 240 ? Number(m.minutes) : 0;
-    return length > 0 && start !== null ? [{ kind: m.kind, field: m.field, start, length }] : [];
+    return length > 0 && start !== null ? [{ field: m.field, start, length }] : [];
   });
 }
 
@@ -100,7 +94,7 @@ function asleepProblems(meals: PlacedMeal[], form: WeekFormValues): WeekProblem[
       return !(start >= wake && start + m.length <= bedEnd);
     })
     .map((m) => ({
-      message: `${MEAL_NAMES[m.kind]} a las ${minutesToHhmm(m.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
+      message: `${m.field} a las ${minutesToHhmm(m.start)} cae, o termina, cuando estás dormido (de ${form.bed} a ${form.wake}). Cambiá la hora, acortala o poné duración 0.`,
       fields: [m.field],
     }));
 }
@@ -138,7 +132,7 @@ function orderProblems(meals: PlacedMeal[], form: WeekFormValues): WeekProblem[]
     if (!before || at(m) >= at(before)) return [];
     return [
       {
-        message: `${MEAL_NAMES[m.kind]} (${minutesToHhmm(m.start)}) no puede ir antes que ${MEAL_NAMES[before.kind].toLowerCase()} (${minutesToHhmm(before.start)}): las comidas van en orden, de desayuno a cena.`,
+        message: `${m.field} (${minutesToHhmm(m.start)}) no puede ir antes que ${before.field.toLowerCase()} (${minutesToHhmm(before.start)}): las comidas van en orden, de desayuno a cena.`,
         fields: [m.field],
       },
     ];
