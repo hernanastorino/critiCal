@@ -33,7 +33,7 @@ for (const opcion of ["Hasta que lo reactive", "Solo esta semana"]) {
   });
 }
 
-test("el aviso con «Deshacer» sigue a los 7 s sobre una hoja abierta (un toque tardío no cae en el fondo)", async ({
+test("el aviso con «Deshacer» sigue a los 3 s sobre una hoja abierta (un toque tardío no cae en el fondo)", async ({
   page,
 }) => {
   await openDemo(page, MONDAY);
@@ -42,9 +42,9 @@ test("el aviso con «Deshacer» sigue a los 7 s sobre una hoja abierta (un toque
   await sheet(page).getByRole("button", { name: "Desactivar…" }).click();
   await page.getByRole("button", { name: "Hasta que lo reactive" }).click();
   await expect(toast(page)).toBeVisible();
-  await page.clock.fastForward(7000);
+  await page.clock.fastForward(3000);
   await expect(toast(page)).toBeVisible();
-  await page.clock.fastForward(2000);
+  await page.clock.fastForward(1500);
   await expect(toast(page)).toBeHidden();
 });
 

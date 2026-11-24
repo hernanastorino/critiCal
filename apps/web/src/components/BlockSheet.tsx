@@ -1,10 +1,11 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { skipLoss } from "../friendly.js";
 import type { CheckIn } from "../model.js";
 import { isPinned, progress, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
+import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
@@ -25,8 +26,16 @@ export function BlockSheet({
   returnTo?: () => HTMLElement | null;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
+  // Parts ticked or a partial started and not sent: closing asks before dropping them.
+  const pending = useRef(new Set<string>());
+  const [asking, setAsking] = useState(false);
+  const askClose = () => (pending.current.size > 0 ? setAsking(true) : onClose());
+  const onPending = (id: string, on: boolean) => {
+    if (on) pending.current.add(id);
+    else pending.current.delete(id);
+  };
   // Back to the block it shows, even if the keyboard left focus on another one.
-  const justOpened = useModal(sheet, onClose, true, returnTo, !!returnTo);
+  const justOpened = useModal(sheet, askClose, true, returnTo, !!returnTo);
   return (
     <>
       {/* For taps; the keyboard and VoiceOver have ✕ and Escape. */}
@@ -36,21 +45,27 @@ export function BlockSheet({
         aria-hidden="true"
         tabIndex={-1}
         onClick={() => {
-          if (!justOpened()) onClose();
+          if (!justOpened()) askClose();
         }}
       />
       <div ref={sheet} className="sheet" role="dialog" aria-modal="true">
-        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={onClose}>
+        <button type="button" className="sheet-close" aria-label="Cerrar" onClick={askClose}>
           <Marks.close />
         </button>
         {item.kind === "event" ? (
           <EventDetail item={item} />
         ) : item.run ? (
-          <BlockRun run={item.run} onDone={onClose} onUndone={onUndone} />
+          <BlockRun run={item.run} onDone={onClose} onUndone={onUndone} onPending={onPending} />
         ) : (
-          <CheckInForm block={item.block} onDone={onClose} onUndone={onUndone} />
+          <CheckInForm
+            block={item.block}
+            onDone={onClose}
+            onUndone={onUndone}
+            onPending={onPending}
+          />
         )}
       </div>
+      {asking && <ConfirmDiscard onKeep={() => setAsking(false)} onDiscard={onClose} />}
     </>
   );
 }
@@ -63,10 +78,12 @@ function BlockRun({
   run,
   onDone,
   onUndone,
+  onPending,
 }: {
   run: PlanBlock[];
   onDone: () => void;
   onUndone?: (blockId: string) => void;
+  onPending?: (blockId: string, on: boolean) => void;
 }) {
   const { data, now, dispatch } = useStore();
   const toast = useToast();
@@ -86,6 +103,7 @@ function BlockRun({
             block={b}
             onDone={onDone}
             onUndone={onUndone}
+            onPending={onPending}
             hoursOnly={i > 0 && run[i - 1]?.taskId === b.taskId}
           />
         </section>
@@ -149,11 +167,14 @@ export function CheckInForm({
   block,
   onDone,
   onUndone,
+  onPending,
   hoursOnly = false,
 }: {
   block: PlanBlock;
   onDone: () => void;
   onUndone?: (blockId: string) => void;
+  /** Whether something was picked and not sent (parts ticked, a partial started). */
+  onPending?: (blockId: string, on: boolean) => void;
   /** Another block of the task just above: its hours, large, instead of the details. */
   hoursOnly?: boolean;
 }) {
@@ -170,6 +191,11 @@ export function CheckInForm({
   const [partial, setPartial] = useState(false);
   const [percent, setPercent] = useState(50);
   const [units, setUnits] = useState<string[]>([]);
+  const picked = partial || units.length > 0;
+  useEffect(() => {
+    onPending?.(block.id, picked);
+    return () => onPending?.(block.id, false);
+  }, [onPending, block.id, picked]);
   // Correcting offers what the standing record declares even though it is done, and starts
   // with it ticked: changing the answer does not drop the parts by omission.
   const declared = answered?.unitIds ?? [];

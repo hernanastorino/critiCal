@@ -29,6 +29,7 @@ import { Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { Loading } from "./Loading.js";
 import { Section } from "./Section.js";
+import { useScreenEscape } from "./settingsHistory.js";
 import { useToast } from "./Toast.js";
 
 const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
@@ -521,6 +522,16 @@ function PlaceForm({
   const finish = () => saved(fresh());
   // «Cancelar» with something typed asks before throwing it away (as ✕ and Escape do).
   const [leaving, setLeaving] = useState(false);
+  const cancel = () => {
+    if (dirty) {
+      setLeaving(true);
+      return;
+    }
+    finish();
+    onCancel();
+  };
+  // Escape on the form goes back to the list of places, asking first when it is half filled.
+  useScreenEscape(cancel);
   const { data } = useStore();
   const taken = nameTaken(data.places ?? [], name, place.id);
   const aliasDup = aliasTaken(data.places ?? [], aliases, place.id);
@@ -667,18 +678,7 @@ function PlaceForm({
         >
           Guardar
         </button>
-        <button
-          type="button"
-          className="btn"
-          onClick={() => {
-            if (dirty) {
-              setLeaving(true);
-              return;
-            }
-            finish();
-            onCancel();
-          }}
-        >
+        <button type="button" className="btn" onClick={cancel}>
           Cancelar
         </button>
       </div>

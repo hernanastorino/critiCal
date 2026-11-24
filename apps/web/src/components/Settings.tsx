@@ -61,6 +61,7 @@ export type PageId =
   | "ai"
   | "invites"
   | "backup"
+  | "about"
   | "account";
 
 interface Page {
@@ -95,15 +96,14 @@ const KEYWORDS: Record<PageId, string> = {
   ai: "ia gemini clave google ai studio",
   invites: "invitaciones invitar email amigos acceso",
   backup: "respaldo exportar importar json copia",
+  about:
+    "acerca de politica de privacidad datos legal atribucion fuente datos abiertos stm mtop intendencia montevideo teoricos horarios omnibus",
   account: "cuenta borrar eliminar revocar datos plan calendario",
 };
 
 /** The rows of Ajustes that are not screens, by the same kind of words. */
 const EXTRA_WORDS = {
   weekly: "planificacion semanal plan armar la semana",
-  privacy: "politica de privacidad datos legal",
-  credits:
-    "atribucion fuente datos abiertos stm mtop intendencia montevideo teoricos horarios omnibus",
   steps: "primeros pasos guia tutorial empezar",
   reset: "reiniciar demo borrar datos de ejemplo",
   out: "salir cerrar sesion",
@@ -124,6 +124,28 @@ interface Notice {
 }
 
 /** Only what asks for something: nothing shows while all is well. */
+/** Where the bus times come from (SPEC §15) and the privacy policy. */
+function About() {
+  return (
+    <>
+      <p className="meta">{ATTRIBUTION} Son horarios teóricos, sin tiempo real.</p>
+      <a
+        className="settings-row"
+        aria-label="Política de privacidad (se abre en otra pestaña)"
+        href="/privacy.html"
+        target="_blank"
+        rel="noreferrer"
+      >
+        <span className="settings-icon">
+          <I.shield />
+        </span>
+        <span className="settings-label">Política de privacidad</span>
+        <ChevronRight />
+      </a>
+    </>
+  );
+}
+
 function Notices({ onOpen }: { onOpen: (id: PageId, from?: HTMLElement) => void }) {
   const sync = useSync();
   const { data } = useStore();
@@ -281,9 +303,12 @@ export function Settings({
   onSignOut,
   onWeeklyPlan,
   initialPage,
+  initialActivity,
 }: {
   /** A screen to open on, e.g. «Mi semana» from a meal. */
   initialPage?: PageId;
+  /** The materia or rutina to open on, when `initialPage` is «Materias». */
+  initialActivity?: string;
   onClose: () => void;
   onReset?: () => void;
   onSignOut?: () => void;
@@ -484,7 +509,7 @@ export function Settings({
           title: "Materias",
           icon: I.book,
           value: String(subjects),
-          content: <ActivitySettings onOpen={(id) => open(id)} />,
+          content: <ActivitySettings onOpen={(id) => open(id)} openId={initialActivity} />,
         },
         {
           id: "routines",
@@ -544,6 +569,7 @@ export function Settings({
       pages: [
         owner && { id: "invites", title: "Invitaciones", icon: I.users, content: <Invites /> },
         { id: "backup", title: "Respaldo", icon: I.box, content: <Backup /> },
+        { id: "about", title: "Acerca de", icon: I.shield, content: <About /> },
       ],
     },
   ];
@@ -579,28 +605,6 @@ export function Settings({
   const weeklyRow = onWeeklyPlan && (
     <Row key="weekly" icon={I.plan} label="Planificación semanal" onClick={onWeeklyPlan} />
   );
-  const privacyRow = (
-    <a
-      key="privacy"
-      className="settings-row"
-      aria-label="Política de privacidad (se abre en otra pestaña)"
-      href="/privacy.html"
-      target="_blank"
-      rel="noreferrer"
-    >
-      <span className="settings-icon">
-        <I.shield />
-      </span>
-      <span className="settings-label">Política de privacidad</span>
-      <ChevronRight />
-    </a>
-  );
-  // Where the bus times come from: the cards of the trips no longer carry it (SPEC §15).
-  const creditsRow = (
-    <p key="credits" className="meta settings-credits">
-      {ATTRIBUTION} Son horarios teóricos, sin tiempo real.
-    </p>
-  );
   const testDemo = !sync && isTestDemo();
   const stepsRow = (sync || testDemo) && (
     <Row
@@ -630,16 +634,6 @@ export function Settings({
         .map((p) => ({ key: p.id, words: `${p.title} ${KEYWORDS[p.id]}`, row: pageRow(p) })),
       ...(g.label === "Cuenta"
         ? [
-            {
-              key: "privacy",
-              words: `Política de privacidad ${EXTRA_WORDS.privacy}`,
-              row: privacyRow,
-            },
-            {
-              key: "credits",
-              words: `Horarios de ómnibus ${EXTRA_WORDS.credits}`,
-              row: creditsRow,
-            },
             ...(stepsRow
               ? [{ key: "steps", words: `Primeros pasos ${EXTRA_WORDS.steps}`, row: stepsRow }]
               : []),
@@ -818,8 +812,6 @@ export function Settings({
                               dispositivo. «Reiniciar demo» los vuelve a cargar.
                             </p>
                           )}
-                          {privacyRow}
-                          {creditsRow}
                           {stepsRow}
                           {resetRow}
                           {outRow}

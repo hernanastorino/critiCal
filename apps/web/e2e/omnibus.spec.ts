@@ -86,6 +86,9 @@ test.describe("tarjeta del evento en ómnibus", () => {
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog", { name: "Clase en la Facultad" })).toBeHidden();
     await openSettings(page);
+    await sheet(page)
+      .getByRole("button", { name: /^Acerca de/ })
+      .click();
     await expect(
       sheet(page).getByText(/Horarios teóricos: Intendencia de Montevideo \(STM\)/),
     ).toBeVisible();

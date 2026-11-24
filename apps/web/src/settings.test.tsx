@@ -97,7 +97,8 @@ describe("Ajustes as a grouped list", () => {
     fireEvent.click(within(cuenta).getByRole("button", { name: "Salir" }));
     expect(onReset).toHaveBeenCalledOnce();
     expect(onSignOut).toHaveBeenCalledOnce();
-    expect(within(cuenta).getByText("Política de privacidad").closest("a")?.target).toBe("_blank");
+    expect(within(cuenta).getByRole("button", { name: "Acerca de" })).toBeTruthy();
+    expect(screen.getByText("Política de privacidad").closest("a")?.target).toBe("_blank");
   });
 });
 
@@ -212,7 +213,11 @@ describe("searching Ajustes", () => {
     // The groups and «Hoy» give way to the results.
     expect(screen.queryByRole("button", { name: "Reacomodar hoy" })).toBeNull();
     type("omnibus");
-    expect(results()).toEqual([expect.stringMatching(/^Lugares y traslados/), "Limpiar búsqueda"]);
+    expect(results()).toEqual([
+      expect.stringMatching(/^Lugares y traslados/),
+      "Acerca de",
+      "Limpiar búsqueda",
+    ]);
     type("traslados");
     expect(results()).toContain("Lugares y traslados, 1");
     // Every word must match.
@@ -233,11 +238,9 @@ describe("searching Ajustes", () => {
     type("sesion");
     expect(results()).toContain("Salir");
     type("privacidad");
-    expect(
-      within(screen.getByRole("region", { name: "Resultados" })).getByRole("link", {
-        name: /Política de privacidad/,
-      }),
-    ).toBeTruthy();
+    expect(results()).toContain("Acerca de");
+    type("stm");
+    expect(results()).toContain("Acerca de");
   });
 
   it("announces how many settings match", () => {

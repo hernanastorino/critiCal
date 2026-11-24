@@ -14,6 +14,7 @@ import {
   pinShortfall,
   refreshPlan,
 } from "./planning.js";
+import { preferenceMisfits } from "./preferredHours.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "./subjects.js";
 
 /** The verb of a meal, as the Bandeja says it: «Sin lugar para almorzar». */
@@ -84,6 +85,13 @@ function subjectCards(data: AppData): InboxCard[] {
       title: t.title,
       detail: "Detectado en tu calendario",
       color: data.activities.find((a) => a.id === t.activityId)?.color,
+    });
+  }
+  for (const m of preferenceMisfits(data)) {
+    cards.push({
+      title: m.activity.name,
+      detail: "Franja de rutina",
+      color: m.activity.color,
     });
   }
   for (const p of data.proposals) cards.push({ title: p.message, detail: "Cambios para hoy" });

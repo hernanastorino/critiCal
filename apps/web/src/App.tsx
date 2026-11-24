@@ -83,6 +83,8 @@ export function Shell({
     () => (settingsToRestore() || false) as boolean | PageId,
   );
   /** Planificación semanal was opened from the Ajustes list: closing it goes back there. */
+  /** A materia or rutina Ajustes opens on (from the Bandeja). */
+  const [settingsActivity, setSettingsActivity] = useState<string>();
   const [weeklyFromSettings, setWeeklyFromSettings] = useState(false);
   /** A day to open the week on, picked from the inbox. */
   const [day, setDay] = useState<string>();
@@ -126,6 +128,10 @@ export function Shell({
                 setDay(undefined);
                 setTab("week");
               }}
+              onRoutine={(id) => {
+                setSettingsActivity(id);
+                setSettings("subjects");
+              }}
             />
           )}
         </main>
@@ -154,7 +160,11 @@ export function Shell({
         {settings && (
           <Settings
             initialPage={settings === true ? undefined : settings}
-            onClose={() => setSettings(false)}
+            initialActivity={settingsActivity}
+            onClose={() => {
+              setSettings(false);
+              setSettingsActivity(undefined);
+            }}
             onReset={onReset && (() => onReset(data))}
             onSignOut={onSignOut}
             onWeeklyPlan={() => {
