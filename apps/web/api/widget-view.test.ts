@@ -70,6 +70,20 @@ describe("what the widget shows", () => {
     expect(view.rows.map((r) => r.title)).toEqual(inboxRows(data, NOW).map((r) => r.title));
   });
 
+  it("lists what the Bandeja lists, in the same order, for the demo and its edges", () => {
+    const edges: AppData[] = [
+      demoData(NOW),
+      demoData(NOW + 24 * 3_600_000),
+      { ...demoData(NOW), plan: [], events: [] },
+      { ...demoData(NOW), proposals: [{ id: "p1", message: "Se liberó", plan: [] } as never] },
+    ];
+    for (const data of edges) {
+      expect(widgetView(data, NOW, []).rows.map((r) => [r.title, r.detail])).toEqual(
+        inboxRows(data, NOW).map((r) => [r.title, r.detail]),
+      );
+    }
+  });
+
   it("says so kindly when there is nothing at all", () => {
     const data: AppData = { ...only(demoData(NOW), []), events: [], plan: [] };
     const view = widgetView(data, NOW);
