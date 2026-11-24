@@ -164,6 +164,13 @@ textarea {
   width: 100%;
 }
 
+/* A field the app refused is marked in red, like its message. */
+input[aria-invalid="true"],
+select[aria-invalid="true"],
+textarea[aria-invalid="true"] {
+  border-color: var(--critical);
+}
+
 .app {
   display: flex;
   flex-direction: column;
@@ -1702,6 +1709,13 @@ input[type="radio"]:disabled {
   font: inherit;
   font-size: max(16px, var(--text-l));
   outline: none;
+}
+
+/* The results bring their own «Limpiar búsqueda»: the browser's ✕ would be a second one. */
+.settings-search input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+  display: none;
 }
 
 /* One ring, the container's: the global input ring would draw a second one inside it. */

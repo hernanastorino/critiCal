@@ -38,7 +38,7 @@ interface ToastApi {
 
 /** How long a notice stays: longer when it offers to undo. */
 export const TOAST_MS = 2500;
-export const UNDO_MS = 6000;
+export const UNDO_MS = 8000;
 
 const Ctx = createContext<ToastApi | null>(null);
 

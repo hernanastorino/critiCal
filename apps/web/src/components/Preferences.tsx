@@ -88,6 +88,19 @@ export function WeekSettings() {
   const badField = current?.field ?? null;
   const isBad = (name: string) =>
     Array.isArray(badField) ? badField.includes(name) : badField === name;
+  // The message sits under the row of the field it is about (the first one, when several).
+  const anchor = Array.isArray(badField) ? badField[0] : badField;
+  const msgFor = (...names: string[]) =>
+    error && anchor && names.includes(anchor) ? (
+      <p
+        id="week-error"
+        className="meta field-help-wide"
+        role="alert"
+        style={{ color: "var(--critical)" }}
+      >
+        {error}
+      </p>
+    ) : null;
   const save = () => {
     const meal = (kind: MealKind, at: string, minutes: string): Meal => ({
       kind,
@@ -262,6 +275,7 @@ export function WeekSettings() {
           onChange={set("morning")}
           invalid={badField === "Arreglarse, traslado (min)"}
         />
+        {msgFor("Me levanto", "Arreglarse, traslado (min)")}
         <Help
           id={morningHelp}
           text="Desde que te levantás hasta que podés empezar a estudiar."
@@ -281,6 +295,7 @@ export function WeekSettings() {
           onChange={set("breakfastMin")}
           invalid={badField === "Dura (min), desayuno"}
         />
+        {msgFor("Desayuno", "Dura (min), desayuno")}
         <Field
           label="Almuerzo"
           type="time"
@@ -295,6 +310,7 @@ export function WeekSettings() {
           onChange={set("lunchMin")}
           invalid={badField === "Dura (min), almuerzo"}
         />
+        {msgFor("Almuerzo", "Dura (min), almuerzo")}
         <Field
           label="Merienda"
           type="time"
@@ -309,6 +325,7 @@ export function WeekSettings() {
           onChange={set("snackMin")}
           invalid={badField === "Dura (min), merienda"}
         />
+        {msgFor("Merienda", "Dura (min), merienda")}
         <Field
           label="Cena"
           type="time"
@@ -323,6 +340,7 @@ export function WeekSettings() {
           onChange={set("dinnerMin")}
           invalid={badField === "Dura (min), cena"}
         />
+        {msgFor("Cena", "Dura (min), cena")}
         <Field
           label="Nada de estudio desde"
           helpId={freeHelp}
@@ -338,6 +356,7 @@ export function WeekSettings() {
           onChange={set("bed")}
           invalid={isBad("Me acuesto")}
         />
+        {msgFor("Nada de estudio desde", "Me acuesto")}
         <Help id={freeHelp} text="Después de esta hora no se planifica estudio." wide />
       </div>
       <p className="meta">
@@ -370,7 +389,7 @@ export function WeekSettings() {
       >
         {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS_SHORT[d]).join(" ")}`}
       </button>
-      {error && (
+      {error && !anchor && (
         <p id="week-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
           {error}
         </p>
@@ -683,7 +702,7 @@ function routineProblems(times: string, minutes: string) {
 
 /** Routines like the gym: the plan places them N times a week; never a materia. */
 export function Routines() {
-  const { data, dispatch } = useStore();
+  const { data, now, dispatch } = useStore();
   const routines = data.activities.filter((a) => a.kind === "rutina");
   const [draft, setDraft, drafted, dirty] = useDraft("routines", () => ({
     name: "",
@@ -703,6 +722,7 @@ export function Routines() {
   const setHours = (v: HoursForm) => setDraft({ ...draft, hours: v });
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
+  const skipped = (t: AppTask) => (t.skipUntil ?? 0) > now;
   const [detail, setDetail] = useState<AppTask | null>(null);
   // Two «Nadar» would be told apart by nothing.
   const repeated = data.activities.some((a) => sameName(a.name, name));
@@ -785,14 +805,14 @@ export function Routines() {
             type="button"
             data-task={h.id}
             className="check routine-row"
-            aria-label={`${r.name}, ${h.sessionsPerWeek} por semana de ${h.sessionMinutes} min${h.paused ? ", pausada" : ""}: editar, pausar o eliminar`}
+            aria-label={`${r.name}, ${h.sessionsPerWeek} por semana de ${h.sessionMinutes} min${h.paused ? ", pausada" : skipped(h) ? ", salteada esta semana" : ""}: editar, pausar o eliminar`}
             onClick={() => setDetail(h)}
           >
             <span className="swatch" style={{ background: r.color }} />
             {/* A long description wraps; the name never shrinks to a letter per line. */}
             <span style={{ flex: 1, minWidth: "35%" }}>{r.name}</span>
             <span className="meta" style={{ margin: 0 }}>
-              {h.paused ? "pausada · " : ""}
+              {h.paused ? "pausada · " : skipped(h) ? "salteada · " : ""}
               {h.sessionsPerWeek}× {h.sessionMinutes} min
               {r.validHours ? ` · ${describeHours(r.validHours)}` : ""}
             </span>

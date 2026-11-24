@@ -368,7 +368,10 @@ export function Settings({
   // Leaving Ajustes with something typed and unsaved asks first (SPEC §14); a reload
   // brings back the screen that was open (the drafts are kept in sessionStorage).
   const [asking, setAsking] = useState<false | "close" | "back">(false);
-  const askClose = () => (hasSettingsDrafts() ? setAsking("close") : onClose());
+  // «Hoy» edited and not applied counts like a draft: Escape, ✕ and the backdrop ask first.
+  const hoyEdited =
+    (wakeEdit ?? defaultWake) !== defaultWake || (bedEdit ?? defaultBed) !== defaultBed;
+  const askClose = () => (hasSettingsDrafts() || hoyEdited ? setAsking("close") : onClose());
   // Leaving a screen with its form half filled asks too (Escape, pulling the sheet, «‹ Ajustes»),
   // as ✕ and the backdrop do; «Descartar» wipes that screen's form and lands on the list.
   const [epochs, setEpochs] = useState<Record<string, number>>({});
@@ -386,7 +389,12 @@ export function Settings({
   // A real modal (inert behind, Escape anywhere, focus back to the gear on closing).
   const justOpened = useModal(
     sheet,
-    () => (page ? (screenEscape.current ?? askBack)() : askClose()),
+    () => {
+      if (page) return (screenEscape.current ?? askBack)();
+      // A search with text: the first Escape clears it, the second closes.
+      if (query !== "") return clearSearch();
+      askClose();
+    },
     !initialPage,
     () => document.querySelector<HTMLElement>('button[aria-label="Ajustes"]'),
   );
