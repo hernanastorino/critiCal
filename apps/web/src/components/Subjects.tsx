@@ -147,6 +147,9 @@ function nameError(name: string, repeated: boolean): string | null {
   return repeated ? "Ya hay una materia o rutina con ese nombre." : null;
 }
 
+/** Deleting several in a row is one notice that grows, not a pile. */
+const REMOVED_KEY = Symbol("removed activities");
+
 /** Per-subject colour and study rules. */
 export function ActivitySettings({
   onOpen,
@@ -194,6 +197,7 @@ export function ActivitySettings({
         ? `${all.length} eliminadas: ${all.map((r) => clipName(r.activity.name, 24)).join(", ")}`
         : `${clipName(activity.name)} eliminada${silos ? `, con ${silos === 1 ? "su silo" : `sus ${silos} silos`}` : ""}`,
       {
+        replaces: REMOVED_KEY,
         undo: () => {
           recent.current = [];
           // The last deleted goes back first, so each lands where it was.

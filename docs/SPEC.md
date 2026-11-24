@@ -174,7 +174,7 @@ Reglas para que la app se sienta premium. Se aplican a todo lo nuevo y se pueden
 
 ### Mensajes y esperas
 
-- ✅ **Éxito**: un solo aviso para toda la app (toast, `components/Toast.tsx`), con el mismo tono y duración (2,5 s; 6 s si ofrece «Deshacer»), anunciado a VoiceOver y que no se va mientras tiene el puntero o el foco encima. Los errores siguen junto a su campo.
+- ✅ **Éxito**: un solo aviso para toda la app (toast, `components/Toast.tsx`), con el mismo tono y duración (2,5 s; 4 s si ofrece «Deshacer»), anunciado a VoiceOver y que no se va mientras tiene el puntero (de mouse; un toque con el dedo no lo retiene) o el foco encima. Los avisos con «Deshacer» se apilan (hasta 2): uno nuevo no deja sin deshacer al anterior; uno común reemplaza lo que había. Los errores siguen junto a su campo.
 - ✅ **Errores específicos**: dicen qué pasó y **qué hacer ahora**, con el botón para hacerlo, como ya hace Calendarios con el botón «Reconectar Google». Nada de «Probá más tarde» sin más.
 - ✅ **Esperas**: toda carga de más de ~1 s dice qué está haciendo («Leyendo el programa…», «Calculando traslados 3 de 8…»); si se conoce, muestra el progreso. Componente único `components/Loading.tsx` (`kind`: sync, ai, travel, generic; con hueco `mascot`), `Skeleton.tsx` y `Notice.tsx`; textos del camino infeliz en `friendly.ts` (tono seco y breve, humor solo en lo leve; decidido 2026-11-07).
 - ✅ **Skeletons**: mientras carga una pantalla se muestra su forma en gris, en vez de un spinner o un hueco vacío.

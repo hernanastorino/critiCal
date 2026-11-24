@@ -1,7 +1,7 @@
 // Export and import of everything as one JSON file (also a manual backup).
 import { needsNewIds, withNewIds } from "./backupIds.js";
 import { backupProblem, dropBadExtras } from "./backupNamed.js";
-import { dayProblem, shapeOk, weekProblem } from "./backupRules.js";
+import { dayProblem, settingsProblem, shapeOk, weekProblem } from "./backupRules.js";
 import {
   BACKUP_TEXT_MAX,
   deadlineInRange,
@@ -136,7 +136,12 @@ function dataProblem(raw: Task, now: number): string | null {
   if (named || shapeOk(raw, now)) return named;
   // Say which day is the problem when that is the only one (the rest of the file reads).
   const week = (raw.settings as { week?: unknown } | undefined)?.week;
-  return weekProblem(week) ?? taskProblem(raw.tasks, now) ?? "Al respaldo le faltan datos.";
+  return (
+    weekProblem(week) ??
+    settingsProblem(raw.settings) ??
+    taskProblem(raw.tasks, now) ??
+    "Al respaldo le faltan datos."
+  );
 }
 
 /**

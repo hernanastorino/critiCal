@@ -1432,7 +1432,8 @@ input[type="radio"]:disabled {
 .badge {
   position: absolute;
   top: 3px;
-  left: calc(50% + 8px);
+  /* Beside the icon (12 px from the middle), not over it, whatever the text size. */
+  left: calc(50% + 12px);
   min-width: 18px;
   height: 18px;
   padding: 0 var(--space-1);
@@ -2243,6 +2244,8 @@ input[type="datetime-local"] {
 /* After .btn, so it is not stretched like the full-width buttons. */
 .snack-btn {
   flex: none;
+  /* A tap area of 44 px that can be measured, not only drawn around it. */
+  min-height: 44px;
   pointer-events: auto;
 }
 

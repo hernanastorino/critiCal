@@ -9,7 +9,7 @@ import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
 export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox: () => void }) {
-  const { data, now, result, inboxCount, dispatch } = useStore();
+  const { data, now, result, inboxCount, decisions, dispatch } = useStore();
   const tz = data.settings.timezone;
   const dates = weekToPlan(data, now);
   const days = weekPlan(data, dates);
@@ -24,6 +24,8 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
       s.minDeficit > 0 &&
       (data.tasks.find((t) => t.id === s.taskId)?.deadline ?? Number.POSITIVE_INFINITY) >= from,
   );
+  // What the Bandeja says too: tasks that do not fit in any week, not only in this one.
+  const noFit = decisions.options.length > 0 ? decisions.impossible.length : 0;
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
   const typeLine = weekTypeLine(data);
   const max = Math.max(60, ...days.map((d) => d.minutes));
@@ -116,11 +118,17 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
           </>
         )}
 
+        {noFit > 0 && (
+          <p className="meta">
+            🔴 No llegás a todo: {noFit} {noFit === 1 ? "tarea no entra" : "tareas no entran"}.
+          </p>
+        )}
+
         <div className="section-title">Críticos de la semana</div>
         {critical.length === 0 ? (
           <p className="meta">
-            {short.length > 0
-              ? "Ningún bloque crítico esta semana, pero revisá lo que no llega al mínimo."
+            {short.length > 0 || noFit > 0
+              ? "Ningún bloque crítico esta semana, pero revisá lo que no llega."
               : "Ninguno: hay margen en todo. 🟢"}
           </p>
         ) : (
