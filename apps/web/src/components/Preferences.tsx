@@ -36,6 +36,8 @@ import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
 
 const DAYS = ["D", "L", "M", "M", "J", "V", "S"];
 /** For VoiceOver: two «M» would read alike. */
+/** Three letters, so «mar mié» is not «M M»: the button says which days without the screen reader. */
+const DAYS_SHORT = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const DAY_NAMES = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
 const ORDER = [1, 2, 3, 4, 5, 6, 0];
 
@@ -342,7 +344,7 @@ export function WeekSettings() {
           askFocus(e.currentTarget);
         }}
       >
-        {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS[d]).join(" ")}`}
+        {`Guardar para ${days.length === 7 ? "todos los días" : days.map((d) => DAYS_SHORT[d]).join(" ")}`}
       </button>
       {error && (
         <p id="week-error" className="meta" role="alert" style={{ color: "var(--critical)" }}>
@@ -783,7 +785,7 @@ export function Routines() {
     </>
   );
   const form = (
-    <>
+    <div className="routine-form-view">
       <button type="button" className="settings-back" onClick={leave}>
         ‹ Rutinas
       </button>
@@ -873,7 +875,7 @@ export function Routines() {
         id="routine-name-error"
         text={repeated && name.trim() ? "Ya hay una materia o rutina con ese nombre." : null}
       />
-    </>
+    </div>
   );
   return (
     <Section>

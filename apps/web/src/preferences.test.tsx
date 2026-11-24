@@ -29,7 +29,9 @@ describe("fixed settings", () => {
       target: { value: "19:00" },
     });
     expect(screen.getByText(/No se planifica nada antes de 08:15/)).toBeTruthy();
-    fireEvent.click(screen.getByText("Guardar para M M J V S"));
+    // Días con tres letras: «M M J» no dice cuál es el martes y cuál el miércoles.
+    expect(screen.queryByText(/Guardar para L M M J V/)).toBeNull();
+    fireEvent.click(screen.getByText("Guardar para mar mié jue vie sáb"));
     const week = stored().settings.week;
     expect(week[1].morningMinutes).toBe(30);
     expect(week[2]).toMatchObject({ morningMinutes: 45, freeFrom: 1140 });

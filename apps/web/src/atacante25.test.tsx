@@ -122,15 +122,15 @@ describe("Ajustes: borradores uniformes", () => {
     expect((screen.getByPlaceholderText("Gimnasio") as HTMLInputElement).value).toBe("Nadar");
   });
 
-  it("«‹ Ajustes» pregunta y «Descartar» deja la lista de Ajustes sin el borrador", () => {
+  it("«‹ Rutinas» pregunta y «Descartar» deja la lista de Rutinas sin el borrador", () => {
     open();
-    fireEvent.click(screen.getByRole("button", { name: "Volver a Ajustes" }));
+    fireEvent.click(screen.getByRole("button", { name: "‹ Rutinas" }));
     expect(screen.getByRole("alertdialog")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Descartar" }));
     expect(screen.queryByRole("alertdialog")).toBeNull();
     expect(sessionStorage.getItem("critical.drafts")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: /^Rutinas/ }));
     expect(screen.queryByPlaceholderText("Gimnasio")).toBeNull();
+    expect(screen.getByRole("button", { name: "Crear rutina nueva" })).toBeTruthy();
   });
 
   it("sin nada escrito, Escape vuelve a la lista sin preguntar", () => {
