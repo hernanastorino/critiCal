@@ -88,16 +88,33 @@ jobs:
           URL: ${{ steps.deploy.outputs.url }}
           PR: ${{ github.event.pull_request.number }}
           SHA: ${{ github.event.pull_request.head.sha }}
+        # The Playwright image has no gh CLI: same logic through the REST API with Node.
+        shell: node {0}
         run: |
-          body="Preview de este PR (protegida, Supabase de staging, sin las migraciones del PR): $URL — commit ${SHA::7}"
-          # One comment per PR, updated on every push.
-          id=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" --paginate \
-            --jq '[.[] | select(.user.login == "github-actions[bot]" and (.body | startswith("Preview de este PR")))][0].id // empty')
-          if [ -n "$id" ]; then
-            gh api -X PATCH "repos/$GITHUB_REPOSITORY/issues/comments/$id" -f body="$body" >/dev/null
-          else
-            gh api "repos/$GITHUB_REPOSITORY/issues/$PR/comments" -f body="$body" >/dev/null
-          fi
+          (async () => {
+          const { GH_TOKEN, URL, PR, SHA, GITHUB_REPOSITORY } = process.env;
+          const body = `Preview de este PR (protegida, Supabase de staging, sin las migraciones del PR): ${URL} — commit ${SHA.slice(0, 7)}`;
+          const api = `https://api.github.com/repos/${GITHUB_REPOSITORY}/issues`;
+          const call = async (url, method, payload) => {
+            const res = await fetch(url, {
+              method,
+              headers: { Authorization: `Bearer ${GH_TOKEN}`, Accept: "application/vnd.github+json" },
+              body: payload && JSON.stringify(payload),
+            });
+            if (!res.ok) throw new Error(`${method} ${url}: ${res.status}`);
+            return res.json();
+          };
+          // One comment per PR, updated on every push.
+          const comments = await call(`${api}/${PR}/comments?per_page=100`, "GET");
+          const mine = comments.find(
+            (c) => c.user.login === "github-actions[bot]" && c.body.startsWith("Preview de este PR"),
+          );
+          if (mine) await call(`${api}/comments/${mine.id}`, "PATCH", { body });
+          else await call(`${api}/${PR}/comments`, "POST", { body });
+          })().catch((e) => {
+            console.error(e);
+            process.exit(1);
+          });
       - name: E2E against the preview
         run: bun run e2e
         env:
