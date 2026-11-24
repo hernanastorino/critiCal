@@ -39,7 +39,7 @@ describe("repasos espaciados en la semana", () => {
     show(data);
     const review = screen.getByRole("button", { name: /^Repaso · / });
     expect(review.getAttribute("aria-label")).toContain(`Repaso · ${title}`);
-    expect(review.innerHTML).toContain("<svg");
+    expect(within(review).getByTestId("rev-ic")).toBeTruthy();
   });
 
   it("el globito dice «Repaso · tarea»", () => {

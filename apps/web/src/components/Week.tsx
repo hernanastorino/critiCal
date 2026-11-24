@@ -1306,7 +1306,7 @@ export function Week({
                         </span>
                       )}
                       {b.review && !sleptIds.has(b.id) && (
-                        <span className="rev-ic">
+                        <span className="rev-ic" data-testid="rev-ic">
                           <RepeatIcon />
                         </span>
                       )}
