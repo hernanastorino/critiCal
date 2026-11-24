@@ -2801,26 +2801,61 @@ label.check {
   }
 }
 
-/* A saved place: its name, and under it the other names it goes by. */
+/* A saved place: one row of two lines, name · way of getting there, and the address. */
 .place-row {
-  align-items: flex-start;
+  align-items: center;
 }
 
 .place-row .btn {
   min-height: 36px;
 }
 
-/* The name sits level with the Editar button (36 px) even when it is the only line. */
+.place-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.place-line {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  white-space: pre;
+}
+
 .place-name {
   display: flex;
   align-items: center;
-  min-height: 36px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.place-mode {
+  flex: none;
+  color: var(--ink-soft);
 }
 
 .place-aliases {
   display: block;
   margin: calc(var(--space-2) * -1) 0 0;
   font-size: var(--text-s);
+}
+
+/* The address on one line; what does not fit is not shown. Default: «…» at the cut. */
+.place-addr {
+  display: block;
+  margin: 0;
+  font-size: var(--text-s);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Variant: the end fades out instead of showing «…». Add --fade to the class to use it. */
+.place-addr--fade {
+  text-overflow: clip;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
 }
 
 .add-trip {

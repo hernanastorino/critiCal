@@ -96,8 +96,8 @@ describe("vuelta 22: Lugares en ómnibus sin dirección", () => {
       </StoreProvider>,
     );
     const rows = [...document.querySelectorAll(".place-row")].map((r) => r.textContent ?? "");
-    expect(rows.find((r) => r.includes("Casa"))).toMatch(/Tu casa · Auto/);
-    expect(rows.find((r) => r.includes("Trabajo"))).toMatch(/Ómnibus · sin dirección/);
+    expect(rows.find((r) => r.includes("Casa"))).toMatch(/Casa · +Auto/);
+    expect(rows.find((r) => r.includes("Trabajo"))).toMatch(/Trabajo · +Ómnibus.*Sin dirección/);
   });
 });
 
@@ -172,5 +172,36 @@ describe("vuelta 22: el mismo «Agregar» dos veces seguidas", () => {
     });
     const saved = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}") as AppData;
     expect(saved.tasks.filter((t) => t.title === "Tanda")).toHaveLength(1);
+  });
+});
+
+describe("filas de Lugares", () => {
+  it("la línea de dirección es solo la dirección: sin alias, sin «Tu casa»", () => {
+    const data = {
+      ...demoData(NOW),
+      places: [
+        {
+          id: "f",
+          name: "Casa Fran",
+          aliases: ["juntada patas?", "piscinada"],
+          address: "Bulevar  Artigas 1500, Montevideo",
+        },
+        { id: "h", name: "Casa", aliases: [], isHome: true, travelMode: "bus" as const },
+      ],
+    };
+    render(
+      <StoreProvider initial={() => data} persist={false} fixedNow={NOW}>
+        <Places />
+      </StoreProvider>,
+    );
+    const rows = [...document.querySelectorAll(".place-row")];
+    expect(rows.at(0)?.querySelector(".place-line")?.textContent).toMatch(/^Casa Fran · +Auto$/);
+    expect(rows.at(0)?.querySelector(".place-addr")?.textContent).toBe(
+      "Bulevar Artigas 1500, Montevideo",
+    );
+    expect(rows.at(0)?.textContent).not.toMatch(/piscinada|juntada/);
+    expect(rows.at(1)?.querySelector(".place-line")?.textContent).toMatch(/Casa · .*Ómnibus/);
+    expect(rows.at(1)?.querySelector(".place-addr")?.textContent).toBe("Sin dirección");
+    expect(document.body.textContent).not.toMatch(/Tu casa/);
   });
 });

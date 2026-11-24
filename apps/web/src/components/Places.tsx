@@ -36,6 +36,17 @@ const blank = (): Place => ({ id: newId(), name: "", aliases: [] });
 /** A place whose name is only invisible characters (seeded data) still shows as a row. */
 const label = (name: string) => (isBlank(name) ? "Sin nombre" : name);
 
+/** How the address line is cut: «…» (false) or a fade at the end (true, `.place-addr--fade`). */
+const ADDRESS_FADE = false;
+
+/** The street address as typed, one line: never the aliases or the events it was used in. */
+export const placeAddress = (p: Place): string | undefined => {
+  const text = stripInvisible(p.address ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text || undefined;
+};
+
 /** Saved places and the driving times between them. */
 export function Places() {
   const { data, now, dispatch } = useStore();
@@ -164,24 +175,23 @@ export function Places() {
           />
         ) : (
           <div key={p.id} id={`place-${p.id}`} tabIndex={-1} className="check place-row">
-            <span style={{ flex: 1, minWidth: 0 }}>
-              <span className="place-name">
-                {p.isHome && <Marks.home />}
-                {p.isHome ? " " : ""}
-                {label(p.name)}
+            <span className="place-text">
+              <span className="place-line">
+                <span className="place-name">
+                  {p.isHome && <Marks.home />}
+                  {p.isHome ? " " : ""}
+                  {label(p.name)}
+                </span>
+                <span className="place-mode" aria-hidden="true">
+                  {" · "}
+                </span>
+                <span className="place-mode">
+                  {p.travelMode === "bus" ? <Marks.bus /> : <Marks.car />}{" "}
+                  {p.travelMode === "bus" ? "Ómnibus" : "Auto"}
+                </span>
               </span>
-              {p.aliases.length > 0 && (
-                <span className="meta place-aliases">{p.aliases.join(", ")}</span>
-              )}
-              {/* So «Falta tu casa» is understood: which one is home, and how each is reached. */}
-              <span className="meta place-aliases">
-                {[
-                  p.isHome ? "Tu casa" : null,
-                  p.travelMode === "bus" ? "Ómnibus" : "Auto",
-                  !p.address?.trim() && p.lat === undefined ? "sin dirección" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
+              <span className={`meta place-addr${ADDRESS_FADE ? " place-addr--fade" : ""}`}>
+                {placeAddress(p) ?? "Sin dirección"}
               </span>
             </span>
             <button

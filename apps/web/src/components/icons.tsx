@@ -116,6 +116,10 @@ export const Marks = {
   ),
   pinned: mark("M9 3h6M10 3v6l-3 4h10l-3-4V3M12 13v8"),
   home: mark("M3 11l9-7 9 7M5 9.5V20h14V9.5M10 20v-6h4v6"),
+  car: mark("M4 17v-5l2-5h12l2 5v5M4 12h16M7 17v2M17 17v2M7.5 14.5h.01M16.5 14.5h.01"),
+  bus: mark(
+    "M5 4h14a1 1 0 0 1 1 1v12H4V5a1 1 0 0 1 1-1zM4 11h16M7 17v3M17 17v3M8 14h.01M16 14h.01",
+  ),
 };
 
 export const SettingsIcons = {
