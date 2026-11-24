@@ -241,6 +241,15 @@ export function WeekSettings() {
     toast.show("Mi semana guardada");
   };
 
+  // Enter in a field saves, like the button (and goes through it: same focus, same errors).
+  const saveButton = useRef<HTMLButtonElement>(null);
+  const saveOnEnter = (e: React.KeyboardEvent) => {
+    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+    if (!(e.target instanceof HTMLInputElement)) return;
+    e.preventDefault();
+    saveButton.current?.click();
+  };
+
   return (
     <Section>
       <p className="meta">
@@ -260,7 +269,8 @@ export function WeekSettings() {
           </button>
         ))}
       </div>
-      <div className="grid2">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Enter in a field only bubbles up to the save button */}
+      <div className="grid2" onKeyDown={saveOnEnter}>
         <Field
           label="Me levanto"
           type="time"
@@ -377,6 +387,7 @@ export function WeekSettings() {
       </p>
       <Unsaved show={dirty} />
       <button
+        ref={saveButton}
         type="button"
         className="btn primary"
         style={{ width: "100%" }}

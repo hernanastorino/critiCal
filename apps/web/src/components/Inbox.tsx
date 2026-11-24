@@ -205,7 +205,14 @@ export function Inbox({ onDay, onWeek }: { onDay?: (date: string) => void; onWee
           Bandeja
         </h1>
       </div>
-      <div className="scroll" ref={listRef} onClickCapture={keepFocus}>
+      <div
+        className="scroll"
+        ref={listRef}
+        onClickCapture={keepFocus}
+        onKeyDownCapture={(e) => {
+          if (e.key === "Enter" && e.target instanceof HTMLInputElement) keepFocus(e);
+        }}
+      >
         {empty && (
           // An empty screen says what goes here and where to go next (SPEC §14).
           <div className="empty">
