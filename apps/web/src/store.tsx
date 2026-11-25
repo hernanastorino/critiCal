@@ -1827,7 +1827,7 @@ export function StoreProvider({
       (counted.current === null ? plan.get() : undefined);
     if (asked)
       counted.current = {
-        choose: asked.options.length > 0,
+        choose: asked.hasOptions,
         recommendations: asked.recommendations,
       };
     // Signed in, the server times event addresses by itself; the demo has no server.

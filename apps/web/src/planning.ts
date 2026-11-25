@@ -1236,7 +1236,10 @@ export function pendingConfirmations(data: AppData, now: number): PlanBlock[] {
 }
 
 export interface Decisions {
-  options: PlanOption[];
+  /** The options that help; each one's plan is worked out when this is first read. */
+  readonly options: PlanOption[];
+  /** Whether any option helps: stops at the first one, so counting the Bandeja is cheap. */
+  readonly hasOptions: boolean;
   recommendations: Recommendation[];
   /** Tasks whose minimum does not fit even alone: the cause no cut elsewhere fixes. */
   impossible: string[];
@@ -1301,15 +1304,32 @@ export function decisions(
   const offered = result.feasible
     ? targetOptions(input, result)
     : infeasibilityOptions(input, result, impossible);
-  // Each is the plan it really gives: one that reaches no minimum the plan did not is no way out.
-  const options = from
-    ? offered
-        .map((o) => simulated(from, input, o))
-        .filter(
-          (o) => keepsItsPromise(result, o) && (result.feasible || improves(result, o.result)),
-        )
-    : offered;
-  return { options, recommendations: recommendations(input, result), impossible };
+  if (!from) {
+    return {
+      options: offered,
+      hasOptions: offered.length > 0,
+      recommendations: recommendations(input, result),
+      impossible,
+    };
+  }
+  // Each is the plan it really gives: one that reaches no minimum the plan did not is no way
+  // out. That plan is only worked out when asked: to know whether there is any option it
+  // stops at the first that helps, and the list is filtered when the Bandeja draws it.
+  const tried = offered.map((o) => simulated(from, input, o));
+  const helps = (o: PlanOption) =>
+    keepsItsPromise(result, o) && (result.feasible || improves(result, o.result));
+  let kept: PlanOption[] | undefined;
+  return {
+    get options() {
+      kept ??= tried.filter(helps);
+      return kept;
+    },
+    get hasOptions() {
+      return kept ? kept.length > 0 : tried.some(helps);
+    },
+    recommendations: recommendations(input, result),
+    impossible,
+  };
 }
 
 /** Whether an option reaches every minimum but those of tasks that fit nowhere anyway. */

@@ -172,7 +172,7 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     clashes: pinClashes(data, now, plan.input),
     routineShort: routineShortfalls(data, now, plan.result.blocks),
     missedMeals: missedMeals(data, now),
-    asked: { choose: asked.options.length > 0, recommendations: asked.recommendations },
+    asked: { choose: asked.hasOptions, recommendations: asked.recommendations },
   });
   return asking(cards).map(({ title, detail, color }) => ({ title, detail, color }));
 }

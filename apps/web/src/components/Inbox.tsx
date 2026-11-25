@@ -170,7 +170,7 @@ export function Inbox({
       routineShort,
       clashes,
       missedMeals,
-      asked: { choose: decisions.options.length > 0, recommendations: decisions.recommendations },
+      asked: { choose: decisions.hasOptions, recommendations: decisions.recommendations },
     }).length === 0;
 
   // Addresses being timed now, and the most there were at once: «Calculando traslados 3 de 8».
