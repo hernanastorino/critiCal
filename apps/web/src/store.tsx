@@ -25,6 +25,7 @@ import {
   type ValidHours,
   zonedInstant,
 } from "./engine.js";
+import { clipName } from "./format.js";
 import { asking, type InboxInputs, inboxCards } from "./inbox.js";
 import {
   ADDRESS_MAX,
@@ -51,7 +52,7 @@ import type {
   TravelMode,
   Unit,
 } from "./model.js";
-import { newId, nextColor, pruneApplied, undoable } from "./model.js";
+import { newId, nextColor, pruneApplied, type RemovedActivity, undoable } from "./model.js";
 import { eventSpotKey, home, keepableEvents, rekeySpots, spotKey, unlocated } from "./places.js";
 import {
   applyOption,
@@ -262,15 +263,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
 
-/** What `deleteActivity` takes out, kept by the notice that offers «Deshacer». */
-export interface RemovedActivity {
-  activity: Activity;
-  /** Where it was in the list, to go back to the same place. */
-  index: number;
-  tasks: AppTask[];
-  checkIns: AppData["checkIns"];
-  pins: NonNullable<AppData["pins"]>;
-}
+export type { RemovedActivity };
 
 /** What an answer of the inbox may change, kept by the notice that offers «Deshacer». */
 export interface Snapshot {
@@ -539,10 +532,13 @@ export function reducer(data: AppData, input: Action): AppData {
   const base = routinesBack(rekeySpots(withHandMarks(frozen)), action.now);
   const changed = rekeySpots(versioned(base, action, apply(base, action)));
   // Changing Mi semana keeps today's meals that had begun as they were (SPEC §5).
-  const next =
+  const next = saved(
+    base,
+    action,
     action.type === "settings" && changed.settings !== base.settings
       ? keepStartedMeals(base, changed, action.now)
-      : changed;
+      : changed,
+  );
   // An action that changes nothing leaves the data as it came (the freeze waits).
   if (changed === base && frozen !== data)
     return routinesBack(rekeySpots(withHandMarks(data)), action.now);
@@ -1172,6 +1168,8 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(
         {
           ...data,
+          // Its place in the history of «Deshacer» is taken: it is back already.
+          planHistory: data.planHistory?.filter((v) => v.removed?.activity.id !== activity.id),
           removedSubjects: data.removedSubjects?.filter((n) => n !== normalize(activity.name)),
           activities: [
             ...data.activities.slice(0, index),
@@ -1464,32 +1462,8 @@ function apply(data: AppData, action: Action): AppData {
         },
         now,
       );
-    case "undoPlan": {
-      const history = data.planHistory ?? [];
-      const v = history.at(-1);
-      if (!v || (action.only !== undefined && v !== action.only)) return data;
-      // What already started stays; today's blocks ahead and the inputs come back.
-      const kept = data.plan.filter((b) => b.start <= now);
-      // A task deleted since then does not come back with its blocks.
-      // Nor does one that is closed, dropped or past its deadline.
-      const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
-      return refresh(
-        {
-          ...data,
-          plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
-          pins: v.pins.filter((b) => live.has(b.taskId)),
-          overrides: v.overrides,
-          proposals: v.proposals,
-          // Versions from before meals were kept do not say: the choices stay as they are.
-          ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
-          freeTimeUntil: v.freeTimeUntil,
-          relaxContextUntil: v.relaxContextUntil,
-          tentativeHoldUntil: v.tentativeHoldUntil,
-          planHistory: history.slice(0, -1),
-        },
-        now,
-      );
-    }
+    case "undoPlan":
+      return undoPlan(data, action.only, now);
     case "mealChoice": {
       const rest = (data.mealChoices ?? []).filter(
         (c) => !(c.date === action.date && c.kind === action.kind),
@@ -1959,13 +1933,9 @@ export function replanChanged(before: AppData, after: AppData): boolean {
   return view(before) !== view(after);
 }
 
-function versioned(data: AppData, action: Action, next: AppData): AppData {
-  const label = VERSIONED[action.type];
-  if (!label || next === data) return next;
-  // A replan that changed nothing has nothing to undo.
-  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
-  const now = action.now;
-  const version: PlanVersion = {
+/** What the plan looked like before an action, to put back with «Deshacer». */
+function planVersion(data: AppData, now: number, label: string): PlanVersion {
+  return {
     at: now,
     label,
     pins: data.pins ?? [],
@@ -1979,5 +1949,106 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,
   };
-  return { ...next, planHistory: [...(data.planHistory ?? []), version].slice(-PLAN_HISTORY) };
+}
+
+const pushVersion = (data: AppData, next: AppData, v: PlanVersion): AppData => ({
+  ...next,
+  planHistory: [...(data.planHistory ?? []), v].slice(-PLAN_HISTORY),
+});
+
+function versioned(data: AppData, action: Action, next: AppData): AppData {
+  if (next === data) return next;
+  if (action.type === "deleteActivity") {
+    const removed = removedWith(data, action.activityId);
+    if (!removed) return next;
+    const label = `eliminar ${clipName(removed.activity.name, 24)}`;
+    return pushVersion(data, next, { ...planVersion(data, action.now, label), removed });
+  }
+  const label = VERSIONED[action.type];
+  if (!label) return next;
+  // A replan that changed nothing has nothing to undo.
+  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
+  return pushVersion(data, next, planVersion(data, action.now, label));
+}
+
+/** Takes back the last version of the undo history (`only`: that one, if it is still the last). */
+function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): AppData {
+  const history = start.planHistory ?? [];
+  let data = start;
+  const v = history.at(-1);
+  if (!v || (only !== undefined && v !== only)) return data;
+  // A deleted materia or rutina comes back with its silos, then the rest is put back.
+  if (v.removed)
+    data = {
+      ...apply(data, { type: "restoreActivity", removed: v.removed, now }),
+      planHistory: history,
+    };
+  // What a save changed goes back, unless it was changed again since.
+  if (v.keys) {
+    const cur = data as unknown as Record<string, unknown>;
+    const after = v.keys.after as Record<string, unknown>;
+    const put = Object.entries(v.keys.before).filter(([k]) => same(cur[k], after[k]));
+    data = { ...data, ...Object.fromEntries(put) };
+    for (const [k, was] of put)
+      if (was === undefined) delete (data as unknown as Record<string, unknown>)[k];
+  }
+  // What already started stays; today's blocks ahead and the inputs come back.
+  const kept = data.plan.filter((b) => b.start <= now);
+  // A task deleted since then does not come back with its blocks.
+  // Nor does one that is closed, dropped or past its deadline.
+  const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
+  return refresh(
+    {
+      ...data,
+      plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
+      pins: v.pins.filter((b) => live.has(b.taskId)),
+      overrides: v.overrides,
+      proposals: v.proposals,
+      // Versions from before meals were kept do not say: the choices stay as they are.
+      ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
+      freeTimeUntil: v.freeTimeUntil,
+      relaxContextUntil: v.relaxContextUntil,
+      tentativeHoldUntil: v.tentativeHoldUntil,
+      planHistory: history.slice(0, -1),
+    },
+    now,
+  );
+}
+
+/** Saves that «Deshacer» puts back: what they changed, as long as nobody changed it since. */
+const SAVES: Partial<Record<Action["type"], string>> = {
+  settings: "guardar Mi semana",
+  savePlace: "guardar un lugar",
+  eventTravelMinutes: "ajustar un traslado",
+  tripMode: "ajustar un traslado",
+  tripMinutes: "ajustar un traslado",
+};
+/** Parts of the data that follow from others (or have their own history): never put back as saved. */
+const DERIVED = new Set<string>([
+  "plan",
+  "planHistory",
+  "applied",
+  "proposals",
+  "tasks",
+  "checkIns",
+  "activities",
+]);
+
+/** Records a save in the undo history, with the parts it changed (`keys`). */
+function saved(data: AppData, action: Action, next: AppData): AppData {
+  const label = SAVES[action.type];
+  if (!label || next === data) return next;
+  const was = data as unknown as Record<string, unknown>;
+  const now = next as unknown as Record<string, unknown>;
+  const changed = [...new Set([...Object.keys(was), ...Object.keys(now)])].filter(
+    (k) => !DERIVED.has(k) && !same(was[k], now[k]),
+  );
+  if (changed.length === 0) return next;
+  const pick = (from: Record<string, unknown>) =>
+    Object.fromEntries(changed.map((k) => [k, from[k]])) as Partial<AppData>;
+  const v = {
+    ...planVersion(data, action.now, label),
+    keys: { before: pick(was), after: pick(now) },
+  };
+  return pushVersion(data, next, v);
 }
