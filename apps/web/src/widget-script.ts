@@ -3,14 +3,16 @@
 export function widgetScript(origin: string, token: string): string {
   return `// critiCal — widget de Scriptable (silos o Bandeja)
 // Pegalo en Scriptable, agregá un widget de Scriptable y elegí este script.
+// Para el widget de la Bandeja, escribí «bandeja» en su Parameter.
 const TOKEN = ${JSON.stringify(token)};
-const URL = ${JSON.stringify(`${origin}/api/widget`)};
+const INBOX = String(args.widgetParameter || "").trim().toLowerCase() === "bandeja";
+const URL = ${JSON.stringify(`${origin}/api/widget`)} + (INBOX ? "?view=inbox" : "");
 const STALE_MIN = 45;
 
 // The last good answer is kept: offline, the widget says how old it is instead of
 // pretending it is fresh, and never shows «todo al día» for data it could not read.
 const fm = FileManager.local();
-const cache = fm.joinPath(fm.documentsDirectory(), "critical-widget.json");
+const cache = fm.joinPath(fm.documentsDirectory(), "critical-widget" + (INBOX ? "-bandeja" : "") + ".json");
 let body = null;
 let cached = false;
 try {
@@ -49,11 +51,13 @@ let style = "tanks";
 let empty = "Todo al día ✓";
 let mode = "silos";
 let minutes = 5;
+let total = 0;
 if (body) {
   mode = body.mode || "silos";
   style = body.style || "tanks";
   if (typeof body.empty === "string") empty = body.empty;
   if (typeof body.refreshMinutes === "number") minutes = Math.min(60, Math.max(5, body.refreshMinutes));
+  total = typeof body.total === "number" ? body.total : 0;
   rows = Array.isArray(body.rows)
     ? body.rows
     : body.silos.map((s) => ({
@@ -64,6 +68,7 @@ if (body) {
         ratio: s.totalMinutes > 0 ? Math.min(1, s.remainingMinutes / s.totalMinutes) : 0,
       }));
 }
+total = Math.max(total, rows.length);
 const age = body && typeof body.updatedAt === "number" ? Date.now() - body.updatedAt : 0;
 const old = body && (cached || age > STALE_MIN * 60000);
 
@@ -82,7 +87,7 @@ if (!body) {
   } else if (style === "list") {
     const max = family === "small" ? 2 : family === "large" ? 7 : 3;
     if (mode === "inbox") {
-      const h = widget.addText("Bandeja · " + rows.length);
+      const h = widget.addText("Bandeja · " + total);
       h.font = Font.semiboldSystemFont(12);
       h.textColor = soft;
     }
@@ -97,9 +102,9 @@ if (!body) {
       d.textColor = r.level === "critical" ? RED : r.level === "warn" ? YELLOW : soft;
       d.lineLimit = 1;
     });
-    if (rows.length > max) {
+    if (total > max) {
       widget.addSpacer(4);
-      const more = widget.addText("y " + (rows.length - max) + " más");
+      const more = widget.addText("y " + (total - max) + " más");
       more.font = Font.systemFont(10);
       more.textColor = soft;
     }

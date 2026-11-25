@@ -44,8 +44,8 @@ export function WidgetSetup() {
     <Section>
       <p className="meta">
         Instalá Scriptable (gratis), creá un script nuevo y pegá el código. Después agregá un widget
-        de Scriptable en la pantalla de inicio y elegí ese script. Generar un código nuevo invalida
-        el anterior.
+        de Scriptable en la pantalla de inicio y elegí ese script. Para la Bandeja, agregá otro y
+        escribí «bandeja» en su Parameter. Generar un código nuevo invalida el anterior.
       </p>
       <p className="meta">
         Si ya lo tenías pegado, generá el script de nuevo y pegalo para ver lo nuevo (la Bandeja y
