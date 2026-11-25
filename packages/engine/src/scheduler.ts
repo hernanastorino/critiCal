@@ -393,7 +393,10 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     ...impossible,
     ...prepared.filter((p) => p.task.forgiving).map((p) => p.task.id),
   ]);
-  const status = statuses(prepared, placed, board, eligible, settings, excused);
+  // Time a forgiven routine holds frozen is still free for the minimums of the others, as
+  // when it is placed: the studies go first and the routine takes what is left.
+  const held = frozen.filter((b) => excused.has(b.taskId) && !impossible.has(b.taskId));
+  const status = statuses(prepared, placed, board, eligible, settings, excused, held);
   const statusById = new Map(status.map((s) => [s.taskId, s]));
   const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
   /** Whether `p` could take any of the block's time if it were skipped. */
@@ -544,6 +547,7 @@ function statuses(
   eligible: (p: Prepared, s: Slot, strict: boolean) => boolean,
   settings: Settings,
   impossible: ReadonlySet<string>,
+  held: readonly PlanBlock[] = [],
 ): TaskStatus[] {
   // Slack: capacity before each deadline (free + planned slots, strict rules) minus
   // the minimums due by then, in deadline order.
@@ -552,10 +556,21 @@ function statuses(
   let demand = 0;
   let capacity = 0;
   const counted = board.slots.map(() => false);
+  const heldCounted = new Set<PlanBlock>();
   return prepared.map((p) => {
     const skip = impossible.has(p.task.id);
+    if (!skip) {
+      for (const b of held) {
+        if (heldCounted.has(b) || b.end > p.task.deadline) continue;
+        heldCounted.add(b);
+        capacity += (b.end - b.start) / MINUTE;
+      }
+    }
     if (!skip) demand += p.min;
     let own = 0;
+    if (!skip) {
+      for (const b of held) if (b.end <= p.task.deadline) own += (b.end - b.start) / MINUTE;
+    }
     board.slots.forEach((s, i) => {
       if (!eligible(p, s, true)) return;
       own += settings.slotMinutes;

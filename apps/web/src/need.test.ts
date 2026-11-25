@@ -72,10 +72,7 @@ describe("the options of «No llegás a todo»", () => {
     const smaller = asked.options.find((o) => o.kind === "minimum-viable" && o.taskId === REPORT);
     if (!smaller) throw new Error("no «versión mínima» offered");
     const after = applyOption(data, r.input, smaller, NOW);
-    // The session of today that the routine kept stays put in a stored plan; the option is
-    // judged on a fresh plan, as the forecast is.
-    const fresh = { ...after, plan: after.plan.filter((b) => b.taskId !== "gym") };
-    const real = refreshPlan(fresh, NOW);
+    const real = refreshPlan(after, NOW);
     expect(real.result.feasible).toBe(smaller.result.feasible);
     expect([...shortfall(after, real.result)]).toEqual([...shortfall(after, smaller.result)]);
     expect(real.result.feasible).toBe(true);
