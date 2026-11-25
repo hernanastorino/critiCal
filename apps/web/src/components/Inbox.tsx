@@ -574,8 +574,19 @@ export function Inbox({
                   aria-label={`Elegir: ${o.label}`}
                   onClick={() => {
                     chose.current = true;
-                    dispatch({ type: "applyOption", optionId: o.id });
-                    toast.show(REPLANNED_TOAST, { roy: "festejo" });
+                    // The decision is recorded as it is made: «Deshacer» takes that one back.
+                    let made: string | undefined;
+                    dispatch({ type: "applyOption", optionId: o.id }, (after) => {
+                      made = (after.applied ?? [])
+                        .filter((d) => d.id.startsWith(`${o.id}@`))
+                        .at(-1)?.id;
+                    });
+                    toast.show(REPLANNED_TOAST, {
+                      roy: "festejo",
+                      undo: () => {
+                        if (made) dispatch({ type: "undoDecision", id: made });
+                      },
+                    });
                   }}
                 >
                   Elegir

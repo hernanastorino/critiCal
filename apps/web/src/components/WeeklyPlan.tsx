@@ -18,12 +18,12 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
   const critical = data.plan
     .filter((b) => b.level === "critical" && b.start >= from && b.start < to)
     .sort((a, b) => a.start - b.start);
-  // Next week's summary blames only what is due in it or later, not what falls due before.
-  const short = result.status.filter(
-    (s) =>
-      s.minDeficit > 0 &&
-      (data.tasks.find((t) => t.id === s.taskId)?.deadline ?? Number.POSITIVE_INFINITY) >= from,
-  );
+  // The summary of the week blames only what falls due in it: not what fell due before, nor
+  // what is due in a later week (that one is planned when its week comes).
+  const short = result.status.filter((s) => {
+    const due = data.tasks.find((t) => t.id === s.taskId)?.deadline;
+    return s.minDeficit > 0 && (due === undefined || (due >= from && due < to));
+  });
   // What the Bandeja says too: tasks that do not fit in any week, not only in this one.
   const noFit = decisions.options.length > 0 ? decisions.impossible.length : 0;
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";

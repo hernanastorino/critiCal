@@ -880,7 +880,8 @@ textarea[aria-invalid="true"] {
   place-items: center;
   background: color-mix(in srgb, var(--ink) 12%, var(--surface));
   color: var(--ink-soft);
-  font-size: var(--text-xl);
+  /* The circle is 32 px whatever the text size: a larger ✕ would run out of it, to the edge. */
+  font-size: min(var(--text-xl), 20px);
   line-height: 1;
 }
 
