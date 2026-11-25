@@ -395,7 +395,19 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
   ]);
   // Time a forgiven routine holds frozen is still free for the minimums of the others, as
   // when it is placed: the studies go first and the routine takes what is left.
-  const held = frozen.filter((b) => excused.has(b.taskId) && !impossible.has(b.taskId));
+  // Only for the tasks that could use those slots (hours, dates and days they allow).
+  const heldBlocks = frozen.filter((b) => excused.has(b.taskId));
+  const held =
+    heldBlocks.length === 0
+      ? []
+      : buildSlots(
+          settings,
+          input.overrides ?? [],
+          now,
+          input.horizonEnd,
+          busy.filter((b) => !heldBlocks.some((h) => h === b)),
+          input.events,
+        ).filter((s) => heldBlocks.some((b) => s.start >= b.start && s.end <= b.end));
   const status = statuses(prepared, placed, board, eligible, settings, excused, held);
   const statusById = new Map(status.map((s) => [s.taskId, s]));
   const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
@@ -547,7 +559,7 @@ function statuses(
   eligible: (p: Prepared, s: Slot, strict: boolean) => boolean,
   settings: Settings,
   impossible: ReadonlySet<string>,
-  held: readonly PlanBlock[] = [],
+  held: readonly Slot[] = [],
 ): TaskStatus[] {
   // Slack: capacity before each deadline (free + planned slots, strict rules) minus
   // the minimums due by then, in deadline order.
@@ -556,21 +568,21 @@ function statuses(
   let demand = 0;
   let capacity = 0;
   const counted = board.slots.map(() => false);
-  const heldCounted = new Set<PlanBlock>();
+  const heldCounted = held.map(() => false);
   return prepared.map((p) => {
     const skip = impossible.has(p.task.id);
-    if (!skip) {
-      for (const b of held) {
-        if (heldCounted.has(b) || b.end > p.task.deadline) continue;
-        heldCounted.add(b);
-        capacity += (b.end - b.start) / MINUTE;
-      }
-    }
     if (!skip) demand += p.min;
     let own = 0;
-    if (!skip) {
-      for (const b of held) if (b.end <= p.task.deadline) own += (b.end - b.start) / MINUTE;
-    }
+    // The time a forgiven routine holds frozen is free for the minimums of the others, as
+    // when it is placed after them: counted for the tasks that could use it.
+    held.forEach((s, i) => {
+      if (!eligible(p, s, true)) return;
+      own += settings.slotMinutes;
+      if (!skip && !heldCounted[i]) {
+        heldCounted[i] = true;
+        capacity += settings.slotMinutes;
+      }
+    });
     board.slots.forEach((s, i) => {
       if (!eligible(p, s, true)) return;
       own += settings.slotMinutes;

@@ -421,6 +421,48 @@ describe("schedule", () => {
   });
 });
 
+describe("time held by a forgiven routine", () => {
+  // Monday 10:00–11:00 is a session of the gym, already fixed.
+  const held: PlanBlock = {
+    id: "g",
+    taskId: "gym",
+    activityId: "gym",
+    start: at("2026-11-02", "10:00"),
+    end: at("2026-11-02", "11:00"),
+  };
+  const slackOf = (forgiving: boolean, studyOver: Parameters<typeof task>[3] = {}) => {
+    const r = schedule(
+      base({
+        frozen: [held],
+        tasks: [
+          task("gym", "gym", at("2026-11-08", "08:00"), {
+            remainingMinutes: 60,
+            minRemainingMinutes: 60,
+            forgiving: forgiving || undefined,
+          }),
+          task("t", "mate", at("2026-11-02", "13:00"), {
+            remainingMinutes: 120,
+            minRemainingMinutes: 120,
+            ...studyOver,
+          }),
+        ],
+      }),
+    );
+    return r.status.find((s) => s.taskId === "t")?.slack ?? Number.NaN;
+  };
+
+  it("is free for a task that could use it: the studies go first", () => {
+    expect(slackOf(true)).toBe(slackOf(false) + 60);
+  });
+
+  it("is not free for a task that could not use it (its hours, or its date)", () => {
+    const outside = { validHours: { all: { start: 11 * 60, end: 13 * 60 } } };
+    expect(slackOf(true, outside)).toBe(slackOf(false, outside));
+    const earlier = { deadline: at("2026-11-02", "10:00") };
+    expect(slackOf(true, earlier)).toBe(slackOf(false, earlier));
+  });
+});
+
 describe("options", () => {
   const tight = base({
     tasks: [
