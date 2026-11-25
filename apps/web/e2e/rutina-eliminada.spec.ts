@@ -14,6 +14,8 @@ async function demoDePruebas(page: Page) {
 test("eliminar una rutina con un borrador guardado no deja formulario ni la deshace", async ({
   page,
 }) => {
+  // La demo de pruebas arma un plan cargado: en CI cada prueba tarda.
+  test.slow();
   await demoDePruebas(page);
   await openSettingsPage(page, "Rutinas");
   await sheet(page)
@@ -44,6 +46,8 @@ test("eliminar una rutina con un borrador guardado no deja formulario ni la desh
 test("eliminar la rutina con el formulario restaurado lo cierra y no la recrea", async ({
   page,
 }) => {
+  // La demo de pruebas arma un plan cargado: en CI cada prueba tarda.
+  test.slow();
   await demoDePruebas(page);
   await openSettingsPage(page, "Rutinas");
   await sheet(page)
