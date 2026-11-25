@@ -393,7 +393,7 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - **Orden de trabajo**: primero lo que queda de §14 (gestos, transiciones, primer uso guiado, espaciados) y las Bajas del atacante; después ómnibus (§15), datos y servidor primero.
 - **CSP**: queda en «solo reportar» hasta que el usuario revise los reportes «CSP: …» en Better Stack.
 
-13. **Decisiones del 2026-11-25** (el usuario vio las capturas de la Demo de pruebas):
+**13. Decisiones del 2026-11-25** (el usuario vio las capturas de la Demo de pruebas):
 
 - **«Guardar avance» en rutinas con tope**: el campo «Le dediqué (minutos)» no acepta más de lo que le falta a la rutina esa semana.
 - **Lugares: «Cancelar» con cambios** sigue preguntando «¿Descartar los cambios?», como hoy.
