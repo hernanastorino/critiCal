@@ -25,6 +25,7 @@ import {
   type ValidHours,
   zonedInstant,
 } from "./engine.js";
+import { clipName } from "./format.js";
 import { asking, type InboxInputs, inboxCards } from "./inbox.js";
 import {
   ADDRESS_MAX,
@@ -52,7 +53,7 @@ import type {
   TravelMode,
   Unit,
 } from "./model.js";
-import { newId, nextColor, pruneApplied, undoable } from "./model.js";
+import { newId, nextColor, pruneApplied, type RemovedActivity, undoable } from "./model.js";
 import {
   aliasTaken,
   eventSpotKey,
@@ -272,15 +273,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
 /** Plan versions kept for undo. */
 export const PLAN_HISTORY = 20;
 
-/** What `deleteActivity` takes out, kept by the notice that offers «Deshacer». */
-export interface RemovedActivity {
-  activity: Activity;
-  /** Where it was in the list, to go back to the same place. */
-  index: number;
-  tasks: AppTask[];
-  checkIns: AppData["checkIns"];
-  pins: NonNullable<AppData["pins"]>;
-}
+export type { RemovedActivity };
 
 /** What an answer of the inbox may change, kept by the notice that offers «Deshacer». */
 export interface Snapshot {
@@ -549,10 +542,13 @@ export function reducer(data: AppData, input: Action): AppData {
   const base = routinesBack(rekeySpots(withHandMarks(frozen)), action.now);
   const changed = rekeySpots(versioned(base, action, apply(base, action)));
   // Changing Mi semana keeps today's meals that had begun as they were (SPEC §5).
-  const next =
+  const next = saved(
+    base,
+    action,
     action.type === "settings" && changed.settings !== base.settings
       ? keepStartedMeals(base, changed, action.now)
-      : changed;
+      : changed,
+  );
   // An action that changes nothing leaves the data as it came (the freeze waits).
   if (changed === base && frozen !== data)
     return routinesBack(rekeySpots(withHandMarks(data)), action.now);
@@ -1182,6 +1178,8 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(
         {
           ...data,
+          // Its place in the history of «Deshacer» is taken: it is back already.
+          planHistory: data.planHistory?.filter((v) => v.removed?.activity.id !== activity.id),
           removedSubjects: data.removedSubjects?.filter((n) => n !== normalize(activity.name)),
           activities: [
             ...data.activities.slice(0, index),
@@ -1475,32 +1473,8 @@ function apply(data: AppData, action: Action): AppData {
         },
         now,
       );
-    case "undoPlan": {
-      const history = data.planHistory ?? [];
-      const v = history.at(-1);
-      if (!v || (action.only !== undefined && v !== action.only)) return data;
-      // What already started stays; today's blocks ahead and the inputs come back.
-      const kept = data.plan.filter((b) => b.start <= now);
-      // A task deleted since then does not come back with its blocks.
-      // Nor does one that is closed, dropped or past its deadline.
-      const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
-      return refresh(
-        {
-          ...data,
-          plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
-          pins: v.pins.filter((b) => live.has(b.taskId)),
-          overrides: v.overrides,
-          proposals: v.proposals,
-          // Versions from before meals were kept do not say: the choices stay as they are.
-          ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
-          freeTimeUntil: v.freeTimeUntil,
-          relaxContextUntil: v.relaxContextUntil,
-          tentativeHoldUntil: v.tentativeHoldUntil,
-          planHistory: history.slice(0, -1),
-        },
-        now,
-      );
-    }
+    case "undoPlan":
+      return undoPlan(data, action.only, now);
     case "mealChoice": {
       const rest = (data.mealChoices ?? []).filter(
         (c) => !(c.date === action.date && c.kind === action.kind),
@@ -1984,13 +1958,9 @@ export function replanChanged(before: AppData, after: AppData): boolean {
   return view(before) !== view(after);
 }
 
-function versioned(data: AppData, action: Action, next: AppData): AppData {
-  const label = VERSIONED[action.type];
-  if (!label || next === data) return next;
-  // A replan that changed nothing has nothing to undo.
-  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
-  const now = action.now;
-  const version: PlanVersion = {
+/** What the plan looked like before an action, to put back with «Deshacer». */
+function planVersion(data: AppData, now: number, label: string): PlanVersion {
+  return {
     at: now,
     label,
     pins: data.pins ?? [],
@@ -2004,5 +1974,156 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     tentativeHoldUntil: data.tentativeHoldUntil,
     relaxContextUntil: data.relaxContextUntil,
   };
-  return { ...next, planHistory: [...(data.planHistory ?? []), version].slice(-PLAN_HISTORY) };
+}
+
+const pushVersion = (data: AppData, next: AppData, v: PlanVersion): AppData => ({
+  ...next,
+  planHistory: [...(data.planHistory ?? []), v].slice(-PLAN_HISTORY),
+});
+
+function versioned(data: AppData, action: Action, next: AppData): AppData {
+  if (next === data) return next;
+  if (action.type === "deleteActivity") {
+    const removed = removedWith(data, action.activityId);
+    if (!removed) return next;
+    const label = `eliminar ${clipName(removed.activity.name, 24)}`;
+    return pushVersion(data, next, { ...planVersion(data, action.now, label), removed });
+  }
+  const label = VERSIONED[action.type];
+  if (!label) return next;
+  // A replan that changed nothing has nothing to undo.
+  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
+  return pushVersion(data, next, planVersion(data, action.now, label));
+}
+
+/** A part of the data that a save changes and «Deshacer» puts back (read and written by hand). */
+interface SavedPart {
+  id: string;
+  get: (d: AppData) => unknown;
+  set: (d: AppData, v: unknown) => AppData;
+}
+
+const savedPart = <T,>(
+  id: string,
+  get: (d: AppData) => T,
+  set: (d: AppData, v: T) => AppData,
+): SavedPart => ({ id, get, set: (d, v) => set(d, v as T) });
+
+const SAVED_PARTS: readonly SavedPart[] = [
+  savedPart(
+    "settings",
+    (d) => d.settings,
+    (d, settings) => ({ ...d, settings }),
+  ),
+  savedPart(
+    "mealRuns",
+    (d) => d.mealRuns,
+    (d, mealRuns) => ({ ...d, mealRuns }),
+  ),
+  savedPart(
+    "places",
+    (d) => d.places,
+    (d, places) => ({ ...d, places }),
+  ),
+  savedPart(
+    "travelTimes",
+    (d) => d.travelTimes,
+    (d, travelTimes) => ({ ...d, travelTimes }),
+  ),
+  savedPart(
+    "spots",
+    (d) => d.spots,
+    (d, spots) => ({ ...d, spots }),
+  ),
+  savedPart(
+    "eventTravel",
+    (d) => d.eventTravel,
+    (d, eventTravel) => ({ ...d, eventTravel }),
+  ),
+  savedPart(
+    "tripModes",
+    (d) => d.tripModes,
+    (d, tripModes) => ({ ...d, tripModes }),
+  ),
+  savedPart(
+    "tripMinutes",
+    (d) => d.tripMinutes,
+    (d, tripMinutes) => ({ ...d, tripMinutes }),
+  ),
+];
+
+/** The saved parts that put back what a save changed, unless it was changed again since. */
+function putSavedBack(data: AppData, saved: NonNullable<PlanVersion["saved"]>): AppData {
+  return saved.reduce((d, s) => {
+    const part = SAVED_PARTS.find((p) => p.id === s.part);
+    return part && same(part.get(d), s.after) ? part.set(d, s.before) : d;
+  }, data);
+}
+
+/** Takes back the last version of the undo history (`only`: that one, if it is still the last). */
+function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): AppData {
+  const history = start.planHistory ?? [];
+  const v = history.at(-1);
+  if (!v || (only !== undefined && v !== only)) return start;
+  // A deleted materia or rutina comes back with its silos; what a save changed goes back.
+  const restored = v.removed
+    ? apply(start, { type: "restoreActivity", removed: v.removed, now })
+    : start;
+  const data = v.saved ? putSavedBack(restored, v.saved) : restored;
+  // What already started stays; today's blocks ahead and the inputs come back.
+  const kept = data.plan.filter((b) => b.start <= now);
+  // A task deleted since then does not come back with its blocks.
+  // Nor does one that is closed, dropped or past its deadline.
+  const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
+  return refresh(
+    {
+      ...data,
+      plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
+      pins: v.pins.filter((b) => live.has(b.taskId)),
+      overrides: v.overrides,
+      proposals: v.proposals,
+      // Versions from before meals were kept do not say: the choices stay as they are.
+      ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
+      freeTimeUntil: v.freeTimeUntil,
+      relaxContextUntil: v.relaxContextUntil,
+      tentativeHoldUntil: v.tentativeHoldUntil,
+      planHistory: history.slice(0, -1),
+    },
+    now,
+  );
+}
+
+/** What a save is called in «Deshacer: …», from what it changed (none: not worth undoing). */
+function saveLabel(data: AppData, action: Action): string | undefined {
+  switch (action.type) {
+    case "settings": {
+      const [a, b] = [data.settings, action.settings];
+      if (!same(a.week, b.week)) return "guardar Mi semana";
+      const rules = [
+        a.slotMinutes !== b.slotMinutes,
+        a.travelMarginMinutes !== b.travelMarginMinutes,
+        a.maxActivitiesPerDay !== b.maxActivitiesPerDay,
+        a.warnSlackMinutes !== b.warnSlackMinutes,
+      ];
+      return rules.some(Boolean) ? "guardar Reglas" : undefined;
+    }
+    case "savePlace":
+      return "guardar un lugar";
+    case "eventTravelMinutes":
+    case "tripMode":
+    case "tripMinutes":
+      return "ajustar un traslado";
+    default:
+      return undefined;
+  }
+}
+
+/** Records a save in the undo history, with the parts it changed. */
+function saved(data: AppData, action: Action, next: AppData): AppData {
+  const label = next === data ? undefined : saveLabel(data, action);
+  if (!label) return next;
+  const parts = SAVED_PARTS.map((p) => ({ part: p.id, before: p.get(data), after: p.get(next) }));
+  const changed = parts.filter((p) => !same(p.before, p.after));
+  if (changed.length === 0) return next;
+  return pushVersion(data, next, { ...planVersion(data, action.now, label), saved: changed });
 }
