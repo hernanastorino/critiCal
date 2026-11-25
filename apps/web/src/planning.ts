@@ -235,7 +235,8 @@ function samples(data: AppData) {
     .filter((c) => c.status !== "missed")
     .flatMap((c) => {
       const task = data.tasks.find((t) => t.id === c.taskId);
-      if (!task || c.unitIds.length === 0) return [];
+      // A record with no minutes says nothing about how long a part takes.
+      if (!task || c.unitIds.length === 0 || c.minutesDone <= 0) return [];
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
