@@ -896,7 +896,11 @@ function apply(data: AppData, action: Action): AppData {
           ...data,
           tasks,
           movedEvents: undoMove(data.movedEvents, record),
-          freeTimeUntil: record.freeTimeUntil,
+          // Only the decision that lent the free time takes it back: undoing another one
+          // (a «No hacer») leaves a later «Usar tiempo libre» as it is.
+          freeTimeUntil: record.id.startsWith("use-free-time@")
+            ? record.freeTimeUntil
+            : data.freeTimeUntil,
           plan: record.addedBlocks
             ? data.plan.filter((b) => !record.addedBlocks?.includes(b.id))
             : data.plan,

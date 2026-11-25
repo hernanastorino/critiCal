@@ -110,7 +110,8 @@ describe("a routine of 14 × 60 in the demo", () => {
     });
     const r = refreshPlan(tight, NOW);
     expect(decisions(r.input, r.result).options.map((o) => o.label)).toEqual([
-      "Usar tiempo libre para llegar",
+      "Quedarme con el mínimo de Informe Lab Física",
+      "Usar tiempo libre para llegar al objetivo de Informe Lab Física",
     ]);
   });
 });
