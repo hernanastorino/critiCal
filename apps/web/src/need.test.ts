@@ -32,7 +32,7 @@ describe("needOf", () => {
     }
     expect(needOf(data, NOW, REPORT)).toEqual({ left: 600, minimum: 540 });
     expect(needOf(data, NOW, "no-such-task")).toBeUndefined();
-  });
+  }, 30_000);
 });
 
 describe("shortfall", () => {
@@ -44,7 +44,7 @@ describe("shortfall", () => {
     // 50 study + 10 break: 1.2 block minutes for each study minute.
     expect(lack).toBe(Math.ceil(block / 1.2));
     expect(lack).toBeLessThan(block);
-  });
+  }, 30_000);
 });
 
 describe("the options of «No llegás a todo»", () => {

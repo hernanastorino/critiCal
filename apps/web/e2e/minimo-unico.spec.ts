@@ -42,9 +42,9 @@ test("la versión mínima deja el mismo mínimo en la Bandeja, la ficha y el for
   await opcion.getByRole("button", { name: /^Elegir: / }).click();
   await expect(toast(page)).toContainText("Listo, reacomodé el plan");
   // La entrega ya llega: ninguna opción habla de ella.
-  await expect(page.getByRole("button", { name: new RegExp(`^Elegir: .*${INFORME}`) })).toHaveCount(
-    0,
-  );
+  await expect(
+    page.locator(`button[aria-label^="Elegir: "][aria-label*="${INFORME}"]`),
+  ).toHaveCount(0);
 
   // La ficha dice el mínimo que nombraba la opción.
   expect(minimoDe(await ficha(page))).toBe(nombrado);
@@ -64,6 +64,6 @@ test("la versión mínima deja el mismo mínimo en la Bandeja, la ficha y el for
   await expect(page.getByTestId("week")).toBeVisible();
   const criticos = page
     .getByTestId("week")
-    .getByRole("button", { name: new RegExp(`${INFORME}.*crítico: no llega a tiempo`) });
+    .locator(`[aria-label*="${INFORME}"][aria-label*="crítico: no llega a tiempo"]`);
   await expect(criticos).toHaveCount(0);
 });
