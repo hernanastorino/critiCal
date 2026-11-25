@@ -141,7 +141,8 @@ export function Places() {
   return (
     <Section>
       <p className="meta" id="places-intro" tabIndex={-1}>
-        El plan reserva el viaje antes y después de cada evento con ubicación.
+        Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
+        evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
       </p>
       {places.length === 0 && !editing && (
         <p className="meta" id="places-empty">
@@ -244,7 +245,8 @@ export function Places() {
           {(data.spots ?? []).length > 0 && (
             <>
               <p className="meta" id="spots" tabIndex={-1}>
-                Se usan para el traslado. Guardá solo las que repitas.
+                Se usan para el traslado sin guardarse como lugar. No hace falta hacer nada con
+                ellas; guardá solo las que vayas a repetir.
               </p>
               {(data.spots ?? []).map((spot) => (
                 <SpotRow key={spot.key} spot={spot} />

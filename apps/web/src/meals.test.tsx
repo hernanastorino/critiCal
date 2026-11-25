@@ -132,7 +132,7 @@ describe("meals with no room", () => {
     fireEvent.click(screen.getByText("Bandeja"));
     expect(screen.getByText("Comidas sin lugar")).toBeTruthy();
     expect(screen.getByText("Sin lugar para almorzar · mar 10/11")).toBeTruthy();
-    expect(screen.getByText(/Todo ocupado cerca\. Quedó a las 13:00/)).toBeTruthy();
+    expect(screen.getByText(/Entre las 11:30 y las 15:30 todo está ocupado/)).toBeTruthy();
     fireEvent.click(screen.getByText("Ver el día"));
     // Next week: lunch every day, Tuesday's on top of the event, at its usual time.
     expect(screen.getByRole("heading", { level: 1 }).textContent).toBe("9 – 15 nov");
@@ -159,7 +159,6 @@ describe("meals with no room", () => {
     expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(6);
     expect(screen.getByText(/Hoy no almuerzo · reacomodá hoy para usar ese rato/)).toBeTruthy();
     fireEvent.click(screen.getByLabelText(/^Almuerzo sacado ese día, lun 13:00/));
-    fireEvent.click(screen.getByText("Volver a ponerlo"));
     expect(lunches().filter((l) => !l?.includes("sacado"))).toHaveLength(7);
     // A meal that already happened cannot be moved or skipped.
     cleanup();

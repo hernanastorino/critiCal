@@ -8,8 +8,8 @@
 export const SKIPPED_TOAST = "Anotado, sin culpa. Reacomodo lo que falta.";
 
 /** A meal that fits nowhere: it stays where it was, on top of something fixed. */
-export const mealNoRoom = (at: string) =>
-  `Todo ocupado cerca. Quedó a las ${at}, encima de lo fijo.`;
+export const mealNoRoom = (from: string, to: string, at: string) =>
+  `Entre las ${from} y las ${to} todo está ocupado por eventos fijos o bloques fijados: ni un bocado de lugar. Quedó a las ${at}, encima de lo que hay. Dejala ahí, tocala en la semana para moverla a cualquier hora, o elegí «Hoy no».`;
 
 /** An option that still does not reach every minimum: say what to do next. */
 export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opción o aflojá un mínimo.";
@@ -44,18 +44,6 @@ export function optionPromise(
 /** An option that reaches every minimum but those of tasks that fit nowhere anyway. */
 export const onlyNoFitLeft = (names: string[]) =>
   `Con esto llegás a todo menos ${names.map((n) => `«${n}»`).join(" y ")}, que no entra${names.length > 1 ? "n" : ""} igual.`;
-
-/**
- * The line of an option card. `noFitLeft` are the tasks that fit nowhere and stay short
- * with it (null when others do too, or none): then it never says «llegás» to the minimums.
- */
-export function optionLine(
-  option: Parameters<typeof optionPromise>[0],
-  minimumsMet: boolean,
-  noFitLeft: string[] | null,
-): string {
-  return noFitLeft ? onlyNoFitLeft(noFitLeft) : optionPromise(option, minimumsMet, STILL_SHORT);
-}
 
 /** What a task that fits nowhere is: a routine, a materia's weekly hours, or one with a date. */
 export type NoFitKind = "routine" | "hours" | "habit" | "study" | "dated";

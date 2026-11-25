@@ -112,8 +112,6 @@ interface MealBubble {
   meal: MealTime & { at: { start: number; end: number } };
   x: number;
   y: number;
-  /** A meal skipped for that day, shown faint: its card offers to bring it back. */
-  skipped?: boolean;
 }
 
 const mealName = (m: MealTime) => (m.kind ? MEAL_NAMES[m.kind] : "Comida");
@@ -213,11 +211,6 @@ export function Week({
   };
   // Opens on the week of `day`.
   const [offset, setOffset] = useState(() => (day ? weekOffset(day) : 0));
-  // The day the inbox sent us to: marked and focused, so it is the one to look at.
-  const dayRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (day) dayRef.current?.focus({ preventScroll: true });
-  }, [day]);
   const [replanning, setReplanning] = useState(false);
   const [replanned, setReplanned] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -295,14 +288,10 @@ export function Week({
     setBubble({ item, x: e.clientX, y: e.clientY });
   };
   const [mealBubble, setMealBubble] = useState<MealBubble | null>(null);
-  const openMeal = (
-    e: React.MouseEvent | React.PointerEvent,
-    meal: MealBubble["meal"],
-    skipped?: boolean,
-  ) => {
+  const openMeal = (e: React.MouseEvent | React.PointerEvent, meal: MealBubble["meal"]) => {
     bubbleFrom.current = e.currentTarget as HTMLElement;
     setBubble(null);
-    setMealBubble({ meal, x: e.clientX, y: e.clientY, ...(skipped ? { skipped } : {}) });
+    setMealBubble({ meal, x: e.clientX, y: e.clientY });
   };
   const [open, setOpen] = useState<Item | null>(null);
   // Another week has other blocks: a bubble left open would be about one that is gone.
@@ -1049,13 +1038,7 @@ export function Week({
         {dates.map((d) => {
           const noon = zonedInstant(tz, d, 720);
           return (
-            <div
-              key={d}
-              className={`day-head${d === today ? " today" : ""}${d === day ? " marked" : ""}`}
-              tabIndex={d === day ? -1 : undefined}
-              ref={d === day ? dayRef : undefined}
-              aria-current={d === day ? "date" : undefined}
-            >
+            <div key={d} className={`day-head${d === today ? " today" : ""}`}>
               {weekdayShort(tz, noon)}
               <b>{Number(d.slice(8))}</b>
             </div>
@@ -1091,6 +1074,7 @@ export function Week({
                 skipped.map((m) => {
                   const style = position(d, m.at);
                   if (!style || !m.kind) return null;
+                  const kind = m.kind;
                   return (
                     <button
                       key={`${d}-skip-${mealKey(m)}`}
@@ -1099,8 +1083,15 @@ export function Week({
                       aria-label={`${mealName(m)} ${m.kind === "cena" || m.kind === "merienda" ? "sacada" : "sacado"} ese día, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)}: volver a ${m.kind === "cena" || m.kind === "merienda" ? "ponerla" : "ponerlo"}`}
                       className="pill meal skipped"
                       style={style}
-                      // One touch asks; bringing it back is the card's button.
-                      onClick={(e) => openMeal(e, m, true)}
+                      onClick={() => {
+                        const had = data.mealChoices?.find(
+                          (c) => c.date === m.date && c.kind === kind,
+                        )?.start;
+                        dispatch({ type: "mealChoice", date: m.date, kind, start: had });
+                        sayMeal(
+                          `${mealName(m)} otra vez a ${had !== undefined ? "la hora que le habías puesto" : "su hora"}`,
+                        );
+                      }}
                     />
                   );
                 }),
@@ -1437,17 +1428,6 @@ export function Week({
           <MealCard
             bubble={mealBubble}
             onSaid={sayMeal}
-            onRestore={(m) => {
-              const kind = m.kind;
-              if (!kind) return;
-              const had = data.mealChoices?.find(
-                (c) => c.date === m.date && c.kind === kind,
-              )?.start;
-              dispatch({ type: "mealChoice", date: m.date, kind, start: had });
-              sayMeal(
-                `${mealName(m)} otra vez a ${had !== undefined ? "la hora que le habías puesto" : "su hora"}`,
-              );
-            }}
             onClose={() => setMealBubble(null)}
             onSettings={() => {
               setMealBubble(null);
@@ -1765,11 +1745,8 @@ function MealCard({
   onClose,
   onSettings,
   onSaid,
-  onRestore,
 }: {
   bubble: MealBubble;
-  /** Brings back a meal skipped for that day. */
-  onRestore: (meal: MealBubble["meal"]) => void;
   onClose: () => void;
   onSettings: () => void;
   /** Tells what was done (the app offers its «Deshacer»); `at` is where the meal was. */
@@ -1812,33 +1789,6 @@ function MealCard({
     onClose();
     onSaid(said, meal.at.start);
   };
-  if (bubble.skipped)
-    return (
-      <BubbleDialog
-        label={name}
-        onClose={onClose}
-        style={{ left, top, ["--c" as string]: "var(--meal)" }}
-      >
-        <div className="bubble">
-          <h3>{name}</h3>
-          <p>
-            {dayWord} no {name.toLowerCase()}
-          </p>
-          <div className="row">
-            <button
-              type="button"
-              className="btn small"
-              onClick={() => {
-                onClose();
-                onRestore(meal);
-              }}
-            >
-              Volver a ponerlo
-            </button>
-          </div>
-        </div>
-      </BubbleDialog>
-    );
   return (
     <BubbleDialog
       label={name}
