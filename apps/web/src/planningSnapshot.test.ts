@@ -16,7 +16,7 @@ import { decisions, refreshPlan } from "./planning.js";
 const sha = (value: unknown) =>
   createHash("sha1").update(JSON.stringify(value)).digest("hex").slice(0, 12);
 
-const DEMOS: [string, (now: number) => AppData][] = [
+const DEMOS: [string, typeof demoData][] = [
   ["demoData", demoData],
   ["pruebas", pruebasData],
   ["sinRutina", demoSinRutina],
@@ -50,7 +50,9 @@ function digest(data: AppData, now: number) {
 }
 
 describe("the plan of the demos", () => {
-  beforeEach(() => localStorage.clear());
+  beforeEach(() => {
+    localStorage.clear();
+  });
   for (const [name, make] of DEMOS) {
     for (const [label, now] of NOWS) {
       it(`${name}, ${label}: the same blocks, statuses and options`, async () => {
