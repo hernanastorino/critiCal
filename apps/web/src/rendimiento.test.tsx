@@ -2,7 +2,7 @@ import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import { demoData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
-import { decisions, refreshPlan } from "./planning.js";
+import { decisions, refreshPlan, routineShortfalls } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 import { runningSince } from "./testing.js";
 
@@ -58,6 +58,9 @@ describe("decisions do not stand in the way of a tap", () => {
     // it is the plan alone, so it takes less than the decisions do (machine-independent).
     expect(tap).toBeLessThan(working);
     expect(now.decisions.options.map((o) => o.id)).toEqual(dec.options.map((o) => o.id));
-    expect(now.inboxCount).toBe((dec.options.length > 0 ? 1 : 0) + dec.recommendations.length);
+    const routines = routineShortfalls(now.data, MON, r.result.blocks).length;
+    expect(now.inboxCount).toBe(
+      (dec.options.length > 0 ? 1 : 0) + dec.recommendations.length + routines,
+    );
   }, 60_000);
 });
