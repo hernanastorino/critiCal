@@ -430,6 +430,11 @@ textarea[aria-invalid="true"] {
   font-weight: 600;
 }
 
+.day-head.marked {
+  background: var(--glass);
+  border-radius: var(--radius-s);
+}
+
 .day-head.today b {
   color: var(--critical-ink);
 }
