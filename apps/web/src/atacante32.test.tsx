@@ -156,7 +156,7 @@ describe("Lo que la SPEC dice que es así", () => {
     d = reducer(d, {
       type: "logProgress",
       taskId: "parcial-calc",
-      minutes: 0,
+      minutes: 60,
       unitIds: ["u1"],
       now: monday,
     });
