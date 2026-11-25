@@ -63,7 +63,7 @@ const STEP_TEXTS = [
   "Mirá tu primer plan",
 ] as const;
 
-/** How long the closing card stays when nobody taps «Listo». */
+/** How long the closing card stays when nobody taps «Cerrar». */
 const CLOSING_MS = 6000;
 
 /** «Primeros pasos» in Ajustes: the guide comes back on the week, right away. */
@@ -151,7 +151,7 @@ export function FirstStepsCard({
               setClosing(false);
             }}
           >
-            Listo
+            Cerrar
           </button>
         </div>
       </section>

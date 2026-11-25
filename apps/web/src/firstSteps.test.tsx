@@ -53,7 +53,7 @@ describe("first-use guide (SPEC §14)", () => {
     show(true, demoData);
     expect(screen.getByText("Primeros pasos · Listo")).toBeTruthy();
     expect(localStorage.getItem(FIRST_STEPS_KEY)).toBe("done");
-    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cerrar" }));
     expect(screen.queryByText(/Primeros pasos/)).toBeNull();
     cleanup();
     show(true, demoData);

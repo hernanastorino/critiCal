@@ -18,7 +18,7 @@ test("Primeros pasos: llega a 3 de 3, cierra con «Listo» una vez y no vuelve",
   await page.getByRole("button", { name: "Conectar Google" }).click();
   await sheet(page).getByRole("button", { name: "Cerrar", exact: true }).first().click();
   await expect(page.getByText("Primeros pasos · Listo")).toBeVisible();
-  await page.getByRole("button", { name: "Listo", exact: true }).click();
+  await page.getByRole("button", { name: "Cerrar", exact: true }).click();
   await expect(page.getByText(/^Primeros pasos/)).toHaveCount(0);
 
   await page.reload();
