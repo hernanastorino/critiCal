@@ -1,6 +1,11 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FIRST_STEPS_KEY, FirstStepsCard, resumeFirstSteps } from "./components/FirstSteps.js";
+import {
+  FIRST_STEPS_KEY,
+  FirstStepsCard,
+  firstStepsDone,
+  resumeFirstSteps,
+} from "./components/FirstSteps.js";
 import { demoData, emptyData } from "./demo.js";
 import { StoreProvider } from "./store.js";
 
@@ -39,12 +44,20 @@ describe("first-use guide (SPEC §14)", () => {
     expect(next).toHaveBeenCalledWith("semester");
   });
 
-  it("with a task, the last step shows the plan and the guide goes away", () => {
+  it("counts the steps: the plan step needs a plan with a block", () => {
+    expect(firstStepsDone({ google: true, tasks: true, plan: false })).toEqual([true, true, false]);
+    expect(firstStepsDone({ google: true, tasks: true, plan: true })).toEqual([true, true, true]);
+  });
+
+  it("with everything done it closes once with «Listo» and never comes back", () => {
     show(true, demoData);
-    expect(screen.getByText("Primeros pasos · 2 de 3")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Ver mi plan" }));
-    expect(screen.queryByText(/Primeros pasos/)).toBeNull();
+    expect(screen.getByText("Primeros pasos · Listo")).toBeTruthy();
     expect(localStorage.getItem(FIRST_STEPS_KEY)).toBe("done");
+    fireEvent.click(screen.getByRole("button", { name: "Listo" }));
+    expect(screen.queryByText(/Primeros pasos/)).toBeNull();
+    cleanup();
+    show(true, demoData);
+    expect(screen.queryByText(/Primeros pasos/)).toBeNull();
   });
 
   it("can be skipped and comes back from Ajustes", () => {
