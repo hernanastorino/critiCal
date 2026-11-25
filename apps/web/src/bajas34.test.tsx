@@ -104,6 +104,13 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
     return reducer(start, { type: "checkIn", now: NOW, checkIn });
   };
   const start = () => refresh(seedHistory(pruebasData(NOW), NOW), NOW);
+  // Something else changed meanwhile: a busy event on the first block still to come.
+  const changed = (d: AppData): AppData => {
+    const next = d.plan.find((b) => b.start > NOW);
+    if (!next) throw new Error("no block to come");
+    const event = { id: "otro", title: "Otro", start: next.start, end: next.end, busy: true };
+    return { ...d, events: [...d.events, { ...event, source: "demo" as const }] };
+  };
 
   it("sin el plan guardado, deshacer lo reacomoda (la raíz del problema)", {
     timeout: 60_000,
@@ -113,7 +120,7 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
       first,
       first.plan.filter((b) => b.end <= NOW),
     );
-    const undone = reducer(answered, { type: "undoCheckIn", now: NOW, id: "c1" });
+    const undone = reducer(changed(answered), { type: "undoCheckIn", now: NOW, id: "c1" });
     expect(JSON.stringify(undone.plan)).not.toBe(JSON.stringify(first.plan));
   });
 
@@ -137,7 +144,12 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
       first.plan.filter((b) => b.end <= NOW),
     );
     const plans = { before: first.plan, after: [] };
-    const undone = reducer(answered, { type: "undoCheckIn", now: NOW, id: "c1", plans });
+    const undone = reducer(changed(answered), {
+      type: "undoCheckIn",
+      now: NOW,
+      id: "c1",
+      plans,
+    });
     expect(JSON.stringify(undone.plan)).not.toBe(JSON.stringify(first.plan));
   });
 });

@@ -103,8 +103,18 @@ export function Inbox({
   /** Opens Ajustes on that routine, to edit it. */
   onRoutine?: (activityId: string) => void;
 }) {
-  const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
-    useStore();
+  const {
+    data,
+    now,
+    pending,
+    decisions,
+    unlocated,
+    pinShort,
+    routineShort,
+    clashes,
+    missedMeals,
+    dispatch,
+  } = useStore();
   const { result: plan } = useStore();
   const offline = !!useSync()?.status.offline;
   const toast = useToast();
@@ -157,6 +167,7 @@ export function Inbox({
       pending,
       unlocated,
       pinShort,
+      routineShort,
       clashes,
       missedMeals,
       asked: { choose: decisions.options.length > 0, recommendations: decisions.recommendations },
@@ -414,6 +425,25 @@ export function Inbox({
             </p>
             {onRoutine && (
               <button type="button" className="btn small" onClick={() => onRoutine(m.activity.id)}>
+                Editar rutina
+              </button>
+            )}
+          </div>
+        ))}
+
+        {routineShort.length > 0 && <div className="section-title">Rutina que no entra</div>}
+        {routineShort.map((r) => (
+          <div
+            key={r.activityId}
+            className="card"
+            data-block-id={r.activityId}
+            style={{ ["--c" as string]: data.activities.find((a) => a.id === r.activityId)?.color }}
+          >
+            <div className="title">
+              {r.name}: esta semana entra {r.placed} de {r.wanted}
+            </div>
+            {onRoutine && (
+              <button type="button" className="btn small" onClick={() => onRoutine(r.activityId)}>
                 Editar rutina
               </button>
             )}

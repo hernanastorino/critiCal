@@ -81,7 +81,9 @@ import {
   pinBlock,
   pinClashes,
   pinShortfall,
+  type RoutineShort,
   refreshPlan,
+  routineShortfalls,
   routinesBack,
   sleptBlockIds,
   standingCheckIns,
@@ -1725,6 +1727,8 @@ interface Store {
   unlocated: ReturnType<typeof unlocated>;
   /** Minimums the upcoming pins put out of reach, and those pins. */
   pinShort: ReturnType<typeof pinShortfall>;
+  /** Routines the week has no room for whole. */
+  routineShort: RoutineShort[];
   /** Upcoming pins a calendar event overlaps. */
   clashes: ReturnType<typeof pinClashes>;
   /** Meals of the coming week with no room near their time. */
@@ -1831,6 +1835,7 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
+    const routineShort = routineShortfalls(data, now, r.result.blocks);
     const clashes = pinClashes(data, now, r.input);
     const meals = missedMeals(data, now);
     return {
@@ -1849,6 +1854,7 @@ export function StoreProvider({
       result: r.result,
       unlocated: where,
       pinShort,
+      routineShort,
       clashes,
       missedMeals: meals,
       inboxCount: asking(
@@ -1858,6 +1864,7 @@ export function StoreProvider({
           pending,
           unlocated: where,
           pinShort,
+          routineShort,
           clashes,
           missedMeals: meals,
           asked: counted.current ?? { choose: false, recommendations: [] },
