@@ -10,7 +10,9 @@ import type { AppData, AppEvent, Place } from "./model.js";
 import {
   home,
   minutesBetween,
+  missingPairs,
   placeFor,
+  placeOfEvent,
   searchPlaces,
   travelOptions,
   unlocated,
@@ -764,5 +766,70 @@ describe("places: largo de nombre y dirección al guardar", () => {
     });
     const after = JSON.parse(screen.getByTestId("places").textContent ?? "[]") as Place[];
     expect(after.at(-1)).toMatchObject({ name: "Largo" });
+  });
+});
+
+describe("renaming a saved place (35.ª vuelta)", () => {
+  const fran: Place = {
+    id: "fran",
+    name: "Casa Fran",
+    aliases: ["juntada"],
+    address: "Bulevar Artigas 1500, Montevideo",
+    lat: -34.9,
+    lon: -56.17,
+  };
+  const studyAt = event("fr", "Estudiar en lo de Fran", 15, "Casa Fran");
+  const world = () => data({ places: [casa, fran], events: [studyAt] });
+  const rename = (d: AppData, name: string, aliases = fran.aliases) =>
+    reducer(d, { type: "savePlace", place: { ...fran, name, aliases }, now: NOW });
+
+  it("keeps its events linked: the old name becomes an alias", () => {
+    const renamed = rename(world(), "Lo de Fran");
+    const place = renamed.places?.find((p) => p.id === "fran");
+    expect(place?.aliases).toEqual(["juntada", "Casa Fran"]);
+    const kept = renamed.events.find((e) => e.id === "fr");
+    expect(kept && placeOfEvent(renamed, kept)?.id).toBe("fran");
+    expect(unlocated(renamed, renamed.events, NOW)).toEqual([]);
+  });
+
+  it("adds nothing for a change of case, a repeated alias or a name another place has", () => {
+    expect(rename(world(), "CASA FRAN").places?.find((p) => p.id === "fran")?.aliases).toEqual([
+      "juntada",
+    ]);
+    const had = rename(world(), "Lo de Fran", ["Casa Fran"]);
+    expect(had.places?.find((p) => p.id === "fran")?.aliases).toEqual(["Casa Fran"]);
+    const other: Place = { id: "otro", name: "Otro", aliases: ["casa fran"] };
+    const taken = rename(data({ places: [casa, fran, other], events: [studyAt] }), "Lo de Fran");
+    expect(taken.places?.find((p) => p.id === "fran")?.aliases).toEqual(["juntada"]);
+  });
+});
+
+describe("coordinates for the bus (35.ª vuelta)", () => {
+  it("looks up a place with an address and no coordinates even when its minutes are known", () => {
+    const fran: Place = {
+      id: "fran",
+      name: "Casa Fran",
+      aliases: [],
+      address: "Bulevar Artigas 1500",
+      travelMode: "bus",
+    };
+    const located: Place = { ...casa, lat: -34.9, lon: -56.2 };
+    const d = data({
+      places: [located, fran],
+      events: [event("fr", "Estudiar", 15, "Casa Fran")],
+      travelTimes: [
+        { from: "casa", to: "fran", minutes: 20, manual: true },
+        { from: "fran", to: "casa", minutes: 20, manual: true },
+      ],
+    });
+    expect(missingPairs(d, NOW)).toEqual([
+      { from: "casa", to: "fran" },
+      { from: "fran", to: "casa" },
+    ]);
+    // By car it needs none.
+    const car = { ...d, places: [located, { ...fran, travelMode: undefined }] };
+    expect(missingPairs(car, NOW)).toEqual([]);
+    const done = { ...d, places: [located, { ...fran, lat: -34.9, lon: -56.17 }] };
+    expect(missingPairs(done, NOW)).toEqual([]);
   });
 });
