@@ -387,7 +387,13 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
       if (fitsNowhere(input, p.task)) impossible.add(p.task.id);
     }
   }
-  const status = statuses(prepared, placed, board, eligible, settings, impossible);
+  // What does not count against the others: a task that fits nowhere, and a routine that
+  // may fall behind.
+  const excused = new Set([
+    ...impossible,
+    ...prepared.filter((p) => p.task.forgiving).map((p) => p.task.id),
+  ]);
+  const status = statuses(prepared, placed, board, eligible, settings, excused);
   const statusById = new Map(status.map((s) => [s.taskId, s]));
   const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
   /** Whether `p` could take any of the block's time if it were skipped. */
@@ -402,14 +408,14 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     return false;
   };
   for (const b of blocks) {
-    b.level = blockLevel(b, prepared, statusById, settings, couldUse, impossible);
+    b.level = blockLevel(b, prepared, statusById, settings, couldUse, excused);
     if (isReviewBlock(prepared, b, settings.timezone)) b.review = true;
   }
   // Frozen blocks keep their time, not the level they had when planned: a decision
   // since (a lower minimum) may have taken them out of danger.
   for (const b of frozen) {
     const level = statusById.has(b.taskId)
-      ? blockLevel({ ...b }, prepared, statusById, settings, couldUse, impossible)
+      ? blockLevel({ ...b }, prepared, statusById, settings, couldUse, excused)
       : b.level;
     blocks.push({ ...b, frozen: true, level });
   }

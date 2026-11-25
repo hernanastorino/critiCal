@@ -607,6 +607,36 @@ describe("options", () => {
     expect(withF.feasible).toBe(false);
   });
 
+  it("a forgiving routine that falls short does not make the others' blocks critical", () => {
+    const due = at("2026-11-03", "08:00");
+    const mate = task("m", "mate", due, {
+      remainingMinutes: 300,
+      minRemainingMinutes: 300,
+      priority: 5,
+    });
+    const run = (forgiving: boolean) =>
+      schedule(
+        base({
+          tasks: [
+            mate,
+            task("f", "fisica", due, {
+              remainingMinutes: 420,
+              minRemainingMinutes: 420,
+              fixedTarget: true,
+              forgiving,
+            }),
+          ],
+        }),
+      );
+    const levels = (r: ScheduleResult) =>
+      r.blocks.filter((b) => b.taskId === "m").map((b) => b.level);
+    // Short either way: it is still reported on itself...
+    expect(run(true).status.find((s) => s.taskId === "f")?.minDeficit).toBeGreaterThan(0);
+    // ...but only the strict one turns the materia's time critical.
+    expect(levels(run(false))).toContain("critical");
+    expect(levels(run(true))).not.toContain("critical");
+  });
+
   it("re-rates frozen blocks with the current plan", () => {
     const due = at("2026-11-02", "13:00");
     const frozen: PlanBlock = {

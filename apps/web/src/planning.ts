@@ -35,6 +35,7 @@ import { hours } from "./format.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
 import type { AppData, AppEvent, AppTask, CheckIn, MealRun, Proposal, Unit } from "./model.js";
+import { improves, needOf } from "./need.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -362,11 +363,13 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
             )
           : capLeft;
       const ratio = task.units.length > 0 ? effortRatio(effort, task.activityId) : undefined;
+      const left = ratio === undefined ? remaining : scaled(task, remaining, ratio);
       return {
         task,
         totalMinutes: task.estimateMinutes,
-        remainingMinutes: ratio === undefined ? remaining : scaled(task, remaining, ratio),
-        minRemainingMinutes: Math.min(remaining, Math.max(0, task.minMinutes - done)),
+        remainingMinutes: left,
+        // As the planner takes it: never above what it reserves.
+        minRemainingMinutes: Math.min(left, Math.max(0, task.minMinutes - done)),
         deadline: task.deadline ?? endOfWeek(tz, now),
         ratio,
       };
@@ -503,6 +506,11 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
       // A weekly silo's target is its sessions: options can lower only its minimum.
       fixedTarget: p.task.kind === "habit" || undefined,
+      // A routine behind is not a minimum missing for the others (lateRoutines forgives it).
+      forgiving:
+        (p.task.kind === "habit" &&
+          data.activities.find((a) => a.id === p.task.activityId)?.kind === "rutina") ||
+        undefined,
       validHours: data.activities.find((x) => x.id === p.task.activityId)?.validHours,
     }));
 }
@@ -1192,13 +1200,13 @@ function simulated(
   option: PlanOption,
 ): PlanOption {
   const after = applyOption(from.data, input, option, from.now);
-  const left = progress(after, from.now).find((p) => p.task.id === option.taskId);
+  const left = option.taskId ? needOf(after, from.now, option.taskId) : undefined;
   const named =
     left && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
       ? option.label.replace(/\(([^()]*)\)$/, (_, inner: string) =>
           inner.startsWith("mínimo ")
-            ? `(mínimo ${hours(left.minRemainingMinutes)})`
-            : `(${hours(left.minRemainingMinutes)})`,
+            ? `(mínimo ${hours(left.minimum)})`
+            : `(${hours(left.minimum)})`,
         )
       : option.label;
   // Planning again is what costs: only done when the card is drawn (or the option is
@@ -1238,8 +1246,13 @@ export function decisions(
   const offered = result.feasible
     ? targetOptions(input, result)
     : infeasibilityOptions(input, result, impossible);
+  // Each is the plan it really gives: one that reaches no minimum the plan did not is no way out.
   const options = from
-    ? offered.map((o) => simulated(from, input, o)).filter((o) => keepsItsPromise(result, o))
+    ? offered
+        .map((o) => simulated(from, input, o))
+        .filter(
+          (o) => keepsItsPromise(result, o) && (result.feasible || improves(result, o.result)),
+        )
     : offered;
   return { options, recommendations: recommendations(input, result), impossible };
 }
