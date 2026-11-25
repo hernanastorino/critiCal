@@ -52,7 +52,7 @@ describe("a block's ring when its bubble closes", () => {
 
 describe("the sheets' spring", () => {
   it("overshoots upwards without leaving a gap under the sheet", () => {
-    expect(rule(".sheet")).toMatch(/animation:\s*up 0\.3s var\(--spring\)/);
+    expect(rule(".sheet")).toMatch(/animation:\s*up var\(--dur-spring\) var\(--spring\)/);
     expect(rule(".sheet")).toMatch(/box-shadow:\s*0 \d+px 0 0 var\(--surface\)/);
   });
 });

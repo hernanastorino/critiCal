@@ -2,6 +2,9 @@
   /* Sheets and notices come in with a small overshoot (SPEC §14, «transiciones con resorte»);
      with «reduce motion» they only fade in. */
   --spring: cubic-bezier(0.2, 0.9, 0.3, 1.12);
+  /* How long a spring takes (SPEC §14: 200–300 ms) and the short fade used instead of it. */
+  --dur-spring: 0.3s;
+  --dur-fade: 0.15s;
   --bg: #f3f3f4;
   --surface: #ffffff;
   --glass: rgba(120, 120, 128, 0.18);
@@ -860,7 +863,7 @@ textarea[aria-invalid="true"] {
   background: var(--surface);
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: 0 var(--space-4) calc(var(--space-4) + var(--safe-b));
-  animation: up 0.3s var(--spring);
+  animation: up var(--dur-spring) var(--spring);
   /* The spring overshoots upwards: this keeps what shows under the sheet the sheet's own colour
      instead of a gap, so it does not look out of place while it settles. */
   box-shadow: 0 48px 0 0 var(--surface);
@@ -913,7 +916,7 @@ textarea[aria-invalid="true"] {
 }
 
 .sheet.settling {
-  transition: transform 0.25s var(--spring);
+  transition: transform var(--dur-spring) var(--spring);
 }
 
 .sheet h2 {
@@ -932,6 +935,21 @@ textarea[aria-invalid="true"] {
   from {
     opacity: 0;
   }
+}
+
+/* Cards of the Bandeja, notices and block popovers come in with the sheets' spring. Only
+   `transform` and `opacity`, so nothing reflows. */
+@keyframes rise {
+  from {
+    transform: translateY(12px);
+    opacity: 0;
+  }
+}
+
+.card,
+.snack,
+.bubble-card {
+  animation: rise var(--dur-spring) var(--spring);
 }
 
 .meta {
@@ -1666,7 +1684,7 @@ input[type="radio"]:disabled {
 }
 
 .settings-page:not([hidden]) {
-  animation: settings-in 260ms cubic-bezier(0.2, 0.9, 0.3, 1.12);
+  animation: settings-in 260ms var(--spring);
 }
 
 .settings-list:not([hidden]) {
@@ -2059,7 +2077,7 @@ input[type="datetime-local"] {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  animation: up 0.3s var(--spring);
+  animation: up var(--dur-spring) var(--spring);
 }
 
 .action-group {
@@ -2965,8 +2983,11 @@ label.check {
    Last in the file, so it wins over each sheet's own animation. */
 @media (prefers-reduced-motion: reduce) {
   .sheet,
-  .action-sheet {
-    animation: fade-in 0.15s ease-out;
+  .action-sheet,
+  .card,
+  .snack,
+  .bubble-card {
+    animation: fade-in var(--dur-fade) ease-out;
   }
 
   .sheet.settling {
