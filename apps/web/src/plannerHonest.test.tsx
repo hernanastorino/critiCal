@@ -5,7 +5,7 @@ import { ToastProvider } from "./components/Toast.js";
 import { demoData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
-import { decisions, refreshPlan } from "./planning.js";
+import { decisions, refreshPlan, routineShortfalls } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 import { runningSince } from "./testing.js";
 import { plannedVsDone } from "./week-review.js";
@@ -155,7 +155,9 @@ describe("the Bandeja's count", () => {
       .map(Number) as [number, number, number];
     // Only what helps is offered: free time does not give a 24 h session room.
     expect(options).toBeGreaterThan(0);
-    expect(count).toBe(1 + recs);
+    expect(count).toBe(
+      1 + recs + routineShortfalls(d, NOW, refreshPlan(d, NOW).result.blocks).length,
+    );
     expect(screen.getByText("No llegás a todo · elegí")).toBeTruthy();
   });
 });
