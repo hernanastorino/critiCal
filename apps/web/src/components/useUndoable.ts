@@ -1,4 +1,5 @@
 import type { Activity } from "../engine.js";
+import { REPLANNED_TOAST } from "../friendly.js";
 import type { AppData, AppTask, Proposal } from "../model.js";
 import { MEAL_OVER_STUDY } from "../planning.js";
 import { leftAfterUndo, settleSnapshot, snapshotOf, useStore } from "../store.js";
@@ -32,7 +33,7 @@ export function useUndoable(onBack?: (key: string) => void) {
     message: string,
     doing: Doing | readonly Doing[],
     keys: readonly (keyof AppData)[],
-    opts: { tasks?: readonly AppTask[]; key?: string } = {},
+    opts: { tasks?: readonly AppTask[]; key?: string; roy?: "festejo" } = {},
   ) => {
     const before = snapshotOf(data, keys, opts.tasks);
     const steps = Array.isArray(doing) ? (doing as readonly Doing[]) : [doing as Doing];
@@ -47,6 +48,7 @@ export function useUndoable(onBack?: (key: string) => void) {
       );
     });
     toast.show(message, {
+      roy: opts.roy,
       undo: () => {
         let said = false;
         dispatch({ type: "restoreState", before }, (now) => {
@@ -96,6 +98,12 @@ export function useInboxAnswers(onBack: (key: string) => void) {
       answer(`«${t.title}» ignorada`, { type: "review", taskId: t.id, keep: false }, PLAN_KEYS, {
         tasks: [t],
         key: t.id,
+      });
+    },
+    accept: (p: Proposal) => {
+      answer(REPLANNED_TOAST, { type: "acceptProposal", id: p.id }, PROPOSAL_KEYS, {
+        key: p.id,
+        roy: "festejo",
       });
     },
     reject: (p: Proposal) => {
