@@ -434,14 +434,7 @@ export function Inbox({
               <button type="button" className="btn" onClick={() => answers.reject(p)}>
                 Dejar como está
               </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => {
-                  dispatch({ type: "acceptProposal", id: p.id });
-                  toast.show(REPLANNED_TOAST, { roy: "festejo" });
-                }}
-              >
+              <button type="button" className="btn primary" onClick={() => answers.accept(p)}>
                 Reacomodar
               </button>
             </div>

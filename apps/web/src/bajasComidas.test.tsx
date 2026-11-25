@@ -60,7 +60,28 @@ describe("comida encima del estudio: la propuesta de la Bandeja", () => {
     fireEvent.click(screen.getByText("Reacomodar"));
     expect(screen.queryByText(/Una comida quedó encima/)).toBeNull();
     expect(screen.queryByText("Cambios para hoy")).toBeNull();
-    expect(document.querySelector(".snack")?.textContent).toBe(REPLANNED_TOAST);
+    expect(document.querySelector(".snack")?.textContent).toBe(`${REPLANNED_TOAST}Deshacer`);
+  });
+
+  it("«Deshacer» tras «Reacomodar» deja el plan y la propuesta como estaban", () => {
+    const data = lunchOnStudy();
+    render(<App fixedNow={NOW} initial={() => data} />);
+    const weekText = () => {
+      fireEvent.click(screen.getByText("Semana"));
+      const text = screen.getByTestId("week").textContent;
+      fireEvent.click(screen.getByText("Bandeja"));
+      return text;
+    };
+    fireEvent.click(screen.getByText("Bandeja"));
+    const before = weekText();
+    const card = document.querySelector("[data-block-id]")?.textContent;
+    fireEvent.click(screen.getByText("Reacomodar"));
+    expect(screen.queryByText("Cambios para hoy")).toBeNull();
+    fireEvent.click(screen.getByText("Deshacer"));
+    expect(screen.getByText("Cambios para hoy")).toBeTruthy();
+    expect(screen.getByText(/Una comida quedó encima/)).toBeTruthy();
+    expect(document.querySelector("[data-block-id]")?.textContent).toBe(card);
+    expect(weekText()).toBe(before);
   });
 });
 
