@@ -24,17 +24,15 @@ const mount = () =>
       </ToastProvider>
     </StoreProvider>,
   );
-const minutes = () => screen.getByLabelText("Minutos por vez") as HTMLInputElement;
-
 /** Edits Gym's minutes and "reloads": the editor comes back from its draft. */
 function editAndReload() {
   const first = mount();
   fireEvent.click(screen.getByRole("button", { name: /^Gym, / }));
   fireEvent.click(screen.getByRole("button", { name: "Editar" }));
-  fireEvent.change(minutes(), { target: { value: "45" } });
+  fireEvent.change(screen.getByLabelText("Minutos por vez"), { target: { value: "45" } });
   first.unmount();
   mount();
-  expect(minutes().value).toBe("45");
+  expect(screen.getByLabelText("Minutos por vez")).toHaveProperty("value", "45");
 }
 
 describe("una rutina eliminada con su formulario abierto", () => {
@@ -69,7 +67,7 @@ describe("una materia o un lugar eliminados con un campo editado", () => {
       </StoreProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: /^Programación/ }));
-    fireEvent.change(screen.getAllByLabelText("Nombre")[0] as HTMLInputElement, {
+    fireEvent.change(screen.getByLabelText("Nombre"), {
       target: { value: "Programación 2" },
     });
     expect(hasSettingsDrafts()).toBe(true);
