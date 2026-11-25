@@ -11,9 +11,30 @@ Mantené este archivo al día: al empezar, al abrir o mergear un PR, y antes de 
 Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni las sesiones, ni las tareas programadas de la anterior. Todo lo necesario está en el repo: este archivo, [`SPEC.md`](SPEC.md) y [`OPERATIONS.md`](OPERATIONS.md).
 
 1. **Leé en este orden**: este archivo entero → `SPEC.md` §14–§18 → `OPERATIONS.md`.
-2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Sentry (org `hernanastorino`, proyecto `critical`: `is:unresolved`, sin límite de tiempo; un issue nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
+2. **Mirá el estado real**, no solo lo que dice acá: `gh pr list --state open`, `gh run list --branch main --limit 5` y Better Stack (ver «Errores» abajo; un error nuevo, sobre todo de seguridad, se arregla con un PR sin esperar a que lo pidan).
 3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
+
+### Traspaso a otra cuenta (2026-11-25, ~03:30Z)
+
+- **Estado**: `main` = producción = #271 (Deploy en verde). No hay PRs abiertos (el #68 está cerrado y su rama `claude/settings-a-search` se guarda: no se borra ni se mergea sin pedido). No quedan sesiones, hijas ni tareas programadas corriendo en la cuenta anterior; no hay worktrees viejos (solo el checkout principal, que tiene ~250 archivos con cambios **solo de fin de línea** desde el 16/11: no son trabajo, no los commitees ni los descartes sin preguntar).
+- **Próximos pasos, en orden**:
+  1. **35.ª vuelta del atacante** (toca ya: van #270 y #271 desde la 34.ª). Subagente en segundo plano contra `main` **en local** (nunca prod ni preview), Demo de pruebas, 375×812. Altas y Medias se arreglan en un PR propio; Bajas a §5.3.
+  2. **CSP que bloquea (desde el 2026-11-25)**: si Better Stack sigue sin reportes «CSP: …» nuevos (solo existe el de prueba del 19/11 y un viejo `otp_expired`), PR que pasa la política completa de `Content-Security-Policy-Report-Only` al header que bloquea (`Content-Security-Policy`, que hoy ya existe con una política mínima) en `apps/web/vercel.json`, `vercelHeaders.test.ts` y la SPEC; actualizar §5.6 punto 7.
+  3. Bajas abiertas de §5.3 (34.ª). La de tema oscuro toca la barra de pestañas: **preguntar antes** (se le preguntó al usuario, sin respuesta).
+  4. Preguntas de §1.1 sin responder: recordárselas al usuario con capturas.
+- **Rutina de cada PR** (todo esto lo hace Claude, no el usuario): hija Sonnet / esfuerzo medio / permisos Auto escribe el código y abre el PR → la sesión principal revisa el diff, espera CI + Codacy (0 issues nuevos: `https://app.codacy.com/api/v3/analysis/organizations/gh/hernanastorino/repositories/critiCal/pull-requests/N/issues?status=new`) + `preview` en verde y 0 hilos → `gh pr merge N --squash --delete-branch` → espera el Deploy de `main` (`staging` → `staging-e2e` → `production`) → prueba en https://critical-cal.vercel.app/?demo=pruebas a 375×812 con el navegador integrado → mira Better Stack → anota en §6 con un PR **solo de docs** (los cambios `docs/**/*.md` no despliegan desde #265). Archivar cada hija apenas se mergea su PR.
+- **Sesión principal larga**: antes de llenar el contexto (~60 %), escribir un handoff (estado, pendientes, trampas), abrir una nueva sesión principal «fresh» con `use_worktree: true` y desengancharla (`detach_session`). No dejar que compacte.
+
+### Trampas conocidas (de la memoria de la cuenta anterior)
+
+- **Vercel Hobby: 100 deploys por 24 h móviles.** Cada push a un PR = 1 preview; cada merge a `main` = 2 (staging y producción). `bun run deploys` cuenta los del día (se queda corto ~5: Vercel cuenta los fallidos). Pushear poco: juntar arreglos. Si se agota, relanzar el Deploy de `main` (`gh workflow run Deploy --ref main`) una vez por hora, no en loop.
+- **Codacy sin correr en local**: antes de cada push revisar a mano: nada de `x as HTMLElement` en tests; `.at(0)` + guard en vez de `[0]`; sin `?.`/`?? ""` innecesarios; sin `obj[variable]` con clave dinámica (usar Map o `.find`); sin `new RegExp` con datos; sin `() => {}` (usar `vi.fn()`); sin HTML/`innerHTML` dentro de `expect`; complejidad ≤ 10 por función; sin parámetros sin usar ni promesas sin manejar. Pasarlo también en el brief de cada hija.
+- **Sin force push** (el clasificador lo bloquea): rama nueva desde `origin/main` + PR nuevo.
+- **Worktrees**: nunca enlazar `node_modules` con junction/symlink entre worktrees (borrar uno borró código de otro el 2026-11-20). Cada worktree hace su `bun install`. Borrado seguro en Windows: `Get-ChildItem -Force -Recurse -Attributes ReparsePoint <ruta>` → `cmd /c rmdir` sobre cada enlace → comprobar 0 → `cmd /c rmdir /s /q "\\?\<ruta>"` → `git worktree unlock` si hacía falta → `git worktree prune`.
+- **Windows**: Python escribe CRLF (usar `newline=''`); el sistema de archivos no distingue mayúsculas; vitest necesita Node 24 (bajarlo a una carpeta temporal si el local es otro, o confiar en el CI); Playwright WebKit en un puerto propio (no 4173 ni 5190). `gh api graphql` con comillas: correrlo desde Bash, no PowerShell.
+- **Test flaky en CI**: `dataSafety` doble toque → relanzar el job fallido (`gh run rerun --failed`), no pushear.
+- **Uso de Claude**: el límite semanal se renueva a las 10:00 de Uruguay (UTC−3). Arriba del 90 %, no empezar nada: dejar este archivo al día y cortar.
 
 ### Cómo quiere trabajar el usuario (decidido por él; vale para cualquier cuenta)
 
@@ -26,6 +47,11 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 - **Lo que no se toca sin pedido**: la barra de pestañas de abajo queda pegada al borde inferior (la app corre como PWA instalada); el PR #68 (buscador de Ajustes) no se mergea hasta que el usuario lo pida.
 - **Datos y cuentas**: nunca contraseñas ni cuentas reales de Google o iCloud; solo la cuenta de prueba local y datos inventados. El agente atacante nunca ataca producción.
 - **Producción**: https://critical-cal.vercel.app (la PWA cachea: para probar una versión nueva, actualizá el service worker y recargá). Modo demo: «Probar con datos de ejemplo».
+- **UI limpia, poco texto**: nada de notas que expliquen cómo funciona algo; que lo digan los botones. Ante una confusión, cambiar el control o el flujo antes que sumar texto.
+- **Mostrar, no preguntar**: toda pregunta de producto va con capturas de la Demo de pruebas a 375×812 y, si hay opciones, las dos lado a lado (por ejemplo, en un artefacto). Sin verlo, el usuario no puede decidir.
+- **El testing lo hace Claude**: E2E (Playwright WebKit) y prueba en producción tras cada merge. Al usuario pedirle solo lo que exige su iPhone o su cuenta real, en 2–3 pasos. Nada de iPhones en la nube pagos.
+- **Sin el usuario** (de noche): no preguntar; las dudas a §1.1 y seguir con lo que no dependa de ellas.
+- **Ramas**: GitHub borra la rama al mergear; barrer de vez en cuando las de PRs cerrados (nunca la del #68).
 - **Límites de uso**: al 90 % del límite de 5 h, dejar este archivo al día y cortar; al 90 % del semanal, frenar y avisar. Las tareas programadas de relevo arrancan en modo de permisos por defecto y se traban pidiendo permisos: si se usan, configurarlas en modo Auto desde la app.
 
 ### Errores: Better Stack, no Sentry (desde el 2026-11-18)
