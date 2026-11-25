@@ -263,12 +263,14 @@ export function pruebasData(now: number): AppData {
         lon: -56.26,
         travelMode: "bus",
       },
-      // With an address the minutes can be worked out; without it they are typed.
+      // With an address (and its coordinates) the minutes and the bus can be worked out; without it they are typed.
       {
         id: "fran",
         name: "Casa Fran",
         aliases: ["juntada patas?"],
         address: "Bulevar Artigas 1500, Montevideo",
+        lat: -34.8905,
+        lon: -56.1655,
       },
       // A long address: the one line cuts it.
       {

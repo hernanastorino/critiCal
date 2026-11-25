@@ -400,14 +400,30 @@ export function tripPairs(data: AppData, now: number): PlacePair[] {
   return pairs;
 }
 
-/** Trips the plan makes whose driving time is not known yet and can be looked up. */
+/**
+ * Trips the plan makes that need a look-up: the driving time is not known yet, or an end has
+ * an address but no coordinates and the trip is by bus (which needs them even when the
+ * minutes were typed by hand).
+ */
 export function missingPairs(data: AppData, now: number): PlacePair[] {
   const places = new Map((data.places ?? []).map((p) => [p.id, p]));
   const locatable = (id: string) => {
     const p = places.get(id);
     return !!p && ((p.lat != null && p.lon != null) || !!p.address?.trim());
   };
+  const unplaced = (id: string) => {
+    const p = places.get(id);
+    return p?.lat == null || p.lon == null;
+  };
+  // Only a trip by bus needs coordinates beyond the minutes.
+  const byBus = new Set(
+    data.events.filter((e) => goesByBus(data, e)).flatMap((e) => placeOfEvent(data, e)?.id ?? []),
+  );
   return tripPairs(data, now).filter(
-    (t) => minutesBetween(data, t.from, t.to) === undefined && locatable(t.from) && locatable(t.to),
+    (t) =>
+      locatable(t.from) &&
+      locatable(t.to) &&
+      (minutesBetween(data, t.from, t.to) === undefined ||
+        ((byBus.has(t.from) || byBus.has(t.to)) && (unplaced(t.from) || unplaced(t.to)))),
   );
 }
