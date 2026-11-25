@@ -520,7 +520,7 @@ describe("options", () => {
         }),
       ),
     ).find((o) => o.kind === "lower-minimum");
-    expect(lower?.label).toMatch(/mínimo \d+ h/);
+    expect(lower?.label).toMatch(/mínimo \d+h/);
   });
 
   it("offers settling for the minimum when only the target is short", () => {
@@ -924,7 +924,7 @@ describe("more ways out", () => {
       (o) => o.kind === "minimum-viable",
     );
     expect(opt?.input.tasks[0]).toMatchObject({ minRemainingMinutes: 300, remainingMinutes: 300 });
-    expect(opt?.label).toBe("Entregar una versión mínima de e (5 h)");
+    expect(opt?.label).toBe("Entregar una versión mínima de e (5h)");
   });
 });
 

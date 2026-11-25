@@ -470,6 +470,20 @@ export interface PlanVersion {
   freeTimeUntil?: number;
   relaxContextUntil?: number;
   tentativeHoldUntil?: number;
+  /** A deleted materia or rutina, with its silos: undoing this version brings it back. */
+  removed?: RemovedActivity;
+  /** Saved parts (Mi semana, un lugar…) as they were, and right after: undoing puts back what is still as saved. */
+  saved?: { part: string; before: unknown; after: unknown }[];
+}
+
+/** What `deleteActivity` takes out, kept to put it back on undo. */
+export interface RemovedActivity {
+  activity: Activity;
+  /** Where it was in the list, to go back to the same place. */
+  index: number;
+  tasks: AppTask[];
+  checkIns: AppData["checkIns"];
+  pins: NonNullable<AppData["pins"]>;
 }
 
 /**
