@@ -15,6 +15,15 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
+### Traspaso entre madres (2026-11-25, ~16:15Z, límite de 5 h al 90 %)
+
+- **Mergeado hoy y probado en producción**: #274–#280 y #283 (#281 lo cubre su E2E). Better Stack limpio en 14 días (solo `otp_expired` de un link viejo y el CSP de prueba). Al panel se entra clickeando «Errors» desde `telemetry.betterstack.com`, no navegando directo.
+- **`main` en rojo** desde #283: timeouts de `demoPruebas`/`dataSafety` con coverage (las opciones de «No llegás a todo» se calculaban de entrada). **#287** (`claude/plan-rapido`) lo vuelve perezoso: mergearlo primero y confirmar CI de `main` verde.
+- **PRs abiertos, en este orden**: #287 → #284 (tarjeta «Gym: esta semana entra N de 3» + el motor deja la sesión de rutina que entra y su tiempo guardado no vuelve crítico al estudio; necesita mergear `main` tras #287) → #286 (↶ con hoja abierta, ↶ al borrar lugar/rutina) → #285 (CSP que bloquea; su `preview` falló solo al comentar la URL por un 500 de GitHub: relanzar; el preview pide login de Vercel, la prueba real es `staging-e2e` + consola en producción tras el Deploy).
+- **Sesiones hijas vivas** (archivar al mergear su PR): `rutina-no-entra` (#284 y #287), `csp-bloquea` (#285), `deshacer-36` (#286).
+- **Después**: TODO §6 con lo probado, 37.ª vuelta del atacante (van #279–#283), Bajas de la 36.ª (§5.3), lo que queda de lento en el motor (`infeasibilityOptions` ≈ 865 ms por sus `schedule()`).
+- **Trampas nuevas**: no aceptar cambios que suban el tiempo del plan sin medir los tests de la demo con coverage; una hija no puede activar Auto-fix (lo bloquea el clasificador); solo se abren hijas en un turno iniciado por un mensaje del usuario (si no, queda como tarjeta).
+
 ### Traspaso a otra cuenta (2026-11-25, ~03:30Z)
 
 - **Estado**: `main` = producción = #271 (Deploy en verde). No hay PRs abiertos (el #68 está cerrado y su rama `claude/settings-a-search` se guarda: no se borra ni se mergea sin pedido). No quedan sesiones, hijas ni tareas programadas corriendo en la cuenta anterior; no hay worktrees viejos (solo el checkout principal, que tiene ~250 archivos con cambios **solo de fin de línea** desde el 16/11: no son trabajo, no los commitees ni los descartes sin preguntar).

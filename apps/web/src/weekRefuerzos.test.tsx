@@ -81,6 +81,7 @@ describe("week: details found by the attacker", () => {
     fireEvent.click(screen.getByText(/no cena$/));
     const back = screen.getByLabelText(/sacada ese día, mié 20:00: volver a ponerla/);
     fireEvent.click(back);
+    fireEvent.click(screen.getByText("Volver a ponerlo"));
     expect(mealPill(/^Cena, mié 20:00/)).toBeTruthy();
     expect(screen.getByText(/otra vez a la hora que le habías puesto/)).toBeTruthy();
   });

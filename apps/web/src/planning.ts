@@ -976,6 +976,50 @@ export function pinShortfall(
   return { pins, short };
 }
 
+/** A routine whose week has no room for all its sessions: `placed` of `wanted` go in. */
+export interface RoutineShort {
+  activityId: string;
+  name: string;
+  placed: number;
+  wanted: number;
+}
+
+/**
+ * Routines that do not fit whole in the week under way (SPEC §18 punto 13): what the plan
+ * really placed for the rest of the week, against the sessions it still asks. Paused and
+ * skipped ones are not running, so they never show.
+ */
+export function routineShortfalls(
+  data: AppData,
+  now: number,
+  blocks: readonly PlanBlock[],
+): RoutineShort[] {
+  const tz = data.settings.timezone;
+  const monday = zonedInstant(tz, weekStart(tz, now), 0);
+  const end = endOfWeek(tz, now);
+  return data.tasks.flatMap((task) => {
+    const activity = data.activities.find((a) => a.id === task.activityId);
+    const minutes = task.sessionMinutes ?? 0;
+    if (activity?.kind !== "rutina" || task.kind !== "habit" || minutes <= 0) return [];
+    if (!isRunning(task, now)) return [];
+    const wanted = sessionsThisWeek(task, tz, now);
+    const left = wanted * minutes - doneMinutes(data, task.id, monday);
+    const planned = blocks
+      .filter((b) => b.taskId === task.id && b.end > now && b.start < end)
+      .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
+    const missing = Math.ceil((left - planned) / minutes);
+    if (missing <= 0) return [];
+    return [
+      {
+        activityId: activity.id,
+        name: activity.name,
+        placed: Math.max(0, wanted - missing),
+        wanted,
+      },
+    ];
+  });
+}
+
 /**
  * The routines of the week after this one (SPEC §5.8): the plan always has this week and
  * the whole next one, Monday to Sunday, whatever the day. A routine is not left to what
@@ -1040,9 +1084,11 @@ function withMissing(result: ScheduleResult, missing: Map<string, number>): Sche
 }
 
 /**
- * A routine that fell behind in the week under way plans only the sessions that fit in
- * what is left of it: one that would only fit as a critical block (at odd hours, late)
- * is not done, and is not reported as missing either. The next week asks for all.
+ * A routine that fell behind in the week under way plans the sessions that fit in what is
+ * left of it; one that would only fit in the free-time hours of its day (late, after
+ * «freeFrom») is not done. What does not fit is not reported as missing: the Bandeja says
+ * how many fit (SPEC §18 punto 13). Its sessions are never red: a routine is not a
+ * deadline. The next week asks for all.
  */
 function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
   const late = new Set(
@@ -1054,12 +1100,20 @@ function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
       )
       .map((t) => t.id),
   );
-  const dropped = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const tz = data.settings.timezone;
+  const inFreeTime = (b: PlanBlock) => {
+    const at = localParts(tz, b.start);
+    return at.minuteOfDay >= (data.settings.week[at.weekday]?.freeFrom ?? 24 * 60);
+  };
+  const critical = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const dropped = critical.filter(inFreeTime);
   const short = result.status.some((s) => late.has(s.taskId) && s.minDeficit > 0);
-  if (dropped.length === 0 && !short) return result;
+  if (critical.length === 0 && !short) return result;
   return {
     ...result,
-    blocks: result.blocks.filter((b) => !dropped.includes(b)),
+    blocks: result.blocks
+      .filter((b) => !dropped.includes(b))
+      .map((b) => (critical.includes(b) ? { ...b, level: "ok" as const } : b)),
     status: result.status.map((s) =>
       late.has(s.taskId) ? { ...s, minDeficit: 0, targetDeficit: 0, level: "ok" as const } : s,
     ),
@@ -1182,7 +1236,10 @@ export function pendingConfirmations(data: AppData, now: number): PlanBlock[] {
 }
 
 export interface Decisions {
-  options: PlanOption[];
+  /** The options that help; each one's plan is worked out when this is first read. */
+  readonly options: PlanOption[];
+  /** Whether any option helps: stops at the first one, so counting the Bandeja is cheap. */
+  readonly hasOptions: boolean;
   recommendations: Recommendation[];
   /** Tasks whose minimum does not fit even alone: the cause no cut elsewhere fixes. */
   impossible: string[];
@@ -1247,15 +1304,32 @@ export function decisions(
   const offered = result.feasible
     ? targetOptions(input, result)
     : infeasibilityOptions(input, result, impossible);
-  // Each is the plan it really gives: one that reaches no minimum the plan did not is no way out.
-  const options = from
-    ? offered
-        .map((o) => simulated(from, input, o))
-        .filter(
-          (o) => keepsItsPromise(result, o) && (result.feasible || improves(result, o.result)),
-        )
-    : offered;
-  return { options, recommendations: recommendations(input, result), impossible };
+  if (!from) {
+    return {
+      options: offered,
+      hasOptions: offered.length > 0,
+      recommendations: recommendations(input, result),
+      impossible,
+    };
+  }
+  // Each is the plan it really gives: one that reaches no minimum the plan did not is no way
+  // out. That plan is only worked out when asked: to know whether there is any option it
+  // stops at the first that helps, and the list is filtered when the Bandeja draws it.
+  const tried = offered.map((o) => simulated(from, input, o));
+  const helps = (o: PlanOption) =>
+    keepsItsPromise(result, o) && (result.feasible || improves(result, o.result));
+  let kept: PlanOption[] | undefined;
+  return {
+    get options() {
+      kept ??= tried.filter(helps);
+      return kept;
+    },
+    get hasOptions() {
+      return kept ? kept.length > 0 : tried.some(helps);
+    },
+    recommendations: recommendations(input, result),
+    impossible,
+  };
 }
 
 /** Whether an option reaches every minimum but those of tasks that fit nowhere anyway. */

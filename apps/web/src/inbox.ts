@@ -12,7 +12,9 @@ import {
   pendingConfirmations,
   pinClashes,
   pinShortfall,
+  type RoutineShort,
   refreshPlan,
+  routineShortfalls,
 } from "./planning.js";
 import { preferenceMisfits } from "./preferredHours.js";
 import { newClassTitles, unassignedTasks, unsortedActivities } from "./subjects.js";
@@ -47,6 +49,8 @@ export interface InboxInputs {
   unlocated: ReturnType<typeof unlocated>;
   pinShort: ReturnType<typeof pinShortfall>;
   clashes: ReturnType<typeof pinClashes>;
+  /** Routines the week has no room for whole. */
+  routineShort: RoutineShort[];
   missedMeals: ReturnType<typeof missedMeals>;
   /** «No llegás a todo» is one decision, whatever its options. */
   asked: { choose: boolean; recommendations: readonly { message: string }[] };
@@ -120,6 +124,13 @@ function planCards(i: InboxInputs): InboxCard[] {
       detail: "Comidas sin lugar",
     });
   }
+  for (const r of i.routineShort) {
+    cards.push({
+      title: r.name,
+      detail: "Rutina que no entra",
+      color: data.activities.find((a) => a.id === r.activityId)?.color,
+    });
+  }
   if (i.asked.choose) cards.push({ title: "No llegás a todo", detail: "Elegí cómo acomodarlo" });
   for (const r of i.asked.recommendations) cards.push({ title: "Sugerencia", detail: r.message });
   return cards;
@@ -159,8 +170,9 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     unlocated: unlocated(data, visibleEvents(data), now),
     pinShort: pinShortfall(data, now, plan.result),
     clashes: pinClashes(data, now, plan.input),
+    routineShort: routineShortfalls(data, now, plan.result.blocks),
     missedMeals: missedMeals(data, now),
-    asked: { choose: asked.options.length > 0, recommendations: asked.recommendations },
+    asked: { choose: asked.hasOptions, recommendations: asked.recommendations },
   });
   return asking(cards).map(({ title, detail, color }) => ({ title, detail, color }));
 }
