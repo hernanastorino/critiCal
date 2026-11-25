@@ -10,8 +10,9 @@ test("una rutina no acepta más minutos que los que le faltan esta semana", asyn
   await sheet(page).getByRole("button", { name: /^Gym/ }).first().click();
   const faltan = sheet(page).getByText(/Esta semana: faltan/);
   const texto = (await faltan.textContent()) ?? "";
-  const m = texto.match(/faltan (?:(\d+)h)?\s*(?:(\d+)m?)?/);
-  const tope = Number(m?.[1] ?? 0) * 60 + Number(m?.[2] ?? 0);
+  const dato = texto.split("faltan ").at(1) ?? "";
+  const [horas = "", resto = ""] = dato.includes("h") ? dato.split("h") : ["0", dato];
+  const tope = Number(horas) * 60 + (Number.parseInt(resto, 10) || 0);
   expect(tope).toBeGreaterThan(0);
 
   const campo = sheet(page).getByLabel("Le dediqué (minutos)");
