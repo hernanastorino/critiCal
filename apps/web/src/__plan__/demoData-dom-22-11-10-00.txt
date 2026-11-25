@@ -1,13 +1,13 @@
 {
-  "blocks": "74f5d01eebd8",
+  "blocks": "d5701b6cceb2",
   "status": "c595f50c9c9b",
   "meals": "2154fd5c3a80",
   "feasible": false,
   "options": [
-    "use-free-time:6c95d8cd67fc",
-    "drop:parcial-calc:3dfc3e218a70"
+    "use-free-time:73dd70d31d36",
+    "drop:parcial-calc:e416f436d05c"
   ],
   "hasOptions": true,
   "impossible": [],
-  "recommendations": "97d170e1550e"
+  "recommendations": "c61fd717f5d3"
 }
