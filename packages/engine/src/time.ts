@@ -33,7 +33,28 @@ export interface LocalParts {
   date: string;
 }
 
+/**
+ * Formatting is what costs, and planning asks for the same instants again and again (the
+ * slots of every run, the options' runs). Kept per zone, emptied when it grows too big.
+ */
+const MEMO_LIMIT = 50_000;
+const memo = new Map<string, Map<number, LocalParts>>();
+
 export function localParts(timeZone: string, instant: number): LocalParts {
+  let zone = memo.get(timeZone);
+  if (!zone) {
+    zone = new Map();
+    memo.set(timeZone, zone);
+  }
+  const known = zone.get(instant);
+  if (known) return { ...known };
+  if (zone.size >= MEMO_LIMIT) zone.clear();
+  const fresh = formatParts(timeZone, instant);
+  zone.set(instant, fresh);
+  return { ...fresh };
+}
+
+function formatParts(timeZone: string, instant: number): LocalParts {
   const parts: Record<string, string> = {};
   for (const p of formatter(timeZone).formatToParts(new Date(instant))) parts[p.type] = p.value;
   const year = Number(parts.year);

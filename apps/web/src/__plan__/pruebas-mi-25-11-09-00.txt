@@ -1,0 +1,20 @@
+{
+  "blocks": "37f824640c56",
+  "status": "aa773303bb01",
+  "meals": "3826f4218b46",
+  "feasible": false,
+  "options": [
+    "use-free-time:92bbcbb58f48",
+    "lower-minimum:parcial-calc:c9d52446e7b9",
+    "lower-minimum:entrega-corta:14da6a74157b",
+    "minimum-viable:entrega-corta:0b3224d93bff",
+    "drop:parcial-calc:23d453665648",
+    "drop:entrega-corta:d42e0cc76246"
+  ],
+  "hasOptions": true,
+  "impossible": [
+    "parcial-calc",
+    "entrega-corta"
+  ],
+  "recommendations": "97d170e1550e"
+}

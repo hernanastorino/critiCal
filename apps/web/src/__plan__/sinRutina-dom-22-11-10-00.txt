@@ -1,0 +1,16 @@
+{
+  "blocks": "53a263af7301",
+  "status": "70225e6adc93",
+  "meals": "2154fd5c3a80",
+  "feasible": false,
+  "options": [
+    "drop:gym:3277b9e1e83f",
+    "use-free-time:c64f2cac728f",
+    "drop:parcial-calc:fdce3df3f68c"
+  ],
+  "hasOptions": true,
+  "impossible": [
+    "gym"
+  ],
+  "recommendations": "3e11da55ebb7"
+}
