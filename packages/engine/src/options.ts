@@ -348,8 +348,9 @@ function proportionalOption(input: ScheduleInput, involved: Task[], deficit: num
 function duration(minutes: number): string {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
-  if (h === 0) return `${m} min`;
-  return m === 0 ? `${h} h` : `${h} h ${m} min`;
+  // The app's format everywhere: «4h30», «5h», «45m».
+  if (h === 0) return `${m}m`;
+  return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
 }
 
 const ORDER: OptionKind[] = [

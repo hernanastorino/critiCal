@@ -31,6 +31,7 @@ import {
   weekdayOf,
   zonedInstant,
 } from "./engine.js";
+import { hours } from "./format.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
 import type { AppData, AppEvent, AppTask, CheckIn, MealRun, Proposal, Unit } from "./model.js";
@@ -1117,13 +1118,18 @@ export function refreshPlan(data: AppData, now: number): Refresh {
   const held = next.blocks.map((b) => ({ ...b, taskId: `${b.taskId}#next` }));
   const main = schedule({ ...input, frozen: [...keep, ...held] });
   const placed = main.blocks.filter((b) => !b.taskId.endsWith("#next"));
-  const result = withMissing(
+  const settled = withMissing(
     lateRoutines(data, {
       ...main,
       blocks: [...placed, ...next.blocks].sort((a, b) => a.start - b.start),
     }),
     next.missing,
   );
+  // A routine that fell behind is not reported as missing, so it is not why the plan fails
+  // to fit either: it fits when no minimum is left short.
+  const result = settled.feasible
+    ? settled
+    : { ...settled, feasible: settled.status.every((s) => s.minDeficit === 0) };
   const plan = [...past, ...result.blocks.map((b) => ({ ...b, frozen: undefined }))];
   if (conflicts.length === 0) return { plan, input, result };
 
@@ -1174,24 +1180,52 @@ export interface Decisions {
 }
 
 /**
+ * What choosing an option really gives: its changes applied to the user's data and the
+ * plan worked out again, as the app does (routines of next week placed first, a routine
+ * that fell behind not reported as missing). The engine's own preview knows neither, so a
+ * card could promise «todavía faltaría tiempo» for a plan that fits, or the other way
+ * round. A minimum named in a label is the one the screens then show, in their format.
+ */
+function simulated(
+  from: { data: AppData; now: number },
+  input: ScheduleInput,
+  option: PlanOption,
+): PlanOption {
+  const after = applyOption(from.data, input, option, from.now);
+  const left = progress(after, from.now).find((p) => p.task.id === option.taskId);
+  const named =
+    left && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
+      ? option.label.replace(/\(([^()]*)\)$/, (_, inner: string) =>
+          inner.startsWith("mínimo ")
+            ? `(mínimo ${hours(left.minRemainingMinutes)})`
+            : `(${hours(left.minRemainingMinutes)})`,
+        )
+      : option.label;
+  // Planning again is what costs: only done when the card is drawn (or the option is
+  // checked), not to count what waits in the Bandeja.
+  let real: ScheduleResult | undefined;
+  return {
+    ...option,
+    label: named,
+    get result() {
+      real ??= refreshPlan(after, from.now).result;
+      return real;
+    },
+  };
+}
+
+/**
  * «Quedarme con el mínimo» promises the targets are covered. When the cut cannot be made
  * in the tasks (with parts, what is left is measured by them, so a lower estimate changes
  * nothing), choosing it would only say «Listo» and leave the plan as it was: it is not
- * offered. Checked by applying it and planning again.
+ * offered. Checked by the plan it really gives.
  */
-function keepsItsPromise(
-  data: AppData,
-  now: number,
-  input: ScheduleInput,
-  result: ScheduleResult,
-  option: PlanOption,
-): boolean {
+function keepsItsPromise(result: ScheduleResult, option: PlanOption): boolean {
   if (option.kind !== "minimum-only") return true;
   const short = new Set(
     result.status.filter((s) => s.minDeficit === 0 && s.targetDeficit > 0).map((s) => s.taskId),
   );
-  const after = refreshPlan(applyOption(data, input, option, now), now).result;
-  return !after.status.some((s) => short.has(s.taskId) && s.targetDeficit > 0);
+  return !option.result.status.some((s) => short.has(s.taskId) && s.targetDeficit > 0);
 }
 
 export function decisions(
@@ -1201,15 +1235,13 @@ export function decisions(
   from?: { data: AppData; now: number },
 ): Decisions {
   const impossible = result.feasible ? [] : selfShort(input, result);
-  return {
-    options: result.feasible
-      ? targetOptions(input, result).filter(
-          (o) => !from || keepsItsPromise(from.data, from.now, input, result, o),
-        )
-      : infeasibilityOptions(input, result, impossible),
-    recommendations: recommendations(input, result),
-    impossible,
-  };
+  const offered = result.feasible
+    ? targetOptions(input, result)
+    : infeasibilityOptions(input, result, impossible);
+  const options = from
+    ? offered.map((o) => simulated(from, input, o)).filter((o) => keepsItsPromise(result, o))
+    : offered;
+  return { options, recommendations: recommendations(input, result), impossible };
 }
 
 /** Whether an option reaches every minimum but those of tasks that fit nowhere anyway. */
