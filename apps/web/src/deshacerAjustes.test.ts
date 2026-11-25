@@ -36,11 +36,31 @@ describe("Deshacer de la cabecera cubre lo que se borra o guarda en Ajustes", ()
 
   it("guardar Mi semana entra en el historial y se deshace", () => {
     const start = demoData(NOW);
-    const settings = { ...start.settings, travelMarginMinutes: 11 };
-    const saved = reducer(start, { type: "settings", settings, now: NOW });
+    const week = start.settings.week.map((d, i) => (i === 1 ? { ...d, wake: d.wake + 30 } : d));
+    const saved = reducer(start, {
+      type: "settings",
+      settings: { ...start.settings, week },
+      now: NOW,
+    });
     expect(saved.planHistory?.at(-1)?.label).toBe("guardar Mi semana");
     const back = reducer(saved, { type: "undoPlan", now: NOW });
-    expect(back.settings.travelMarginMinutes).toBe(start.settings.travelMarginMinutes);
+    expect(back.settings.week).toEqual(start.settings.week);
+  });
+
+  it("guardar Reglas se llama Reglas, y planificar la semana no entra", () => {
+    const start = demoData(NOW);
+    const rules = reducer(start, {
+      type: "settings",
+      settings: { ...start.settings, travelMarginMinutes: start.settings.travelMarginMinutes + 5 },
+      now: NOW,
+    });
+    expect(rules.planHistory?.at(-1)?.label).toBe("guardar Reglas");
+    const planned = reducer(start, {
+      type: "settings",
+      settings: { ...start.settings, weekPlannedFor: "2026-11-09" },
+      now: NOW,
+    });
+    expect(planned.planHistory?.length ?? 0).toBe(start.planHistory?.length ?? 0);
   });
 
   it("lo que se cambió de nuevo después no se pisa", () => {

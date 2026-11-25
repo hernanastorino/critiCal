@@ -472,8 +472,8 @@ export interface PlanVersion {
   tentativeHoldUntil?: number;
   /** A deleted materia or rutina, with its silos: undoing this version brings it back. */
   removed?: RemovedActivity;
-  /** Saved parts (Mi semana, a lugar…) as they were, and right after: undoing puts back what is still as saved. */
-  keys?: { before: Partial<AppData>; after: Partial<AppData> };
+  /** Saved parts (Mi semana, un lugar…) as they were, and right after: undoing puts back what is still as saved. */
+  saved?: { part: string; before: unknown; after: unknown }[];
 }
 
 /** What `deleteActivity` takes out, kept to put it back on undo. */

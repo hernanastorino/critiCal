@@ -1971,27 +1971,80 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
   return pushVersion(data, next, planVersion(data, action.now, label));
 }
 
+/** A part of the data that a save changes and «Deshacer» puts back (read and written by hand). */
+interface SavedPart {
+  id: string;
+  get: (d: AppData) => unknown;
+  set: (d: AppData, v: unknown) => AppData;
+}
+
+const savedPart = <T,>(
+  id: string,
+  get: (d: AppData) => T,
+  set: (d: AppData, v: T) => AppData,
+): SavedPart => ({ id, get, set: (d, v) => set(d, v as T) });
+
+const SAVED_PARTS: readonly SavedPart[] = [
+  savedPart(
+    "settings",
+    (d) => d.settings,
+    (d, settings) => ({ ...d, settings }),
+  ),
+  savedPart(
+    "mealRuns",
+    (d) => d.mealRuns,
+    (d, mealRuns) => ({ ...d, mealRuns }),
+  ),
+  savedPart(
+    "places",
+    (d) => d.places,
+    (d, places) => ({ ...d, places }),
+  ),
+  savedPart(
+    "travelTimes",
+    (d) => d.travelTimes,
+    (d, travelTimes) => ({ ...d, travelTimes }),
+  ),
+  savedPart(
+    "spots",
+    (d) => d.spots,
+    (d, spots) => ({ ...d, spots }),
+  ),
+  savedPart(
+    "eventTravel",
+    (d) => d.eventTravel,
+    (d, eventTravel) => ({ ...d, eventTravel }),
+  ),
+  savedPart(
+    "tripModes",
+    (d) => d.tripModes,
+    (d, tripModes) => ({ ...d, tripModes }),
+  ),
+  savedPart(
+    "tripMinutes",
+    (d) => d.tripMinutes,
+    (d, tripMinutes) => ({ ...d, tripMinutes }),
+  ),
+];
+
+/** The saved parts that put back what a save changed, unless it was changed again since. */
+function putSavedBack(data: AppData, saved: NonNullable<PlanVersion["saved"]>): AppData {
+  return saved.reduce((d, s) => {
+    const part = SAVED_PARTS.find((p) => p.id === s.part);
+    return part && same(part.get(d), s.after) ? part.set(d, s.before) : d;
+  }, data);
+}
+
 /** Takes back the last version of the undo history (`only`: that one, if it is still the last). */
 function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): AppData {
   const history = start.planHistory ?? [];
-  let data = start;
   const v = history.at(-1);
-  if (!v || (only !== undefined && v !== only)) return data;
-  // A deleted materia or rutina comes back with its silos, then the rest is put back.
-  if (v.removed)
-    data = {
-      ...apply(data, { type: "restoreActivity", removed: v.removed, now }),
-      planHistory: history,
-    };
-  // What a save changed goes back, unless it was changed again since.
-  if (v.keys) {
-    const cur = data as unknown as Record<string, unknown>;
-    const after = v.keys.after as Record<string, unknown>;
-    const put = Object.entries(v.keys.before).filter(([k]) => same(cur[k], after[k]));
-    data = { ...data, ...Object.fromEntries(put) };
-    for (const [k, was] of put)
-      if (was === undefined) delete (data as unknown as Record<string, unknown>)[k];
-  }
+  if (!v || (only !== undefined && v !== only)) return start;
+  // A deleted materia or rutina comes back with its silos; what a save changed goes back.
+  const restored = v.removed
+    ? apply(start, { type: "restoreActivity", removed: v.removed, now })
+    : start;
+  const data = v.saved ? putSavedBack(restored, v.saved) : restored;
   // What already started stays; today's blocks ahead and the inputs come back.
   const kept = data.plan.filter((b) => b.start <= now);
   // A task deleted since then does not come back with its blocks.
@@ -2015,40 +2068,37 @@ function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): A
   );
 }
 
-/** Saves that «Deshacer» puts back: what they changed, as long as nobody changed it since. */
-const SAVES: Partial<Record<Action["type"], string>> = {
-  settings: "guardar Mi semana",
-  savePlace: "guardar un lugar",
-  eventTravelMinutes: "ajustar un traslado",
-  tripMode: "ajustar un traslado",
-  tripMinutes: "ajustar un traslado",
-};
-/** Parts of the data that follow from others (or have their own history): never put back as saved. */
-const DERIVED = new Set<string>([
-  "plan",
-  "planHistory",
-  "applied",
-  "proposals",
-  "tasks",
-  "checkIns",
-  "activities",
-]);
+/** What a save is called in «Deshacer: …», from what it changed (none: not worth undoing). */
+function saveLabel(data: AppData, action: Action): string | undefined {
+  switch (action.type) {
+    case "settings": {
+      const [a, b] = [data.settings, action.settings];
+      if (!same(a.week, b.week)) return "guardar Mi semana";
+      const rules = [
+        a.slotMinutes !== b.slotMinutes,
+        a.travelMarginMinutes !== b.travelMarginMinutes,
+        a.maxActivitiesPerDay !== b.maxActivitiesPerDay,
+        a.warnSlackMinutes !== b.warnSlackMinutes,
+      ];
+      return rules.some(Boolean) ? "guardar Reglas" : undefined;
+    }
+    case "savePlace":
+      return "guardar un lugar";
+    case "eventTravelMinutes":
+    case "tripMode":
+    case "tripMinutes":
+      return "ajustar un traslado";
+    default:
+      return undefined;
+  }
+}
 
-/** Records a save in the undo history, with the parts it changed (`keys`). */
+/** Records a save in the undo history, with the parts it changed. */
 function saved(data: AppData, action: Action, next: AppData): AppData {
-  const label = SAVES[action.type];
-  if (!label || next === data) return next;
-  const was = data as unknown as Record<string, unknown>;
-  const now = next as unknown as Record<string, unknown>;
-  const changed = [...new Set([...Object.keys(was), ...Object.keys(now)])].filter(
-    (k) => !DERIVED.has(k) && !same(was[k], now[k]),
-  );
+  const label = next === data ? undefined : saveLabel(data, action);
+  if (!label) return next;
+  const parts = SAVED_PARTS.map((p) => ({ part: p.id, before: p.get(data), after: p.get(next) }));
+  const changed = parts.filter((p) => !same(p.before, p.after));
   if (changed.length === 0) return next;
-  const pick = (from: Record<string, unknown>) =>
-    Object.fromEntries(changed.map((k) => [k, from[k]])) as Partial<AppData>;
-  const v = {
-    ...planVersion(data, action.now, label),
-    keys: { before: pick(was), after: pick(now) },
-  };
-  return pushVersion(data, next, v);
+  return pushVersion(data, next, { ...planVersion(data, action.now, label), saved: changed });
 }
