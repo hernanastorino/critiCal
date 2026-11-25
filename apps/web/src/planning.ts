@@ -234,7 +234,8 @@ function samples(data: AppData) {
     .filter((c) => c.status !== "missed")
     .flatMap((c) => {
       const task = data.tasks.find((t) => t.id === c.taskId);
-      if (!task || c.unitIds.length === 0) return [];
+      // A record with no minutes says nothing about how long a part takes.
+      if (!task || c.unitIds.length === 0 || c.minutesDone <= 0) return [];
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
@@ -362,11 +363,12 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
             )
           : capLeft;
       const ratio = task.units.length > 0 ? effortRatio(effort, task.activityId) : undefined;
+      const left = ratio === undefined ? remaining : scaled(task, remaining, ratio);
       return {
         task,
         totalMinutes: task.estimateMinutes,
-        remainingMinutes: ratio === undefined ? remaining : scaled(task, remaining, ratio),
-        minRemainingMinutes: Math.min(remaining, Math.max(0, task.minMinutes - done)),
+        remainingMinutes: left,
+        minRemainingMinutes: Math.min(left, Math.max(0, task.minMinutes - done)),
         deadline: task.deadline ?? endOfWeek(tz, now),
         ratio,
       };
