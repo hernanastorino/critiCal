@@ -36,6 +36,12 @@ function offText(live: AppTask, tz: string, now: number): string | null {
   return null;
 }
 
+/** A routine with nothing lacking this week, or switched off, has nothing to log. */
+function nothingToLog(task: AppTask, off: boolean, weeklyLeft: number | undefined): boolean {
+  if (task.paused) return true;
+  return task.kind === "habit" && (off || weeklyLeft === 0);
+}
+
 export function minutesError(text: string, max = MAX_LOG_MINUTES): string | null {
   if (text.trim() === "") return null;
   const ok = isFigure(text) && Number(text.replace(",", ".")) <= max;
@@ -70,6 +76,55 @@ export function topicsDoneError(
   if (total.trim() === "" || topicsError(total, estimateMinutes))
     return "Poné primero los temas en total.";
   return Number(done) > Number(total) ? "No pueden ser más que los temas en total." : null;
+}
+
+/** «Le dediqué (minutos)», with its error and the note about breaks. */
+function MinutesField({
+  value,
+  error,
+  onChange,
+  factor,
+  hasParts,
+}: {
+  value: string;
+  error: string | null;
+  onChange: (text: string) => void;
+  factor: number;
+  hasParts: boolean;
+}) {
+  return (
+    <label className="field">
+      <span>Le dediqué (minutos)</span>
+      <input
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="40"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={
+          [error && "minutes-error", factor > 1 && "break-note"].filter(Boolean).join(" ") ||
+          undefined
+        }
+      />
+      {error && (
+        <span
+          className="meta"
+          id="minutes-error"
+          role="alert"
+          style={{ margin: 0, color: "var(--critical)" }}
+        >
+          {error}
+        </span>
+      )}
+      {factor > 1 && (
+        <span className="meta" id="break-note" style={{ margin: 0 }}>
+          Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
+          {hours(Math.round(240 / factor))} de estudio.
+          {hasParts && " Marcá también las partes hechas: lo que falta se mide por ellas."}
+        </span>
+      )}
+    </label>
+  );
 }
 
 /** Silo detail: what is left and a quick "this is how far I got" log. */
@@ -176,7 +231,7 @@ export function TaskDetail({
   const pending = !!(minutes || topics || topicsDone || units.length || reopen.length);
   const askClose = () => (pending ? setDiscarding(true) : onClose());
   const justOpened = useModal(sheet, askClose);
-  const closed = live.paused || (task.kind === "habit" && (!!offState || weeklyLeft === 0));
+  const closed = nothingToLog(live, !!offState, weeklyLeft);
   const badMinutes = minutesError(minutes, weeklyLeft ?? MAX_LOG_MINUTES);
   const badTopics = topicsError(topics, task.estimateMinutes);
   const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
@@ -243,39 +298,13 @@ export function TaskDetail({
           </div>
         )}
         {!closed && (
-          <label className="field">
-            <span>Le dediqué (minutos)</span>
-            <input
-              inputMode="numeric"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-              placeholder="40"
-              aria-invalid={badMinutes ? true : undefined}
-              aria-describedby={
-                [badMinutes && "minutes-error", factor > 1 && "break-note"]
-                  .filter(Boolean)
-                  .join(" ") || undefined
-              }
-            />
-            {badMinutes && (
-              <span
-                className="meta"
-                id="minutes-error"
-                role="alert"
-                style={{ margin: 0, color: "var(--critical)" }}
-              >
-                {badMinutes}
-              </span>
-            )}
-            {factor > 1 && (
-              <span className="meta" id="break-note" style={{ margin: 0 }}>
-                Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
-                {hours(Math.round(240 / factor))} de estudio.
-                {task.units.length > 0 &&
-                  " Marcá también las partes hechas: lo que falta se mide por ellas."}
-              </span>
-            )}
-          </label>
+          <MinutesField
+            value={minutes}
+            error={badMinutes}
+            onChange={setMinutes}
+            factor={factor}
+            hasParts={task.units.length > 0}
+          />
         )}
         {closed ? null : task.units.length > 0 ? (
           <div className="field">
