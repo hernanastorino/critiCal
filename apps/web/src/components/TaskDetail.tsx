@@ -36,10 +36,10 @@ function offText(live: AppTask, tz: string, now: number): string | null {
   return null;
 }
 
-export function minutesError(text: string): string | null {
+export function minutesError(text: string, max = MAX_LOG_MINUTES): string | null {
   if (text.trim() === "") return null;
-  const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
-  if (!ok) return "Poné minutos de 0 a 1440, solo cifras.";
+  const ok = isFigure(text) && Number(text.replace(",", ".")) <= max;
+  if (!ok) return `Poné minutos de 0 a ${max}, solo cifras.`;
   return isWhole(text) ? null : "Poné solo minutos enteros, sin decimales.";
 }
 
@@ -99,6 +99,9 @@ export function TaskDetail({
   const weeklyLabel = weekly
     ? `${weekAt === now ? "Esta semana" : "La semana próxima"}: ${weekly.remainingMinutes > 0 ? `faltan ${hours(weekly.remainingMinutes)}` : "ya está completa"}`
     : undefined;
+  // A routine takes no more than what it lacks this week (the same figure «faltan» shows);
+  // with nothing lacking, or switched off, there is nothing to log.
+  const weeklyLeft = weekly?.remainingMinutes;
   const factor = checkInFactor(data, task.id) ?? 1;
   const [minutes, setMinutes] = useState("");
   const [topics, setTopics] = useState("");
@@ -173,7 +176,8 @@ export function TaskDetail({
   const pending = !!(minutes || topics || topicsDone || units.length || reopen.length);
   const askClose = () => (pending ? setDiscarding(true) : onClose());
   const justOpened = useModal(sheet, askClose);
-  const badMinutes = minutesError(minutes);
+  const closed = live.paused || (task.kind === "habit" && (!!offState || weeklyLeft === 0));
+  const badMinutes = minutesError(minutes, weeklyLeft ?? MAX_LOG_MINUTES);
   const badTopics = topicsError(topics, task.estimateMinutes);
   const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
   const invalid = !!(badMinutes || badTopics || badDone);
@@ -233,12 +237,12 @@ export function TaskDetail({
             </p>
           ))}
 
-        {!live.paused && (
+        {!closed && (
           <div className="section-title" style={{ marginTop: 4 }}>
             Registrar avance
           </div>
         )}
-        {!live.paused && (
+        {!closed && (
           <label className="field">
             <span>Le dediqué (minutos)</span>
             <input
@@ -273,7 +277,7 @@ export function TaskDetail({
             )}
           </label>
         )}
-        {live.paused ? null : task.units.length > 0 ? (
+        {closed ? null : task.units.length > 0 ? (
           <div className="field">
             <span>
               Partes hechas ({done} de {parts.length})
@@ -329,7 +333,7 @@ export function TaskDetail({
           <button type="button" className="btn" onClick={onEdit}>
             Editar
           </button>
-          {!live.paused && (
+          {!closed && (
             <button
               type="button"
               className="btn primary"
