@@ -392,3 +392,9 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - **«No llegás a todo · elegí»**: Roy en miniatura junto al título de cada opción, en una pose distinta por opción (reemplaza a «Roy al doble» del punto 10); y cuando las opciones se van solas porque el plan ya alcanza, un aviso lo dice («Ya no hace falta elegir: el plan alcanza»). Elegir una opción avisa «Listo, reacomodé el plan» con «Deshacer», que deja el plan como estaba. «Deshacer» de un «Hecho» / «No hecho» deja el plan idéntico al de antes (se guarda el plan previo; si algo más lo movió entretanto, se recalcula). Dentro de una ventanita de un bloque (y de cualquier hoja) Tab y Shift+Tab dan la vuelta sin salir. «Planificación semanal» lista en «No llega al mínimo» solo lo que vence dentro de la semana que planifica (más las rutinas).
 - **Orden de trabajo**: primero lo que queda de §14 (gestos, transiciones, primer uso guiado, espaciados) y las Bajas del atacante; después ómnibus (§15), datos y servidor primero.
 - **CSP**: queda en «solo reportar» hasta que el usuario revise los reportes «CSP: …» en Better Stack.
+
+**13. Decisiones del 2026-11-25** (el usuario vio las capturas de la Demo de pruebas):
+
+- **«Guardar avance» en rutinas con tope**: el campo «Le dediqué (minutos)» no acepta más de lo que le falta a la rutina esa semana.
+- **Lugares: «Cancelar» con cambios** sigue preguntando «¿Descartar los cambios?», como hoy.
+- **Barra de pestañas en tema oscuro**: fondo opaco, para que no se vea el contenido a través. Misma barra, mismo lugar, pegada abajo; solo cambia el fondo en oscuro.
