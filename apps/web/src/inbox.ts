@@ -160,7 +160,7 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     pinShort: pinShortfall(data, now, plan.result),
     clashes: pinClashes(data, now, plan.input),
     missedMeals: missedMeals(data, now),
-    asked: { choose: asked.options.length > 0, recommendations: asked.recommendations },
+    asked: { choose: asked.hasOptions, recommendations: asked.recommendations },
   });
   return asking(cards).map(({ title, detail, color }) => ({ title, detail, color }));
 }
