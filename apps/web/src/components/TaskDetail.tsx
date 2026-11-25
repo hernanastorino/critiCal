@@ -1,4 +1,5 @@
 import { useRef, useState } from "react";
+import { dropEditorDraftOf } from "../drafts.js";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
@@ -131,6 +132,8 @@ export function TaskDetail({
         },
       );
       setAsk(null);
+      // What was being edited of it goes too (a draft kept for a reload).
+      dropEditorDraftOf(task.id);
       onClose();
       // The row that opened this is gone: focus goes where the caller says.
       requestAnimationFrame(() => {
