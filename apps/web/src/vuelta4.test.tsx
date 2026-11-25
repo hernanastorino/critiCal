@@ -14,6 +14,7 @@ import { time, weekdayShort } from "./format.js";
 import { noFit } from "./friendly.js";
 import type { AppData, AppTask } from "./model.js";
 import { reducer, StoreProvider, seedHistory } from "./store.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -206,6 +207,7 @@ describe("the silo form: all errors at once, impossible habits, no rutinas", () 
 
   it("refuses 14 × 1440 min a week, beside the field, with the focus on it", () => {
     editor();
+    pickMateria();
     fireEvent.click(screen.getByText("Hábito semanal"));
     type(screen.getByLabelText("Nombre"), "Maratón");
     type(screen.getByLabelText("Veces por semana"), "14");

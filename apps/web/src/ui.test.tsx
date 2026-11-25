@@ -6,6 +6,7 @@ import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import { zonedInstant } from "./engine.js";
 import { loadDemo, resetDemo, seedHistory } from "./store.js";
 import { tapDone } from "./testDone.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 // 2026-11-02 is a holiday (Difuntos); the demo here is an ordinary Monday.
@@ -121,7 +122,7 @@ describe("app", () => {
     fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
       target: { value: "Parcial Química" },
     });
-    fireEvent.change(screen.getByDisplayValue("Cálculo II"), { target: { value: "new" } });
+    fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
     fireEvent.change(screen.getByPlaceholderText("Física I"), { target: { value: "Química" } });
     fireEvent.change(screen.getByPlaceholderText("Práctico 5 (60)"), {
       target: { value: "Repartido 1 (90)" },
@@ -133,6 +134,7 @@ describe("app", () => {
 
     fireEvent.click(screen.getByLabelText("Nueva actividad"));
     fireEvent.click(screen.getByText("Hábito semanal"));
+    pickMateria();
     fireEvent.change(screen.getByPlaceholderText("Leer 30 min"), {
       target: { value: "Correr" },
     });

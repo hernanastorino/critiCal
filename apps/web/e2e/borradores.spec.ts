@@ -73,6 +73,7 @@ test.describe("borradores: la actividad «Nueva»", () => {
     await openDemo(page);
     await abrirNueva(page);
     await nombre(page).fill("Entrega final");
+    await nueva(page).getByLabel("Materia o actividad").selectOption({ index: 1 });
     await nueva(page).getByRole("button", { name: "Guardar", exact: true }).click();
     await expect(page.getByRole("dialog")).toHaveCount(0);
     await expect

@@ -186,7 +186,9 @@ export function Places() {
               <span className="place-line">
                 <span className="place-name">
                   {p.isHome && <Marks.home />}
-                  {label(p.name)}
+                  <span className="place-label" title={label(p.name)}>
+                    {label(p.name)}
+                  </span>
                 </span>
                 <span className="place-mode" aria-hidden="true">
                   {" · "}

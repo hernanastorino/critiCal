@@ -135,7 +135,9 @@ export function TaskEditor({
   const tz = data.settings.timezone;
   // A new delivery starts from the hours of the earlier ones (SPEC §18.1); the fixed ones
   // stand without history.
-  const firstActivity = data.activities.find((a) => a.kind !== "rutina")?.id;
+  // (The materia the form starts on: the only one there is, else none is chosen yet.)
+  const materias = data.activities.filter((a) => a.kind !== "rutina");
+  const firstActivity = materias.length === 1 ? materias[0]?.id : undefined;
   const startLearned = task ? null : learnedHours(data.tasks, false, firstActivity);
   // What the form is when untouched, and what it was left as (a draft of this same task).
   const base = useRef<EditorForm>({
@@ -172,8 +174,10 @@ export function TaskEditor({
   const choices = data.activities.filter(
     (a) => kind === "habit" || a.kind !== "rutina" || a.id === task?.activityId,
   );
-  const activityId =
-    picked === "new" || choices.some((a) => a.id === picked) ? picked : (choices[0]?.id ?? "new");
+  // With several to pick from, none is chosen for the person: «» until they do.
+  const fallback =
+    choices.length === 1 ? (choices[0]?.id ?? "new") : choices.length === 0 ? "new" : "";
+  const activityId = picked === "new" || choices.some((a) => a.id === picked) ? picked : fallback;
   const [deadline, setDeadline] = useState(start.deadline);
   const [estimate, setEstimateTyped] = useState(start.estimate);
   const [minimum, setMinimumTyped] = useState(start.minimum);
@@ -230,7 +234,11 @@ export function TaskEditor({
   const learned =
     task || kind !== "deliverable"
       ? null
-      : learnedHours(data.tasks, isExam, activityId === "new" ? undefined : activityId);
+      : learnedHours(
+          data.tasks,
+          isExam,
+          activityId === "new" || !activityId ? undefined : activityId,
+        );
   const learnedKey = learned ? `${learned.estimateMinutes}/${learned.minMinutes}` : "fixed";
   // Changing the materia or «Es un parcial» re-proposes the hours, until they are typed.
   // With both hours erased there is nothing of theirs to keep: it proposes again.
@@ -408,6 +416,27 @@ export function TaskEditor({
         )
       : { hours: undefined, problems: [] };
   const nameMissing = activityId === "new" && isBlank(newActivity);
+  const activityMissing = activityId === "";
+  // Names are said to be too long, never cut without a word.
+  const titleLong = title.length > TITLE_MAX;
+  const newNameLong = activityId === "new" && newActivity.length > NAME_MAX;
+  // A silo that cannot fit the hours there are until its date (said, saved all the same).
+  const overload = useMemo(() => {
+    if (kind !== "deliverable") return null;
+    const due = fromLocalInput(tz, deadline);
+    if (!Number.isFinite(due) || due <= now) return null;
+    const asked = Math.max(
+      Math.round(Number(estimate.replace(",", ".")) * 60) || 0,
+      units.reduce((n, u) => n + u.estimateMinutes, 0),
+    );
+    const week = data.settings.week;
+    const awake =
+      week.reduce((n, d) => n + ((d.bed - d.wake + 1440) % 1440 || 1440), 0) / week.length;
+    const available = Math.round(((due - now) / 86_400_000) * awake);
+    return asked > available
+      ? `No entran ${hours(asked)} antes de esa fecha: hay unas ${hours(available)} despierto. Se guarda igual.`
+      : null;
+  }, [kind, deadline, estimate, units, data.settings.week, now, tz]);
   // An entrega is never filed under a routine: a new materia may not take a routine's name.
   const routineClash =
     activityId === "new" &&
@@ -416,6 +445,9 @@ export function TaskEditor({
   // One error is announced by its own text; several, by one summary (not one alert each).
   const shown = [
     tried && isBlank(title),
+    titleLong,
+    tried && activityMissing,
+    newNameLong,
     activityId === "new" && tried && (nameMissing || routineClash),
     !!deadlineError,
     !!estimateShown,
@@ -464,6 +496,9 @@ export function TaskEditor({
       !!(habit.times || habit.minutes),
       hoursRead.problems.length > 0,
       isBlank(title),
+      titleLong,
+      activityMissing,
+      newNameLong,
       nameMissing,
       routineClash,
       rangeBad,
@@ -577,9 +612,8 @@ export function TaskEditor({
           <span>Nombre</span>
           <input
             value={title}
-            maxLength={TITLE_MAX}
-            aria-invalid={tried && isBlank(title) ? true : undefined}
-            aria-describedby={tried && isBlank(title) ? "title-error" : undefined}
+            aria-invalid={(tried && isBlank(title)) || titleLong ? true : undefined}
+            aria-describedby={(tried && isBlank(title)) || titleLong ? "title-error" : undefined}
             onChange={(e) => setTitle(e.target.value)}
             onKeyDown={(e) => {
               // Enter saves, unless it only confirms an IME character.
@@ -589,20 +623,30 @@ export function TaskEditor({
             }}
             placeholder={kind === "habit" ? "Leer 30 min" : "Parcial Física I"}
           />
-          {tried && isBlank(title) && (
+          {((tried && isBlank(title)) || titleLong) && (
             <span
               className="meta"
               id="title-error"
               role={alertRole}
               style={{ margin: 0, color: "var(--critical)" }}
             >
-              Poné un nombre
+              {titleLong ? `Como máximo ${TITLE_MAX} caracteres` : "Poné un nombre"}
             </span>
           )}
         </label>
         <label className="field">
           <span>Materia o actividad</span>
-          <select value={activityId} onChange={(e) => setActivityId(e.target.value)}>
+          <select
+            value={activityId}
+            aria-invalid={tried && activityMissing ? true : undefined}
+            aria-describedby={tried && activityMissing ? "pick-error" : undefined}
+            onChange={(e) => setActivityId(e.target.value)}
+          >
+            {activityMissing && (
+              <option value="" disabled>
+                Elegí…
+              </option>
+            )}
             {choices.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -611,26 +655,36 @@ export function TaskEditor({
             <option value="new">+ Nueva…</option>
           </select>
         </label>
+        {tried && activityMissing && (
+          <FieldError id="pick-error" text="Elegí la materia" role={alertRole} />
+        )}
         {activityId === "new" && (
           <label className="field">
             <span>Nombre de la materia</span>
             <input
               value={newActivity}
-              maxLength={NAME_MAX}
-              aria-invalid={tried && (nameMissing || routineClash) ? true : undefined}
+              aria-invalid={
+                newNameLong || (tried && (nameMissing || routineClash)) ? true : undefined
+              }
               aria-describedby={
-                tried && (nameMissing || routineClash) ? "activity-error" : undefined
+                newNameLong || (tried && (nameMissing || routineClash))
+                  ? "activity-error"
+                  : undefined
               }
               onChange={(e) => setNewActivity(e.target.value)}
               placeholder="Física I"
             />
           </label>
         )}
-        {activityId === "new" && tried && (nameMissing || routineClash) && (
+        {activityId === "new" && (newNameLong || (tried && (nameMissing || routineClash))) && (
           <FieldError
             id="activity-error"
             text={
-              nameMissing ? "Poné el nombre de la materia" : "Ya tenés una rutina con ese nombre"
+              newNameLong
+                ? `Como máximo ${NAME_MAX} caracteres`
+                : nameMissing
+                  ? "Poné el nombre de la materia"
+                  : "Ya tenés una rutina con ese nombre"
             }
             role={alertRole}
           />
@@ -671,6 +725,11 @@ export function TaskEditor({
               <p className="meta" role="status">
                 Esa fecha ya pasó: la entrega queda vencida y el plan no le reserva tiempo. Se puede
                 guardar igual.
+              </p>
+            )}
+            {overload && !deadlineError && (
+              <p className="meta" role="status">
+                {overload}
               </p>
             )}
             <StartAfterField

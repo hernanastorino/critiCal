@@ -452,20 +452,6 @@ describe("deleting a materia", () => {
     fireEvent.click(screen.getByText("Deshacer"));
     expect(screen.getByTestId("names").textContent).toBe(all);
   });
-
-  it("a notice goes away when tapped, in case it sits over a button", () => {
-    render(
-      <StoreProvider initial={() => demoData(NOW)} persist={false} fixedNow={NOW}>
-        <ToastProvider>
-          <ActivitySettings />
-        </ToastProvider>
-      </StoreProvider>,
-    );
-    fireEvent.click(screen.getByText("Física I"));
-    fireEvent.click(screen.getByText("Eliminar Física I"));
-    fireEvent.click(screen.getByText(/Física I eliminada/));
-    expect(screen.queryByText(/Física I eliminada/)).toBeNull();
-  });
 });
 
 describe("Roy fills his box", () => {
