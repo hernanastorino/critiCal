@@ -73,6 +73,9 @@ async function signedIn(page: Page): Promise<void> {
   }, FAR_FUTURE);
 }
 
+/** Una celda de la fila, por columna (sin claves calculadas). */
+const cellOf = (row: Row, col: string) => new Map(Object.entries(row)).get(col);
+
 /** Lo que pide la app a la tabla, ya filtrado y paginado como lo haría PostgREST. */
 function answer(rows: Row[], url: URL): Row[] {
   const p = url.searchParams;
@@ -82,7 +85,7 @@ function answer(rows: Row[], url: URL): Row[] {
     if (!m) continue;
     const [, op, v] = m;
     out = out.filter((r) => {
-      const cell = String(r[key]);
+      const cell = String(cellOf(r, key));
       return op === "lt" ? cell < String(v) : op === "gt" ? cell > String(v) : cell >= String(v);
     });
   }
@@ -92,7 +95,7 @@ function answer(rows: Row[], url: URL): Row[] {
   });
   out = [...out].sort((a, b) => {
     for (const { col, sign } of orders) {
-      const [x, y] = [String(a[col]), String(b[col])];
+      const [x, y] = [String(cellOf(a, col)), String(cellOf(b, col))];
       if (x !== y) return (x < y ? -1 : 1) * sign;
     }
     return 0;
@@ -102,7 +105,7 @@ function answer(rows: Row[], url: URL): Row[] {
   const cols = p.get("select");
   return out
     .slice(offset, offset + limit)
-    .map((r) => (cols && cols !== "*" ? Object.fromEntries([[cols, r[cols]]]) : r));
+    .map((r) => (cols && cols !== "*" ? Object.fromEntries([[cols, cellOf(r, cols)]]) : r));
 }
 
 test("con más de 1000 registros: la semana actual aparece antes de que llegue el resto", async ({

@@ -17,13 +17,13 @@ export const mondayOf = (n: number): string =>
 
 export interface QueueOptions {
   /** Brings in one week; a rejection is retried. */
-  run: (week: number) => Promise<void>;
+  run(week: number): Promise<void>;
   /** Jobs in flight at once. */
   concurrency?: number;
   /** Attempts before a week is given up (until `retryFailed`). */
   attempts?: number;
   /** Wait before attempt number `attempt` (1 = after the first failure). */
-  delay?: (attempt: number) => number;
+  delay?(attempt: number): number;
   /** Told after every change: something started, finished, failed. */
   onChange?: () => void;
 }
@@ -43,7 +43,7 @@ export class LoadQueue {
   private readonly run: QueueOptions["run"];
   private readonly concurrency: number;
   private readonly attempts: number;
-  private readonly delay: (attempt: number) => number;
+  private readonly delay: NonNullable<QueueOptions["delay"]>;
   private readonly onChange: () => void;
 
   constructor(options: QueueOptions) {

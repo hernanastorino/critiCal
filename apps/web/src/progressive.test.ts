@@ -64,9 +64,9 @@ describe("Progressive", () => {
     const applied: Chunk[] = [];
     const onChange = vi.fn();
     const p = new Progressive({
-      fetchWeek: async (w) => {
+      fetchWeek: (w) => {
         fetched.push(w);
-        return chunkOf(`w${w}`);
+        return Promise.resolve(chunkOf(`w${w}`));
       },
       apply: (c) => applied.push(c),
       onChange,
@@ -118,9 +118,7 @@ describe("Progressive", () => {
   });
 
   it("counts what remains while anything is queued, fetched and waiting, or given up on", async () => {
-    const down = vi.fn(async () => {
-      throw new Error("net");
-    });
+    const down = vi.fn(() => Promise.reject(new Error("net")));
     const p = new Progressive({
       fetchWeek: down,
       apply: vi.fn(),

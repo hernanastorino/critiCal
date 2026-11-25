@@ -58,9 +58,9 @@ export function weeksLeft(
 
 export interface ProgressiveOptions {
   /** Reads one week from the database. */
-  fetchWeek: (week: number) => Promise<Chunk>;
+  fetchWeek(week: number): Promise<Chunk>;
   /** Puts rows on the screen and in the baseline. */
-  apply: (chunk: Chunk) => void;
+  apply(chunk: Chunk): void;
   /** Told when anything the screen shows about the loading changed. */
   onChange: () => void;
   queue?: Pick<QueueOptions, "concurrency" | "attempts" | "delay">;
@@ -88,13 +88,17 @@ export class Progressive {
     this.queue = new LoadQueue({
       ...opts.queue,
       // Nothing is told before the weeks are in: an empty queue is not a finished one.
-      onChange: () => this.started && opts.onChange(),
+      onChange: () => {
+        if (this.started) opts.onChange();
+      },
       run: async (week) => {
         const chunk = await opts.fetchWeek(week);
         if (this.stopped) return;
         this.buffer.push({ week, chunk });
         if (week === this.center) this.flush();
-        else this.timer ??= setTimeout(() => this.flush(), opts.batchMs ?? BATCH_MS);
+        else {
+          this.timer ??= setTimeout(() => this.flush(), opts.batchMs ?? BATCH_MS);
+        }
       },
     });
   }

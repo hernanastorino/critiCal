@@ -3,6 +3,11 @@ import { queryFilters, session, stubApi } from "./testing.js";
 
 type Row = Record<string, unknown>;
 
+export type Gate = (request: Omit<Request, "rows">) => Promise<void> | undefined;
+
+/** A cell of a row, by column (rows are read through a map, never by a computed key). */
+const cellOf = (row: Row, col: string): unknown => new Map(Object.entries(row)).get(col);
+
 export interface Request {
   table: string;
   /** The filters of the request: `lt:start_at`, `gt:end_at`… with the value asked. */
@@ -16,10 +21,7 @@ export interface Request {
  * request, like the server), so loading code is tested against what it asks, not what it gets.
  * `gate` may hold back a request until the test lets it go.
  */
-export function rowsClient(
-  tables: Record<string, Row[]>,
-  options: { gate?: (r: Omit<Request, "rows">) => Promise<void> | undefined } = {},
-) {
+export function rowsClient(tables: Record<string, Row[]>, options: { gate?: Gate } = {}) {
   const requests: Request[] = [];
   const writes: { op: string; table: string }[] = [];
   const from = (table: string) => ({
@@ -31,16 +33,16 @@ export function rowsClient(
       const result = async () => {
         const wait = options.gate?.({ table, filters: { ...filters }, from: window[0] });
         if (wait) await wait;
-        let rows = (tables[table] ?? []).filter((r) =>
+        let rows = (new Map(Object.entries(tables)).get(table) ?? []).filter((r) =>
           Object.entries(filters).every(([k, v]) => {
             const [op, key] = k.split(":") as [string, string];
-            const cell = String(r[key]);
+            const cell = String(cellOf(r, key));
             return op === "gt" ? cell > v : op === "gte" ? cell >= v : cell < v;
           }),
         );
         rows = [...rows].sort((a, b) => {
           for (const s of sorts) {
-            const [x, y] = [String(a[s.col]), String(b[s.col])];
+            const [x, y] = [String(cellOf(a, s.col)), String(cellOf(b, s.col))];
             if (x !== y) return (x < y ? -1 : 1) * s.sign;
           }
           return 0;
@@ -48,7 +50,9 @@ export function rowsClient(
         const page = rows.slice(window[0], Math.min(window[1] + 1, window[0] + limit));
         requests.push({ table, filters: { ...filters }, from: window[0], rows: page.length });
         const projected =
-          columns === "*" ? page : page.map((r) => Object.fromEntries([[columns, r[columns]]]));
+          columns === "*"
+            ? page
+            : page.map((r) => Object.fromEntries([[columns, cellOf(r, columns)]]));
         return { data: projected.slice(0, 1000), error: null };
       };
       const query = {
@@ -79,8 +83,10 @@ export function rowsClient(
           return query;
         },
         // biome-ignore lint/suspicious/noThenProperty: the real builder is thenable too
-        then: (ok: (v: unknown) => unknown, fail: (e: unknown) => unknown) =>
-          result().then(ok, fail),
+        then: (
+          ok: Parameters<Promise<unknown>["then"]>[0],
+          fail: Parameters<Promise<unknown>["then"]>[1],
+        ) => result().then(ok, fail),
       };
       return query;
     },
@@ -99,7 +105,7 @@ export function rowsClient(
       },
     }),
   });
-  const invoke = vi.fn(async () => ({ data: { connected: true }, error: null }));
+  const invoke = vi.fn(() => Promise.resolve({ data: { connected: true }, error: null }));
   stubApi(invoke);
   return { client: { from, auth: session } as never, requests, writes };
 }

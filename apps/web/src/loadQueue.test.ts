@@ -12,14 +12,20 @@ function setup(options: { attempts?: number; concurrency?: number } = {}) {
     run: (w) =>
       new Promise<void>((resolve, reject) => {
         started.push(w);
-        open.set(w, { ok: resolve, fail: () => reject(new Error("net")) });
+        open.set(w, {
+          ok: resolve,
+          fail: () => {
+            reject(new Error("net"));
+          },
+        });
       }),
   });
   const finish = async (w: number, how: "ok" | "fail" = "ok") => {
     const job = open.get(w);
     if (!job) throw new Error(`week ${w} is not running`);
     open.delete(w);
-    job[how]();
+    if (how === "ok") job.ok();
+    else job.fail();
     await vi.advanceTimersByTimeAsync(0);
   };
   return { queue, started, finish, onChange };
