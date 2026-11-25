@@ -964,6 +964,7 @@ export function Week({
             aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
             title={lastChange ? `Deshacer: ${lastChange}` : undefined}
             ref={undoRef}
+            data-header-undo=""
             aria-hidden={lastChange ? undefined : true}
             tabIndex={lastChange ? undefined : -1}
             disabled={!lastChange}

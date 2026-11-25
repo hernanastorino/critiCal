@@ -8,6 +8,7 @@ import type {
   Settings,
   StartAfter,
 } from "./engine.js";
+import type { Snapshot } from "./store.js";
 
 /** Activity colours, taken from the thick-line references. Red is reserved for critical. */
 export const PALETTE = [
@@ -472,6 +473,8 @@ export interface PlanVersion {
   tentativeHoldUntil?: number;
   /** A deleted materia or rutina, with its silos: undoing this version brings it back. */
   removed?: RemovedActivity;
+  /** A silo (a routine) deleted or ended from today: undoing this version puts it back as it was. */
+  gone?: { taskId: string; snap: Snapshot };
   /** Saved parts (Mi semana, un lugar…) as they were, and right after: undoing puts back what is still as saved. */
   saved?: { part: string; before: unknown; after: unknown }[];
 }

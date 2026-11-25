@@ -167,7 +167,7 @@ describe("driving times on demand", () => {
     expect(screen.getByTestId("names").textContent).toBe("Casa,Gym,Abuela");
     // Deleted at once, with a way back.
     fireEvent.click(screen.getByText("Deshacer"));
-    expect(screen.getByTestId("names").textContent).toBe("Casa,Gym,Abuela,Facultad");
+    expect(screen.getByTestId("names").textContent).toBe("Casa,Facultad,Gym,Abuela");
   });
 });
 

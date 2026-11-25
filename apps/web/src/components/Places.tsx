@@ -10,7 +10,14 @@ import {
   NAME_MAX,
   stripInvisible,
 } from "../limits.js";
-import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
+import {
+  CRITICAL,
+  newId,
+  type Place,
+  type PlanVersion,
+  type Spot,
+  type TravelMode,
+} from "../model.js";
 import {
   aliasTaken,
   keepableEvents,
@@ -166,16 +173,15 @@ export function Places() {
               const times = (data.travelTimes ?? []).filter(
                 (t) => t.from === p.id || t.to === p.id,
               );
-              dispatch({ type: "deletePlace", placeId: p.id });
+              let version: PlanVersion | undefined;
+              dispatch({ type: "deletePlace", placeId: p.id }, (after) => {
+                version = after.planHistory?.at(-1);
+              });
               dropDrafts(`place:${p.id}`);
               setEditing(null);
               toast.show(`${short(label(p.name))} borrado`, {
-                undo: () => {
-                  dispatch({ type: "savePlace", place: p });
-                  // Its times typed by hand come back; computed ones are worked out again.
-                  for (const t of times.filter((x) => x.manual))
-                    dispatch({ type: "travelTime", from: t.from, to: t.to, minutes: t.minutes });
-                },
+                // Its times typed by hand come back; computed ones are worked out again.
+                undo: () => dispatch({ type: "restorePlace", place: p, times, only: version }),
               });
               refocus("places-intro");
             }}
