@@ -5,7 +5,7 @@ import { Connected } from "./Connected.js";
 import { newId } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { useStore } from "./store.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 const report = vi.fn();
 vi.mock("./monitoring.js", async (original) => ({
@@ -42,6 +42,7 @@ function database() {
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: (rows: Write["rows"]) => {
       writes.push({ table, rows });

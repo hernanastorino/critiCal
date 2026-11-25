@@ -53,14 +53,14 @@ export function SyncDot({ onClick }: { onClick: () => void }) {
   const { status } = sync;
   const state = status.offline
     ? "offline"
-    : status.busy
+    : status.busy || status.loading
       ? "syncing"
       : healthy(status.google) && healthy(status.icloud)
         ? "ok"
         : "error";
   const label = {
     offline: "Sin conexión: los cambios se guardan en este dispositivo",
-    syncing: "Sincronizando",
+    syncing: status.busy ? "Sincronizando" : "Cargando el historial",
     ok: "Todo sincronizado",
     error: "Error de sincronización",
   }[state];

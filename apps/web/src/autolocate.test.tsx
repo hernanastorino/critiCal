@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
 import { clearLocal, readLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -41,6 +41,7 @@ function client(location = "Instituto Anglo") {
           order() {
             return this;
           },
+          ...queryFilters,
         }),
       upsert: () => Promise.resolve({ error: null }),
       insert: () => Promise.resolve({ error: null }),

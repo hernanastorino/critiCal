@@ -1,5 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
+const CONNECTED = /carga-progresiva\.spec\.ts/;
+const CONNECTED_URL = "http://localhost:4174";
 const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:4173";
 
 export default defineConfig({
@@ -23,10 +25,24 @@ export default defineConfig({
       : undefined,
   },
   projects: [
-    { name: "iphone", use: { ...devices["iPhone 15"] } },
-    { name: "desktop-safari", use: { ...devices["Desktop Safari"] } },
+    { name: "iphone", testIgnore: CONNECTED, use: { ...devices["iPhone 15"] } },
+    { name: "desktop-safari", testIgnore: CONNECTED, use: { ...devices["Desktop Safari"] } },
+    // A build that talks to a (simulated) Supabase: the one place the signed-in loading runs.
+    {
+      name: "connected",
+      testMatch: CONNECTED,
+      use: { ...devices["iPhone 15"], baseURL: CONNECTED_URL },
+    },
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
-    : { command: "bun run preview", url: baseURL, reuseExistingServer: !process.env.CI },
+    : [
+        { command: "bun run preview", url: baseURL, reuseExistingServer: !process.env.CI },
+        {
+          command: "npm run preview:connected",
+          url: CONNECTED_URL,
+          reuseExistingServer: !process.env.CI,
+          timeout: 180_000,
+        },
+      ],
 });

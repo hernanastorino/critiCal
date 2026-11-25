@@ -12,7 +12,7 @@ import {
   timeSpots,
   withoutDeleted,
 } from "./remote.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20, 50);
 
@@ -25,6 +25,7 @@ function fakeClient(tables: Record<string, unknown[]>, settings: unknown = null)
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: (rows: unknown) => {
       calls.push({ op: "upsert", table, payload: rows });
@@ -292,6 +293,7 @@ describe("remote", () => {
             order() {
               return this;
             },
+            ...queryFilters,
           }),
       }),
     };

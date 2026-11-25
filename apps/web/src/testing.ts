@@ -27,3 +27,22 @@ export function runningSince(data: AppData, now: number): AppData {
   const tasks = data.tasks.map((t) => (t.kind === "habit" ? { ...t, createdAt: undefined } : t));
   return reducer({ ...data, tasks }, { type: "refresh", now });
 }
+
+/** The filters of Supabase's query builder that the loader chains, for fakes that ignore them. */
+export const queryFilters = {
+  gt() {
+    return this;
+  },
+  gte() {
+    return this;
+  },
+  lt() {
+    return this;
+  },
+  range() {
+    return this;
+  },
+  limit() {
+    return this;
+  },
+};

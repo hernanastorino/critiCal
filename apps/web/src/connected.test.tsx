@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
 import { clearLocal, readLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -24,6 +24,7 @@ function fakeClient(fail = false) {
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: () => {
       writes.push(table);
@@ -65,6 +66,7 @@ function calendarClient() {
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: (rows: unknown) => {
       writes.push({ table, rows });
@@ -233,6 +235,7 @@ describe("Connected", () => {
               order() {
                 return this;
               },
+              ...queryFilters,
             },
           ),
       }),

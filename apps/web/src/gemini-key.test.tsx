@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Connected } from "./Connected.js";
 import { GeminiKey } from "./components/GeminiKey.js";
 import { clearLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -23,6 +23,7 @@ function client() {
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: () => Promise.resolve({ error: null }),
     insert: () => Promise.resolve({ error: null }),

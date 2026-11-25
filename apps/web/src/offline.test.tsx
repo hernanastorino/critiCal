@@ -4,7 +4,7 @@ import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
 import { demoData } from "./demo.js";
 import { clearLocal, isOffline, readLocal, writeLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 import { held } from "./updates.js";
 
 afterEach(() => {
@@ -102,6 +102,7 @@ describe("offline", () => {
           order() {
             return this;
           },
+          ...queryFilters,
         }),
       upsert: () => {
         if (!online) return Promise.resolve({ error: { message: "TypeError: Failed to fetch" } });
@@ -165,6 +166,7 @@ describe("offline", () => {
           order() {
             return this;
           },
+          ...queryFilters,
         }),
       upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         const list = Array.isArray(rows) ? rows : [rows];
@@ -210,6 +212,7 @@ describe("offline", () => {
           order() {
             return this;
           },
+          ...queryFilters,
         }),
       upsert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         if (!online) return Promise.resolve({ error: { message: "TypeError: Failed to fetch" } });

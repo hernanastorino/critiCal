@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { Shell } from "./App.js";
 import { Connected } from "./Connected.js";
 import { clearLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 import { widgetScript } from "./widget-script.js";
 
 afterEach(async () => {
@@ -22,6 +22,7 @@ function client() {
           order() {
             return this;
           },
+          ...queryFilters,
         }),
       upsert: () => Promise.resolve({ error: null }),
       insert: () => Promise.resolve({ error: null }),

@@ -7,7 +7,7 @@ import { Settings } from "./components/Settings.js";
 import { demoData } from "./demo.js";
 import { clearLocal } from "./offline.js";
 import { StoreProvider } from "./store.js";
-import { session } from "./testing.js";
+import { queryFilters, session } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -27,6 +27,7 @@ function client(owner = false) {
         order() {
           return this;
         },
+        ...queryFilters,
       }),
     upsert: () => Promise.resolve({ error: null }),
     insert: () => Promise.resolve({ error: null }),
