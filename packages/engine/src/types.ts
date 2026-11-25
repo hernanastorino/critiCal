@@ -162,6 +162,11 @@ export interface Task {
    * cut. Options lower only their minimum, and a target short of time is no decision.
    */
   fixedTarget?: boolean;
+  /**
+   * A routine that fell behind: the plan reports what it lacks on itself, but it does not
+   * make the time of the other tasks critical (it is not a missing minimum for them).
+   */
+  forgiving?: boolean;
   /** Its sessions fall only inside these hours of each weekday (a routine's). */
   validHours?: ValidHours;
 }
