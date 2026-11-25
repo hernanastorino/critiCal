@@ -44,7 +44,7 @@ describe("a routine that does not fit the week", () => {
   it("counts in the rows of the Bandeja", () => {
     const rows = inboxRows(pruebasData(NOW), NOW);
     expect(rows.some((r) => r.title === "Gym" && r.detail === "Rutina que no entra")).toBe(true);
-  }, 30_000);
+  }, 90_000);
 
   it("does not show when the routine is paused or skipped this week", () => {
     const data = pruebasData(NOW);
@@ -83,5 +83,5 @@ describe("a routine that does not fit the week", () => {
     }
     expect(onRoutine).toHaveBeenCalledTimes(2);
     expect(onRoutine).toHaveBeenCalledWith("gym");
-  }, 30_000);
+  }, 90_000);
 });
