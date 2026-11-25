@@ -8,7 +8,7 @@ import { ToastProvider } from "./components/Toast.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { clearDrafts, hasPageDrafts, hasSettingsDrafts } from "./drafts.js";
-import { type DaySettings, zonedInstant } from "./engine.js";
+import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { progress } from "./planning.js";
 import { reducer, StoreProvider, seedHistory } from "./store.js";
@@ -46,7 +46,9 @@ describe("Mi semana: marcar y desmarcar un día", () => {
   const week = demoData(MON).settings.week.map((d, i) =>
     i === 6 ? { ...d, wake: d.wake + 120, bed: d.bed + 60 } : d,
   );
-  const draft = { days: [1, 2, 3, 4, 5], form: formOf(week[1] as DaySettings), held: {} };
+  const monday = week.at(1);
+  if (!monday) throw new Error("no monday");
+  const draft = { days: [1, 2, 3, 4, 5], form: formOf(monday), held: {} };
 
   it("marcar y desmarcar S vuelve al mismo borrador (no hay nada que descartar)", () => {
     const withSat = switchDays(draft, [1, 2, 3, 4, 5, 6], week);
@@ -81,7 +83,6 @@ describe("Mi semana: los errores usan el nombre que ve la persona", () => {
 describe("Exportar JSON avisa", () => {
   it("muestra «Respaldo exportado» al tocar el botón", () => {
     vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(vi.fn());
     render(
       <ToastProvider>
         <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
@@ -136,17 +137,13 @@ describe("Nueva actividad", () => {
         </StoreProvider>
       </ToastProvider>,
     );
-  const input = (label: string) => {
-    const el = screen.getByLabelText(label);
-    if (!(el instanceof HTMLInputElement)) throw new Error(`${label} is not an input`);
-    return el;
-  };
-
   it("no elige la materia por la persona: pide elegirla", () => {
     open();
     const select = screen.getByLabelText("Materia o actividad");
     expect(select).toHaveProperty("value", "");
-    fireEvent.change(input("Nombre"), { target: { value: "Parcial 1" } });
+    fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), {
+      target: { value: "Parcial 1" },
+    });
     fireEvent.click(screen.getByRole("button", { name: /^Guardar/ }));
     expect(screen.getByText("Elegí la materia")).toBeTruthy();
   });
@@ -159,16 +156,15 @@ describe("Nueva actividad", () => {
 
   it("avisa que 130 h no entran en 3 días (se puede guardar igual)", () => {
     open();
-    fireEvent.change(input("Horas estimadas"), { target: { value: "130" } });
+    fireEvent.change(screen.getByLabelText("Horas estimadas"), { target: { value: "130" } });
     expect(screen.getByText(/No entran 130h antes de esa fecha/)).toBeTruthy();
   });
 
   it("un nombre de más de 80 caracteres se dice, no se corta en silencio", () => {
     open();
     const long = "A".repeat(81);
-    const name = input("Nombre");
-    fireEvent.change(name, { target: { value: long } });
-    expect(name.value).toBe(long);
+    fireEvent.change(screen.getByPlaceholderText("Parcial Física I"), { target: { value: long } });
+    expect(screen.getByPlaceholderText("Parcial Física I")).toHaveProperty("value", long);
     expect(screen.getByText("Como máximo 80 caracteres")).toBeTruthy();
   });
 });

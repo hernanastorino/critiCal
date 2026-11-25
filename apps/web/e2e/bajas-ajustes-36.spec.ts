@@ -42,8 +42,8 @@ test("un aviso no tapa controles: los toques lo atraviesan", async ({ page }) =>
   const box = await aviso.boundingBox();
   if (!box) throw new Error("el aviso no tiene caja");
   const encima = await page.evaluate(
-    ([x, y]) => document.elementFromPoint(x ?? 0, y ?? 0)?.closest(".snack") !== null,
-    [box.x + box.width / 2, box.y + box.height / 2],
+    ({ x, y }) => document.elementFromPoint(x, y)?.closest(".snack") !== null,
+    { x: box.x + box.width / 2, y: box.y + box.height / 2 },
   );
   expect(encima).toBe(false);
 });
