@@ -36,10 +36,16 @@ function offText(live: AppTask, tz: string, now: number): string | null {
   return null;
 }
 
-export function minutesError(text: string): string | null {
+/** A routine with nothing lacking this week, or switched off, has nothing to log. */
+function nothingToLog(task: AppTask, off: boolean, weeklyLeft: number | undefined): boolean {
+  if (task.paused) return true;
+  return task.kind === "habit" && (off || weeklyLeft === 0);
+}
+
+export function minutesError(text: string, max = MAX_LOG_MINUTES): string | null {
   if (text.trim() === "") return null;
-  const ok = isFigure(text) && Number(text.replace(",", ".")) <= MAX_LOG_MINUTES;
-  if (!ok) return "Poné minutos de 0 a 1440, solo cifras.";
+  const ok = isFigure(text) && Number(text.replace(",", ".")) <= max;
+  if (!ok) return `Poné minutos de 0 a ${max}, solo cifras.`;
   return isWhole(text) ? null : "Poné solo minutos enteros, sin decimales.";
 }
 
@@ -72,6 +78,55 @@ export function topicsDoneError(
   return Number(done) > Number(total) ? "No pueden ser más que los temas en total." : null;
 }
 
+/** «Le dediqué (minutos)», with its error and the note about breaks. */
+function MinutesField({
+  value,
+  error,
+  onChange,
+  factor,
+  hasParts,
+}: {
+  value: string;
+  error: string | null;
+  onChange: (text: string) => void;
+  factor: number;
+  hasParts: boolean;
+}) {
+  return (
+    <label className="field">
+      <span>Le dediqué (minutos)</span>
+      <input
+        inputMode="numeric"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="40"
+        aria-invalid={error ? true : undefined}
+        aria-describedby={
+          [error && "minutes-error", factor > 1 && "break-note"].filter(Boolean).join(" ") ||
+          undefined
+        }
+      />
+      {error && (
+        <span
+          className="meta"
+          id="minutes-error"
+          role="alert"
+          style={{ margin: 0, color: "var(--critical)" }}
+        >
+          {error}
+        </span>
+      )}
+      {factor > 1 && (
+        <span className="meta" id="break-note" style={{ margin: 0 }}>
+          Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
+          {hours(Math.round(240 / factor))} de estudio.
+          {hasParts && " Marcá también las partes hechas: lo que falta se mide por ellas."}
+        </span>
+      )}
+    </label>
+  );
+}
+
 /** Silo detail: what is left and a quick "this is how far I got" log. */
 export function TaskDetail({
   task,
@@ -99,6 +154,9 @@ export function TaskDetail({
   const weeklyLabel = weekly
     ? `${weekAt === now ? "Esta semana" : "La semana próxima"}: ${weekly.remainingMinutes > 0 ? `faltan ${hours(weekly.remainingMinutes)}` : "ya está completa"}`
     : undefined;
+  // A routine takes no more than what it lacks this week (the same figure «faltan» shows);
+  // with nothing lacking, or switched off, there is nothing to log.
+  const weeklyLeft = weekly?.remainingMinutes;
   const factor = checkInFactor(data, task.id) ?? 1;
   const [minutes, setMinutes] = useState("");
   const [topics, setTopics] = useState("");
@@ -173,7 +231,8 @@ export function TaskDetail({
   const pending = !!(minutes || topics || topicsDone || units.length || reopen.length);
   const askClose = () => (pending ? setDiscarding(true) : onClose());
   const justOpened = useModal(sheet, askClose);
-  const badMinutes = minutesError(minutes);
+  const closed = nothingToLog(live, !!offState, weeklyLeft);
+  const badMinutes = minutesError(minutes, weeklyLeft ?? MAX_LOG_MINUTES);
   const badTopics = topicsError(topics, task.estimateMinutes);
   const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
   const invalid = !!(badMinutes || badTopics || badDone);
@@ -233,47 +292,21 @@ export function TaskDetail({
             </p>
           ))}
 
-        {!live.paused && (
+        {!closed && (
           <div className="section-title" style={{ marginTop: 4 }}>
             Registrar avance
           </div>
         )}
-        {!live.paused && (
-          <label className="field">
-            <span>Le dediqué (minutos)</span>
-            <input
-              inputMode="numeric"
-              value={minutes}
-              onChange={(e) => setMinutes(e.target.value)}
-              placeholder="40"
-              aria-invalid={badMinutes ? true : undefined}
-              aria-describedby={
-                [badMinutes && "minutes-error", factor > 1 && "break-note"]
-                  .filter(Boolean)
-                  .join(" ") || undefined
-              }
-            />
-            {badMinutes && (
-              <span
-                className="meta"
-                id="minutes-error"
-                role="alert"
-                style={{ margin: 0, color: "var(--critical)" }}
-              >
-                {badMinutes}
-              </span>
-            )}
-            {factor > 1 && (
-              <span className="meta" id="break-note" style={{ margin: 0 }}>
-                Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
-                {hours(Math.round(240 / factor))} de estudio.
-                {task.units.length > 0 &&
-                  " Marcá también las partes hechas: lo que falta se mide por ellas."}
-              </span>
-            )}
-          </label>
+        {!closed && (
+          <MinutesField
+            value={minutes}
+            error={badMinutes}
+            onChange={setMinutes}
+            factor={factor}
+            hasParts={task.units.length > 0}
+          />
         )}
-        {live.paused ? null : task.units.length > 0 ? (
+        {closed ? null : task.units.length > 0 ? (
           <div className="field">
             <span>
               Partes hechas ({done} de {parts.length})
@@ -329,7 +362,7 @@ export function TaskDetail({
           <button type="button" className="btn" onClick={onEdit}>
             Editar
           </button>
-          {!live.paused && (
+          {!closed && (
             <button
               type="button"
               className="btn primary"
