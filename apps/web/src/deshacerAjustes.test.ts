@@ -36,30 +36,30 @@ describe("Deshacer de la cabecera cubre lo que se borra o guarda en Ajustes", ()
 
   it("guardar Mi semana entra en el historial y se deshace", () => {
     const start = demoData(NOW);
-    const settings = { ...start.settings, bedtime: "23:00" };
+    const settings = { ...start.settings, travelMarginMinutes: 11 };
     const saved = reducer(start, { type: "settings", settings, now: NOW });
     expect(saved.planHistory?.at(-1)?.label).toBe("guardar Mi semana");
     const back = reducer(saved, { type: "undoPlan", now: NOW });
-    expect(back.settings.bedtime).toBe(start.settings.bedtime);
+    expect(back.settings.travelMarginMinutes).toBe(start.settings.travelMarginMinutes);
   });
 
   it("lo que se cambió de nuevo después no se pisa", () => {
     const start = demoData(NOW);
     const first = reducer(start, {
       type: "settings",
-      settings: { ...start.settings, bedtime: "23:00" },
+      settings: { ...start.settings, travelMarginMinutes: 11 },
       now: NOW,
     });
     const second = reducer(first, {
       type: "settings",
-      settings: { ...first.settings, bedtime: "23:30" },
+      settings: { ...first.settings, travelMarginMinutes: 12 },
       now: NOW,
     });
     // The last save goes back to the first; the older one then goes back to the start.
     const one = reducer(second, { type: "undoPlan", now: NOW });
-    expect(one.settings.bedtime).toBe("23:00");
+    expect(one.settings.travelMarginMinutes).toBe(11);
     const two = reducer(one, { type: "undoPlan", now: NOW });
-    expect(two.settings.bedtime).toBe(start.settings.bedtime);
+    expect(two.settings.travelMarginMinutes).toBe(start.settings.travelMarginMinutes);
   });
 
   it("guardar un lugar entra en el historial y se deshace", () => {
