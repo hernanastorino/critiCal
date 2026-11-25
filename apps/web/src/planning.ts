@@ -1192,7 +1192,6 @@ function simulated(
   option: PlanOption,
 ): PlanOption {
   const after = applyOption(from.data, input, option, from.now);
-  const result = refreshPlan(after, from.now).result;
   const left = progress(after, from.now).find((p) => p.task.id === option.taskId);
   const named =
     left && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
@@ -1202,7 +1201,17 @@ function simulated(
             : `(${hours(left.minRemainingMinutes)})`,
         )
       : option.label;
-  return { ...option, label: named, result };
+  // Planning again is what costs: only done when the card is drawn (or the option is
+  // checked), not to count what waits in the Bandeja.
+  let real: ScheduleResult | undefined;
+  return {
+    ...option,
+    label: named,
+    get result() {
+      real ??= refreshPlan(after, from.now).result;
+      return real;
+    },
+  };
 }
 
 /**
@@ -1230,13 +1239,7 @@ export function decisions(
     ? targetOptions(input, result)
     : infeasibilityOptions(input, result, impossible);
   const options = from
-    ? offered
-        .map((o) => simulated(from, input, o))
-        .filter((o) => keepsItsPromise(result, o))
-        // Feasible first, as offered otherwise (the sort is stable).
-        .sort((a, b) =>
-          result.feasible ? 0 : Number(b.result.feasible) - Number(a.result.feasible),
-        )
+    ? offered.map((o) => simulated(from, input, o)).filter((o) => keepsItsPromise(result, o))
     : offered;
   return { options, recommendations: recommendations(input, result), impossible };
 }
