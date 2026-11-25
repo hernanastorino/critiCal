@@ -83,7 +83,7 @@ describe("lo que promete cada opción es lo que pasa al elegirla", () => {
     const gym = d.tasks.find((t) => t.kind === "habit");
     const heavy = reducer(d, {
       type: "saveTask",
-      task: { ...(gym as AppData["tasks"][number]), sessionsPerWeek: 8, minMinutes: 8 * 90 },
+      task: { ...must(gym), sessionsPerWeek: 8, minMinutes: 8 * 90 },
       now: TUESDAY,
     });
     const r = refreshPlan(heavy, TUESDAY);
