@@ -1411,6 +1411,15 @@ input[type="radio"]:disabled {
   z-index: 15;
 }
 
+/* In dark mode the bar is opaque: nothing shows through it. */
+@media (prefers-color-scheme: dark) {
+  .tabs {
+    background: var(--surface);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}
+
 .tabs button {
   flex: 1;
   display: flex;
