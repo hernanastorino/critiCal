@@ -29,6 +29,7 @@ import { clipName } from "./format.js";
 import { asking, type InboxInputs, inboxCards } from "./inbox.js";
 import {
   ADDRESS_MAX,
+  ALIASES_FIELD_MAX,
   BACKUP_TEXT_MAX,
   isBlank,
   NAME_MAX,
@@ -53,7 +54,16 @@ import type {
   Unit,
 } from "./model.js";
 import { newId, nextColor, pruneApplied, type RemovedActivity, undoable } from "./model.js";
-import { eventSpotKey, home, keepableEvents, rekeySpots, spotKey, unlocated } from "./places.js";
+import {
+  aliasTaken,
+  eventSpotKey,
+  home,
+  keepableEvents,
+  rekeySpots,
+  sameName as samePlaceName,
+  spotKey,
+  unlocated,
+} from "./places.js";
 import {
   applyOption,
   checkInFactor,
@@ -1197,9 +1207,10 @@ function apply(data: AppData, action: Action): AppData {
               (t) => t.manual || (t.from !== old.id && t.to !== old.id),
             )
           : data.travelTimes;
+      const saved = old ? keepOldName(data.places ?? [], old, action.place) : action.place;
       let places = exists
-        ? (data.places ?? []).map((p) => (p.id === action.place.id ? action.place : p))
-        : [...(data.places ?? []), action.place];
+        ? (data.places ?? []).map((p) => (p.id === saved.id ? saved : p))
+        : [...(data.places ?? []), saved];
       // Only one home.
       if (action.place.isHome)
         places = places.map((p) =>
@@ -1874,6 +1885,20 @@ function materia(data: AppData, name: string): Activity {
 }
 
 /** Teaches a materia another name it goes by (nothing if it already answers to it). */
+/**
+ * A renamed place keeps its old name as an alias, so the events that name it that way stay
+ * linked (unless the alias is already there, another place has it, or the field is full).
+ */
+function keepOldName(places: readonly Place[], old: Place, next: Place): Place {
+  const name = old.name;
+  const taken =
+    next.aliases.some((a) => samePlaceName(a, name)) || !!aliasTaken(places, name, next.id);
+  const aliases = [...next.aliases, name];
+  if (samePlaceName(old.name, next.name) || taken || aliases.join(", ").length > ALIASES_FIELD_MAX)
+    return next;
+  return { ...next, aliases };
+}
+
 function withAlias(data: AppData, activityId: string, alias: string): AppData {
   const key = normalize(alias);
   return {
