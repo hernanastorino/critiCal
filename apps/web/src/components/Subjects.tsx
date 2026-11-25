@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useDraft } from "../drafts.js";
+import { dropDrafts, dropEditorDraftOf, useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
 import { clipName, minutesToHhmm, parseClock } from "../format.js";
 import { isBlank, NAME_MAX, stripInvisible } from "../limits.js";
@@ -190,6 +190,9 @@ export function ActivitySettings({
       at - r.at < UNDO_MS && !data.activities.some((a) => a.id === r.removed.activity.id);
     recent.current = [...recent.current.filter(stillGone), { removed, at }];
     dispatch({ type: "deleteActivity", activityId: activity.id });
+    // What was being typed for it, or for its silos, goes with it.
+    dropDrafts(`activity:${activity.id}`);
+    for (const t of removed.tasks) dropEditorDraftOf(t.id);
     const all = recent.current.map((r) => r.removed);
     const silos = removed.tasks.length;
     toast.show(

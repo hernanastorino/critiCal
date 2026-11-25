@@ -291,6 +291,17 @@ export function TaskEditor({
     writeSheetDraft("editor", null);
     onClose();
   };
+  // The task was deleted meanwhile (from its detail, or with its materia): nothing is left to
+  // edit, and saving must not bring it back.
+  const live = task && data.tasks.find((t) => t.id === task.id);
+  const gone = !!task && (!live || (live.kind === "habit" && live.status !== "active"));
+  const closing = useRef(onClose);
+  closing.current = onClose;
+  useEffect(() => {
+    if (!gone) return;
+    writeSheetDraft("editor", null);
+    closing.current();
+  }, [gone]);
   const askClose = () => (dirty ? setAsking(true) : done());
   const justOpened = useModal(sheet, askClose);
   useEffect(() => {

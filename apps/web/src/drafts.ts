@@ -44,6 +44,23 @@ export function clearDrafts(): void {
   rememberSettingsPage(null);
 }
 
+/** Forgets every draft whose key starts with `prefix` (what was typed for something now deleted). */
+export function dropDrafts(prefix: string): void {
+  for (const k of [...drafts.keys()]) if (k.startsWith(prefix)) drafts.delete(k);
+  persist();
+}
+
+/** Forgets the draft of the editor of this task, if that is the one kept (the task is gone). */
+export function dropEditorDraftOf(taskId: string): void {
+  const kept = readSheetDraft<{ taskId: string | null }>("editor");
+  if (kept?.taskId === taskId) writeSheetDraft("editor", null);
+}
+
+/** Whether the editor of a task opened from Rutinas waits with something typed. */
+function preferencesEditorDrafted(): boolean {
+  return readSheetDraft<{ origin: string }>("editor")?.origin === "preferences";
+}
+
 /** Whether something typed on this screen of Ajustes waits unsaved (a draft of unknown screen counts). */
 export function hasPageDrafts(page: string): boolean {
   for (const [k, e] of drafts)
@@ -62,7 +79,7 @@ export function clearPageDrafts(page: string): void {
 /** Whether something typed in Ajustes waits unsaved. */
 export function hasSettingsDrafts(): boolean {
   for (const k of drafts.keys()) if (!k.startsWith(SHEET_PREFIX)) return true;
-  return false;
+  return preferencesEditorDrafted();
 }
 
 const PAGE = "critical.settingsPage";
@@ -79,8 +96,7 @@ export function rememberSettingsPage(page: string | null): void {
 
 /** Ajustes as a reload should find it: open (on its screen) when something waits unsaved. */
 export function settingsToRestore(): string | true | false {
-  const editor = readSheetDraft<{ origin: string }>("editor");
-  if (!hasSettingsDrafts() && editor?.origin !== "preferences") return false;
+  if (!hasSettingsDrafts()) return false;
   try {
     return globalThis.sessionStorage?.getItem(PAGE) || true;
   } catch {
@@ -91,6 +107,7 @@ export function settingsToRestore(): string | true | false {
 /** Forgets what was typed in Ajustes only (closing it with «Descartar»). */
 export function clearSettingsDrafts(): void {
   for (const k of [...drafts.keys()]) if (!k.startsWith(SHEET_PREFIX)) drafts.delete(k);
+  if (preferencesEditorDrafted()) drafts.delete(`${SHEET_PREFIX}editor`);
   persist();
 }
 
