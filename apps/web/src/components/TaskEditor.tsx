@@ -14,6 +14,7 @@ import {
   TITLE_MAX,
 } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
+import { shortfall } from "../need.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
 import { formOfHours, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
@@ -291,6 +292,17 @@ export function TaskEditor({
     writeSheetDraft("editor", null);
     onClose();
   };
+  // The task was deleted meanwhile (from its detail, or with its materia): nothing is left to
+  // edit, and saving must not bring it back.
+  const live = task && data.tasks.find((t) => t.id === task.id);
+  const gone = !!task && (!live || (live.kind === "habit" && live.status !== "active"));
+  const closing = useRef(onClose);
+  closing.current = onClose;
+  useEffect(() => {
+    if (!gone) return;
+    writeSheetDraft("editor", null);
+    closing.current();
+  }, [gone]);
   const askClose = () => (dirty ? setAsking(true) : done());
   const justOpened = useModal(sheet, askClose);
   useEffect(() => {
@@ -330,9 +342,9 @@ export function TaskEditor({
     if (from === undefined) return null;
     if (from !== undefined && from >= due) return AFTER_DUE;
     const next = { ...data, tasks: [...data.tasks.filter((t) => t.id !== trial.id), trial] };
-    const status = refreshPlan(next, now).result.status.find((s) => s.taskId === trial.id);
-    return status && status.minDeficit > 0
-      ? `Empezando ${from !== undefined ? `el ${dayDate(tz, from)}` : "así"} no llegás al mínimo: faltarían ${hours(status.minDeficit)}. Se guarda igual y la Bandeja te da opciones.`
+    const lacking = shortfall(next, refreshPlan(next, now).result).get(trial.id);
+    return lacking
+      ? `Empezando ${from !== undefined ? `el ${dayDate(tz, from)}` : "así"} no llegás al mínimo: faltarían ${hours(lacking)}. Se guarda igual y la Bandeja te da opciones.`
       : null;
   }, [
     kind,

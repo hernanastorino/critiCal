@@ -153,7 +153,8 @@ describe("the Bandeja's count", () => {
     const [count, options, recs] = (screen.getByTestId("count").textContent ?? "")
       .split("/")
       .map(Number) as [number, number, number];
-    expect(options).toBeGreaterThan(1);
+    // Only what helps is offered: free time does not give a 24 h session room.
+    expect(options).toBeGreaterThan(0);
     expect(count).toBe(
       1 + recs + routineShortfalls(d, NOW, refreshPlan(d, NOW).result.blocks).length,
     );

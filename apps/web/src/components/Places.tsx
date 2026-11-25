@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
-import { useDraft } from "../drafts.js";
+import { dropDrafts, useDraft } from "../drafts.js";
 import { dayDate } from "../format.js";
 import {
   ADDRESS_MAX,
@@ -167,6 +167,7 @@ export function Places() {
                 (t) => t.from === p.id || t.to === p.id,
               );
               dispatch({ type: "deletePlace", placeId: p.id });
+              dropDrafts(`place:${p.id}`);
               setEditing(null);
               toast.show(`${short(label(p.name))} borrado`, {
                 undo: () => {

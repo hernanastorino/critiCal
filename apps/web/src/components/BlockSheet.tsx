@@ -3,7 +3,8 @@ import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { skipLoss } from "../friendly.js";
 import type { CheckIn } from "../model.js";
-import { isPinned, progress, standingCheckIns } from "../planning.js";
+import { needOf } from "../need.js";
+import { isPinned, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { Marks } from "./icons.js";
@@ -186,7 +187,7 @@ export function CheckInForm({
   // The newest answer stands: a correction is a later check-in of the same block.
   const answered = standingCheckIns(data).find((c) => c.blockId === block.id);
   const [correcting, setCorrecting] = useState(false);
-  const p = progress(data, now).find((x) => x.task.id === block.taskId);
+  const p = needOf(data, now, block.taskId);
   const length = (block.end - block.start) / MINUTE;
   const [partial, setPartial] = useState(false);
   const [percent, setPercent] = useState(50);
@@ -231,7 +232,7 @@ export function CheckInForm({
       )}
       {p && !hoursOnly && (
         <p className="meta">
-          Faltan <b>{hours(p.remainingMinutes)}</b> (mínimo {hours(p.minRemainingMinutes)}).{" "}
+          Faltan <b>{hours(p.left)}</b> (mínimo {hours(p.minimum)}).{" "}
           {block.level === "critical" && (
             <span className="tag critical">Crítico: si lo salteás no llegás al mínimo</span>
           )}

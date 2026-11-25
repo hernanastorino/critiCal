@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
+import { dropEditorDraftOf } from "../drafts.js";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
+import { needOf } from "../need.js";
 import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
 import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
@@ -145,6 +147,7 @@ export function TaskDetail({
   const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
   const p = progress(data, now).find((x) => x.task.id === task.id);
+  const need = needOf(data, now, task.id);
   // A weekly one speaks of the week the plan works on: this one, or the next once planned.
   const weekAt = focusWeekAt(data, now);
   const weekly =
@@ -189,6 +192,8 @@ export function TaskDetail({
         },
       );
       setAsk(null);
+      // What was being edited of it goes too (a draft kept for a reload).
+      dropEditorDraftOf(task.id);
       onClose();
       // The row that opened this is gone: focus goes where the caller says.
       requestAnimationFrame(() => {
@@ -273,8 +278,7 @@ export function TaskDetail({
           {task.title}
         </h2>
         <p className="meta">
-          {weeklyLabel ??
-            (p && `Faltan ${hours(p.remainingMinutes)} (mínimo ${hours(p.minRemainingMinutes)})`)}
+          {weeklyLabel ?? (need && `Faltan ${hours(need.left)} (mínimo ${hours(need.minimum)})`)}
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
