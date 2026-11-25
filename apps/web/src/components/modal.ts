@@ -115,6 +115,14 @@ if (typeof document !== "undefined") {
   );
 }
 
+/** Whether the click fell on the button's box. */
+function pressesUndo(e: MouseEvent, btn: HTMLElement): boolean {
+  const r = btn.getBoundingClientRect();
+  const inside =
+    e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
+  return r.width > 0 && inside;
+}
+
 /**
  * The header's ↶ sits under an open sheet or popover (inert, behind its backdrop): a tap
  * on it lands on the backdrop. It undoes the last change as well as closing the sheet.
@@ -123,11 +131,7 @@ function undoUnderBackdrop(e: MouseEvent) {
   const t = e.target;
   if (e.defaultPrevented || !(t instanceof Element) || !t.classList.contains("scrim")) return;
   const btn = document.querySelector<HTMLButtonElement>("button[data-header-undo]");
-  if (!btn || btn.disabled) return;
-  const r = btn.getBoundingClientRect();
-  const inside =
-    e.clientX >= r.left && e.clientX <= r.right && e.clientY >= r.top && e.clientY <= r.bottom;
-  if (r.width > 0 && inside) btn.click();
+  if (btn && !btn.disabled && pressesUndo(e, btn)) btn.click();
 }
 
 if (typeof document !== "undefined") document.addEventListener("click", undoUnderBackdrop, true);
