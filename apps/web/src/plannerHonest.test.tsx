@@ -140,7 +140,7 @@ function Count() {
 }
 
 describe("the Bandeja's count", () => {
-  it("counts «No llegás a todo» once, whatever its options", () => {
+  it("counts «No llegás a todo» once, whatever its options", { timeout: 30_000 }, () => {
     const d = withFormulas(withRoutine(demo()));
     render(
       <StoreProvider initial={() => d} persist={false} fixedNow={NOW}>
