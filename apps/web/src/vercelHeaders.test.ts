@@ -33,17 +33,9 @@ describe("vercel.json: cabeceras de seguridad", () => {
     expect(value("X-Frame-Options")).toBe("DENY");
   });
 
-  it("la CSP prohíbe frames, plugins y <base> ajenos, sin tocar script-src ni connect-src", () => {
+  it("la CSP completa bloquea (no solo reporta), con destino de reportes y sin romper nada conocido", () => {
+    expect(value("Content-Security-Policy-Report-Only")).toBeUndefined();
     const csp = value("Content-Security-Policy") ?? "";
-    expect(csp).toContain("frame-ancestors 'none'");
-    expect(csp).toContain("object-src 'none'");
-    expect(csp).toContain("base-uri 'self'");
-    // Supabase, Sentry, Google y el service worker: lo que no se pueda probar, no se restringe.
-    expect(csp).not.toMatch(/script-src|connect-src|default-src/);
-  });
-
-  it("la CSP completa va en modo «solo reportar», con destino y sin romper nada conocido", () => {
-    const csp = value("Content-Security-Policy-Report-Only") ?? "";
     const dir = (name: string) =>
       csp
         .split(";")
@@ -60,10 +52,16 @@ describe("vercel.json: cabeceras de seguridad", () => {
       "manifest-src",
       "frame-src",
       "form-action",
+      "frame-ancestors",
+      "object-src",
+      "base-uri",
     ]) {
       expect(dir(name), name).toBeDefined();
     }
     expect(dir("default-src")).toBe("default-src 'self'");
+    expect(dir("frame-ancestors")).toBe("frame-ancestors 'none'");
+    expect(dir("object-src")).toBe("object-src 'none'");
+    expect(dir("base-uri")).toBe("base-uri 'self'");
     // Scripts sin 'unsafe-inline' ni 'unsafe-eval'; los estilos inline son los style= de React.
     expect(dir("script-src")).toBe("script-src 'self'");
     expect(dir("style-src")).toContain("'unsafe-inline'");
