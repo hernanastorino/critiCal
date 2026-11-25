@@ -73,11 +73,15 @@ describe("a routine that does not fit the week", () => {
       </ToastProvider>,
     );
     expect(screen.getByText("Gym: esta semana entra 0 de 3")).toBeTruthy();
-    const card = screen.getByText("Gym: esta semana entra 0 de 3").closest(".card");
-    if (!card) throw new Error("no card");
-    act(() => {
-      fireEvent.click(card.querySelector("button") as Element);
-    });
+    // The «Franja de rutina» card of Gym has the same button, and it opens the same routine.
+    const edit = screen.getAllByRole("button", { name: "Editar rutina" });
+    expect(edit).toHaveLength(2);
+    for (const button of edit) {
+      act(() => {
+        fireEvent.click(button);
+      });
+    }
+    expect(onRoutine).toHaveBeenCalledTimes(2);
     expect(onRoutine).toHaveBeenCalledWith("gym");
   }, 30_000);
 });
