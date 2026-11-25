@@ -151,7 +151,7 @@ if (!body) {
     t.textColor = YELLOW;
   }
 }
-widget.url = ${JSON.stringify(`${origin}/?tab=`)} + (mode === "inbox" ? "inbox" : "silos");
+widget.url = ${JSON.stringify(`${origin}/?tab=`)} + (INBOX || mode === "inbox" ? "inbox" : "silos");
 // iOS decides when to refresh; this only asks for it soon.
 widget.refreshAfterDate = new Date(Date.now() + minutes * 60 * 1000);
 Script.setWidget(widget);

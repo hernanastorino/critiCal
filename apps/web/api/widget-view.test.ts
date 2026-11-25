@@ -131,6 +131,7 @@ describe("script", () => {
     expect(script).toContain("?view=inbox");
     expect(script).toContain('"Bandeja · " + total');
     expect(script).toContain("-bandeja");
+    expect(script).toContain('INBOX || mode === "inbox"');
   });
   it("asks for fresh data soon and says when the data is old", () => {
     expect(script).toContain("refreshAfterDate");
