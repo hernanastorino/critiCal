@@ -537,6 +537,14 @@ textarea[aria-invalid="true"] {
   width: 48%;
 }
 
+/* Time kept for a trip: a faint dotted outline, not a thing to touch. */
+.pill.travel {
+  background: none;
+  outline: 1.5px dotted color-mix(in srgb, var(--ink) 45%, transparent);
+  width: 30%;
+  pointer-events: none;
+}
+
 .pill.past {
   opacity: 0.4;
 }

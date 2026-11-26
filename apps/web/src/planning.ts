@@ -594,6 +594,13 @@ export const MEAL_OVER_STUDY = "Una comida quedó encima de";
 /** The events the planner reads: visible ones, with their places and meals. */
 const plannerEvents = (data: AppData) => withMealEvents(withPlaces(data, visibleEvents(data)));
 
+/** The stretches the plan keeps for trips (before and after located events), as it reserves them. */
+export function travelIntervals(data: AppData): { start: number; end: number }[] {
+  const travel = travelOptions(data);
+  if (!travel) return [];
+  return travelBuffers(plannerEvents(data), travel).busy.filter((i) => i.end > i.start);
+}
+
 /** The day overrides the planner uses: late nights and, unless turned off, holidays. */
 function overridesFor(data: AppData, now: number, from: number, to: number) {
   const base =

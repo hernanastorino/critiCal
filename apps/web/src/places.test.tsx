@@ -290,7 +290,10 @@ describe("places", () => {
       x: { minutes: 20, key: "instituto anglo" },
       y: { minutes: 35, key: "instituto anglo" },
     });
-    expect(JSON.stringify(dropped)).not.toContain('"text":"Instituto Anglo"');
+    // The undo history keeps what the save replaced; the data itself no longer has it.
+    expect(JSON.stringify({ ...dropped, planHistory: undefined })).not.toContain(
+      '"text":"Instituto Anglo"',
+    );
     // The plan still drives there and back, and nobody asks where it is.
     const located = withPlaces(dropped, dropped.events)[0]?.location as string;
     const opts = travelOptions(dropped);

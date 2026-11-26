@@ -90,6 +90,9 @@ export function Places() {
     };
     for (const t of data.travelTimes ?? []) add(t);
     for (const t of tripPairs(data, now)) add(t);
+    // In the order of the places, whatever its time: a row never jumps while it is edited.
+    const at = (id: string) => places.findIndex((p) => p.id === id);
+    trips.sort((a, b) => at(a.from) - at(b.from) || at(a.to) - at(b.to));
   }
   /** Saves a place. There is one home only: the form never offers a second one. */
   const savePlace = (place: Place) => dispatch({ type: "savePlace", place });
@@ -282,6 +285,9 @@ export function Places() {
                     onCommit={(m) =>
                       dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
                     }
+                    onClear={() =>
+                      dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null })
+                    }
                   />
                   <button
                     type="button"
@@ -331,6 +337,7 @@ export function Places() {
                   label={`Minutos de ${placeName(from)} a ${placeName(to)}`}
                   value={minutesBetween(data, from, to)}
                   onCommit={(minutes) => dispatch({ type: "travelTime", from, to, minutes })}
+                  onClear={() => dispatch({ type: "forgetTravelTime", from, to })}
                 />
               </div>
             );
@@ -414,36 +421,99 @@ function AddTrip({
   );
 }
 
+type Problem = "bad" | "capped" | null;
+type Change = "clear" | { minutes: number } | null;
+
+/** What leaving a minutes field does: the change to make, the note to show, whether the draft is done. */
+function settleMinutes(draft: string, value: number | undefined, canClear: boolean) {
+  const none: { change: Change; problem: Problem; done: boolean } = {
+    change: null,
+    problem: null,
+    done: true,
+  };
+  if (draft.trim() === "") {
+    return canClear && value !== undefined ? { ...none, change: "clear" as const } : none;
+  }
+  // Not minutes: the field says so instead of quietly going back.
+  if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft))
+    return { ...none, problem: "bad" as Problem, done: false };
+  // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
+  const n = Math.round(Number(draft.replace(",", ".")));
+  const minutes = Math.min(1440, n);
+  return {
+    change: minutes === value ? null : { minutes },
+    problem: (n > 1440 ? "capped" : null) as Problem,
+    done: true,
+  };
+}
+
+const problemText = (problem: "bad" | "capped") =>
+  problem === "bad" ? "Minutos de 0 a 1440, solo cifras." : "El máximo es 1440 minutos (un día).";
+
+/** What the field says about itself: marked and tied to its note while there is one. */
+const minutesAttrs = (problem: Problem, errorId: string) => ({
+  "aria-invalid": problem === "bad" ? true : undefined,
+  "aria-describedby": problem ? errorId : undefined,
+  title: problem === "bad" ? "Poné minutos de 0 a 1440, solo cifras" : undefined,
+  style: { width: 72, ...(problem === "bad" ? { borderColor: "var(--critical)" } : {}) },
+});
+
+/** Makes the change a settled field asks for. */
+function applyChange(change: Change, onCommit: (minutes: number) => void, onClear?: () => void) {
+  if (change === "clear") onClear?.();
+  else if (change) onCommit(change.minutes);
+}
+
+const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === "Enter") e.currentTarget.blur();
+};
+
+/** The note under a minutes field, on a line of its own: next to it, it squeezed the row's name. */
+function MinutesNote({ problem, id }: { problem: Problem; id: string }) {
+  if (!problem) return null;
+  return (
+    <span
+      className="meta"
+      id={id}
+      role="alert"
+      style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
+    >
+      {problemText(problem)}
+    </span>
+  );
+}
+
 /**
  * Minutes field: shows the stored value until the user types; from then on their draft
  * wins, so a time computed meanwhile never replaces what is being typed, and an
- * untouched field never turns a computed time into a manual one.
+ * untouched field never turns a computed time into a manual one. Emptied, it forgets the
+ * value when the row has `onClear`; past a day it says where the limit is.
  */
 function MinutesInput({
   label,
   value,
   onCommit,
+  onClear,
 }: {
   label: string;
   value: number | undefined;
   onCommit: (minutes: number) => void;
+  onClear?: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [bad, setBad] = useState(false);
+  const [problem, setProblem] = useState<Problem>(null);
   const errorId = useId();
   const commit = () => {
     if (draft === null) return;
-    // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
-    const n = Math.min(1440, Math.round(Number(draft.replace(",", "."))));
-    if (/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft)) {
-      if (n !== value) onCommit(n);
-    } else if (draft.trim() !== "") {
-      // Not minutes: the field says so instead of quietly going back.
-      setBad(true);
-      return;
-    }
-    setBad(false);
+    const settled = settleMinutes(draft, value, !!onClear);
+    setProblem(settled.problem);
+    if (!settled.done) return;
+    applyChange(settled.change, onCommit, onClear);
     setDraft(null);
+  };
+  const typing = (text: string) => {
+    setProblem(null);
+    setDraft(text);
   };
   return (
     <>
@@ -452,31 +522,13 @@ function MinutesInput({
         type="text"
         inputMode="decimal"
         aria-label={label}
-        aria-invalid={bad ? true : undefined}
-        aria-describedby={bad ? errorId : undefined}
-        title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
-        style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
+        {...minutesAttrs(problem, errorId)}
         value={draft ?? value ?? ""}
-        onChange={(e) => {
-          setBad(false);
-          setDraft(e.target.value);
-        }}
+        onChange={(e) => typing(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
+        onKeyDown={blurOnEnter}
       />
-      {bad && (
-        <span
-          className="meta"
-          id={errorId}
-          role="alert"
-          // On a line of its own: next to the field it squeezed the row's name.
-          style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
-        >
-          Minutos de 0 a 1440, solo cifras.
-        </span>
-      )}
+      <MinutesNote problem={problem} id={errorId} />
     </>
   );
 }
@@ -566,7 +618,7 @@ function PlaceForm({
   const empty = isBlank(name);
   const { problem, blocked, field } = placeProblem({ form, taken, aliasDup, empty, tried });
   // Bus times are worked out from the addresses: without one there is nothing to compute.
-  const noAddress = travelMode === "bus" && !address.trim();
+  const noAddress = travelMode === "bus" && isBlank(address);
   const nameField = useRef<HTMLInputElement>(null);
   const addressField = useRef<HTMLInputElement>(null);
   const aliasField = useRef<HTMLInputElement>(null);
@@ -678,9 +730,9 @@ function PlaceForm({
             onSave({
               ...place,
               name: stripInvisible(name),
-              address: address.trim() || undefined,
+              address: isBlank(address) ? undefined : address.trim(),
               // A new address needs geocoding again.
-              ...(address.trim() !== (place.address ?? "")
+              ...((isBlank(address) ? "" : address.trim()) !== (place.address ?? "")
                 ? { lat: undefined, lon: undefined }
                 : {}),
               // «casa, CASA, casa» is one alias.
