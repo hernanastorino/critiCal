@@ -123,7 +123,7 @@ export function Inbox({
     return event ? [{ ...m, event }] : [];
   });
   // Tasks that fit nowhere even alone: the Bandeja names them as the cause.
-  const noFits = decisions.impossible.flatMap((id) => data.tasks.filter((t) => t.id === id));
+  const noFits = decisions.noFits.flatMap((id) => data.tasks.filter((t) => t.id === id));
   // Options that go away by themselves (the plan fits now) are said, not just dropped.
   const optionCount = decisions.options.length;
   const hadOptions = useRef(optionCount);

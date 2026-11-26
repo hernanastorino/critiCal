@@ -1012,8 +1012,13 @@ export function routineShortfalls(
     if (activity?.kind !== "rutina" || task.kind !== "habit" || minutes <= 0) return [];
     if (!isRunning(task, now)) return [];
     const wanted = sessionsThisWeek(task, tz, now);
-    // What the grid shows: the sessions already done this week and the blocks still planned.
-    const done = Math.floor(doneMinutes(data, task.id, monday) / minutes);
+    // The whole week as the grid shows it: sessions done, past blocks not yet answered
+    // (planned and over) and the blocks still planned.
+    const checked = Math.floor(doneMinutes(data, task.id, monday) / minutes);
+    const over = pendingConfirmations(data, now).filter(
+      (b) => b.taskId === task.id && b.start >= monday && b.start < end,
+    ).length;
+    const done = checked + over;
     const planned = blocks.filter(
       (b) => b.taskId === task.id && b.end > now && b.start < end,
     ).length;
@@ -1253,6 +1258,8 @@ export interface Decisions {
   recommendations: Recommendation[];
   /** Tasks whose minimum does not fit even alone: the cause no cut elsewhere fixes. */
   impossible: string[];
+  /** Of those, the ones no offered option fits: the Bandeja names only these as the cause. */
+  readonly noFits: string[];
 }
 
 /**
@@ -1357,6 +1364,7 @@ export function decisions(
       hasOptions: offered.length > 0,
       recommendations: recommendations(input, result),
       impossible,
+      noFits: impossible,
     };
   }
   // Each is the plan it really gives: one that reaches no minimum the plan did not is no way
@@ -1365,7 +1373,8 @@ export function decisions(
   const taken = takenOptions(from.data, from.now);
   const tried = offered.filter((o) => !opposed(o, taken)).map((o) => simulated(from, input, o));
   const helps = (o: PlanOption) =>
-    keepsItsPromise(input, result, o) && (result.feasible || improves(result, o.result));
+    keepsItsPromise(input, result, o) &&
+    (result.feasible || (improves(result, o.result) && cutsItsOwn(impossible, o)));
   let kept: PlanOption[] | undefined;
   return {
     get options() {
@@ -1377,7 +1386,34 @@ export function decisions(
     },
     recommendations: recommendations(input, result),
     impossible,
+    get noFits() {
+      const offered = this.options;
+      return impossible.filter((id) => !offered.some((o) => reaches(o, id)));
+    },
   };
+}
+
+/** Whether the plan an option gives meets the minimum of a task (it is not short in it). */
+function reaches(option: PlanOption, taskId: string): boolean {
+  if (option.kind === "drop") return false;
+  const s = option.result.status.find((x) => x.taskId === taskId);
+  return s !== undefined && s.minDeficit === 0;
+}
+
+/**
+ * An option about a task that fits nowhere (a smaller version, an earlier start) is only
+ * a way out if the task then fits: otherwise its card would promise «llegás a todo menos»
+ * that very task. Same for the rest: what only leaves a task short is no way out.
+ */
+function cutsItsOwn(impossible: readonly string[], option: PlanOption): boolean {
+  if (
+    option.kind === "drop" ||
+    option.kind === "start-earlier" ||
+    !option.taskId ||
+    !impossible.includes(option.taskId)
+  )
+    return true;
+  return reaches(option, option.taskId);
 }
 
 /** Whether an option reaches every minimum but those of tasks that fit nowhere anyway. */
