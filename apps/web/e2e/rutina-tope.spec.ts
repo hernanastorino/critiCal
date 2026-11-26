@@ -8,16 +8,13 @@ test("una rutina no acepta más minutos que los que le faltan esta semana", asyn
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Rutinas");
   await sheet(page).getByRole("button", { name: /^Gym/ }).first().click();
-  const faltan = sheet(page).getByText(/Esta semana: faltan/);
-  const texto = (await faltan.textContent()) ?? "";
-  const dato = texto.split("faltan ").at(1) ?? "";
-  const [horas = "", resto = ""] = dato.includes("h") ? dato.split("h") : ["0", dato];
-  const tope = Number(horas) * 60 + (Number.parseInt(resto, 10) || 0);
-  expect(tope).toBeGreaterThan(0);
-
+  // El tope sale del aviso del campo: la hoja ya no dice «faltan» en minutos.
   const campo = sheet(page).getByLabel("Le dediqué (minutos)");
   await campo.fill("1440");
   await expect(campo).toHaveAttribute("aria-invalid", "true");
+  const aviso = (await sheet(page).getByRole("alert").textContent()) ?? "";
+  const tope = Number.parseInt(aviso.match(/de 0 a (\d+)/)?.at(1) ?? "", 10);
+  expect(tope).toBeGreaterThan(0);
   await expect(sheet(page).getByRole("alert")).toHaveText(
     `Poné minutos de 0 a ${tope}, solo cifras.`,
   );
