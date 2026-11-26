@@ -13,7 +13,7 @@ export function detectedProblem(
   estimate: string,
   min: string,
 ): { field: "estimate" | "min"; text: string } | null {
-  const own = hoursProblem(estimate);
+  const own = hoursProblem(estimate, true);
   if (own) return { field: "estimate", text: own };
   if (isZeroHours(estimate)) {
     return { field: "estimate", text: "Las horas no pueden ser 0: poné cuánto planificar." };
@@ -62,16 +62,20 @@ export const isZeroHours = (v: string): boolean => {
   return Number.isFinite(n) && Math.round(n * 60) === 0;
 };
 
-/** What is wrong with hours typed in a field, if anything. */
-export function hoursProblem(v: string): string | null {
+/** Minutes as hours in a field, the way the app writes them: «4», «11,5». */
+export const hoursField = (minutes: number): string => String(minutes / 60).replace(".", ",");
+
+/** What is wrong with hours typed in a field, if anything (`positive`: 0 is not accepted). */
+export function hoursProblem(v: string, positive = false): string | null {
   const n = typedHours(v);
   if (Number.isFinite(n) && n <= MAX_HOURS) return null;
-  return `Poné horas de 0 a ${MAX_HOURS}, solo cifras (1,5 sirve; negativos no).`;
+  const from = positive ? "más de 0" : "0";
+  return `Poné horas de ${from} a ${MAX_HOURS}, solo cifras (1,5 sirve; negativos no).`;
 }
 
 /** What is wrong with a delivery's estimate: not a figure, too long, or nothing to do (0 h, no parts). */
 export function estimateProblem(v: string, partsMinutes: number): string | null {
-  const own = hoursProblem(v) ?? partsProblem(v, partsMinutes);
+  const own = hoursProblem(v, partsMinutes === 0) ?? partsProblem(v, partsMinutes);
   if (own) return own;
   return isZeroHours(v) && partsMinutes === 0
     ? "Las horas estimadas no pueden ser 0: poné cuánto pensás que lleva."

@@ -167,6 +167,11 @@ textarea {
   width: 100%;
 }
 
+/* Hours the app proposes from the earlier ones: softer until the user types their own. */
+input.suggested {
+  color: var(--ink-soft);
+}
+
 /* A field the app refused is marked in red, like its message. */
 input[aria-invalid="true"],
 select[aria-invalid="true"],

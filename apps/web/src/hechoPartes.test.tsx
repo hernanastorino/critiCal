@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
+import { ANSWER_GUARD_MS } from "./components/Inbox.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import { seedHistory } from "./store.js";
@@ -8,10 +9,17 @@ import { seedHistory } from "./store.js";
 const MONDAY = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 
 beforeEach(() => {
+  vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
   localStorage.clear();
   localStorage.setItem("critical.mode", "demo");
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
+
+/** Past the guard against the second tap of a double tap. */
+const pasoElToque = () => vi.setSystemTime(Date.now() + ANSWER_GUARD_MS + 1);
 
 const open = () => {
   render(
@@ -49,6 +57,7 @@ describe("«Hecho» pregunta las partes (SPEC §3)", () => {
     expect(hechos().length).toBe(total - 1);
     expect(screen.queryByText("Anotado como hecho.")).toBeNull();
     expect(partes().length).toBeGreaterThan(1);
+    pasoElToque();
     tocar(partes().at(0));
     expect(partes().at(0)?.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Anotar hecho" }));
@@ -59,17 +68,15 @@ describe("«Hecho» pregunta las partes (SPEC §3)", () => {
     expect(faltan()).toEqual(antes);
   });
 
-  it("sin elegir ninguna: cuenta como tiempo, «faltan» no cambia y Deshacer vuelve", () => {
+  it("sin elegir ninguna, «Anotar hecho» no se puede tocar", () => {
     open();
-    const antes = faltan();
     const total = hechos().length;
     tocar(hechos().at(0));
-    fireEvent.click(screen.getByRole("button", { name: "Anotar hecho" }));
-    expect(screen.getByText("Anotado como hecho.")).toBeTruthy();
+    const anotar = screen.getByRole("button", { name: "Anotar hecho" });
+    expect(anotar.hasAttribute("disabled")).toBe(true);
+    fireEvent.click(anotar);
+    expect(screen.queryByText("Anotado como hecho.")).toBeNull();
     expect(hechos().length).toBe(total - 1);
-    expect(faltan()).toEqual(antes);
-    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
-    expect(hechos().length).toBe(total);
   });
 
   it("«Volver» deja la tarjeta como estaba, sin anotar nada", () => {

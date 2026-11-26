@@ -27,6 +27,7 @@ test.describe("Bandeja: «Hecho» pregunta las partes", () => {
     const antes = await faltan(page);
     await conPartes(page).first().click();
     await expect(anotar(page)).toBeVisible();
+    await page.waitForTimeout(700);
     await page.locator(".chip").first().click();
     await anotar(page).click();
     await expect(toast(page)).toContainText("Anotado como hecho.");
@@ -36,15 +37,8 @@ test.describe("Bandeja: «Hecho» pregunta las partes", () => {
     expect(await faltan(page)).toEqual(antes);
   });
 
-  test("sin elegir queda como tiempo y «faltan» no cambia; Deshacer lo devuelve", async ({
-    page,
-  }) => {
-    const antes = await faltan(page);
+  test("sin elegir una parte, «Anotar hecho» no se puede tocar", async ({ page }) => {
     await conPartes(page).first().click();
-    await anotar(page).click();
-    await expect(toast(page)).toContainText("Anotado como hecho.");
-    expect(await faltan(page)).toEqual(antes);
-    await undo(page);
-    await expect(hechos(page)).toHaveCount(2);
+    await expect(anotar(page)).toBeDisabled();
   });
 });

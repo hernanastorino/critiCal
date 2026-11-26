@@ -141,6 +141,8 @@ function orderProblems(meals: PlacedMeal[], form: WeekFormValues): WeekProblem[]
   return meals.flatMap((m, i) => {
     const before = meals[i - 1];
     if (!before || at(m) >= at(before)) return [];
+    // The earlier meal is the one wrong (before waking up: «cae cuando estás dormido»).
+    if (before.start < wake && m.start >= wake) return [];
     return [
       {
         message: `${m.field} (${minutesToHhmm(m.start)}) no puede ir antes que ${before.field.toLowerCase()} (${minutesToHhmm(before.start)}): las comidas van en orden, de desayuno a cena.`,

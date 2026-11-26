@@ -240,6 +240,8 @@ export function TaskEditor({
           isExam,
           activityId === "new" || !activityId ? undefined : activityId,
         );
+  // Hours the form proposes (from the earlier ones) and the user has not touched yet.
+  const suggested = !!learned && !hoursTouched.current;
   const learnedKey = learned ? `${learned.estimateMinutes}/${learned.minMinutes}` : "fixed";
   // Changing the materia or «Es un parcial» re-proposes the hours, until they are typed.
   // With both hours erased there is nothing of theirs to keep: it proposes again.
@@ -787,6 +789,7 @@ export function TaskEditor({
                   id={estimateId}
                   inputMode="decimal"
                   value={estimate}
+                  className={suggested ? "suggested" : undefined}
                   aria-invalid={estimateShown ? true : undefined}
                   aria-describedby={estimateShown ? "estimate-error" : undefined}
                   onChange={(e) => setEstimate(e.target.value)}
@@ -798,13 +801,14 @@ export function TaskEditor({
                   id={minimumId}
                   inputMode="decimal"
                   value={minimum}
+                  className={suggested ? "suggested" : undefined}
                   aria-invalid={minimumShown ? true : undefined}
                   aria-describedby={minimumShown ? "minimum-error" : undefined}
                   onChange={(e) => setMinimum(e.target.value)}
                 />
               </label>
             </div>
-            {learned && !hoursTouched.current && (
+            {suggested && learned && (
               <p className="meta" style={{ margin: 0 }}>
                 {learnedNote(learned, isExam)}
               </p>
