@@ -71,10 +71,10 @@ describe("loadFresh", () => {
     const broken = new Proxy(client as object, {
       get(target, prop) {
         if (prop !== "from") return Reflect.get(target, prop);
-        const from = Reflect.get(target, "from") as (...args: unknown[]) => unknown;
+        const from = Reflect.get(target, "from") as CallableFunction;
         return (...args: unknown[]) => {
           if (args.at(0) === "deleted_rows") throw new Error("relation does not exist");
-          return from(...args);
+          return Reflect.apply(from, target, args);
         };
       },
     }) as never;
