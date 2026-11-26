@@ -15,7 +15,7 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
-### Traspaso (2026-11-26, ~12:45Z) — leer primero
+### Traspaso (2026-11-26, ~12:45Z)
 
 - **Estado**: `main` = producción = #302 (Deploy verde). No hay PRs abiertos ni hijas vivas. Better Stack limpio. Todo lo de 25/26 está en §6.
 - **Próximo**: 38.ª vuelta del atacante (van #284–#304 desde la 37.ª). Altas/Medias → hija con PR y tests; Bajas → §5.3. Si el usuario no está y la app no deja abrir hijas, la madre arregla Altas/Medias ella misma.
@@ -137,9 +137,9 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                                                                                                                                                                                                                                                                          | Qué falta                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| Ciclo del agente atacante sobre `main` | Última: 38.ª (2026-11-26, `main` con #284–#305): **2 Altas** (Reacomodar hoy con hora de acostarse ya pasada; «Gym no entra aunque no hubiera nada más» falso) y Medias (ver §5.3). **Freno**: «rutina/Gym no entra» falla por **3.ª vez** (36.ª, 37.ª → #300, 38.ª): el usuario decidió la regla (§1.1) → hija `gym-que-entra` | Hijas `gym-que-entra`, `hoy-y-fechas` y `lugares-traslados` con las otras Altas/Medias. Bajas en §5.3. |
+| Qué                                    | Estado                                                                                                                                                                                                                                   | Qué falta                                              |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| Ciclo del agente atacante sobre `main` | Última: 38.ª (2026-11-26): 2 Altas y Medias arregladas en #307 (Hoy y fechas), #309 (Lugares y traslados) y #308 (un solo cálculo de qué rutina entra, regla del usuario en §1.1), en producción. Freno por Gym resuelto con el rediseño | 39.ª vuelta (van #306–#309). Bajas de la 38.ª en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
@@ -294,6 +294,8 @@ Probado por Claude en producción (Demo de pruebas, 375×812, 2026-11-23, antes 
 ## 6. Mergeado, falta confirmar la validación en producción
 
 Borrar cada uno cuando se confirme (atacante limpio + prueba en prod + Sentry sin issues nuevos).
+
+- **Arreglos de la 38.ª** (#307, #309, #308), mergeados y desplegados el 2026-11-26 (Deploy verde los tres). **Probado por Claude en producción** (Demo de pruebas, 375×812): «Me acuesto» 09:30 a las 12:55 marca «Ya pasaron las 09:30.» en el campo (#307); «Minutos en auto» con 99999 avisa «El máximo es 1440 minutos (un día).», la fila no salta, aparece ↶ y vaciar el campo lo borra; la Semana dibuja los traslados punteados (#309); Gym dice «Esta semana entra 1 de 3» igual en la Bandeja y en Ajustes › Rutinas, sin «aunque no hubiera nada más» (#308). Consola sin errores. Better Stack: «critiCal» sin datos recientes (solo los 2 viejos sin resolver).
 
 - **Tanda del 2026-11-25/26** (#284–#301, salvo #288/#297 de docs), en producción. **Probado por Claude en producción** (Demo de pruebas, 375×812): CSP que bloquea sin violaciones en consola (#285); ↶ con la hoja de Ajustes abierta devuelve un lugar borrado con «Deshecho: borrar …» (#286); «Gym: esta semana entra N de 3» con «Editar rutina» (#284); barra opaca en oscuro (#279); «hecho / planificado» en Silos (#296). **Confirmado por el usuario** en su iPhone y cuenta: zoom bloqueado (dos dedos y teclado), importar respaldo sin duplicar, script del widget pegado. Carga progresiva (#295) y recarga incremental con migración (#299) cubiertas por E2E «connected», pgTAP y `staging-e2e`. Better Stack sin errores nuevos (solo `otp_expired` viejo y el CSP de prueba). **Abierto**: título «no entra» y contador de Gym que no cuadran con la fecha real → #302; test de rendimiento inestable → `claude/rendimiento-estable`.
 
