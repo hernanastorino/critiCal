@@ -15,7 +15,7 @@ export async function loadFresh(
   base: AppData,
   since: number | null,
 ): Promise<{ data: AppData; at: number | null; whole: boolean }> {
-  const at = await serverNow(client).catch((e) => {
+  const at = await serverNow(client).catch((e: unknown) => {
     if (isOffline(e)) throw e;
     return null;
   });

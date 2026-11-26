@@ -68,13 +68,16 @@ describe("loadFresh", () => {
   it("loads everything, and says so, when the changes cannot be read", async () => {
     const { client, requests } = server();
     // The changes ask for tombstones: a server that refuses that table.
-    const broken = {
-      ...(client as unknown as { from: (t: string) => unknown; rpc: unknown; auth: unknown }),
-      from: (t: string) => {
-        if (t === "deleted_rows") throw new Error("relation does not exist");
-        return (client as unknown as { from: (t: string) => unknown }).from(t);
+    const broken = new Proxy(client as object, {
+      get(target, prop) {
+        if (prop !== "from") return Reflect.get(target, prop);
+        const from = Reflect.get(target, "from") as (...args: unknown[]) => unknown;
+        return (...args: unknown[]) => {
+          if (args.at(0) === "deleted_rows") throw new Error("relation does not exist");
+          return from(...args);
+        };
       },
-    } as never;
+    }) as never;
     const r = await loadFresh(broken, base, NOW - 60_000);
     expect(r.whole).toBe(true);
     expect(requests.length).toBeGreaterThan(0);
