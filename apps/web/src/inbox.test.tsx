@@ -14,6 +14,7 @@ import {
   pinClashes,
   pinShortfall,
   refreshPlan,
+  routineShortfalls,
 } from "./planning.js";
 import { loadDemo } from "./store.js";
 
@@ -51,6 +52,7 @@ describe("what enters the Bandeja", () => {
         unlocated: unlocated(data, visibleEvents(data), NOW),
         pinShort: pinShortfall(data, NOW, asked.result),
         clashes: pinClashes(data, NOW, asked.input),
+        routineShort: routineShortfalls(data, NOW, asked.result.blocks),
         missedMeals: missedMeals(data, NOW),
         asked: {
           choose: decisions(asked.input, asked.result, { data, now: NOW }).options.length > 0,

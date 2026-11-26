@@ -976,6 +976,50 @@ export function pinShortfall(
   return { pins, short };
 }
 
+/** A routine whose week has no room for all its sessions: `placed` of `wanted` go in. */
+export interface RoutineShort {
+  activityId: string;
+  name: string;
+  placed: number;
+  wanted: number;
+}
+
+/**
+ * Routines that do not fit whole in the week under way (SPEC §18 punto 13): what the plan
+ * really placed for the rest of the week, against the sessions it still asks. Paused and
+ * skipped ones are not running, so they never show.
+ */
+export function routineShortfalls(
+  data: AppData,
+  now: number,
+  blocks: readonly PlanBlock[],
+): RoutineShort[] {
+  const tz = data.settings.timezone;
+  const monday = zonedInstant(tz, weekStart(tz, now), 0);
+  const end = endOfWeek(tz, now);
+  return data.tasks.flatMap((task) => {
+    const activity = data.activities.find((a) => a.id === task.activityId);
+    const minutes = task.sessionMinutes ?? 0;
+    if (activity?.kind !== "rutina" || task.kind !== "habit" || minutes <= 0) return [];
+    if (!isRunning(task, now)) return [];
+    const wanted = sessionsThisWeek(task, tz, now);
+    const left = wanted * minutes - doneMinutes(data, task.id, monday);
+    const planned = blocks
+      .filter((b) => b.taskId === task.id && b.end > now && b.start < end)
+      .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
+    const missing = Math.ceil((left - planned) / minutes);
+    if (missing <= 0) return [];
+    return [
+      {
+        activityId: activity.id,
+        name: activity.name,
+        placed: Math.max(0, wanted - missing),
+        wanted,
+      },
+    ];
+  });
+}
+
 /**
  * The routines of the week after this one (SPEC §5.8): the plan always has this week and
  * the whole next one, Monday to Sunday, whatever the day. A routine is not left to what
@@ -1040,9 +1084,11 @@ function withMissing(result: ScheduleResult, missing: Map<string, number>): Sche
 }
 
 /**
- * A routine that fell behind in the week under way plans only the sessions that fit in
- * what is left of it: one that would only fit as a critical block (at odd hours, late)
- * is not done, and is not reported as missing either. The next week asks for all.
+ * A routine that fell behind in the week under way plans the sessions that fit in what is
+ * left of it; one that would only fit in the free-time hours of its day (late, after
+ * «freeFrom») is not done. What does not fit is not reported as missing: the Bandeja says
+ * how many fit (SPEC §18 punto 13). Its sessions are never red: a routine is not a
+ * deadline. The next week asks for all.
  */
 function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
   const late = new Set(
@@ -1054,12 +1100,20 @@ function lateRoutines(data: AppData, result: ScheduleResult): ScheduleResult {
       )
       .map((t) => t.id),
   );
-  const dropped = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const tz = data.settings.timezone;
+  const inFreeTime = (b: PlanBlock) => {
+    const at = localParts(tz, b.start);
+    return at.minuteOfDay >= (data.settings.week[at.weekday]?.freeFrom ?? 24 * 60);
+  };
+  const critical = result.blocks.filter((b) => late.has(b.taskId) && b.level === "critical");
+  const dropped = critical.filter(inFreeTime);
   const short = result.status.some((s) => late.has(s.taskId) && s.minDeficit > 0);
-  if (dropped.length === 0 && !short) return result;
+  if (critical.length === 0 && !short) return result;
   return {
     ...result,
-    blocks: result.blocks.filter((b) => !dropped.includes(b)),
+    blocks: result.blocks
+      .filter((b) => !dropped.includes(b))
+      .map((b) => (critical.includes(b) ? { ...b, level: "ok" as const } : b)),
     status: result.status.map((s) =>
       late.has(s.taskId) ? { ...s, minDeficit: 0, targetDeficit: 0, level: "ok" as const } : s,
     ),

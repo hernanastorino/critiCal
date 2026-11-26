@@ -923,7 +923,9 @@ describe("undo after deleting a task", () => {
       change: "deleteAll",
       now: now + 1000,
     });
-    const back = reducer(deleted, { type: "undoPlan", now: now + 2000 });
+    // Its own entry of the deletion aside: what is under it must not bring the task's blocks back.
+    const under = { ...deleted, planHistory: deleted.planHistory?.filter((v) => !v.gone) };
+    const back = reducer(under, { type: "undoPlan", now: now + 2000 });
     expect(back.plan.some((b) => b.taskId === task)).toBe(false);
     expect((back.pins ?? []).some((b) => b.taskId === task)).toBe(false);
     expect((back.pins ?? []).some((b) => b.id === "kept-pin")).toBe(true);

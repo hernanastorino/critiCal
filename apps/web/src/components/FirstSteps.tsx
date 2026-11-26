@@ -1,9 +1,10 @@
-import { type Dispatch, useSyncExternalStore } from "react";
+import { type Dispatch, useEffect, useState, useSyncExternalStore } from "react";
 import { useSync } from "../Connected.js";
 import { isTestDemo } from "../demoPruebas.js";
 import { useStore } from "../store.js";
 import { Marks } from "./icons.js";
 import { noteClosed } from "./modal.js";
+import { Roy } from "./Roy.js";
 import type { PageId } from "./Settings.js";
 
 /**
@@ -42,6 +43,29 @@ const subscribe = (l: () => void) => {
   };
 };
 
+/** The test demo has no account: tapping «Conectar Google» there counts as connecting it. */
+const DEMO_GOOGLE_KEY = "critical.firstSteps.demoGoogle";
+const demoGoogle = () => readKey(DEMO_GOOGLE_KEY) === "1";
+
+/**
+ * Which steps are done. The plan step needs a plan with a block: the card lives on the week,
+ * so having one means the person is looking at it.
+ */
+export const firstStepsDone = (p: { google: boolean; tasks: boolean; plan: boolean }) => [
+  p.google,
+  p.tasks,
+  p.plan,
+];
+
+const STEP_TEXTS = [
+  "Conectá Google Calendar",
+  "Cargá tu primera materia o entrega",
+  "Mirá tu primer plan",
+] as const;
+
+/** How long the closing card stays when nobody taps «Cerrar». */
+const CLOSING_MS = 6000;
+
 /** «Primeros pasos» in Ajustes: the guide comes back on the week, right away. */
 export const resumeFirstSteps = (owner?: string) => {
   writeKey(owner, null);
@@ -56,7 +80,10 @@ export const resumeFirstSteps = (owner?: string) => {
 export function FirstSteps({ onSettings }: { onSettings: Dispatch<PageId> }) {
   const sync = useSync();
   // The demo has everything already; only the test demo shows the guide, to try it.
-  if (!sync) return isTestDemo() ? <FirstStepsCard google={false} onSettings={onSettings} /> : null;
+  const demoConnected = useSyncExternalStore(subscribe, demoGoogle, () => false);
+  if (!sync) {
+    return isTestDemo() ? <FirstStepsCard google={demoConnected} onSettings={onSettings} /> : null;
+  }
   return <FirstStepsCard google={!!sync.status.google?.connected} onSettings={onSettings} />;
 }
 
@@ -75,28 +102,83 @@ export function FirstStepsCard({
     () => readKey(owner),
     () => null,
   );
-  if (state) return null;
   const first = data.tasks.some((t) => t.status === "active");
+  const [google0, tasks0, plan0] = firstStepsDone({
+    google,
+    tasks: first,
+    plan: data.plan.length > 0,
+  });
+  const all = google0 && tasks0 && plan0;
+  // Finished: the closing shows once, then the guide is gone for this account for good.
+  const [closing, setClosing] = useState(false);
+  useEffect(() => {
+    if (!all || state) return;
+    setClosing(true);
+    writeKey(owner, "done");
+  }, [all, state, owner]);
+  useEffect(() => {
+    if (!closing) return;
+    const t = setTimeout(() => setClosing(false), CLOSING_MS);
+    return () => clearTimeout(t);
+  }, [closing]);
+  if (closing) {
+    return (
+      <section className="card first-steps" aria-labelledby="first-steps-title">
+        <div className="title" id="first-steps-title">
+          Primeros pasos · Listo
+        </div>
+        <Roy anim="festejo" size={72} once />
+        <div className="first-steps-bar" aria-hidden="true">
+          <div style={{ width: "100%" }} />
+        </div>
+        <ol className="first-steps-list">
+          {STEP_TEXTS.map((t) => (
+            <li key={t} className="done">
+              <Marks.done />
+              <span>
+                {t}
+                <span className="sr-only"> (hecho)</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+        <div className="row">
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => {
+              noteClosed();
+              setClosing(false);
+            }}
+          >
+            Cerrar
+          </button>
+        </div>
+      </section>
+    );
+  }
+  if (state) return null;
   const steps = [
     {
-      done: google,
-      text: "Conectá Google Calendar",
+      done: google0,
+      text: STEP_TEXTS[0],
       action: "Conectar Google",
       go: () => {
+        if (!google && isTestDemo()) writeKey(DEMO_GOOGLE_KEY, "1");
         onSettings("calendars");
       },
     },
     {
-      done: first,
-      text: "Cargá tu primera materia o entrega",
+      done: tasks0,
+      text: STEP_TEXTS[1],
       action: "Cargar materias",
       go: () => {
         onSettings("semester");
       },
     },
     {
-      done: false,
-      text: "Mirá tu primer plan",
+      done: plan0,
+      text: STEP_TEXTS[2],
       action: "Ver mi plan",
       go: () => {
         writeKey(owner, "done");

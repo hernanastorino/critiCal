@@ -1,7 +1,7 @@
 // What the Scriptable widget shows: the silos, ordered by urgency.
 
-import { hours } from "../../src/format.js";
-import { inboxRows } from "../../src/inbox.js";
+import { clipName, hours } from "../../src/format.js";
+import { type InboxRow, inboxRows } from "../../src/inbox.js";
 import type { AppData } from "../../src/model.js";
 import { focusWeekAt, progress, refreshPlan, splitPastSilos } from "../../src/planning.js";
 
@@ -62,6 +62,8 @@ export interface WidgetView {
   /** «tanks» draws a tank per row; «list» draws lines. */
   style: "tanks" | "list";
   rows: WidgetRow[];
+  /** How many things the Bandeja holds (the rows are only the first ones). */
+  total: number;
   /** What to say when there are no rows. */
   empty: string;
   /** Minutes after which the script asks again (iOS decides in the end). */
@@ -81,21 +83,35 @@ function siloRows(silos: WidgetSilo[]): WidgetRow[] {
   }));
 }
 
-function inboxViewRows(data: AppData, now: number): WidgetRow[] {
-  return inboxRows(data, now).map((r) => ({
-    title: r.title,
+/** The most Bandeja rows the widget ever draws (its largest size). */
+export const WIDGET_INBOX_MAX = 7;
+
+function inboxViewRows(all: InboxRow[]): WidgetRow[] {
+  return all.slice(0, WIDGET_INBOX_MAX).map((r) => ({
+    title: clipName(r.title),
     detail: r.detail,
     color: r.color ?? "#888888",
     level: "ok" as const,
   }));
 }
 
-export function widgetView(data: AppData, now: number, silos = widgetSilos(data, now)): WidgetView {
-  const inSilos = silos.length > 0;
+/**
+ * What the widget draws. The silos while there are some, otherwise the Bandeja; with
+ * `inboxOnly` (the Bandeja widget) always the Bandeja, with the same rows and count as the tab.
+ */
+export function widgetView(
+  data: AppData,
+  now: number,
+  silos = widgetSilos(data, now),
+  inboxOnly = false,
+): WidgetView {
+  const inSilos = silos.length > 0 && !inboxOnly;
+  const inbox = inSilos ? [] : inboxRows(data, now);
   return {
     mode: inSilos ? "silos" : "inbox",
     style: inSilos ? "tanks" : "list",
-    rows: inSilos ? siloRows(silos) : inboxViewRows(data, now),
+    rows: inSilos ? siloRows(silos) : inboxViewRows(inbox),
+    total: inSilos ? silos.length : inbox.length,
     empty: WIDGET_EMPTY,
     refreshMinutes: WIDGET_REFRESH_MINUTES,
   };

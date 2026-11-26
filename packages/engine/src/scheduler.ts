@@ -57,6 +57,8 @@ const W = {
 };
 
 interface Prepared {
+  /** Position in the sorted list: the key of its eligibility masks. */
+  index: number;
   task: Task;
   activity: Activity;
   /** Minimum minutes still to place. */
@@ -191,6 +193,7 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     const target = Math.max(min, task.remainingMinutes - frozenMinutes);
     const chunkMinutes = task.sessionMinutes ?? activity.minBlockMinutes;
     prepared.push({
+      index: 0,
       task,
       activity,
       min,
@@ -200,16 +203,56 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     });
   }
   prepared.sort((a, b) => a.task.deadline - b.task.deadline || b.task.priority - a.task.priority);
+  prepared.forEach((p, i) => {
+    p.index = i;
+  });
 
-  const eligible = (p: Prepared, slot: Slot, strict: boolean): boolean =>
+  const eligibleSlot = (p: Prepared, slot: Slot, strict: boolean): boolean =>
     slot.start >= Math.max(now, p.task.earliestStart ?? now) &&
     slot.end <= p.task.deadline &&
     !(p.task.avoid ?? []).some((a) => slot.start < a.end && slot.end > a.start) &&
     insideHours(p.task, slot, slotMinutes) &&
     (!slot.soft || !p.activity.academic || (!strict && !!input.allowFreeTime));
 
+  // Whether a task may use a slot depends on neither the board nor the other tasks, and
+  // it is asked for every slot of every task at every try: worked out once per task.
+  const masks: (Uint8Array | undefined)[] = [];
+  const maskOf = (p: Prepared, strict: boolean): Uint8Array => {
+    const key = p.index * 2 + (strict ? 1 : 0);
+    let mask = masks[key];
+    if (!mask) {
+      mask = Uint8Array.from(board.slots, (slot) => (eligibleSlot(p, slot, strict) ? 1 : 0));
+      masks[key] = mask;
+    }
+    return mask;
+  };
+  const eligible = (p: Prepared, i: number, strict: boolean): boolean => maskOf(p, strict)[i] === 1;
+
   const placed = new Map<string, number>(prepared.map((p) => [p.task.id, 0]));
 
+  /**
+   * Which pending tasks may use each slot does not depend on the board: kept while the
+   * same tasks are pending (it only changes when one reaches its minimum).
+   */
+  let groupKeys: { signature: string; keys: string[]; lists: Map<string, number[]> } | undefined;
+  const slotGroups = (pending: Prepared[]) => {
+    const signature = pending.map((p) => p.index).join(",");
+    if (groupKeys?.signature === signature) return groupKeys;
+    const masks = pending.map((p) => maskOf(p, false));
+    const lists = new Map<string, number[]>();
+    const keys = board.slots.map((_s, i) => {
+      const tasks: number[] = [];
+      masks.forEach((m, t) => {
+        if (m[i] === 1) tasks.push(t);
+      });
+      if (tasks.length === 0) return "";
+      const key = tasks.join(",");
+      if (!lists.has(key)) lists.set(key, tasks);
+      return key;
+    });
+    groupKeys = { signature, keys, lists };
+    return groupKeys;
+  };
   /**
    * Whether every pending minimum can still get free slots it may use, all at once:
    * an exact assignment check (max flow from tasks to groups of slots with the same
@@ -226,27 +269,30 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
       let demand = 0;
       for (const x of pending) {
         demand += x.need;
+        const mask = maskOf(x.p, false);
         let capacity = 0;
-        board.slots.forEach((s, i) => {
-          if (board.owner[i] === null && eligible(x.p, s, false)) capacity += slotMinutes;
-        });
+        for (let i = 0; i < mask.length; i++) {
+          if (mask[i] === 1 && board.owner[i] === null) capacity += slotMinutes;
+        }
         if (capacity < demand) return false;
       }
       return true;
     }
-    const groups = new Map<string, { tasks: number[]; minutes: number }>();
-    board.slots.forEach((s, i) => {
-      if (board.owner[i] !== null) return;
-      const tasks = pending.flatMap((x, t) => (eligible(x.p, s, false) ? [t] : []));
-      if (tasks.length === 0) return;
-      const key = tasks.join(",");
-      const g = groups.get(key);
-      if (g) g.minutes += slotMinutes;
-      else groups.set(key, { tasks, minutes: slotMinutes });
-    });
+    const { keys, lists } = slotGroups(pending.map((x) => x.p));
+    const minutesOf = new Map<string, number>();
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i] as string;
+      if (key !== "" && board.owner[i] === null) {
+        minutesOf.set(key, (minutesOf.get(key) ?? 0) + slotMinutes);
+      }
+    }
+    const groups = [...minutesOf].map(([key, minutes]) => ({
+      tasks: lists.get(key) as number[],
+      minutes,
+    }));
     return assignable(
       pending.map((x) => x.need),
-      [...groups.values()],
+      groups,
     );
   };
 
@@ -314,11 +360,11 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
 
   const candidates = (p: Prepared, length: number, strict: boolean, urgent: boolean) => {
     const out: { start: number; score: number }[] = [];
+    const mask = maskOf(p, strict);
     for (let i = 0; i + length <= board.slots.length; i++) {
       let ok = true;
       for (let j = i; j < i + length; j++) {
-        const slot = board.slots[j] as Slot;
-        if (board.owner[j] !== null || !eligible(p, slot, strict)) ok = false;
+        if (board.owner[j] !== null || mask[j] !== 1) ok = false;
         else if (j > i && !board.contiguous(j - 1)) ok = false;
         if (!ok) break;
       }
@@ -331,10 +377,11 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
 
   const place = (p: Prepared, goal: number, guard: boolean) => {
     // Tight tasks get pulled early; relaxed ones spread out.
+    const strictMask = maskOf(p, true);
     let free = 0;
-    board.slots.forEach((s, i) => {
-      if (board.owner[i] === null && eligible(p, s, true)) free += slotMinutes;
-    });
+    for (let i = 0; i < strictMask.length; i++) {
+      if (strictMask[i] === 1 && board.owner[i] === null) free += slotMinutes;
+    }
     const urgent = guard && free - goal < 4 * p.chunkSlots * slotMinutes;
     for (let attempt = 0; attempt < 1000; attempt++) {
       const missing = goal - (placed.get(p.task.id) ?? 0);
@@ -393,14 +440,38 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     ...impossible,
     ...prepared.filter((p) => p.task.forgiving).map((p) => p.task.id),
   ]);
-  const status = statuses(prepared, placed, board, eligible, settings, excused);
+  // Time a forgiven routine holds frozen is still free for the minimums of the others, as
+  // when it is placed: the studies go first and the routine takes what is left.
+  // Only for the tasks that could use those slots (hours, dates and days they allow).
+  const heldBlocks = frozen.filter((b) => excused.has(b.taskId));
+  const held =
+    heldBlocks.length === 0
+      ? []
+      : buildSlots(
+          settings,
+          input.overrides ?? [],
+          now,
+          input.horizonEnd,
+          busy.filter((b) => !heldBlocks.some((h) => h === b)),
+          input.events,
+        ).filter((s) => heldBlocks.some((b) => s.start >= b.start && s.end <= b.end));
+  const status = statuses(
+    prepared,
+    placed,
+    board,
+    { at: eligible, slot: eligibleSlot },
+    settings,
+    excused,
+    held,
+  );
   const statusById = new Map(status.map((s) => [s.taskId, s]));
   const slotAt = new Map(board.slots.map((s, i) => [s.start, i]));
   /** Whether `p` could take any of the block's time if it were skipped. */
   const couldUse = (p: Prepared, block: PlanBlock): boolean => {
     for (let t = block.start; t < block.end; t += slotMinutes * MINUTE) {
-      const slot = board.slots[slotAt.get(t) ?? -1];
-      if (!slot || !eligible(p, slot, false)) continue;
+      const at = slotAt.get(t) ?? -1;
+      const slot = board.slots[at];
+      if (!slot || !eligible(p, at, false)) continue;
       const perDay = p.task.maxPerDayMinutes;
       const today = board.dayTask.get(`${p.task.id}|${slot.date}`) ?? 0;
       if (perDay === undefined || today + slotMinutes <= perDay) return true;
@@ -541,9 +612,13 @@ function statuses(
   prepared: Prepared[],
   placed: Map<string, number>,
   board: Board,
-  eligible: (p: Prepared, s: Slot, strict: boolean) => boolean,
+  eligible: {
+    at: (p: Prepared, i: number, strict: boolean) => boolean;
+    slot: (p: Prepared, s: Slot, strict: boolean) => boolean;
+  },
   settings: Settings,
   impossible: ReadonlySet<string>,
+  held: readonly Slot[] = [],
 ): TaskStatus[] {
   // Slack: capacity before each deadline (free + planned slots, strict rules) minus
   // the minimums due by then, in deadline order.
@@ -552,12 +627,23 @@ function statuses(
   let demand = 0;
   let capacity = 0;
   const counted = board.slots.map(() => false);
+  const heldCounted = held.map(() => false);
   return prepared.map((p) => {
     const skip = impossible.has(p.task.id);
     if (!skip) demand += p.min;
     let own = 0;
-    board.slots.forEach((s, i) => {
-      if (!eligible(p, s, true)) return;
+    // The time a forgiven routine holds frozen is free for the minimums of the others, as
+    // when it is placed after them: counted for the tasks that could use it.
+    held.forEach((s, i) => {
+      if (!eligible.slot(p, s, true)) return;
+      own += settings.slotMinutes;
+      if (!skip && !heldCounted[i]) {
+        heldCounted[i] = true;
+        capacity += settings.slotMinutes;
+      }
+    });
+    board.slots.forEach((_s, i) => {
+      if (!eligible.at(p, i, true)) return;
       own += settings.slotMinutes;
       if (!skip && !counted[i]) {
         counted[i] = true;

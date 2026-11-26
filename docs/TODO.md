@@ -15,6 +15,15 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
+### Traspaso (2026-11-25, ~20:50Z, límite de 5 h al 90 %)
+
+- **Mergeado y en producción**: #284, #285 (CSP bloquea, sin violaciones), #287, #293. **#291** (Bajas Bandeja) mergeado: staging OK, `production` falló por el cupo de Vercel; un job en segundo plano lo relanza ~21:05Z (si no, `gh run rerun <Deploy> --failed`).
+- **Cupo de Vercel**: lleno; cada preview de hija gasta 1. Dar paso a pushes de a uno y priorizar producción.
+- **PRs abiertos** (cada hija tiene arreglos commiteados en local y espera el OK para pushear, salvo los ya pusheados): #292 motor rápido (pusheado, esperar CI; mergear primero), #286 ↶ (pusheando con main), #296 Bajas Ajustes (4 arreglos Codacy en local), #295 carga progresiva (20 arreglos Codacy en local; después: recarga incremental por `updated_at`), #290 Primeros pasos (falta preview), #289 widget Bandeja (falta preview), #294 resorte (falta CI).
+- **Hijas vivas**: deshacer-36, primeros-pasos-fin, carga-progresiva, bajas-ajustes, motor-rapido, widget-bandeja, resorte. Nada de `git stash` (es compartido entre worktrees).
+- **Confirmado por el usuario (2026-11-25)**: zoom bloqueado (dos dedos y teclado), importar respaldo sin duplicar, script del widget pegado. El ícono de critiCal queda relleno (SPEC §18), no es pendiente.
+- **Después**: TODO §6, 37.ª vuelta del atacante (sin el usuario, Altas/Medias las arregla la madre).
+
 ### Traspaso entre madres (2026-11-25, ~16:15Z, límite de 5 h al 90 %)
 
 - **Mergeado hoy y probado en producción**: #274–#280 y #283 (#281 lo cubre su E2E). Better Stack limpio en 14 días (solo `otp_expired` de un link viejo y el CSP de prueba). Al panel se entra clickeando «Errors» desde `telemetry.betterstack.com`, no navegando directo.

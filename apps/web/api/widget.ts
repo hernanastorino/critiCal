@@ -1,5 +1,5 @@
 // Vercel function (Node): the Scriptable widget's data, and its personal token.
-//   GET  with "Authorization: Bearer <widget token>" → the silos as JSON.
+//   GET  with "Authorization: Bearer <widget token>" → the silos as JSON (`?view=inbox`: the Bandeja).
 //   POST as the signed-in user {action: "create" | "revoke"} → a new token (shown once).
 import { loadData } from "../src/data.js";
 import { report } from "./_lib/report.js";
@@ -43,8 +43,10 @@ export async function read(req: Request, env: Env, now = Date.now()): Promise<Re
     caller = await actAs(env, uid as string);
     const data = await loadData(caller.user);
     // `silos` is what the first scripts read; `mode` and `rows` are what the new ones paint.
-    const silos = widgetSilos(data, now);
-    return json({ updatedAt: now, silos, ...widgetView(data, now, silos) });
+    // `?view=inbox` is the Bandeja widget: no silos, only what waits in the Bandeja.
+    const inboxOnly = new URL(req.url).searchParams.get("view") === "inbox";
+    const silos = inboxOnly ? [] : widgetSilos(data, now);
+    return json({ updatedAt: now, silos, ...widgetView(data, now, silos, inboxOnly) });
   } catch (e) {
     console.error(e);
     await report(env, e, "widget");
