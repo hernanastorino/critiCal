@@ -69,11 +69,8 @@ const openTrips = () => {
   if (!summary) throw new Error("sin pliegue");
   fireEvent.click(summary);
 };
-const field = (name: string) => {
-  const input = screen.getByLabelText(name);
-  if (!(input instanceof HTMLInputElement)) throw new Error("no es un campo");
-  return input;
-};
+const field = (name: string) => screen.getByLabelText(name);
+const shown = (name: string) => screen.getByRole("textbox", { name }).getAttribute("value");
 const type = (name: string, text: string) => {
   const input = field(name);
   fireEvent.change(input, { target: { value: text } });
@@ -85,7 +82,7 @@ describe("Minutos en auto", () => {
     inside(<Places />);
     openTrips();
     type("Minutos de Casa a Club del Cerro", "99999");
-    expect(field("Minutos de Casa a Club del Cerro").value).toBe("1440");
+    expect(shown("Minutos de Casa a Club del Cerro")).toBe("1440");
     expect(screen.getByRole("alert").textContent).toBe("El máximo es 1440 minutos (un día).");
     // Al volver a escribir el aviso se va.
     fireEvent.change(field("Minutos de Casa a Club del Cerro"), { target: { value: "30" } });
@@ -96,7 +93,7 @@ describe("Minutos en auto", () => {
     inside(<Places />);
     openTrips();
     type("Minutos de Casa a Club del Cerro", "");
-    expect(field("Minutos de Casa a Club del Cerro").value).toBe("");
+    expect(shown("Minutos de Casa a Club del Cerro")).toBe("");
     expect(latest?.travelTimes?.some((t) => t.from === "casa" && t.to === "club")).toBe(false);
     // Lo demás queda como estaba.
     expect(latest?.travelTimes).toHaveLength(3);

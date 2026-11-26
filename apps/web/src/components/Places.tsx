@@ -421,16 +421,36 @@ function AddTrip({
   );
 }
 
-/** What a minutes field holds: nothing, something that is not minutes, or whole minutes up to a day. */
-type Typed = { kind: "empty" } | { kind: "bad" } | { kind: "ok"; minutes: number; capped: boolean };
+type Problem = "bad" | "capped" | null;
+type Change = "clear" | { minutes: number } | null;
 
-function typedMinutes(draft: string): Typed {
-  if (draft.trim() === "") return { kind: "empty" };
-  if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft)) return { kind: "bad" };
+/** What leaving a minutes field does: the change to make, the note to show, whether the draft is done. */
+function settleMinutes(draft: string, value: number | undefined, canClear: boolean) {
+  const none: { change: Change; problem: Problem; done: boolean } = {
+    change: null,
+    problem: null,
+    done: true,
+  };
+  if (draft.trim() === "") {
+    return canClear && value !== undefined ? { ...none, change: "clear" as const } : none;
+  }
+  // Not minutes: the field says so instead of quietly going back.
+  if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft))
+    return { ...none, problem: "bad" as Problem, done: false };
   // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
   const n = Math.round(Number(draft.replace(",", ".")));
-  return { kind: "ok", minutes: Math.min(1440, n), capped: n > 1440 };
+  const minutes = Math.min(1440, n);
+  return {
+    change: minutes === value ? null : { minutes },
+    problem: (n > 1440 ? "capped" : null) as Problem,
+    done: true,
+  };
 }
+
+const PROBLEM_TEXT = {
+  bad: "Minutos de 0 a 1440, solo cifras.",
+  capped: "El máximo es 1440 minutos (un día).",
+};
 
 /**
  * Minutes field: shows the stored value until the user types; from then on their draft
@@ -450,21 +470,16 @@ function MinutesInput({
   onClear?: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [problem, setProblem] = useState<"bad" | "capped" | null>(null);
+  const [problem, setProblem] = useState<Problem>(null);
   const errorId = useId();
   const bad = problem === "bad";
   const commit = () => {
     if (draft === null) return;
-    const typed = typedMinutes(draft);
-    if (typed.kind === "bad") {
-      // Not minutes: the field says so instead of quietly going back.
-      setProblem("bad");
-      return;
-    }
-    if (typed.kind === "empty") {
-      if (onClear && value !== undefined) onClear();
-    } else if (typed.minutes !== value) onCommit(typed.minutes);
-    setProblem(typed.kind === "ok" && typed.capped ? "capped" : null);
+    const settled = settleMinutes(draft, value, !!onClear);
+    setProblem(settled.problem);
+    if (!settled.done) return;
+    if (settled.change === "clear") onClear?.();
+    else if (settled.change) onCommit(settled.change.minutes);
     setDraft(null);
   };
   return (
@@ -496,7 +511,7 @@ function MinutesInput({
           // On a line of its own: next to the field it squeezed the row's name.
           style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
         >
-          {bad ? "Minutos de 0 a 1440, solo cifras." : "El máximo es 1440 minutos (un día)."}
+          {PROBLEM_TEXT[problem]}
         </span>
       )}
     </>
