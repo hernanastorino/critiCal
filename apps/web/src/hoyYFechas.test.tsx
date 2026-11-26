@@ -16,7 +16,9 @@ afterEach(() => {
   cleanup();
   localStorage.removeItem(DEMO_KIND_KEY);
 });
-beforeEach(() => clearDrafts());
+beforeEach(() => {
+  clearDrafts();
+});
 
 let latest: AppData | undefined;
 function Spy() {
