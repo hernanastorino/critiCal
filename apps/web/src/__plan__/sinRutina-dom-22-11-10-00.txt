@@ -12,5 +12,5 @@
   "impossible": [
     "gym"
   ],
-  "recommendations": "3e11da55ebb7"
+  "recommendations": "97d170e1550e"
 }

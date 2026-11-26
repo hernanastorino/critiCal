@@ -20,6 +20,7 @@ import {
   time,
   weekdayShort,
 } from "../format.js";
+import { routineWeekText } from "../friendly.js";
 import { forgetImport, importToUndo } from "../importUndo.js";
 import { lanes } from "../lanes.js";
 import { deadlineMaxYear } from "../limits.js";
@@ -1602,7 +1603,7 @@ function BubbleCard({
   /** «Fijar acá» on a run: every block of it, where it is. */
   onPinRun: (run: PlanBlock[]) => void;
 }) {
-  const { data, now } = useStore();
+  const { data, now, routineWeek } = useStore();
   const tz = data.settings.timezone;
   const { item } = bubble;
   const left = Math.min(Math.max(16, bubble.x - 130), window.innerWidth - 276);
@@ -1631,6 +1632,8 @@ function BubbleCard({
   const task = data.tasks.find((t) => t.id === b.taskId);
   const activity = data.activities.find((a) => a.id === b.activityId);
   const p = progress(data, now).find((x) => x.task.id === b.taskId);
+  // A routine says what its week holds, the same as the Bandeja and Ajustes.
+  const routine = routineWeek(b.taskId, b.start);
   // A run of blocks may mix tasks of the activity: all their names, the progress of a single one.
   const titles = [
     ...new Set(
@@ -1656,7 +1659,9 @@ function BubbleCard({
         </p>
         {p && titles === task?.title && (
           <p>
-            Faltan {hours(p.remainingMinutes)} de {hours(p.totalMinutes)}
+            {routine
+              ? routineWeekText(routine)
+              : `Faltan ${hours(p.remainingMinutes)} de ${hours(p.totalMinutes)}`}
             {b.level === "critical" && (
               <>
                 {" "}

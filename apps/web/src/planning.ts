@@ -24,6 +24,7 @@ import {
   type Settings,
   type StartAfter,
   schedule,
+  scheduleAlone,
   selfShort,
   type Task,
   targetOptions,
@@ -313,6 +314,95 @@ export function sessionsThisWeek(task: AppTask, tz: string, now: number): number
   return Math.min(full, Math.ceil((full * daysLeft) / 7));
 }
 
+/**
+ * The days of the week of `weekAt` a routine can still be done: from `now` (today counts
+ * only while a whole session still fits in its valid hours) or from Monday of a later
+ * week, to Sunday. A day the routine does not go («No ese día») or whose franja is shorter
+ * than a session does not count.
+ */
+export function routineDaysLeft(data: AppData, task: AppTask, now: number, weekAt = now): number {
+  const tz = data.settings.timezone;
+  const hoursOf = data.activities.find((a) => a.id === task.activityId)?.validHours;
+  const session = task.sessionMinutes ?? 0;
+  const monday = weekStart(tz, weekAt);
+  const from = Math.max(now, zonedInstant(tz, monday, 0));
+  const end = endOfWeek(tz, weekAt);
+  const today = localParts(tz, from);
+  let count = 0;
+  for (let day = today.date; zonedInstant(tz, day, 0) < end; day = addDays(day, 1)) {
+    const own = hoursOf?.days?.[weekdayOf(day)];
+    if (own === null) continue;
+    const range = own ?? hoursOf?.all ?? { start: 0, end: 24 * 60 };
+    const isToday = day === today.date;
+    // Today a session that would only fit in the free-time hours is not done (late routines).
+    const until = isToday
+      ? Math.min(range.end, data.settings.week[today.weekday]?.freeFrom ?? 24 * 60)
+      : range.end;
+    const start = isToday ? Math.max(range.start, today.minuteOfDay) : range.start;
+    if (start + session <= until) count += 1;
+  }
+  return count;
+}
+
+/** Whether a task is a routine: a habit of an activity that is a «rutina». */
+export const isRoutine = (data: AppData, task: AppTask) =>
+  task.kind === "habit" &&
+  !task.study &&
+  data.activities.find((a) => a.id === task.activityId)?.kind === "rutina";
+
+/**
+ * What a routine can hold in the week `weekAt` is in (SPEC §5.8): the sessions already
+ * done plus the lesser of what is missing and the days it can still go, never more than
+ * one a day. Any week, not only the one it was made in.
+ */
+export function routineCapacity(data: AppData, task: AppTask, now: number, weekAt = now): number {
+  const full = task.sessionsPerWeek ?? 0;
+  if ((task.sessionMinutes ?? 0) <= 0) return full;
+  const done = Math.min(full, routineDone(data, task, now, weekAt));
+  return done + Math.min(full - done, routineDaysLeft(data, task, now, weekAt));
+}
+
+/**
+ * The sessions a routine asks of the week `weekAt` is in: all of them, but in the week it
+ * was made, only what its days left can hold (it never starts with a complaint about days
+ * that went by before it existed).
+ */
+export function routineSessions(data: AppData, task: AppTask, now: number, weekAt = now): number {
+  const tz = data.settings.timezone;
+  const made = task.createdAt;
+  const inWeek =
+    made !== undefined &&
+    made >= zonedInstant(tz, weekStart(tz, weekAt), 0) &&
+    made < endOfWeek(tz, weekAt);
+  return inWeek ? routineCapacity(data, task, now, weekAt) : (task.sessionsPerWeek ?? 0);
+}
+
+/** A routine that is running and asks sessions of some length. */
+const runsAsRoutine = (data: AppData, task: AppTask, now: number) =>
+  isRoutine(data, task) && (task.sessionMinutes ?? 0) > 0 && isRunning(task, now);
+
+/**
+ * The sessions of the week `weekAt` is in that are behind: checked ones and the past
+ * blocks not yet answered (planned and over).
+ */
+export function routineDone(data: AppData, task: AppTask, now: number, weekAt = now): number {
+  const tz = data.settings.timezone;
+  const session = task.sessionMinutes ?? 0;
+  const monday = zonedInstant(tz, weekStart(tz, weekAt), 0);
+  const end = endOfWeek(tz, weekAt);
+  const checked = session > 0 ? Math.floor(doneMinutes(data, task.id, monday) / session) : 0;
+  const over = pendingConfirmations(data, now).filter(
+    (b) => b.taskId === task.id && b.start >= monday && b.start < end,
+  ).length;
+  return checked + over;
+}
+
+/** The sessions a weekly habit asks of the week `weekAt` is in. */
+const sessionsOf = (data: AppData, task: AppTask, now: number, weekAt: number) =>
+  isRoutine(data, task)
+    ? routineSessions(data, task, now, weekAt)
+    : sessionsThisWeek(task, data.settings.timezone, weekAt);
+
 /** Monday of next week (the one the weekly planning always works on). */
 export function nextWeekStart(tz: string, now: number): string {
   return addDays(weekStart(tz, now), 7);
@@ -344,7 +434,7 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
     .filter((t) => isRunning(t, now))
     .map((task) => {
       if (task.kind === "habit") {
-        const total = sessionsThisWeek(task, tz, weekAt) * (task.sessionMinutes ?? 0);
+        const total = sessionsOf(data, task, now, weekAt) * (task.sessionMinutes ?? 0);
         const since = zonedInstant(tz, weekStart(tz, weekAt), 0);
         const left = Math.max(0, total - doneMinutes(data, task.id, since));
         return {
@@ -985,53 +1075,91 @@ export function pinShortfall(
   return { pins, short };
 }
 
-/** A routine whose week has no room for all its sessions: `placed` of `wanted` go in. */
-export interface RoutineShort {
+/** What a routine's week holds (SPEC §18 punto 13): the one count every screen reads. */
+export interface RoutineWeek {
+  taskId: string;
   activityId: string;
   name: string;
-  placed: number;
+  /** Sessions the week asks (done, plus what is missing within the days that can still hold one). */
   wanted: number;
+  /** Done (checked, or planned and already over). */
+  done: number;
+  /** Still planned from now to the end of that week. */
+  planned: number;
+  /** `done + planned`, never above `wanted`: what the week really holds. */
+  placed: number;
+  /** It is the week after the one under way, not this one. */
+  next: boolean;
+  /**
+   * Why it falls short, when it does and the plan is known: `own` it would not fit with
+   * nothing else to do (the days or its franja do not hold it), `others` the other tasks
+   * take the room.
+   */
+  reason?: "own" | "others";
+}
+
+/** A routine whose week has no room for all its sessions: `placed` of `wanted` go in. */
+export type RoutineShort = RoutineWeek;
+
+/**
+ * The count of one routine in the week `weekAt` is in: done, planned and what fits. With
+ * the plan's `input`, a short week of the current week also says whether it would fit
+ * with nothing else to do (the same «alone» plan the options use).
+ */
+export function routineWeek(
+  data: AppData,
+  now: number,
+  blocks: readonly PlanBlock[],
+  task: AppTask,
+  input?: ScheduleInput,
+  weekAt = now,
+): RoutineWeek | undefined {
+  const tz = data.settings.timezone;
+  const activity = data.activities.find((a) => a.id === task.activityId);
+  if (!activity || !runsAsRoutine(data, task, now)) return undefined;
+  const monday = zonedInstant(tz, weekStart(tz, weekAt), 0);
+  const end = endOfWeek(tz, weekAt);
+  const wanted = routineSessions(data, task, now, weekAt);
+  // The whole week as the grid shows it: sessions done, past blocks not yet answered
+  // (planned and over) and the blocks still planned.
+  const done = routineDone(data, task, now, weekAt);
+  const count = (list: readonly PlanBlock[]) =>
+    list.filter((b) => b.taskId === task.id && b.end > now && b.start >= monday && b.start < end)
+      .length;
+  const planned = count(blocks);
+  const placed = Math.min(wanted, done + planned);
+  const week: RoutineWeek = {
+    taskId: task.id,
+    activityId: activity.id,
+    name: activity.name,
+    wanted,
+    done,
+    planned,
+    placed,
+    next: monday > zonedInstant(tz, weekStart(tz, now), 0),
+  };
+  if (placed >= wanted) return week;
+  // The days (or the franja) do not hold them: it would not fit with nothing else to do.
+  if (routineCapacity(data, task, now, weekAt) < wanted) return { ...week, reason: "own" };
+  if (!input || weekAt !== now) return week;
+  const alone = count(scheduleAlone(input, task.id).blocks);
+  return { ...week, reason: done + alone < wanted ? "own" : "others" };
 }
 
 /**
- * Routines that do not fit whole in the week under way (SPEC §18 punto 13): what the plan
- * really placed for the rest of the week, against the sessions it still asks. Paused and
- * skipped ones are not running, so they never show.
+ * Routines that do not fit whole in the week under way: what the plan really placed for
+ * the rest of the week, against the sessions it asks. Paused and skipped ones are not
+ * running, so they never show.
  */
 export function routineShortfalls(
   data: AppData,
   now: number,
   blocks: readonly PlanBlock[],
+  input?: ScheduleInput,
 ): RoutineShort[] {
-  const tz = data.settings.timezone;
-  const monday = zonedInstant(tz, weekStart(tz, now), 0);
-  const end = endOfWeek(tz, now);
   return data.tasks.flatMap((task) => {
-    const activity = data.activities.find((a) => a.id === task.activityId);
-    const minutes = task.sessionMinutes ?? 0;
-    if (activity?.kind !== "rutina" || task.kind !== "habit" || minutes <= 0) return [];
-    if (!isRunning(task, now)) return [];
-    const wanted = sessionsThisWeek(task, tz, now);
-    // The whole week as the grid shows it: sessions done, past blocks not yet answered
-    // (planned and over) and the blocks still planned.
-    const checked = Math.floor(doneMinutes(data, task.id, monday) / minutes);
-    const over = pendingConfirmations(data, now).filter(
-      (b) => b.taskId === task.id && b.start >= monday && b.start < end,
-    ).length;
-    const done = checked + over;
-    const planned = blocks.filter(
-      (b) => b.taskId === task.id && b.end > now && b.start < end,
-    ).length;
-    const placed = Math.min(wanted, done + planned);
-    if (placed >= wanted) return [];
-    return [
-      {
-        activityId: activity.id,
-        name: activity.name,
-        placed,
-        wanted,
-      },
-    ];
+    const week = routineWeek(data, now, blocks, task, input);
+    return week && week.placed < week.wanted ? [week] : [];
   });
 }
 
@@ -1348,6 +1476,49 @@ function opposed(option: PlanOption, taken: ReadonlySet<string>): boolean {
   return own.some((k) => k !== option.kind && taken.has(`${k}:${option.taskId}`));
 }
 
+/**
+ * «Mezclá más materias por hoy»: what the button really does (the plan worked out again
+ * as the app does, with the rule relaxed until tonight) against the plan now. The minutes
+ * are what that plan gains, without the tasks that fit nowhere anyway (they stay short
+ * either way and would inflate it); once it is applied there is nothing left to suggest.
+ */
+function relaxRecommendations(
+  from: { data: AppData; now: number },
+  result: ScheduleResult,
+  impossible: readonly string[],
+): Recommendation[] {
+  const { data, now } = from;
+  if ((data.relaxContextUntil ?? 0) > now) return [];
+  const until = endOfDay(data.settings.timezone, now);
+  const relaxedData = { ...data, relaxContextUntil: until };
+  const plan = refreshPlan(relaxedData, now);
+  const free = (r: ScheduleResult) =>
+    r.blocks
+      .filter((b) => b.soft && !b.frozen)
+      .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
+  const lack = (r: ScheduleResult) =>
+    r.status
+      .filter((s) => !impossible.includes(s.taskId))
+      .reduce((sum, s) => sum + s.targetDeficit, 0);
+  const savedFree = Math.round(free(result) - free(plan.result));
+  const savedDeficit = Math.round(lack(result) - lack(plan.result));
+  const fixes = !result.feasible && plan.result.feasible;
+  const reasons = [
+    ...(fixes ? ["llegás a todos los mínimos"] : []),
+    ...(savedFree > 0 ? [`te ahorrás ${savedFree} min de tiempo libre`] : []),
+    ...(savedDeficit > 0 ? [`cubrís ${savedDeficit} min más`] : []),
+  ];
+  if (reasons.length === 0) return [];
+  return [
+    {
+      id: "relax-context",
+      message: `Si mezclás más materias por día, ${reasons.join(" y ")}.`,
+      input: plan.input,
+      result: plan.result,
+    },
+  ];
+}
+
 export function decisions(
   input: ScheduleInput,
   result: ScheduleResult,
@@ -1376,6 +1547,7 @@ export function decisions(
     keepsItsPromise(input, result, o) &&
     (result.feasible || (improves(result, o.result) && cutsItsOwn(impossible, o)));
   let kept: PlanOption[] | undefined;
+  let suggested: Recommendation[] | undefined;
   return {
     get options() {
       kept ??= tried.filter(helps);
@@ -1384,7 +1556,10 @@ export function decisions(
     get hasOptions() {
       return kept ? kept.length > 0 : tried.some(helps);
     },
-    recommendations: recommendations(input, result),
+    get recommendations() {
+      suggested ??= relaxRecommendations(from, result, impossible);
+      return suggested;
+    },
     impossible,
     get noFits() {
       const offered = this.options;

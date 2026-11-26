@@ -78,14 +78,17 @@ import {
   keepStartedMeals,
   latestCheckIns,
   missedMeals,
+  nextWeekStart,
   pendingConfirmations,
   pinBlock,
   pinClashes,
   pinShortfall,
   type RoutineShort,
+  type RoutineWeek,
   refreshPlan,
   routineShortfalls,
   routinesBack,
+  routineWeek,
   sleptBlockIds,
   standingCheckIns,
   weekStart,
@@ -706,7 +709,11 @@ function apply(data: AppData, action: Action): AppData {
       // The plan is not a function of the answers alone (today's blocks stay where they were
       // put): if nothing moved it since the answer, it goes back exactly as it was.
       const { plans } = action;
-      return plans && same(data.plan, plans.after) ? { ...undone, plan: plans.before } : undone;
+      // Its own entry in the undo history goes too: the answer is already back.
+      const history = data.planHistory?.filter((v) => v.checkIn !== action.id);
+      const clean =
+        history?.length === data.planHistory?.length ? undone : { ...undone, planHistory: history };
+      return plans && same(data.plan, plans.after) ? { ...clean, plan: plans.before } : clean;
     }
     case "unarchive": {
       if (!data.tasks.some((t) => t.id === action.taskId && t.status === "dropped")) return data;
@@ -1554,8 +1561,15 @@ function apply(data: AppData, action: Action): AppData {
       for (const id of keepableEvents(data, spot.key))
         if (eventTravel[id]?.key !== spot.key)
           eventTravel[id] = { minutes: spot.minutes, key: spot.key };
+      // Its text must not outlive it in the undo history either.
+      const planHistory = data.planHistory?.filter((v) => !historyHasSpot(v, spot.key));
       return refresh(
-        { ...data, eventTravel, spots: (data.spots ?? []).filter((s) => s.key !== spot.key) },
+        {
+          ...data,
+          eventTravel,
+          spots: (data.spots ?? []).filter((s) => s.key !== spot.key),
+          ...(planHistory && { planHistory }),
+        },
         now,
       );
     }
@@ -1765,6 +1779,8 @@ interface Store {
   pinShort: ReturnType<typeof pinShortfall>;
   /** Routines the week has no room for whole. */
   routineShort: RoutineShort[];
+  /** What a routine's week (the one `weekAt` is in, default this one) holds: its count. */
+  routineWeek: (taskId: string, weekAt?: number) => RoutineWeek | undefined;
   /** Upcoming pins a calendar event overlaps. */
   clashes: ReturnType<typeof pinClashes>;
   /** Meals of the coming week with no room near their time. */
@@ -1871,7 +1887,7 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
-    const routineShort = routineShortfalls(data, now, r.result.blocks);
+    const routineShort = routineShortfalls(data, now, r.result.blocks, r.input);
     const clashes = pinClashes(data, now, r.input);
     const meals = missedMeals(data, now);
     return {
@@ -1891,6 +1907,15 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       routineShort,
+      routineWeek: (taskId, weekAt = now) => {
+        const task = data.tasks.find((t) => t.id === taskId);
+        // Only the week under way and the next one are planned: a past week has no plan to count.
+        const tz = data.settings.timezone;
+        const inPlan = weekAt < endOfWeek(tz, zonedInstant(tz, nextWeekStart(tz, now), 0));
+        return task && inPlan
+          ? routineWeek(data, now, r.result.blocks, task, undefined, weekAt)
+          : undefined;
+      },
       clashes,
       missedMeals: meals,
       inboxCount: asking(
@@ -2053,11 +2078,34 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     return pushVersion(data, next, { ...planVersion(data, action.now, label), removed });
   }
   if (action.type === "recurrence" && ENDS.has(action.change)) return silo(data, action, next);
+  if (action.type === "checkIn") return answered(data, action, next);
   const label = VERSIONED[action.type];
   if (!label) return next;
   // A replan that changed nothing has nothing to undo.
   if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
   return pushVersion(data, next, planVersion(data, action.now, label));
+}
+
+/** What an answer to a block is called in «Deshacer: …» (none for a retired one). */
+function answerLabel(status: CheckIn["status"]): string | undefined {
+  if (status === "done") return "marcar Hecho";
+  if (status === "missed") return "marcar No hecho";
+  return status === "partial" ? "anotar una parte" : undefined;
+}
+
+/** An answer to a block (Hecho, No hecho, a part) leaves its own «Deshacer» in the header. */
+function answered(data: AppData, action: Extract<Action, { type: "checkIn" }>, next: AppData) {
+  const made = next.checkIns.find((c) => !data.checkIns.some((d) => d.id === c.id));
+  const label = made && answerLabel(made.status);
+  if (!made || !label) return next;
+  return pushVersion(data, next, { ...planVersion(data, action.now, label), checkIn: made.id });
+}
+
+/** Whether an undo version keeps the address `key` in its saved spots. */
+function historyHasSpot(v: PlanVersion, key: string): boolean {
+  const has = (list: unknown) =>
+    Array.isArray(list) && list.some((s: { key?: string }) => s.key === key);
+  return (v.saved ?? []).some((p) => p.part === "spots" && (has(p.before) || has(p.after)));
 }
 
 /** A part of the data that a save changes and «Deshacer» puts back (read and written by hand). */
@@ -2132,7 +2180,9 @@ function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): A
   // A deleted materia or rutina comes back with its silos; what a save changed goes back.
   const restored = v.removed
     ? apply(start, { type: "restoreActivity", removed: v.removed, now })
-    : start;
+    : v.checkIn
+      ? apply(start, { type: "undoCheckIn", id: v.checkIn, now })
+      : start;
   const back = v.saved ? putSavedBack(restored, v.saved) : restored;
   const data = v.gone ? restoreSnapshot(back, v.gone.snap, now) : back;
   // What already started stays; today's blocks ahead and the inputs come back.
@@ -2181,7 +2231,10 @@ function saveLabel(data: AppData, action: Action): string | undefined {
     case "eventTravelMinutes":
     case "tripMode":
     case "tripMinutes":
+    case "spotMinutes":
       return "ajustar un traslado";
+    case "saveSpot":
+      return "guardar un lugar";
     default:
       return undefined;
   }

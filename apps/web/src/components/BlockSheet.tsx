@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
-import { skipLoss } from "../friendly.js";
+import { routineWeekText, skipLoss } from "../friendly.js";
 import type { CheckIn } from "../model.js";
 import { needOf } from "../need.js";
 import { isPinned, standingCheckIns } from "../planning.js";
@@ -179,7 +179,7 @@ export function CheckInForm({
   /** Another block of the task just above: its hours, large, instead of the details. */
   hoursOnly?: boolean;
 }) {
-  const { data, now, dispatch } = useStore();
+  const { data, now, dispatch, routineWeek } = useStore();
   const answer = useCheckIn(onUndone);
   const tz = data.settings.timezone;
   const task = data.tasks.find((t) => t.id === block.taskId);
@@ -188,6 +188,7 @@ export function CheckInForm({
   const answered = standingCheckIns(data).find((c) => c.blockId === block.id);
   const [correcting, setCorrecting] = useState(false);
   const p = needOf(data, now, block.taskId);
+  const routine = routineWeek(block.taskId, block.start);
   const length = (block.end - block.start) / MINUTE;
   const [partial, setPartial] = useState(false);
   const [percent, setPercent] = useState(50);
@@ -232,7 +233,13 @@ export function CheckInForm({
       )}
       {p && !hoursOnly && (
         <p className="meta">
-          Faltan <b>{hours(p.left)}</b> (mínimo {hours(p.minimum)}).{" "}
+          {routine ? (
+            `${routineWeekText(routine)}. `
+          ) : (
+            <>
+              Faltan <b>{hours(p.left)}</b> (mínimo {hours(p.minimum)}).{" "}
+            </>
+          )}
           {block.level === "critical" && (
             <span className="tag critical">Crítico: si lo salteás no llegás al mínimo</span>
           )}
