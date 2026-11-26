@@ -5,8 +5,8 @@
   "feasible": false,
   "options": [
     "use-free-time:92bbcbb58f48",
-    "lower-minimum:parcial-calc:c9d52446e7b9",
-    "lower-minimum:entrega-corta:14da6a74157b",
+    "lower-minimum:parcial-calc:a4c5c544a0cb",
+    "lower-minimum:entrega-corta:3e322578d93c",
     "minimum-viable:entrega-corta:0b3224d93bff",
     "drop:parcial-calc:23d453665648",
     "drop:entrega-corta:d42e0cc76246"

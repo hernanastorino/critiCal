@@ -562,7 +562,7 @@ describe("options", () => {
         }),
       ),
     ).find((o) => o.kind === "lower-minimum");
-    expect(lower?.label).toMatch(/mínimo \d+h/);
+    expect(lower?.label).toMatch(/Bajar el mínimo de m a \d+h/);
   });
 
   it("offers settling for the minimum when only the target is short", () => {
@@ -595,7 +595,7 @@ describe("options", () => {
     const input = base({ tasks: [short("m")] });
     expect(targetOptions(input, schedule(input)).map((o) => o.label)).toEqual([
       "Quedarme con el mínimo de m",
-      "Usar tiempo libre para llegar al objetivo de m",
+      "Usar tiempo libre para m",
     ]);
     // A routine's target is its sessions: nothing to settle.
     const routine = base({ tasks: [short("r", true)] });

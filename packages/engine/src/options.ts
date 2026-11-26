@@ -226,7 +226,7 @@ function lowerOption(input: ScheduleInput, t: Task, lowered: number, deficit: nu
   return option(
     `lower-minimum:${t.id}`,
     "lower-minimum",
-    `Dedicarle menos a ${t.title} (mínimo ${duration(lowered)})`,
+    `Bajar el mínimo de ${t.title} a ${duration(lowered)}`,
     withTask(input, t.id, (x) =>
       cut(
         x,
@@ -466,25 +466,28 @@ export function targetOptions(input: ScheduleInput, result: ScheduleResult): Pla
   );
   const short = input.tasks.filter((t) => ids.has(t.id) && !t.fixedTarget);
   if (short.length === 0) return [];
-  const cutIds = new Set(short.map((t) => t.id));
-  const next = withTasks(
-    input,
-    input.tasks.map((t) =>
-      cutIds.has(t.id) ? { ...t, remainingMinutes: t.minRemainingMinutes } : t,
-    ),
-  );
-  const options = [
-    option("minimum-only", "minimum-only", `Quedarme con el mínimo de ${names(short)}`, next),
-  ];
+  // A task with no minimum has nothing to settle for: cutting it to 0 is «No hacer».
+  const cut = short.filter((t) => t.minRemainingMinutes > 0);
+  const cutIds = new Set(cut.map((t) => t.id));
+  const options: PlanOption[] = [];
+  if (cut.length > 0) {
+    const next = withTasks(
+      input,
+      input.tasks.map((t) =>
+        cutIds.has(t.id) ? { ...t, remainingMinutes: t.minRemainingMinutes } : t,
+      ),
+    );
+    options.push(
+      option("minimum-only", "minimum-only", `Quedarme con el mínimo de ${names(cut)}`, next),
+    );
+  }
   // Only materias wait for free time: routines may use it already.
   if (!input.allowFreeTime) {
     options.push(
-      option(
-        "use-free-time",
-        "use-free-time",
-        `Usar tiempo libre para llegar al objetivo de ${names(short)}`,
-        { ...input, allowFreeTime: true },
-      ),
+      option("use-free-time", "use-free-time", `Usar tiempo libre para ${names(short)}`, {
+        ...input,
+        allowFreeTime: true,
+      }),
     );
   }
   return options;
