@@ -112,6 +112,7 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 (Mascota: elegida, es Roy, ver §5.4 punto 1.)
 
+- ~~Cuántas sesiones de una rutina entran~~: respondida el 2026-11-26 (freno de la 38.ª): cada semana, mín(veces − hechas, días posibles que quedan según las reglas de la rutina), una por día como máximo; reemplaza la regla proporcional de #147. En curso: hija `gym-que-entra`.
 - ~~Borradores de formularios~~: respondida el 2026-11-22 (las dos cosas: borrador al recargar y confirmar al descartar), hecha en #213.
 - ~~Tope de «Guardar avance» en rutinas~~: respondida el 2026-11-25: tope = lo que falta de la semana (SPEC §18 punto 13). Hecho en #277.
 - ~~Lugares: «Cancelar» con cambios~~: respondida el 2026-11-25: sigue preguntando, como hoy.
@@ -136,9 +137,9 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                                                                                                                                                                                                                                                       | Qué falta                                                                                                             |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Ciclo del agente atacante sobre `main` | Última: 38.ª (2026-11-26, `main` con #284–#305): **2 Altas** (Reacomodar hoy con hora de acostarse ya pasada; «Gym no entra aunque no hubiera nada más» falso) y Medias (ver §5.3). **Freno**: «rutina/Gym no entra» falla por **3.ª vez** (36.ª, 37.ª → #300, 38.ª): avisado al usuario, espera su decisión | Decisión del usuario sobre Gym; hijas `hoy-y-fechas` y `lugares-traslados` con las otras Altas/Medias. Bajas en §5.3. |
+| Qué                                    | Estado                                                                                                                                                                                                                                                                                                                          | Qué falta                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| Ciclo del agente atacante sobre `main` | Última: 38.ª (2026-11-26, `main` con #284–#305): **2 Altas** (Reacomodar hoy con hora de acostarse ya pasada; «Gym no entra aunque no hubiera nada más» falso) y Medias (ver §5.3). **Freno**: «rutina/Gym no entra» falla por **3.ª vez** (36.ª, 37.ª → #300, 38.ª): el usuario decidió la regla (§1.1) → hija `gym-que-entra` | Hijas `gym-que-entra`, `hoy-y-fechas` y `lugares-traslados` con las otras Altas/Medias. Bajas en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
 
