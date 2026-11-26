@@ -95,7 +95,9 @@ describe("invented iCloud", () => {
     const { calendars, complete } = await discover(fetch, auth);
     expect(complete).toBe(true);
     expect(calendars).toMatchObject([{ name: "Facultad (local)", color: "#34C759" }]);
-    const docs = await fetchEvents(fetch, auth, calendars[0]!.url, NOW, NOW + 14 * 86_400_000);
+    const first = calendars.at(0);
+    if (!first) throw new Error("no hay calendario");
+    const docs = await fetchEvents(fetch, auth, first.url, NOW, NOW + 14 * 86_400_000);
     const titles = docs.flatMap((d) => parseIcs(d, "America/Montevideo").map((e) => e.summary));
     expect(titles).toEqual(["Taller Programación 2", "Entrega TP Programación 2"]);
   });
