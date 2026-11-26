@@ -2256,7 +2256,6 @@ function saveLabel(data: AppData, action: Action): string | undefined {
     case "eventTravelMinutes":
     case "tripMode":
     case "tripMinutes":
-    case "spotMinutes":
       return "ajustar un traslado";
     case "saveSpot":
       return "guardar un lugar";

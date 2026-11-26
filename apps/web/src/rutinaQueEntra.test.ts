@@ -247,7 +247,7 @@ describe("cada acción deja su ↶", () => {
     };
     const data = { ...base, events: [...base.events, event] };
     const used = reducer(data, { type: "spotMinutes", text: "Instituto Anglo", minutes: 20, now });
-    expect(used.planHistory?.at(-1)?.label).toBe("ajustar un traslado");
+    expect(used.planHistory?.at(-1)?.label).toBe("cambiar minutos de una dirección");
     const dropped = reducer(used, { type: "dropSpotAddress", key: "instituto anglo", now });
     expect(JSON.stringify(dropped.planHistory ?? [])).not.toContain("Instituto Anglo");
   });
