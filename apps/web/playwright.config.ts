@@ -14,6 +14,9 @@ export default defineConfig({
   use: {
     baseURL,
     trace: "on-first-retry",
+    // The flows measure boxes and click right away: with «reduce motion» the springs become a
+    // 150 ms fade, which moves nothing (SPEC §14). The CSS tests cover the springs themselves.
+    reducedMotion: "reduce",
     // On a Vercel preview, also hide the Vercel toolbar: on desktop it covers the sheet's close button.
     extraHTTPHeaders: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
       ? {

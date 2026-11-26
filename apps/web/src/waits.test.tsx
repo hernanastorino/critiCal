@@ -80,8 +80,7 @@ describe("Notice", () => {
 
 describe("unhappy-path texts", () => {
   it("always give the way out and never blame", () => {
-    expect(mealNoRoom("11:30", "15:30", "13:00")).toMatch(/Hoy no/);
-    expect(mealNoRoom("11:30", "15:30", "13:00")).toMatch(/13:00/);
+    expect(mealNoRoom("13:00")).toMatch(/13:00/);
     expect(SKIPPED_TOAST).toMatch(/sin culpa/);
     expect(FREE_TODAY).toMatch(/libre/);
   });

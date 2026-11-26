@@ -1,14 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
-import {
-  type Activity,
-  localParts,
-  MEAL_RANGE,
-  MINUTE,
-  type OptionKind,
-  type PlanBlock,
-} from "../engine.js";
+import { type Activity, localParts, MINUTE, type OptionKind, type PlanBlock } from "../engine.js";
 import {
   clipName,
   dayAndTime,
@@ -24,10 +17,8 @@ import {
   mealNoRoom,
   type NoFitKind,
   noFit,
-  onlyNoFitLeft,
-  optionPromise,
+  optionLine,
   REPLANNED_TOAST,
-  STILL_SHORT,
 } from "../friendly.js";
 import { EAT, inboxCards } from "../inbox.js";
 import { lateNight } from "../lateNight.js";
@@ -103,8 +94,18 @@ export function Inbox({
   /** Opens Ajustes on that routine, to edit it. */
   onRoutine?: (activityId: string) => void;
 }) {
-  const { data, now, pending, decisions, unlocated, pinShort, clashes, missedMeals, dispatch } =
-    useStore();
+  const {
+    data,
+    now,
+    pending,
+    decisions,
+    unlocated,
+    pinShort,
+    routineShort,
+    clashes,
+    missedMeals,
+    dispatch,
+  } = useStore();
   const { result: plan } = useStore();
   const offline = !!useSync()?.status.offline;
   const toast = useToast();
@@ -157,6 +158,7 @@ export function Inbox({
       pending,
       unlocated,
       pinShort,
+      routineShort,
       clashes,
       missedMeals,
       asked: { choose: decisions.hasOptions, recommendations: decisions.recommendations },
@@ -420,6 +422,25 @@ export function Inbox({
           </div>
         ))}
 
+        {routineShort.length > 0 && <div className="section-title">Rutina que no entra</div>}
+        {routineShort.map((r) => (
+          <div
+            key={r.activityId}
+            className="card"
+            data-block-id={r.activityId}
+            style={{ ["--c" as string]: data.activities.find((a) => a.id === r.activityId)?.color }}
+          >
+            <div className="title">
+              {r.name}: esta semana entra {r.placed} de {r.wanted}
+            </div>
+            {onRoutine && (
+              <button type="button" className="btn small" onClick={() => onRoutine(r.activityId)}>
+                Editar rutina
+              </button>
+            )}
+          </div>
+        ))}
+
         {data.proposals.length > 0 && <div className="section-title">Cambios para hoy</div>}
         {data.proposals.map((p) => (
           <div key={p.id} className="card" data-block-id={p.id}>
@@ -515,13 +536,7 @@ export function Inbox({
             <div className="title">
               Sin lugar para {m.kind ? EAT[m.kind] : "comer"} · {dayDate(tz, m.preferred.start)}
             </div>
-            <RoyLine anim="puente">
-              {mealNoRoom(
-                time(tz, m.preferred.start - MEAL_RANGE),
-                time(tz, m.preferred.end + MEAL_RANGE),
-                time(tz, (m.at ?? m.preferred).start),
-              )}
-            </RoyLine>
+            <RoyLine anim="puente">{mealNoRoom(time(tz, (m.at ?? m.preferred).start))}</RoyLine>
             {onDay && (
               <button type="button" className="btn small" onClick={() => onDay(m.date)}>
                 Ver el día
@@ -549,16 +564,15 @@ export function Inbox({
               >
                 <div className="title">{o.label}</div>
                 <RoyLine anim={OPTION_POSE[o.kind]} size={ELEGI_ROY} uniform>
-                  {optionPromise(
+                  {optionLine(
                     o,
                     plan.feasible,
+                    // What fits nowhere stays short whatever the option: say so, not «llegás».
                     onlyImpossibleLeft(o, decisions.impossible)
-                      ? onlyNoFitLeft(
-                          noFits
-                            .filter((t) => o.result.status.some((s) => s.taskId === t.id))
-                            .map((t) => t.title),
-                        )
-                      : STILL_SHORT,
+                      ? noFits
+                          .filter((t) => o.result.status.some((s) => s.taskId === t.id))
+                          .map((t) => t.title)
+                      : null,
                   )}
                 </RoyLine>
                 <button

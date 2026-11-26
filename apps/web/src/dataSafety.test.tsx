@@ -61,14 +61,22 @@ function Probe() {
   return null;
 }
 
-describe("Bandeja: a double tap answers one block, and it can be undone", () => {
+describe("Bandeja: a double tap answers one block, and it can be undone", {
+  timeout: 30_000,
+}, () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem("critical.mode", "demo");
   });
-  afterEach(cleanup);
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
 
   it("ignores the second tap and offers Deshacer", () => {
+    // The guard against a double tap lasts 700 ms of the real clock: on a loaded runner the
+    // second tap came later than that and counted as a new answer. The clock stands still.
+    vi.useFakeTimers({ toFake: ["Date"], now: Date.now() });
     render(<App fixedNow={MON} initial={seeded} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     expect(screen.getAllByLabelText(/^Hecho:/)).toHaveLength(2);
@@ -81,7 +89,7 @@ describe("Bandeja: a double tap answers one block, and it can be undone", () => 
   });
 });
 
-describe("Registrar avance", () => {
+describe("Registrar avance", { timeout: 30_000 }, () => {
   afterEach(cleanup);
 
   it("refuses minutes that are negative, not a figure or over a day, next to the field", () => {
@@ -114,7 +122,7 @@ function openSettings(section?: string) {
   if (section) fireEvent.click(screen.getByText(section, { selector: ".settings-label" }));
 }
 
-describe("Ajustes keeps its notices", () => {
+describe("Ajustes keeps its notices", { timeout: 30_000 }, () => {
   beforeEach(() => {
     localStorage.clear();
     localStorage.setItem("critical.mode", "demo");
@@ -164,7 +172,7 @@ describe("Ajustes keeps its notices", () => {
   });
 });
 
-describe("Mi semana: changing days keeps what was typed", () => {
+describe("Mi semana: changing days keeps what was typed", { timeout: 30_000 }, () => {
   afterEach(cleanup);
 
   it("does not drop an unsaved edit when the selection of days changes", () => {
@@ -186,7 +194,7 @@ describe("Mi semana: changing days keeps what was typed", () => {
   });
 });
 
-describe("the silo form says what is wrong, beside the field", () => {
+describe("the silo form says what is wrong, beside the field", { timeout: 30_000 }, () => {
   afterEach(cleanup);
 
   function renderEditor() {

@@ -10,7 +10,14 @@ import {
   NAME_MAX,
   stripInvisible,
 } from "../limits.js";
-import { CRITICAL, newId, type Place, type Spot, type TravelMode } from "../model.js";
+import {
+  CRITICAL,
+  newId,
+  type Place,
+  type PlanVersion,
+  type Spot,
+  type TravelMode,
+} from "../model.js";
 import {
   aliasTaken,
   keepableEvents,
@@ -141,8 +148,7 @@ export function Places() {
   return (
     <Section>
       <p className="meta" id="places-intro" tabIndex={-1}>
-        Con tu casa guardada, el plan reserva el viaje (más el margen) antes y después de cada
-        evento con ubicación. Los alias son otras formas en que el lugar aparece en tus eventos.
+        El plan reserva el viaje antes y después de cada evento con ubicación.
       </p>
       {places.length === 0 && !editing && (
         <p className="meta" id="places-empty">
@@ -166,16 +172,15 @@ export function Places() {
               const times = (data.travelTimes ?? []).filter(
                 (t) => t.from === p.id || t.to === p.id,
               );
-              dispatch({ type: "deletePlace", placeId: p.id });
+              let version: PlanVersion | undefined;
+              dispatch({ type: "deletePlace", placeId: p.id }, (after) => {
+                version = after.planHistory?.at(-1);
+              });
               dropDrafts(`place:${p.id}`);
               setEditing(null);
               toast.show(`${short(label(p.name))} borrado`, {
-                undo: () => {
-                  dispatch({ type: "savePlace", place: p });
-                  // Its times typed by hand come back; computed ones are worked out again.
-                  for (const t of times.filter((x) => x.manual))
-                    dispatch({ type: "travelTime", from: t.from, to: t.to, minutes: t.minutes });
-                },
+                // Its times typed by hand come back; computed ones are worked out again.
+                undo: () => dispatch({ type: "restorePlace", place: p, times, only: version }),
               });
               refocus("places-intro");
             }}
@@ -247,8 +252,7 @@ export function Places() {
           {(data.spots ?? []).length > 0 && (
             <>
               <p className="meta" id="spots" tabIndex={-1}>
-                Se usan para el traslado sin guardarse como lugar. No hace falta hacer nada con
-                ellas; guardá solo las que vayas a repetir.
+                Se usan para el traslado. Guardá solo las que repitas.
               </p>
               {(data.spots ?? []).map((spot) => (
                 <SpotRow key={spot.key} spot={spot} />

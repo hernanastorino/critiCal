@@ -81,7 +81,9 @@ import {
   pinBlock,
   pinClashes,
   pinShortfall,
+  type RoutineShort,
   refreshPlan,
+  routineShortfalls,
   routinesBack,
   sleptBlockIds,
   standingCheckIns,
@@ -171,6 +173,14 @@ export type Action =
   | { type: "restoreState"; before: Snapshot; now: number }
   | { type: "savePlace"; place: Place; now: number }
   | { type: "deletePlace"; placeId: string; now: number }
+  /** Takes back a `deletePlace`: its version of the undo history, else the place and its typed times. */
+  | {
+      type: "restorePlace";
+      place: Place;
+      times: NonNullable<AppData["travelTimes"]>;
+      only?: PlanVersion;
+      now: number;
+    }
   | { type: "travelTime"; from: string; to: string; minutes: number; now: number }
   /** An event's place: adds what the event says as an alias, or marks it as no trip. */
   | { type: "locate"; text: string; placeId: string | null; now: number }
@@ -1168,9 +1178,18 @@ function apply(data: AppData, action: Action): AppData {
         now,
       );
     }
-    case "restoreState":
+    case "restoreState": {
       // A settled state put back as it was, not planned again.
-      return restoreSnapshot(data, action.before, now);
+      const ids = new Set((action.before.tasks ?? []).map((t) => t.id));
+      const back = restoreSnapshot(data, action.before, now);
+      // Its place in the history of «Deshacer» is taken: it is back already.
+      return back.planHistory?.some((v) => v.gone && ids.has(v.gone.taskId))
+        ? {
+            ...back,
+            planHistory: back.planHistory.filter((v) => !(v.gone && ids.has(v.gone.taskId))),
+          }
+        : back;
+    }
     case "restoreActivity": {
       const { activity, index, tasks, checkIns, pins } = action.removed;
       // Back only once, and never over something made since with the same id.
@@ -1238,6 +1257,18 @@ function apply(data: AppData, action: Action): AppData {
       const spots =
         home(data)?.id === action.placeId ? (data.spots ?? []).filter((s) => s.manual) : data.spots;
       return refresh({ ...data, places, travelTimes, spots }, now);
+    }
+    case "restorePlace": {
+      const back = undoPlan(data, action.only, action.now);
+      if (back !== data) return back;
+      const { place, now: at } = action;
+      return action.times
+        .filter((t) => t.manual)
+        .reduce(
+          (d, t) =>
+            apply(d, { type: "travelTime", from: t.from, to: t.to, minutes: t.minutes, now: at }),
+          apply(data, { type: "savePlace", place, now: at }),
+        );
     }
     case "travelTime": {
       const others = (data.travelTimes ?? []).filter(
@@ -1725,6 +1756,8 @@ interface Store {
   unlocated: ReturnType<typeof unlocated>;
   /** Minimums the upcoming pins put out of reach, and those pins. */
   pinShort: ReturnType<typeof pinShortfall>;
+  /** Routines the week has no room for whole. */
+  routineShort: RoutineShort[];
   /** Upcoming pins a calendar event overlaps. */
   clashes: ReturnType<typeof pinClashes>;
   /** Meals of the coming week with no room near their time. */
@@ -1831,6 +1864,7 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
+    const routineShort = routineShortfalls(data, now, r.result.blocks);
     const clashes = pinClashes(data, now, r.input);
     const meals = missedMeals(data, now);
     return {
@@ -1849,6 +1883,7 @@ export function StoreProvider({
       result: r.result,
       unlocated: where,
       pinShort,
+      routineShort,
       clashes,
       missedMeals: meals,
       inboxCount: asking(
@@ -1858,6 +1893,7 @@ export function StoreProvider({
           pending,
           unlocated: where,
           pinShort,
+          routineShort,
           clashes,
           missedMeals: meals,
           asked: counted.current ?? { choose: false, recommendations: [] },
@@ -1985,6 +2021,22 @@ const pushVersion = (data: AppData, next: AppData, v: PlanVersion): AppData => (
   planHistory: [...(data.planHistory ?? []), v].slice(-PLAN_HISTORY),
 });
 
+const ENDS = new Set(["deleteAll", "endFromToday"]);
+export const GONE_KEYS = ["tasks", "checkIns", "plan", "pins", "applied", "activities"] as const;
+
+/** A routine deleted or ended from today: its version keeps it as it was, to put back. */
+function silo(data: AppData, action: Extract<Action, { type: "recurrence" }>, next: AppData) {
+  const task = data.tasks.find((t) => t.id === action.taskId);
+  if (!task) return next;
+  const snap = snapshotOf(data, GONE_KEYS, [task]);
+  settleSnapshot(snap, next);
+  const label = `eliminar ${clipName(task.title, 24)}`;
+  return pushVersion(data, next, {
+    ...planVersion(data, action.now, label),
+    gone: { taskId: task.id, snap },
+  });
+}
+
 function versioned(data: AppData, action: Action, next: AppData): AppData {
   if (next === data) return next;
   if (action.type === "deleteActivity") {
@@ -1993,6 +2045,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     const label = `eliminar ${clipName(removed.activity.name, 24)}`;
     return pushVersion(data, next, { ...planVersion(data, action.now, label), removed });
   }
+  if (action.type === "recurrence" && ENDS.has(action.change)) return silo(data, action, next);
   const label = VERSIONED[action.type];
   if (!label) return next;
   // A replan that changed nothing has nothing to undo.
@@ -2073,7 +2126,8 @@ function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): A
   const restored = v.removed
     ? apply(start, { type: "restoreActivity", removed: v.removed, now })
     : start;
-  const data = v.saved ? putSavedBack(restored, v.saved) : restored;
+  const back = v.saved ? putSavedBack(restored, v.saved) : restored;
+  const data = v.gone ? restoreSnapshot(back, v.gone.snap, now) : back;
   // What already started stays; today's blocks ahead and the inputs come back.
   const kept = data.plan.filter((b) => b.start <= now);
   // A task deleted since then does not come back with its blocks.
@@ -2113,6 +2167,10 @@ function saveLabel(data: AppData, action: Action): string | undefined {
     }
     case "savePlace":
       return "guardar un lugar";
+    case "deletePlace": {
+      const place = data.places?.find((p) => p.id === action.placeId);
+      return place ? `borrar ${clipName(place.name, 24)}` : undefined;
+    }
     case "eventTravelMinutes":
     case "tripMode":
     case "tripMinutes":

@@ -1,0 +1,10 @@
+{
+  "blocks": "7e4dfc051fbb",
+  "status": "a314964b91d3",
+  "meals": "9fa6f196eaf0",
+  "feasible": true,
+  "options": [],
+  "hasOptions": false,
+  "impossible": [],
+  "recommendations": "97d170e1550e"
+}
