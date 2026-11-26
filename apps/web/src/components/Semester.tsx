@@ -23,6 +23,17 @@ import { useTapOnce } from "./useTapOnce.js";
 /** The longest a semester may last: a year (an end typed with the wrong year says so). */
 const SEMESTER_MAX_DAYS = 366;
 
+/** A saved cuatrimestre leaves out dates before it starts or after it ends. */
+function outsideSemester(
+  date: string,
+  semester: { start: string; end: string } | undefined,
+): string | null {
+  if (!date || !semester?.start || !semester.end) return null;
+  return date < semester.start || date > semester.end
+    ? "Esa fecha cae fuera del cuatrimestre."
+    : null;
+}
+
 /** Inicio de cuatrimestre: dates, holidays in between, subjects and exams in one go. */
 export function Semester() {
   const { data, now, dispatch } = useStore();
@@ -73,7 +84,10 @@ export function Semester() {
   const examProblem =
     dateError(exam.date, now) ??
     (exam.date && exam.date < today ? "Esa fecha ya pasó." : null) ??
+    outsideSemester(exam.date, semester) ??
     (examTried && !exam.date ? "Poné la fecha." : null);
+  const examTitleProblem =
+    isBlank(exam.title) && (exam.title !== "" || examTried) ? "Poné un título." : null;
   const examSubjectProblem = examTried && !exam.activityId ? "Elegí una materia." : null;
   const editExam = (patch: Partial<typeof exam>) => {
     setExam({ ...exam, ...patch });
@@ -171,7 +185,7 @@ export function Semester() {
     once(`exam:${exam.activityId}:${exam.date}:${exam.title}`, () => addExamNow(e));
   };
   const addExamNow = (e: React.MouseEvent<HTMLButtonElement>) => {
-    if (!exam.activityId || !exam.date) {
+    if (!exam.activityId || !exam.date || isBlank(exam.title)) {
       setExamTried(true);
       askFocus(e.currentTarget);
       return;
@@ -184,10 +198,10 @@ export function Semester() {
     const task: AppTask = {
       id: newId(),
       activityId: exam.activityId,
-      title: exam.title.trim() || "Parcial",
+      title: exam.title.trim(),
       kind: "deliverable",
       // A parcial, examen or prueba gets spaced review; an entrega does not.
-      exam: /\b(parcial|examen|prueba|final)\b/i.test(exam.title || "Parcial") || undefined,
+      exam: /\b(parcial|examen|prueba|final)\b/i.test(exam.title) || undefined,
       deadline: zonedInstant(tz, exam.date, 8 * 60),
       estimateMinutes: d.estimate,
       minMinutes: d.min,
@@ -197,7 +211,12 @@ export function Semester() {
     };
     dispatch({ type: "saveTask", task });
     examSaved({ ...exam, date: "" });
-    toast.show(`${clipName(task.title)} agregado`);
+    // Saved as asked, but said (as in the task editor): a deadline already over gets no time.
+    toast.show(
+      task.deadline !== undefined && task.deadline <= now
+        ? `«${clipName(task.title)}» quedó con la fecha ya vencida: el plan no le reserva tiempo.`
+        : `${clipName(task.title)} agregado`,
+    );
   };
 
   return (
@@ -393,6 +412,8 @@ export function Semester() {
                   <input
                     value={exam.title}
                     maxLength={TITLE_MAX}
+                    aria-invalid={examTitleProblem ? true : undefined}
+                    aria-describedby={examTitleProblem ? "semester-exam-title-error" : undefined}
                     onChange={(e) => editExam({ title: e.target.value })}
                   />
                 </label>
@@ -410,12 +431,13 @@ export function Semester() {
                 </label>
               </div>
               <Problem id="semester-exam-subject-error" text={examSubjectProblem} />
+              <Problem id="semester-exam-title-error" text={examTitleProblem} />
               <Problem id="semester-exam-error" text={examProblem} />
               <button
                 type="button"
                 className="btn"
                 style={{ width: "100%" }}
-                aria-disabled={examProblem ? true : undefined}
+                aria-disabled={examProblem || examTitleProblem ? true : undefined}
                 onClick={addExam}
               >
                 Agregar

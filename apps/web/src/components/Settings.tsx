@@ -1,7 +1,7 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { normalize } from "../calendars.js";
-import { awakeProblem } from "../dayLength.js";
+import { awakeProblem, bedPassedProblem } from "../dayLength.js";
 import { isTestDemo } from "../demoPruebas.js";
 import {
   clearPageDrafts,
@@ -780,7 +780,11 @@ export function Settings({
                       woke > localParts(tz, now).minuteOfDay
                         ? `Todavía no son las ${wake}.`
                         : null;
-                    const problem = future ?? awakeProblem(wake, bed);
+                    const over =
+                      bed !== defaultBed
+                        ? bedPassedProblem(wake, bed, localParts(tz, now).minuteOfDay)
+                        : null;
+                    const problem = future ?? awakeProblem(wake, bed) ?? over;
                     if (problem) {
                       setDayError(problem);
                       // The fields are marked once drawn: the first one gets the focus then.

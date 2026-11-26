@@ -7,6 +7,7 @@ import { needOf } from "../need.js";
 import { isPinned, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
+import { EventTrip } from "./EventTrip.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
@@ -160,6 +161,7 @@ function EventDetail({ item }: { item: Extract<Item, { kind: "event" }> }) {
             : "No ocupa tiempo: el plan puede poner estudio encima."}
         </p>
       )}
+      <EventTrip event={e} />
     </>
   );
 }
