@@ -1,10 +1,21 @@
 import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { demoData } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import { decisions, refreshPlan, routineShortfalls } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 import { runningSince } from "./testing.js";
+
+// The planner's two steps are counted, not timed: how long a tap takes depends on the
+// machine and on what else it is doing, how many times it works things out does not.
+vi.mock("./planning.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./planning.js")>();
+  return {
+    ...actual,
+    decisions: vi.fn(actual.decisions),
+    refreshPlan: vi.fn(actual.refreshPlan),
+  };
+});
 
 afterEach(cleanup);
 
@@ -42,21 +53,24 @@ describe("decisions do not stand in the way of a tap", () => {
     const s = store;
     const block = s?.data.plan.find((b) => b.start > MON);
     if (!s || !block) throw new Error("no plan");
-    const t0 = performance.now();
+    const worked = vi.mocked(decisions);
+    const planned = vi.mocked(refreshPlan);
+    worked.mockClear();
+    planned.mockClear();
     act(() => {
       s.dispatch({ type: "pin", blockId: block.id, start: block.start + 1_800_000 });
     });
-    const tap = performance.now() - t0;
+    // The tap used to include working the decisions out (~700 ms here, plan ~100 ms): now
+    // it is the plan alone. Nothing of the decisions is worked out until something asks.
+    expect(planned).toHaveBeenCalled();
+    expect(worked).not.toHaveBeenCalled();
     await settle();
+    // Then the counter catches up, on its own, with the decisions of the new plan.
+    expect(worked).toHaveBeenCalled();
     const now = store;
     if (!now) throw new Error("no store");
     const r = refreshPlan(now.data, MON);
-    const t1 = performance.now();
     const dec = decisions(r.input, r.result, { data: now.data, now: MON });
-    const working = performance.now() - t1;
-    // The tap used to include working the decisions out (~700 ms here, plan ~100 ms): now
-    // it is the plan alone, so it takes less than the decisions do (machine-independent).
-    expect(tap).toBeLessThan(working);
     expect(now.decisions.options.map((o) => o.id)).toEqual(dec.options.map((o) => o.id));
     const routines = routineShortfalls(now.data, MON, r.result.blocks).length;
     expect(now.inboxCount).toBe(
