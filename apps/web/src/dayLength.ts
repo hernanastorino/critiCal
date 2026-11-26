@@ -25,3 +25,14 @@ export function awakeProblem(wake: string, bed: string): string | null {
   if (awake >= MIN_AWAKE && awake <= MAX_AWAKE) return null;
   return `De ${wake} a ${bed} estás despierto ${awakeText(awake)}: el día tiene que tener entre 4 y 22 h despierto. Revisá a qué hora te levantaste y a qué hora te acostás.`;
 }
+
+/**
+ * An error for a bedtime typed for today that is already over: at or before now, and not
+ * after midnight (a bedtime at or before the wake-up is tomorrow's early hours). Null when fine.
+ */
+export function bedPassedProblem(wake: string, bed: string, nowMinute: number): string | null {
+  const w = parseClock(wake);
+  const b = parseClock(bed);
+  if (w === null || b === null || b <= w || b > nowMinute) return null;
+  return `Ya pasaron las ${bed}.`;
+}

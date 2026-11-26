@@ -3,6 +3,7 @@ import {
   type Activity,
   addDays,
   type CalendarEvent,
+  type DayOverride,
   type DaySettings,
   effortRatio,
   type Interval,
@@ -1098,6 +1099,18 @@ function withMissing(result: ScheduleResult, missing: Map<string, number>): Sche
   return { ...result, status };
 }
 
+/** When today's bedtime is, if an override sets it (as the planner reads it: at or before waking is after midnight). */
+function bedInstant(
+  tz: string,
+  date: string,
+  override: DayOverride | undefined,
+  routine: { wake: number } | undefined,
+): number | undefined {
+  if (override?.bed === undefined) return undefined;
+  const wake = override.wake ?? routine?.wake ?? 0;
+  return zonedInstant(tz, date, override.bed <= wake ? override.bed + 1440 : override.bed);
+}
+
 /**
  * A routine that fell behind in the week under way plans the sessions that fit in what is
  * left of it; one that would only fit in the free-time hours of its day (late, after
@@ -1181,8 +1194,11 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       ? undefined
       : zonedInstant(tz, date, dayOverride.wake) +
         Math.max(0, routine?.morningMinutes ?? 0) * MINUTE;
+  // Going to bed earlier (set by hand) frees the blocks that now end after it.
+  const bedAt = bedInstant(tz, date, dayOverride, routine);
+  const afterBed = (b: PlanBlock) => b.start > now && bedAt !== undefined && b.end > bedAt;
   const displaced = (b: PlanBlock) =>
-    plannableAt !== undefined && b.start > now && b.start < plannableAt;
+    afterBed(b) || (plannableAt !== undefined && b.start > now && b.start < plannableAt);
   // Displaced blocks are planned again anyway: never a conflict to ask about.
   const conflicts = unpinned.filter(
     (b) => !displaced(b) && (clashes(b) || reserved(b) || eats(b) || tooEarly(b)),
@@ -1220,7 +1236,8 @@ export function refreshPlan(data: AppData, now: number): Refresh {
       ...keep,
       ...conflicts,
       // Until the proposal is answered, today stays as it was, displaced blocks included.
-      ...unpinned.filter(displaced),
+      // (past bedtime nothing stays: it would be studying while asleep).
+      ...unpinned.filter((b) => displaced(b) && !afterBed(b)),
       // schedule() echoes frozen blocks, so pins on later days are already in keep.
       ...plan.filter((b) => b.start >= todayEnd && !keep.some((k) => k.id === b.id)),
     ],
