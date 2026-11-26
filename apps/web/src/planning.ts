@@ -34,7 +34,16 @@ import {
 import { hours } from "./format.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
-import type { AppData, AppEvent, AppTask, CheckIn, MealRun, Proposal, Unit } from "./model.js";
+import {
+  type AppData,
+  type AppEvent,
+  type AppTask,
+  type CheckIn,
+  type MealRun,
+  type Proposal,
+  type Unit,
+  undoable,
+} from "./model.js";
 import { improves, needOf } from "./need.js";
 import { travelOptions, withPlaces } from "./places.js";
 
@@ -1261,10 +1270,8 @@ function simulated(
   const left = option.taskId ? needOf(after, from.now, option.taskId) : undefined;
   const named =
     left && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
-      ? option.label.replace(/\(([^()]*)\)$/, (_, inner: string) =>
-          inner.startsWith("mínimo ")
-            ? `(mínimo ${hours(left.minimum)})`
-            : `(${hours(left.minimum)})`,
+      ? option.label.replace(/\(([^()]*)\)$| a (\d\S*)$/, (all: string) =>
+          all.startsWith(" a ") ? ` a ${hours(left.minimum)}` : `(${hours(left.minimum)})`,
         )
       : option.label;
   // Planning again is what costs: only done when the card is drawn (or the option is
@@ -1286,12 +1293,51 @@ function simulated(
  * nothing), choosing it would only say «Listo» and leave the plan as it was: it is not
  * offered. Checked by the plan it really gives.
  */
-function keepsItsPromise(result: ScheduleResult, option: PlanOption): boolean {
+function keepsItsPromise(
+  input: ScheduleInput,
+  result: ScheduleResult,
+  option: PlanOption,
+): boolean {
   if (option.kind !== "minimum-only") return true;
+  // Tasks with no minimum are not cut (cutting them to 0 is «No hacer»).
+  const cuttable = new Set(input.tasks.filter((t) => t.minRemainingMinutes > 0).map((t) => t.id));
   const short = new Set(
-    result.status.filter((s) => s.minDeficit === 0 && s.targetDeficit > 0).map((s) => s.taskId),
+    result.status
+      .filter((s) => s.minDeficit === 0 && s.targetDeficit > 0 && cuttable.has(s.taskId))
+      .map((s) => s.taskId),
   );
   return !option.result.status.some((s) => short.has(s.taskId) && s.targetDeficit > 0);
+}
+
+/** Ids of the options chosen that still stand (not undone, not archived). */
+function takenOptions(data: AppData, now: number): Set<string> {
+  const taken = new Set<string>();
+  for (const d of data.applied ?? []) {
+    if (d.at <= now - DECISIONS_SHOWN_MS) continue;
+    const id = d.id.split("@").at(0) ?? "";
+    // Free time never had tasks: it stands while the week it lent is not over.
+    const stands =
+      d.before.length === 0
+        ? id === "use-free-time" && (data.freeTimeUntil ?? 0) > now
+        : undoable(data, d).length > 0;
+    if (stands) taken.add(id);
+  }
+  return taken;
+}
+
+/**
+ * Whether an option contradicts a decision that still stands: free time and «quedarme con
+ * el mínimo» are two ways out of the same shortfall (and not offered twice), and a lower
+ * minimum, a smaller version and «No hacer» are three for the same task.
+ */
+function opposed(option: PlanOption, taken: ReadonlySet<string>): boolean {
+  if (option.kind === "use-free-time" || option.kind === "minimum-only") {
+    const other = option.kind === "use-free-time" ? "minimum-only" : "use-free-time";
+    return taken.has(option.id) || taken.has(other);
+  }
+  if (!option.taskId) return false;
+  const own = ["lower-minimum", "minimum-viable", "drop"];
+  return own.some((k) => k !== option.kind && taken.has(`${k}:${option.taskId}`));
 }
 
 export function decisions(
@@ -1315,9 +1361,10 @@ export function decisions(
   // Each is the plan it really gives: one that reaches no minimum the plan did not is no way
   // out. That plan is only worked out when asked: to know whether there is any option it
   // stops at the first that helps, and the list is filtered when the Bandeja draws it.
-  const tried = offered.map((o) => simulated(from, input, o));
+  const taken = takenOptions(from.data, from.now);
+  const tried = offered.filter((o) => !opposed(o, taken)).map((o) => simulated(from, input, o));
   const helps = (o: PlanOption) =>
-    keepsItsPromise(result, o) && (result.feasible || improves(result, o.result));
+    keepsItsPromise(input, result, o) && (result.feasible || improves(result, o.result));
   let kept: PlanOption[] | undefined;
   return {
     get options() {
@@ -1424,38 +1471,58 @@ export function applyOption(
     if (!next && task.kind === "habit")
       return { ...task, skipUntil: endOfWeek(data.settings.timezone, now) };
     if (!next) return { ...task, status: "dropped" as const };
-    // The engine cuts block time; tasks keep study time (breaks are not work).
-    const k =
-      task.kind === "habit"
-        ? 1
-        : blockFactor(data.activities.find((a) => a.id === task.activityId));
-    const minCut = Math.round((old.minRemainingMinutes - next.minRemainingMinutes) / k);
-    const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
     const out = new Set(option.kind === "prioritize" ? (option.unitIds ?? []) : []);
-    // What is left of the minimum is clamped by what is left of the task (and by what
-    // was done): cutting the stored minimum by the same amount would cut nothing when
-    // the clamp is the one in force. So it never ends above what the option previewed.
-    const done =
-      task.kind === "habit"
-        ? 0
-        : standingCheckIns(data)
-            .filter((c) => c.taskId === task.id)
-            .reduce((s, c) => s + studyMinutes(c), 0);
-    const previewed = Math.max(0, Math.round(next.minRemainingMinutes / k) + Math.ceil(done));
     return {
       ...task,
       ...(option.kind === "start-earlier" && option.taskId === task.id
         ? { startAfter: startAfterAt(data.settings.timezone, option.startAt, now) }
         : {}),
-      minMinutes: Math.max(
-        0,
-        minCut > 0 ? Math.min(task.minMinutes - minCut, previewed) : task.minMinutes - minCut,
-      ),
-      estimateMinutes: Math.max(0, task.estimateMinutes - cut),
+      ...minutesAfter(data, task, old, next, option.kind),
       units: out.size
         ? task.units.map((u) => (out.has(u.id) ? { ...u, skipped: true } : u))
         : task.units,
     };
   });
   return { ...data, tasks };
+}
+
+/**
+ * The figures a kind of option changes, in whole study minutes (the engine cuts block
+ * time): a lower minimum or a share of the minimums change only `minMinutes`;
+ * «quedarme con el mínimo» only the estimate; a smaller version both. Never 0 (that is «No hacer»),
+ * never above what the task had, and what the option does not name is left as it is.
+ */
+function minutesAfter(
+  data: AppData,
+  task: AppTask,
+  old: Task,
+  next: Task,
+  kind: PlanOption["kind"],
+): Partial<Pick<AppTask, "minMinutes" | "estimateMinutes">> {
+  const k =
+    task.kind === "habit" ? 1 : blockFactor(data.activities.find((a) => a.id === task.activityId));
+  const done =
+    task.kind === "habit"
+      ? 0
+      : Math.ceil(
+          standingCheckIns(data)
+            .filter((c) => c.taskId === task.id)
+            .reduce((s, c) => s + studyMinutes(c), 0),
+        );
+  // The estimate goes down by the study time the option takes off what is left (what is
+  // left is measured from it, with parts capped by it): «quedarme con el mínimo», and a
+  // smaller version, which is the whole delivery then.
+  const estimate = (): Partial<Pick<AppTask, "estimateMinutes">> => {
+    const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
+    return cut > 0 ? { estimateMinutes: Math.max(1, Math.round(task.estimateMinutes) - cut) } : {};
+  };
+  if (kind === "minimum-only") return estimate();
+  if (kind !== "lower-minimum" && kind !== "minimum-viable" && kind !== "proportional") return {};
+  if (next.minRemainingMinutes >= old.minRemainingMinutes) return {};
+  const minimum = Math.round(next.minRemainingMinutes / k) + done;
+  const cap = task.minMinutes > 0 ? Math.round(task.minMinutes) : minimum;
+  return {
+    minMinutes: Math.max(1, Math.min(cap, minimum)),
+    ...(kind === "minimum-viable" ? estimate() : {}),
+  };
 }

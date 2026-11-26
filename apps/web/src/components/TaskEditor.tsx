@@ -23,6 +23,7 @@ import {
   awakeWeekMinutes,
   estimateProblem,
   habitProblems,
+  hoursField,
   minimumProblem,
   parseUnit,
   partsProblem,
@@ -146,8 +147,8 @@ export function TaskEditor({
     newActivity: "",
     kind: task?.kind ?? "deliverable",
     deadline: toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
-    estimate: String((task?.estimateMinutes ?? startLearned?.estimateMinutes ?? 240) / 60),
-    minimum: String((task?.minMinutes ?? startLearned?.minMinutes ?? 120) / 60),
+    estimate: hoursField(task?.estimateMinutes ?? startLearned?.estimateMinutes ?? 240),
+    minimum: hoursField(task?.minMinutes ?? startLearned?.minMinutes ?? 120),
     sessions: String(task?.sessionsPerWeek ?? 3),
     sessionMin: String(task?.sessionMinutes ?? 60),
     priority: task?.priority ?? 2,
@@ -252,8 +253,8 @@ export function TaskEditor({
     proposedBefore.current = proposeKey;
     if (first || (hoursTouched.current && !hoursErased.current) || kind !== "deliverable") return;
     const [e, m] = learnedKey === "fixed" ? [240, 120] : learnedKey.split("/").map(Number);
-    setEstimateTyped(String((e as number) / 60));
-    setMinimumTyped(String((m as number) / 60));
+    setEstimateTyped(hoursField(e as number));
+    setMinimumTyped(hoursField(m as number));
   }, [learnedKey, kind, proposeKey]);
   const materiaStart = data.activities.find((a) => a.id === activityId)?.startAfter;
   /** Bumped by a refused save: once the errors are drawn, the focus goes to the first one. */

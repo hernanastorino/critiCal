@@ -105,7 +105,9 @@ describe("el mínimo de una opción es el que muestran las pantallas", () => {
       const after = applyOption(d, r.input, o, TUESDAY);
       const left = progress(after, TUESDAY).find((p) => p.task.id === o.taskId);
       expect(o.label).toContain(
-        `(${o.kind === "lower-minimum" ? "mínimo " : ""}${hours(must(left).minRemainingMinutes)})`,
+        o.kind === "lower-minimum"
+          ? ` a ${hours(must(left).minRemainingMinutes)}`
+          : `(${hours(must(left).minRemainingMinutes)})`,
       );
     }
   });

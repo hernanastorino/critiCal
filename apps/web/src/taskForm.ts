@@ -45,6 +45,13 @@ export const MAX_SESSION_MINUTES = 1440;
 /** A plain non-negative figure («2», «1,5»): no signs, letters or exponents. */
 const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
 
+/**
+ * Minutes as the hours a field shows: «5.417» for 5 h 25, not the fifteen digits of the
+ * division. Three decimals are 2 s of precision, so reading it back gives the same minute.
+ */
+export const hoursField = (minutes: number): string =>
+  String(Math.round((minutes / 60) * 1000) / 1000);
+
 /** Hours as typed, or NaN if they are not a valid figure. */
 export const typedHours = (v: string): number =>
   figure(v) ? Number(v.replace(",", ".")) : Number.NaN;
