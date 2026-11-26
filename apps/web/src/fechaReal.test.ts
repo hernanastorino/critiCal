@@ -22,7 +22,9 @@ const DATES = [
   ["domingo 22:00", "2026-11-29", 22 * 60],
 ] as const;
 
-afterEach(() => localStorage.removeItem(DEMO_KIND_KEY));
+afterEach(() => {
+  localStorage.removeItem(DEMO_KIND_KEY);
+});
 
 function load(kind: "pruebas" | "demo", date: string, minute: number) {
   if (kind === "pruebas") localStorage.setItem(DEMO_KIND_KEY, "pruebas");
