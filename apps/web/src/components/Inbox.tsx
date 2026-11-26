@@ -569,8 +569,12 @@ export function Inbox({
                     plan.feasible,
                     // What fits nowhere stays short whatever the option: say so, not «llegás».
                     onlyImpossibleLeft(o, decisions.impossible)
-                      ? noFits
-                          .filter((t) => o.result.status.some((s) => s.taskId === t.id))
+                      ? data.tasks
+                          .filter(
+                            (t) =>
+                              decisions.impossible.includes(t.id) &&
+                              o.result.status.some((s) => s.taskId === t.id),
+                          )
                           .map((t) => t.title)
                       : null,
                   )}
