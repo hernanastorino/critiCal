@@ -447,10 +447,41 @@ function settleMinutes(draft: string, value: number | undefined, canClear: boole
   };
 }
 
-const PROBLEM_TEXT = {
-  bad: "Minutos de 0 a 1440, solo cifras.",
-  capped: "El máximo es 1440 minutos (un día).",
+const problemText = (problem: "bad" | "capped") =>
+  problem === "bad" ? "Minutos de 0 a 1440, solo cifras." : "El máximo es 1440 minutos (un día).";
+
+/** What the field says about itself: marked and tied to its note while there is one. */
+const minutesAttrs = (problem: Problem, errorId: string) => ({
+  "aria-invalid": problem === "bad" ? true : undefined,
+  "aria-describedby": problem ? errorId : undefined,
+  title: problem === "bad" ? "Poné minutos de 0 a 1440, solo cifras" : undefined,
+  style: { width: 72, ...(problem === "bad" ? { borderColor: "var(--critical)" } : {}) },
+});
+
+/** Makes the change a settled field asks for. */
+function applyChange(change: Change, onCommit: (minutes: number) => void, onClear?: () => void) {
+  if (change === "clear") onClear?.();
+  else if (change) onCommit(change.minutes);
+}
+
+const blurOnEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  if (e.key === "Enter") e.currentTarget.blur();
 };
+
+/** The note under a minutes field, on a line of its own: next to it, it squeezed the row's name. */
+function MinutesNote({ problem, id }: { problem: Problem; id: string }) {
+  if (!problem) return null;
+  return (
+    <span
+      className="meta"
+      id={id}
+      role="alert"
+      style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
+    >
+      {problemText(problem)}
+    </span>
+  );
+}
 
 /**
  * Minutes field: shows the stored value until the user types; from then on their draft
@@ -472,15 +503,17 @@ function MinutesInput({
   const [draft, setDraft] = useState<string | null>(null);
   const [problem, setProblem] = useState<Problem>(null);
   const errorId = useId();
-  const bad = problem === "bad";
   const commit = () => {
     if (draft === null) return;
     const settled = settleMinutes(draft, value, !!onClear);
     setProblem(settled.problem);
     if (!settled.done) return;
-    if (settled.change === "clear") onClear?.();
-    else if (settled.change) onCommit(settled.change.minutes);
+    applyChange(settled.change, onCommit, onClear);
     setDraft(null);
+  };
+  const typing = (text: string) => {
+    setProblem(null);
+    setDraft(text);
   };
   return (
     <>
@@ -489,31 +522,13 @@ function MinutesInput({
         type="text"
         inputMode="decimal"
         aria-label={label}
-        aria-invalid={bad ? true : undefined}
-        aria-describedby={problem ? errorId : undefined}
-        title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
-        style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
+        {...minutesAttrs(problem, errorId)}
         value={draft ?? value ?? ""}
-        onChange={(e) => {
-          setProblem(null);
-          setDraft(e.target.value);
-        }}
+        onChange={(e) => typing(e.target.value)}
         onBlur={commit}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") e.currentTarget.blur();
-        }}
+        onKeyDown={blurOnEnter}
       />
-      {problem && (
-        <span
-          className="meta"
-          id={errorId}
-          role="alert"
-          // On a line of its own: next to the field it squeezed the row's name.
-          style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
-        >
-          {PROBLEM_TEXT[problem]}
-        </span>
-      )}
+      <MinutesNote problem={problem} id={errorId} />
     </>
   );
 }
