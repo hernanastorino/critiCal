@@ -1501,6 +1501,27 @@ function minutesAfter(
 ): Partial<Pick<AppTask, "minMinutes" | "estimateMinutes">> {
   const k =
     task.kind === "habit" ? 1 : blockFactor(data.activities.find((a) => a.id === task.activityId));
+  if (kind === "minimum-only") return estimateAfter(task, old, next, k);
+  if (kind !== "lower-minimum" && kind !== "minimum-viable" && kind !== "proportional") return {};
+  if (next.minRemainingMinutes >= old.minRemainingMinutes) return {};
+  return {
+    minMinutes: minimumAfter(data, task, next, k),
+    ...(kind === "minimum-viable" ? estimateAfter(task, old, next, k) : {}),
+  };
+}
+
+/**
+ * The estimate goes down by the study time the option takes off what is left (what is
+ * left is measured from it, with parts capped by it): «quedarme con el mínimo», and a
+ * smaller version, which is the whole delivery then.
+ */
+function estimateAfter(task: AppTask, old: Task, next: Task, k: number) {
+  const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
+  return cut > 0 ? { estimateMinutes: Math.max(1, Math.round(task.estimateMinutes) - cut) } : {};
+}
+
+/** The stored minimum that leaves what the option previewed (what was done counts in it). */
+function minimumAfter(data: AppData, task: AppTask, next: Task, k: number): number {
   const done =
     task.kind === "habit"
       ? 0
@@ -1509,20 +1530,7 @@ function minutesAfter(
             .filter((c) => c.taskId === task.id)
             .reduce((s, c) => s + studyMinutes(c), 0),
         );
-  // The estimate goes down by the study time the option takes off what is left (what is
-  // left is measured from it, with parts capped by it): «quedarme con el mínimo», and a
-  // smaller version, which is the whole delivery then.
-  const estimate = (): Partial<Pick<AppTask, "estimateMinutes">> => {
-    const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
-    return cut > 0 ? { estimateMinutes: Math.max(1, Math.round(task.estimateMinutes) - cut) } : {};
-  };
-  if (kind === "minimum-only") return estimate();
-  if (kind !== "lower-minimum" && kind !== "minimum-viable" && kind !== "proportional") return {};
-  if (next.minRemainingMinutes >= old.minRemainingMinutes) return {};
   const minimum = Math.round(next.minRemainingMinutes / k) + done;
   const cap = task.minMinutes > 0 ? Math.round(task.minMinutes) : minimum;
-  return {
-    minMinutes: Math.max(1, Math.min(cap, minimum)),
-    ...(kind === "minimum-viable" ? estimate() : {}),
-  };
+  return Math.max(1, Math.min(cap, minimum));
 }

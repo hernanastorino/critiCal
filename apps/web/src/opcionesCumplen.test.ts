@@ -43,48 +43,56 @@ const FIELDS: (keyof AppTask)[] = [
   "title",
 ];
 
+type Offered = ReturnType<typeof decisions>["options"][number];
+
+/** (a) only what the option said changed, (c) whole minutes that the edit form accepts. */
+function checkTasks(data: AppData, after: AppData, o: Offered) {
+  const said = CHANGES[o.kind] ?? [];
+  // A routine left out changes skipUntil.
+  const allowed = o.kind === "drop" ? [...said, "skipUntil"] : said;
+  for (const before of data.tasks) {
+    const task = after.tasks.find((t) => t.id === before.id);
+    if (!task) throw new Error(`${o.id}: ${before.id} vanished`);
+    for (const f of FIELDS.filter((x) => !allowed.includes(x))) {
+      expect(task[f], `${o.id}: ${before.id}.${f}`).toEqual(before[f]);
+    }
+    expect(Number.isInteger(task.minMinutes), `${o.id} min`).toBe(true);
+    expect(Number.isInteger(task.estimateMinutes), `${o.id} estimate`).toBe(true);
+    checkForm(task, before, o.id);
+  }
+}
+
+function checkForm(task: AppTask, before: AppTask, id: string) {
+  const touched =
+    task.minMinutes !== before.minMinutes || task.estimateMinutes !== before.estimateMinutes;
+  if (!touched || task.kind === "habit") return;
+  const parts = task.units.reduce((n, u) => n + u.estimateMinutes, 0);
+  expect(estimateProblem(String(task.estimateMinutes / 60), parts), `${id} form`).toBeNull();
+  expect(
+    minimumProblem(String(task.minMinutes / 60), task.estimateMinutes / 60),
+    `${id} form min`,
+  ).toBeNull();
+}
+
+/** (b) and (e) the minimum a label names is the one every screen then shows. */
+function checkLabel(data: AppData, after: AppData, o: Offered, now: number) {
+  if (!o.taskId || (o.kind !== "lower-minimum" && o.kind !== "minimum-viable")) return;
+  const need = needOf(after, now, o.taskId);
+  const shown = progress(after, now).find((p) => p.task.id === o.taskId);
+  expect(need).toBeDefined();
+  expect(o.label, o.id).toContain(hours(need?.minimum ?? -1));
+  expect(shown?.minRemainingMinutes, o.id).toBe(need?.minimum);
+  expect(need?.minimum, o.id).toBeLessThan(needOf(data, now, o.taskId)?.minimum ?? 0);
+}
+
 /** Walks every option offered: applies it and checks it does what it says. */
 function checkAll(data: AppData, now: number): number {
   const r = refreshPlan(data, now);
   const offered = decisions(r.input, r.result, { data, now }).options;
   for (const o of offered) {
     const after = reducer(data, { type: "applyOption", optionId: o.id, now });
-    const said = CHANGES[o.kind] ?? [];
-    for (const before of data.tasks) {
-      const task = after.tasks.find((t) => t.id === before.id);
-      if (!task) throw new Error(`${o.id}: ${before.id} vanished`);
-      // (a) only what the option said changed (a routine left out changes skipUntil).
-      const allowed = o.kind === "drop" ? [...said, "skipUntil"] : said;
-      for (const f of FIELDS) {
-        if (allowed.includes(f)) continue;
-        expect(task[f], `${o.id}: ${before.id}.${f}`).toEqual(before[f]);
-      }
-      // (c) whole minutes, and what the edit form accepts.
-      expect(Number.isInteger(task.minMinutes), `${o.id} min`).toBe(true);
-      expect(Number.isInteger(task.estimateMinutes), `${o.id} estimate`).toBe(true);
-      const touched =
-        task.minMinutes !== before.minMinutes || task.estimateMinutes !== before.estimateMinutes;
-      if (touched && task.kind !== "habit") {
-        const parts = task.units.reduce((n, u) => n + u.estimateMinutes, 0);
-        expect(
-          estimateProblem(String(task.estimateMinutes / 60), parts),
-          `${o.id} form`,
-        ).toBeNull();
-        expect(
-          minimumProblem(String(task.minMinutes / 60), task.estimateMinutes / 60),
-          `${o.id} form min`,
-        ).toBeNull();
-      }
-    }
-    // (b) and (e) the minimum a label names is the one every screen then shows.
-    if (o.taskId && (o.kind === "lower-minimum" || o.kind === "minimum-viable")) {
-      const need = needOf(after, now, o.taskId);
-      const shown = progress(after, now).find((p) => p.task.id === o.taskId);
-      expect(need).toBeDefined();
-      expect(o.label, o.id).toContain(hours(need?.minimum ?? -1));
-      expect(shown?.minRemainingMinutes, o.id).toBe(need?.minimum);
-      expect(need?.minimum, o.id).toBeLessThan(needOf(data, now, o.taskId)?.minimum ?? 0);
-    }
+    checkTasks(data, after, o);
+    checkLabel(data, after, o, now);
     // (d) «llegás a todos los mínimos» is true of the plan it gives.
     if (!r.result.feasible && o.result.feasible) {
       const real = refreshPlan(after, now).result;
