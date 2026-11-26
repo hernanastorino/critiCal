@@ -84,6 +84,31 @@ describe("what the widget shows", () => {
     }
   });
 
+  it("is the Bandeja, with the tab's number, when asked for it even with silos in force", () => {
+    const data = demoData(NOW);
+    expect(widgetSilos(data, NOW).length).toBeGreaterThan(0);
+    const view = widgetView(data, NOW, [], true);
+    const all = inboxRows(data, NOW);
+    expect(view.mode).toBe("inbox");
+    expect(view.style).toBe("list");
+    expect(view.total).toBe(all.length);
+    expect(view.rows.map((r) => r.title)).toEqual(all.slice(0, 7).map((r) => r.title));
+  });
+
+  it("counts everything but sends only seven short rows", () => {
+    const proposals = Array.from({ length: 9 }, (_, i) => ({
+      id: `p${i}`,
+      message: `${"largo ".repeat(20)}${i}`,
+      plan: [],
+    }));
+    const data = { ...demoData(NOW), proposals: proposals as never };
+    const view = widgetView(data, NOW, [], true);
+    expect(view.total).toBe(inboxRows(data, NOW).length);
+    expect(view.total).toBeGreaterThan(7);
+    expect(view.rows).toHaveLength(7);
+    expect(view.rows.every((r) => r.title.length <= 41)).toBe(true);
+  });
+
   it("says so kindly when there is nothing at all", () => {
     const data: AppData = { ...only(demoData(NOW), []), events: [], plan: [] };
     const view = widgetView(data, NOW);
@@ -99,6 +124,14 @@ describe("script", () => {
     expect(script).toContain("body.rows");
     expect(script).toContain("body.silos.map");
     expect(script).toContain("?tab=");
+  });
+  it("turns into the Bandeja widget with the «bandeja» parameter, with its own saved copy", () => {
+    expect(script).toContain("args.widgetParameter");
+    expect(script).toContain('"bandeja"');
+    expect(script).toContain("?view=inbox");
+    expect(script).toContain('"Bandeja · " + total');
+    expect(script).toContain("-bandeja");
+    expect(script).toContain('INBOX || mode === "inbox"');
   });
   it("asks for fresh data soon and says when the data is old", () => {
     expect(script).toContain("refreshAfterDate");
