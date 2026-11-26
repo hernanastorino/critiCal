@@ -196,9 +196,10 @@ describe("la sugerencia de la Bandeja", () => {
     );
     const plan = refreshPlan(data, now);
     const [rec] = decisions(plan.input, plan.result, { data, now }).recommendations;
-    expect(rec?.message).toMatch(/mezclás/);
+    if (!rec) throw new Error("sin sugerencia");
+    expect(rec.message).toMatch(/mezclás/);
     const week = (endOfDay(TIMEZONE, now) - now) / 60_000 + 14 * 24 * 60;
-    for (const n of rec?.message.match(/\d+/g) ?? []) expect(Number(n)).toBeLessThanOrEqual(week);
+    for (const n of rec.message.match(/\d+/g) ?? []) expect(Number(n)).toBeLessThanOrEqual(week);
     const done = reducer(data, { type: "relaxContext", until: endOfDay(TIMEZONE, now), now });
     const after = refreshPlan(done, now);
     expect(decisions(after.input, after.result, { data: done, now }).recommendations).toEqual([]);

@@ -12,6 +12,7 @@ import {
   type MealKind,
   type MealTime,
   MINUTE,
+  type MinuteRange,
   moveSpot,
   overlaps,
   type PlanBlock,
@@ -323,9 +324,7 @@ export function sessionsThisWeek(task: AppTask, tz: string, now: number): number
 export function routineDaysLeft(data: AppData, task: AppTask, now: number, weekAt = now): number {
   const tz = data.settings.timezone;
   const hoursOf = data.activities.find((a) => a.id === task.activityId)?.validHours;
-  const session = task.sessionMinutes ?? 0;
-  const monday = weekStart(tz, weekAt);
-  const from = Math.max(now, zonedInstant(tz, monday, 0));
+  const from = Math.max(now, zonedInstant(tz, weekStart(tz, weekAt), 0));
   const end = endOfWeek(tz, weekAt);
   const today = localParts(tz, from);
   let count = 0;
@@ -333,15 +332,25 @@ export function routineDaysLeft(data: AppData, task: AppTask, now: number, weekA
     const own = hoursOf?.days?.[weekdayOf(day)];
     if (own === null) continue;
     const range = own ?? hoursOf?.all ?? { start: 0, end: 24 * 60 };
-    const isToday = day === today.date;
-    // Today a session that would only fit in the free-time hours is not done (late routines).
-    const until = isToday
-      ? Math.min(range.end, data.settings.week[today.weekday]?.freeFrom ?? 24 * 60)
-      : range.end;
-    const start = isToday ? Math.max(range.start, today.minuteOfDay) : range.start;
-    if (start + session <= until) count += 1;
+    const at = day === today.date ? today : undefined;
+    if (dayHolds(data, range, task.sessionMinutes ?? 0, at)) count += 1;
   }
   return count;
+}
+
+/**
+ * Whether a franja still holds a whole session: for today (`at`), from now on and only
+ * before the free-time hours (a session that would only fit there is not done).
+ */
+function dayHolds(
+  data: AppData,
+  range: MinuteRange,
+  session: number,
+  at?: { weekday: number; minuteOfDay: number },
+): boolean {
+  if (!at) return range.start + session <= range.end;
+  const free = data.settings.week[at.weekday]?.freeFrom ?? 24 * 60;
+  return Math.max(range.start, at.minuteOfDay) + session <= Math.min(range.end, free);
 }
 
 /** Whether a task is a routine: a habit of an activity that is a «rutina». */
@@ -1114,20 +1123,14 @@ export function routineWeek(
   input?: ScheduleInput,
   weekAt = now,
 ): RoutineWeek | undefined {
-  const tz = data.settings.timezone;
   const activity = data.activities.find((a) => a.id === task.activityId);
   if (!activity || !runsAsRoutine(data, task, now)) return undefined;
-  const monday = zonedInstant(tz, weekStart(tz, weekAt), 0);
-  const end = endOfWeek(tz, weekAt);
+  const tz = data.settings.timezone;
   const wanted = routineSessions(data, task, now, weekAt);
   // The whole week as the grid shows it: sessions done, past blocks not yet answered
   // (planned and over) and the blocks still planned.
   const done = routineDone(data, task, now, weekAt);
-  const count = (list: readonly PlanBlock[]) =>
-    list.filter((b) => b.taskId === task.id && b.end > now && b.start >= monday && b.start < end)
-      .length;
-  const planned = count(blocks);
-  const placed = Math.min(wanted, done + planned);
+  const planned = plannedIn(data, blocks, task, now, weekAt);
   const week: RoutineWeek = {
     taskId: task.id,
     activityId: activity.id,
@@ -1135,15 +1138,44 @@ export function routineWeek(
     wanted,
     done,
     planned,
-    placed,
-    next: monday > zonedInstant(tz, weekStart(tz, now), 0),
+    placed: Math.min(wanted, done + planned),
+    next: weekAt >= endOfWeek(tz, now),
   };
-  if (placed >= wanted) return week;
+  const reason =
+    week.placed < wanted ? shortReason(data, now, week, task, input, weekAt) : undefined;
+  return reason ? { ...week, reason } : week;
+}
+
+/** The blocks of a task still planned from `now` in the week `weekAt` is in. */
+function plannedIn(
+  data: AppData,
+  blocks: readonly PlanBlock[],
+  task: AppTask,
+  now: number,
+  weekAt: number,
+): number {
+  const tz = data.settings.timezone;
+  const monday = zonedInstant(tz, weekStart(tz, weekAt), 0);
+  const end = endOfWeek(tz, weekAt);
+  return blocks.filter(
+    (b) => b.taskId === task.id && b.end > now && b.start >= monday && b.start < end,
+  ).length;
+}
+
+/** Why a routine's week falls short: it would not fit even alone (`own`), or others take the room. */
+function shortReason(
+  data: AppData,
+  now: number,
+  week: RoutineWeek,
+  task: AppTask,
+  input: ScheduleInput | undefined,
+  weekAt: number,
+): "own" | "others" | undefined {
   // The days (or the franja) do not hold them: it would not fit with nothing else to do.
-  if (routineCapacity(data, task, now, weekAt) < wanted) return { ...week, reason: "own" };
-  if (!input || weekAt !== now) return week;
-  const alone = count(scheduleAlone(input, task.id).blocks);
-  return { ...week, reason: done + alone < wanted ? "own" : "others" };
+  if (routineCapacity(data, task, now, weekAt) < week.wanted) return "own";
+  if (!input || weekAt !== now) return undefined;
+  const alone = plannedIn(data, scheduleAlone(input, task.id).blocks, task, now, weekAt);
+  return week.done + alone < week.wanted ? "own" : "others";
 }
 
 /**
