@@ -225,3 +225,18 @@ export function hoursHold(hours: ValidHours, sessionMinutes: number, slot = GRID
   const ranges = [hours.all, ...Object.values(hours.days ?? {})];
   return ranges.every((r) => !r || franjaHolds(r, sessionMinutes, slot));
 }
+
+/** The days of the week a routine can go: a day that is not off and whose franja holds a session. */
+export function daysAllowed(
+  hours: ValidHours | undefined,
+  sessionMinutes: number,
+  slot = GRID_MINUTES,
+): number {
+  const own = new Map(Object.entries(hours?.days ?? {}));
+  return [0, 1, 2, 3, 4, 5, 6].filter((w) => {
+    const day = own.get(String(w));
+    if (day === null) return false;
+    const r = day ?? hours?.all;
+    return !r || franjaHolds(r, sessionMinutes, slot);
+  }).length;
+}

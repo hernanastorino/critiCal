@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { dropEditorDraftOf } from "../drafts.js";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
+import { routineWeekText } from "../friendly.js";
 import type { AppTask } from "../model.js";
 import { needOf } from "../need.js";
 import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
@@ -147,7 +148,7 @@ export function TaskDetail({
   /** Where the focus goes once the silo is deleted (its row is gone). */
   onGone?: () => void;
 }) {
-  const { data, now, dispatch } = useStore();
+  const { data, now, dispatch, routineWeek } = useStore();
   const toast = useToast();
   const startsAt = earliestStartOf(data, task);
   const tz = data.settings.timezone;
@@ -159,9 +160,12 @@ export function TaskDetail({
     task.kind === "habit"
       ? progress(data, now, weekAt).find((x) => x.task.id === task.id)
       : undefined;
-  const weeklyLabel = weekly
-    ? `${weekAt === now ? "Esta semana" : "La semana próxima"}: ${weekly.remainingMinutes > 0 ? `faltan ${hours(weekly.remainingMinutes)}` : "ya está completa"}`
-    : undefined;
+  const routine = routineWeek(task.id, weekAt);
+  const weeklyLabel = routine
+    ? routineWeekText(routine)
+    : weekly
+      ? `${weekAt === now ? "Esta semana" : "La semana próxima"}: ${weekly.remainingMinutes > 0 ? `faltan ${hours(weekly.remainingMinutes)}` : "ya está completa"}`
+      : undefined;
   // A routine takes no more than what it lacks this week (the same figure «faltan» shows);
   // with nothing lacking, or switched off, there is nothing to log.
   const weeklyLeft = weekly?.remainingMinutes;

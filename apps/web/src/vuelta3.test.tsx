@@ -119,6 +119,20 @@ describe("Rutinas", () => {
     expect(screen.queryByText("Nadar, 99 por semana de 60 min")).toBeNull();
   });
 
+  it("says in the field that a routine goes once a day at most", () => {
+    inside(<Routines />);
+    fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));
+    const times = screen.getByLabelText("Veces/sem.");
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Nadar" } });
+    fireEvent.change(times, { target: { value: "8" } });
+    expect(
+      screen.getByText("Como mucho una por día: con esos días son 7 por semana."),
+    ).toBeTruthy();
+    expect(times.getAttribute("aria-invalid")).toBe("true");
+    fireEvent.change(times, { target: { value: "7" } });
+    expect(times.getAttribute("aria-invalid")).toBeNull();
+  });
+
   it("after adding a rutina the focus goes back to «Crear rutina nueva»", () => {
     inside(<Routines />);
     fireEvent.click(screen.getByRole("button", { name: "Crear rutina nueva" }));

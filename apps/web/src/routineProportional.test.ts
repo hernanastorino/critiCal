@@ -42,15 +42,15 @@ const planned = (d: AppData, from: number, to: number) =>
     .filter((b) => b.taskId === gym(d).id && b.start >= from && b.start < to)
     .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
 
-describe("a routine made mid-week asks only the share of the days left", () => {
+describe("a routine asks the lesser of what it lacks and the days it can still go", () => {
   // Week of Mon 2026-11-16 to Sun 2026-11-22.
   const SATURDAY = at("2026-11-21", "10:00");
   const NEXT_MONDAY = at("2026-11-23", "00:30");
 
-  it("gym 3× made on Saturday asks 1 session this week", () => {
+  it("gym 3× made on Saturday asks 2 sessions this week: Saturday and Sunday, one each", () => {
     const d = gymMadeOn(SATURDAY);
-    expect(asked(d, SATURDAY)).toBe(60);
-    expect(planned(d, SATURDAY, at("2026-11-23", "00:00"))).toBe(60);
+    expect(asked(d, SATURDAY)).toBe(120);
+    expect(planned(d, SATURDAY, at("2026-11-23", "00:00"))).toBe(120);
   });
 
   it("the next week asks all of it again", () => {
@@ -62,8 +62,8 @@ describe("a routine made mid-week asks only the share of the days left", () => {
   it.each([
     ["Monday", "2026-11-16", 3],
     ["Wednesday", "2026-11-18", 3],
-    ["Thursday", "2026-11-19", 2],
-    ["Friday", "2026-11-20", 2],
+    ["Thursday", "2026-11-19", 3],
+    ["Friday", "2026-11-20", 3],
     ["Sunday", "2026-11-22", 1],
   ])("made on %s (3×)", (_day, date, sessions) => {
     const now = at(date, "10:00");
@@ -74,12 +74,12 @@ describe("a routine made mid-week asks only the share of the days left", () => {
     expect(asked(gymMadeOn(SATURDAY, 1), SATURDAY)).toBe(60);
   });
 
-  it("never asks more than a day holds (14× made on Sunday: two sessions)", () => {
+  it("never asks more than one a day (14× made on Sunday: one session)", () => {
     const d = gymMadeOn(at("2026-11-22", "08:00"), 14);
-    expect(asked(d, at("2026-11-22", "08:00"))).toBe(120);
+    expect(asked(d, at("2026-11-22", "08:00"))).toBe(60);
   });
 
-  it("what was done this week comes off the share", () => {
+  it("what was done this week comes off what it lacks", () => {
     const d = gymMadeOn(at("2026-11-19", "10:00"));
     const done: AppData = {
       ...d,
@@ -96,13 +96,13 @@ describe("a routine made mid-week asks only the share of the days left", () => {
       ],
     };
     const left = progress(done, at("2026-11-20", "08:00")).find((p) => p.task.id === gym(d).id);
-    expect(left?.remainingMinutes).toBe(60);
+    expect(left?.remainingMinutes).toBe(120);
   });
 
-  it("the engine task carries the share, not the whole week", () => {
+  it("the engine task carries the days left, not the whole week", () => {
     const d = gymMadeOn(SATURDAY);
     const t = toEngineTasks(d, SATURDAY).find((x) => x.id === gym(d).id);
-    expect(t?.remainingMinutes).toBe(60);
+    expect(t?.remainingMinutes).toBe(120);
   });
 
   it("a routine from before this (no creation date) keeps asking the whole week", () => {

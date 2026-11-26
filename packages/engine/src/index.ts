@@ -10,6 +10,7 @@ export {
   infeasibilityOptions,
   moveSpot,
   recommendations,
+  scheduleAlone,
   selfShort,
   targetOptions,
 } from "./options.js";

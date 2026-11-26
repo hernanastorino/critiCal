@@ -73,6 +73,22 @@ export function noFit(name: string, kind: NoFitKind): string {
   return `«${name}» no entra antes de su fecha aunque no hubiera nada más. Cambiá la fecha o el mínimo, o elegí «No hacer ${name}».`;
 }
 
+/**
+ * What a routine's week holds, said the same on every screen (SPEC §18 punto 13): the
+ * Bandeja, the block, Ajustes. `next`: the week after the one under way.
+ */
+export function routineWeekText(week: {
+  done: number;
+  wanted: number;
+  placed: number;
+  next: boolean;
+}): string {
+  const when = week.next ? "La semana próxima" : "Esta semana";
+  return week.done >= week.wanted
+    ? `${when}: ya está completa`
+    : `${when} entra ${week.placed} de ${week.wanted}`;
+}
+
 /** Today has nothing left in the plan. */
 export const FREE_TODAY = "Hoy no queda nada por hacer: día libre.";
 

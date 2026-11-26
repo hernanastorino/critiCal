@@ -73,7 +73,7 @@ describe("Rutinas de la semana próxima", () => {
     expect(days.size).toBe(3);
     // Nothing missing from next week is reported.
     const next = result.status.find((s) => s.taskId === "gym");
-    expect(next?.targetDeficit).toBe(0); // a routine behind in this week is not reported
+    expect(next?.targetDeficit ?? 0).toBe(0); // a routine behind in this week is not reported
   });
 
   it("today's Gym block does not count as one of next week's sessions", () => {
@@ -124,7 +124,7 @@ describe("Detalle de la rutina y la semana en curso", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /^Gym, 3 por semana/ }));
     const dialog = screen.getByRole("dialog", { name: "Gym" });
-    expect(within(dialog).getByText(/Esta semana: faltan 4h30/)).toBeTruthy();
+    expect(within(dialog).getByText(/Esta semana entra \d de 3/)).toBeTruthy();
     expect(within(dialog).queryByText(/mínimo/)).toBeNull();
   }, 30_000);
 });

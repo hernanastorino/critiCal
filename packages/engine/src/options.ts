@@ -40,6 +40,19 @@ function withTasks(input: ScheduleInput, tasks: Task[]): ScheduleInput {
 }
 
 /**
+ * The plan of one task with the time all to itself: nothing of the others is placed, not
+ * even what they hold fixed for today (its own fixed blocks stay). The one answer to «does
+ * it fit even alone», for the tasks and for the routines' count.
+ */
+export function scheduleAlone(input: ScheduleInput, id: string): ScheduleResult {
+  return schedule({
+    ...input,
+    tasks: input.tasks.filter((t) => t.id === id),
+    frozen: input.frozen?.filter((b) => b.taskId === id),
+  });
+}
+
+/**
  * Short tasks whose minimum does not fit even with the time all to themselves (more
  * sessions than days left, a minimum beyond what is awake before the deadline): no
  * cut to the others can make room, only changing them.
@@ -48,15 +61,7 @@ export function selfShort(input: ScheduleInput, result: ScheduleResult): string[
   return result.status
     .filter((s) => s.minDeficit > 0)
     .map((s) => s.taskId)
-    .filter((id) => {
-      const alone = schedule(
-        withTasks(
-          input,
-          input.tasks.filter((t) => t.id === id),
-        ),
-      );
-      return alone.status.some((s) => s.minDeficit > 0);
-    });
+    .filter((id) => scheduleAlone(input, id).status.some((s) => s.minDeficit > 0));
 }
 
 const option = (
