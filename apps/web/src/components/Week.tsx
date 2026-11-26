@@ -34,6 +34,7 @@ import {
   progress,
   sleptBlockIds,
   standingCheckIns,
+  travelIntervals,
   wakingDay,
   weekDates,
 } from "../planning.js";
@@ -489,6 +490,9 @@ export function Week({
     ),
   );
   const span = endMin - startMin;
+
+  // The time kept for trips to and from events at a saved place, drawn where it is reserved.
+  const trips = useMemo(() => travelIntervals(data), [data]);
 
   const sleptIds = useMemo(() => sleptBlockIds(data), [data]);
   const items = useMemo(() => {
@@ -1103,6 +1107,20 @@ export function Week({
           return (
             <div key={d} className="day" data-date={d}>
               {inReadingOrder([
+                trips.map((t) => {
+                  const style = position(d, t);
+                  if (!style) return null;
+                  return (
+                    <div
+                      key={`${d}-trip-${t.start}`}
+                      data-at={t.start}
+                      role="img"
+                      aria-label={`Traslado, ${weekdayShort(tz, t.start)} ${time(tz, t.start)} a ${time(tz, t.end)}`}
+                      className={`pill travel${t.end <= now ? " past" : ""}`}
+                      style={style}
+                    />
+                  );
+                }),
                 skipped.map((m) => {
                   const style = position(d, m.at);
                   if (!style || !m.kind) return null;

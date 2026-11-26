@@ -190,6 +190,7 @@ export type Action =
   /** Driving times the server found for event addresses (null: not found or no route). */
   | { type: "spots"; results: { text: string; minutes: number | null }[]; now: number }
   /** Minutes from home typed for an event, without saving a place. */
+  | { type: "forgetTravelTime"; from: string; to: string; now: number }
   | { type: "spotMinutes"; text: string; minutes: number; now: number }
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
@@ -1284,8 +1285,25 @@ function apply(data: AppData, action: Action): AppData {
       const minutes = Math.min(1440, Math.max(0, Math.round(action.minutes)));
       if (!Number.isFinite(minutes)) return data;
       const time = { from: action.from, to: action.to, minutes, manual: true };
-      return refresh({ ...data, travelTimes: [...others, time] }, now);
+      // Where it was in the list, so an edited row stays where it is.
+      const at = (data.travelTimes ?? []).findIndex(
+        (t) => t.from === action.from && t.to === action.to,
+      );
+      return refresh(
+        { ...data, travelTimes: at < 0 ? [...others, time] : others.toSpliced(at, 0, time) },
+        now,
+      );
     }
+    case "forgetTravelTime":
+      return refresh(
+        {
+          ...data,
+          travelTimes: (data.travelTimes ?? []).filter(
+            (t) => !(t.from === action.from && t.to === action.to),
+          ),
+        },
+        now,
+      );
     case "classTitle": {
       const key = normalize(action.title);
       if (action.as === "event")
@@ -2174,6 +2192,13 @@ function saveLabel(data: AppData, action: Action): string | undefined {
     }
     case "savePlace":
       return "guardar un lugar";
+    case "travelTime":
+    case "forgetTravelTime":
+      return "cambiar minutos en auto";
+    case "spotMinutes":
+      return "cambiar minutos de una dirección";
+    case "forgetSpot":
+      return "olvidar una dirección";
     case "deletePlace": {
       const place = data.places?.find((p) => p.id === action.placeId);
       return place ? `borrar ${clipName(place.name, 24)}` : undefined;

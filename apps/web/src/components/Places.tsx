@@ -90,6 +90,9 @@ export function Places() {
     };
     for (const t of data.travelTimes ?? []) add(t);
     for (const t of tripPairs(data, now)) add(t);
+    // In the order of the places, whatever its time: a row never jumps while it is edited.
+    const at = (id: string) => places.findIndex((p) => p.id === id);
+    trips.sort((a, b) => at(a.from) - at(b.from) || at(a.to) - at(b.to));
   }
   /** Saves a place. There is one home only: the form never offers a second one. */
   const savePlace = (place: Place) => dispatch({ type: "savePlace", place });
@@ -282,6 +285,9 @@ export function Places() {
                     onCommit={(m) =>
                       dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: m })
                     }
+                    onClear={() =>
+                      dispatch({ type: "eventTravelMinutes", eventId: event.id, minutes: null })
+                    }
                   />
                   <button
                     type="button"
@@ -331,6 +337,7 @@ export function Places() {
                   label={`Minutos de ${placeName(from)} a ${placeName(to)}`}
                   value={minutesBetween(data, from, to)}
                   onCommit={(minutes) => dispatch({ type: "travelTime", from, to, minutes })}
+                  onClear={() => dispatch({ type: "forgetTravelTime", from, to })}
                 />
               </div>
             );
@@ -414,35 +421,50 @@ function AddTrip({
   );
 }
 
+/** What a minutes field holds: nothing, something that is not minutes, or whole minutes up to a day. */
+type Typed = { kind: "empty" } | { kind: "bad" } | { kind: "ok"; minutes: number; capped: boolean };
+
+function typedMinutes(draft: string): Typed {
+  if (draft.trim() === "") return { kind: "empty" };
+  if (!/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft)) return { kind: "bad" };
+  // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
+  const n = Math.round(Number(draft.replace(",", ".")));
+  return { kind: "ok", minutes: Math.min(1440, n), capped: n > 1440 };
+}
+
 /**
  * Minutes field: shows the stored value until the user types; from then on their draft
  * wins, so a time computed meanwhile never replaces what is being typed, and an
- * untouched field never turns a computed time into a manual one.
+ * untouched field never turns a computed time into a manual one. Emptied, it forgets the
+ * value when the row has `onClear`; past a day it says where the limit is.
  */
 function MinutesInput({
   label,
   value,
   onCommit,
+  onClear,
 }: {
   label: string;
   value: number | undefined;
   onCommit: (minutes: number) => void;
+  onClear?: () => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
-  const [bad, setBad] = useState(false);
+  const [problem, setProblem] = useState<"bad" | "capped" | null>(null);
   const errorId = useId();
+  const bad = problem === "bad";
   const commit = () => {
     if (draft === null) return;
-    // Whole minutes up to a day: «12.5», «1e9» or «99999» would not even fit a backup.
-    const n = Math.min(1440, Math.round(Number(draft.replace(",", "."))));
-    if (/^\s*\d+(?:[.,]\d+)?\s*$/.test(draft)) {
-      if (n !== value) onCommit(n);
-    } else if (draft.trim() !== "") {
+    const typed = typedMinutes(draft);
+    if (typed.kind === "bad") {
       // Not minutes: the field says so instead of quietly going back.
-      setBad(true);
+      setProblem("bad");
       return;
     }
-    setBad(false);
+    if (typed.kind === "empty") {
+      if (onClear && value !== undefined) onClear();
+    } else if (typed.minutes !== value) onCommit(typed.minutes);
+    setProblem(typed.kind === "ok" && typed.capped ? "capped" : null);
     setDraft(null);
   };
   return (
@@ -453,12 +475,12 @@ function MinutesInput({
         inputMode="decimal"
         aria-label={label}
         aria-invalid={bad ? true : undefined}
-        aria-describedby={bad ? errorId : undefined}
+        aria-describedby={problem ? errorId : undefined}
         title={bad ? "Poné minutos de 0 a 1440, solo cifras" : undefined}
         style={{ width: 72, ...(bad ? { borderColor: "var(--critical)" } : {}) }}
         value={draft ?? value ?? ""}
         onChange={(e) => {
-          setBad(false);
+          setProblem(null);
           setDraft(e.target.value);
         }}
         onBlur={commit}
@@ -466,7 +488,7 @@ function MinutesInput({
           if (e.key === "Enter") e.currentTarget.blur();
         }}
       />
-      {bad && (
+      {problem && (
         <span
           className="meta"
           id={errorId}
@@ -474,7 +496,7 @@ function MinutesInput({
           // On a line of its own: next to the field it squeezed the row's name.
           style={{ color: "var(--critical)", margin: 0, width: "100%", order: 9 }}
         >
-          Minutos de 0 a 1440, solo cifras.
+          {bad ? "Minutos de 0 a 1440, solo cifras." : "El máximo es 1440 minutos (un día)."}
         </span>
       )}
     </>
@@ -566,7 +588,7 @@ function PlaceForm({
   const empty = isBlank(name);
   const { problem, blocked, field } = placeProblem({ form, taken, aliasDup, empty, tried });
   // Bus times are worked out from the addresses: without one there is nothing to compute.
-  const noAddress = travelMode === "bus" && !address.trim();
+  const noAddress = travelMode === "bus" && isBlank(address);
   const nameField = useRef<HTMLInputElement>(null);
   const addressField = useRef<HTMLInputElement>(null);
   const aliasField = useRef<HTMLInputElement>(null);
@@ -678,9 +700,9 @@ function PlaceForm({
             onSave({
               ...place,
               name: stripInvisible(name),
-              address: address.trim() || undefined,
+              address: isBlank(address) ? undefined : address.trim(),
               // A new address needs geocoding again.
-              ...(address.trim() !== (place.address ?? "")
+              ...((isBlank(address) ? "" : address.trim()) !== (place.address ?? "")
                 ? { lat: undefined, lon: undefined }
                 : {}),
               // «casa, CASA, casa» is one alias.
