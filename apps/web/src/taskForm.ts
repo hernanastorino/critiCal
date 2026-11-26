@@ -46,11 +46,11 @@ export const MAX_SESSION_MINUTES = 1440;
 const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
 
 /**
- * Minutes as the hours a field shows: «5.417» for 5 h 25, not the fifteen digits of the
- * division. Three decimals are 2 s of precision, so reading it back gives the same minute.
+ * Minutes as the hours a field shows: «5.42» for 5 h 25, not the fifteen digits of the
+ * division. Two decimals are at most 18 s off, so reading it back gives the same minute.
  */
 export const hoursField = (minutes: number): string =>
-  String(Math.round((minutes / 60) * 1000) / 1000);
+  String(Math.round((minutes / 60) * 100) / 100);
 
 /** Hours as typed, or NaN if they are not a valid figure. */
 export const typedHours = (v: string): number =>
