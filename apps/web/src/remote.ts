@@ -13,9 +13,13 @@ export {
   isPermanent,
   loadData,
   loadFirst,
+  loadSince,
   loadSpan,
   mergeChunk,
+  OVERLAP_MS,
   rowsToData,
+  serverNow,
+  TOMBSTONES_MS,
   type Writes,
   withoutDeleted,
 } from "./data.js";

@@ -8,6 +8,8 @@ export interface LocalState {
   data: AppData;
   /** What the database holds as far as this device knows; null before the first load. */
   stored: AppData | null;
+  /** The server's clock (ms) when `stored` was last known to be up to date: the next sync asks only for what changed after it. */
+  syncedAt?: number;
 }
 
 const DB = "critical";
@@ -70,7 +72,12 @@ function isData(d: unknown): d is AppData {
 function valid(state: unknown): LocalState | null {
   const s = state as Partial<LocalState> | null;
   if (!s || !isData(s.data)) return null;
-  return { data: s.data, stored: isData(s.stored) ? s.stored : null };
+  return {
+    data: s.data,
+    stored: isData(s.stored) ? s.stored : null,
+    syncedAt:
+      typeof s.syncedAt === "number" && Number.isFinite(s.syncedAt) ? s.syncedAt : undefined,
+  };
 }
 const legacyKey = (uid: string) => `critical.cache.v1.${uid}`;
 

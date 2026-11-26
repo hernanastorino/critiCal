@@ -121,6 +121,10 @@ test("con más de 1000 registros: la semana actual aparece antes de que llegue e
   /** Semanas distintas pedidas por separado (un pedido de menos de 10 días). */
   const weeks = new Set<string>();
   let narrowAfterRelease = 0;
+  const started = Date.now();
+  /** Pedidos de «solo lo que cambió» a la tabla grande, y los que pidieron más de una página. */
+  let changesOnly = 0;
+  let pagedChanges = 0;
 
   await signedIn(page);
   await page.route(`${API}/**`, async (route: Route) => {
@@ -128,6 +132,13 @@ test("con más de 1000 registros: la semana actual aparece antes de que llegue e
     if (req.method() === "OPTIONS") return route.fulfill({ status: 204, headers: CORS });
     const url = new URL(req.url());
     const table = url.pathname.replace("/rest/v1/", "");
+    // The server's clock, in the time of the page's fake clock (it starts on MONDAY).
+    if (table === "rpc/server_now")
+      return route.fulfill({
+        status: 200,
+        headers: CORS,
+        json: new Date(MONDAY.getTime() + (Date.now() - started)).toISOString(),
+      });
     if (!url.pathname.startsWith("/rest/v1/")) return route.fulfill({ status: 404, headers: CORS });
     const asksOne = (await req.headerValue("accept"))?.includes("vnd.pgrst.object");
     if (asksOne)
@@ -144,7 +155,13 @@ test("con más de 1000 registros: la semana actual aparece antes de que llegue e
       if (!open) await held;
       else narrowAfterRelease++;
     }
-    const rows = table === "calendar_events" ? answer(events, url) : [];
+    if (table === "calendar_events" && url.searchParams.get("updated_at")?.startsWith("gt.")) {
+      changesOnly++;
+      if (url.searchParams.has("offset")) pagedChanges++;
+    }
+    // Nada cambió en el servidor desde que se abrió: ni filas cambiadas ni lápidas.
+    const changed = url.searchParams.get("updated_at")?.startsWith("gt.");
+    const rows = table === "calendar_events" && !changed ? answer(events, url) : [];
     return route.fulfill({ status: 200, headers: CORS, json: rows });
   });
   await page.route("**/api/**", (route) =>
@@ -177,4 +194,12 @@ test("con más de 1000 registros: la semana actual aparece antes de que llegue e
   // one in view and its neighbours.
   expect(narrowAfterRelease).toBeGreaterThan(40);
   expect(weeks.size).toBeGreaterThan(40);
+
+  // Con todo cargado, volver a la app (otra sincronización) trae solo lo que cambió:
+  // un pedido filtrado por updated_at, sin páginas de más, en vez de las 2500 filas.
+  await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+  await expect.poll(() => changesOnly).toBeGreaterThan(0);
+  expect(pagedChanges).toBe(0);
+  // Y la semana vieja que se mira sigue con sus eventos (la sincronización no los borró).
+  await expect(week.getByRole("button", { name: /^Evento / }).first()).toBeVisible();
 });

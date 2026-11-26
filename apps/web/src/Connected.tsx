@@ -13,6 +13,7 @@ import { Loading } from "./components/Loading.js";
 import { RoyLine } from "./components/Roy.js";
 import { WeekSkeleton } from "./components/Skeleton.js";
 import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
+import { loadFresh } from "./fresh.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
 import { weekNo } from "./loadQueue.js";
 import type { AppData } from "./model.js";
@@ -36,6 +37,7 @@ import {
   mergeChunk,
   SPOTS_PER_CALL,
   type SyncResult,
+  serverNow,
   signInWithGoogle,
   syncGoogle,
   syncICloud,
@@ -126,6 +128,14 @@ export function Connected({
   const progressive = useRef<Progressive | null>(null);
   // While true this device holds only part of the history: that is not worth keeping as its copy.
   const partial = useRef(false);
+  // The server's clock when `stored` was last known to be up to date; null: the next reload loads everything.
+  const syncedAt = useRef<number | null>(null);
+  /** Keeps this device's copy, with the mark the next sync starts from. */
+  const keep = useCallback(
+    (uid: string, data: AppData, base: AppData | null) =>
+      writeLocal(uid, { data, stored: base, syncedAt: syncedAt.current ?? undefined }),
+    [],
+  );
   // Starts that loading once the screen is there to receive it (set by the first load).
   const startRest = useRef<(() => void) | null>(null);
   // Puts rows of the other weeks on the screen (set by SyncProvider, like `replace`).
@@ -168,13 +178,13 @@ export function Connected({
           partial.current = false;
           startRest.current = null;
           const [data, base] = [latest.current, stored.current];
-          if (alive.current && data && base) void writeLocal(uid, { data, stored: base });
+          if (alive.current && data && base) void keep(uid, data, base);
         },
       });
       progressive.current = p;
       p.start(left, weekNo(weekStart(tz, Date.now())));
     },
-    [client, uid],
+    [client, uid, keep],
   );
 
   // Weeks that ran out of attempts get another go when the network is back.
@@ -198,6 +208,7 @@ export function Connected({
       if (found) {
         const data = ownedRef.current(found.data);
         stored.current = found.stored;
+        syncedAt.current = found.syncedAt ?? null;
         latest.current = data;
         setData(data);
         // Usable right away; SyncProvider refreshes it in the background.
@@ -220,9 +231,12 @@ export function Connected({
         await pullCalendars();
         // The small tables, every check-in and the weeks the planner reaches: enough to
         // open. The rest of the history follows week by week (SPEC «Carga progresiva»).
+        // The mark comes before the load: what changes while it runs is asked for next time.
+        const startedAt = await serverNow(client).catch(() => null);
         const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const first = await loadFirst(client, firstSpan(zone, Date.now()));
         const loaded = owned(first.data);
+        syncedAt.current = startedAt;
         stored.current = loaded;
         latest.current = loaded;
         const tz = loaded.settings.timezone;
@@ -230,7 +244,7 @@ export function Connected({
         if (left.length) {
           partial.current = true;
           startRest.current = () => beginRest(tz, left);
-        } else if (alive.current) void writeLocal(uid, { data: loaded, stored: loaded });
+        } else if (alive.current) void keep(uid, loaded, loaded);
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
@@ -240,7 +254,7 @@ export function Connected({
     return () => {
       cancelled = true;
     };
-  }, [client, pullCalendars, local, uid, owned, beginRest]);
+  }, [client, pullCalendars, local, uid, owned, beginRest, keep]);
 
   // One flush at a time, so parents always land before children.
   const flushing = useRef<Promise<boolean> | null>(null);
@@ -270,8 +284,8 @@ export function Connected({
     stored.current = fresh;
     latest.current = fresh;
     replace.current?.(fresh);
-    if (alive.current) void writeLocal(uid, { data: fresh, stored: fresh });
-  }, [client, uid, owned, endLoad]);
+    if (alive.current) void keep(uid, fresh, fresh);
+  }, [client, uid, owned, endLoad, keep]);
   /** Writes what is pending; true once the database has everything this device has. */
   const flush = useCallback(
     (quiet = false): Promise<boolean> => {
@@ -324,8 +338,7 @@ export function Connected({
             }
             stored.current = target;
             wrote = true;
-            if (alive.current && !partial.current)
-              void writeLocal(uid, { data: latest.current ?? target, stored: target });
+            if (alive.current && !partial.current) void keep(uid, latest.current ?? target, target);
           }
           // What the database refused goes back to how it was on screen (SPEC §14): everything
           // it took is saved, so its copy is exactly what this device should show. An edit
@@ -358,7 +371,7 @@ export function Connected({
       flushing.current = saving(run());
       return flushing.current;
     },
-    [client, session, uid, owned, restoreFromServer],
+    [client, session, uid, owned, restoreFromServer, keep],
   );
 
   const onChange = useCallback(
@@ -375,7 +388,7 @@ export function Connected({
       hold("unsaved", true);
       const local =
         alive.current && !partial.current
-          ? writeLocal(uid, { data: next, stored: stored.current })
+          ? keep(uid, next, stored.current)
           : Promise.resolve(false);
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
       const remote = flush();
@@ -383,7 +396,7 @@ export function Connected({
         if (latest.current === next && (l || r)) hold("unsaved", false);
       });
     },
-    [flush, uid],
+    [flush, uid, keep],
   );
 
   useEffect(() => {
@@ -450,6 +463,7 @@ export function Connected({
         startRest={startRest}
         progressive={progressive}
         endLoad={endLoad}
+        syncedAt={syncedAt}
         latest={latest}
         changes={changes}
         owned={owned}
@@ -501,6 +515,7 @@ function SyncProvider({
   startRest,
   progressive,
   endLoad,
+  syncedAt,
   latest,
   changes,
   owned,
@@ -521,6 +536,7 @@ function SyncProvider({
   progressive: React.MutableRefObject<Progressive | null>;
   /** A whole copy of the history came in: the weeks still on their way are not needed. */
   endLoad: () => void;
+  syncedAt: React.MutableRefObject<number | null>;
   latest: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
   owned: (d: AppData) => AppData;
@@ -567,13 +583,17 @@ function SyncProvider({
     }
     // Changes still waiting (offline) must not be overwritten by the server's copy.
     if (!nothing(diffData(stored.current, latest.current))) return;
-    const fresh = owned(await loadData(client));
+    const base = stored.current;
+    const { data, at, whole } = await loadFresh(client, base, syncedAt.current);
+    const fresh = owned(data);
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
-    endLoad();
+    // Only a whole copy makes the weeks still on their way unnecessary.
+    if (whole) endLoad();
+    syncedAt.current = at ?? syncedAt.current;
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus, endLoad]);
+  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus, endLoad, syncedAt]);
   /**
    * One reload at a time (mount, interval, foreground can overlap): an older merge's
    * writes must never land after a newer one set the baseline. Each call waits for

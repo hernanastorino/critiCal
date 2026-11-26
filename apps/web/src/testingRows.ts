@@ -22,7 +22,10 @@ export interface Request {
  * request, like the server), so loading code is tested against what it asks, not what it gets.
  * `gate` may hold back a request until the test lets it go.
  */
-export function rowsClient(tables: Record<string, Row[]>, options: { gate?: Gate } = {}) {
+export function rowsClient(
+  tables: Record<string, Row[]>,
+  options: { gate?: Gate; serverNow?: () => number; rpcError?: unknown } = {},
+) {
   const requests: Request[] = [];
   const writes: { op: string; table: string }[] = [];
   const from = (table: string) => ({
@@ -108,5 +111,11 @@ export function rowsClient(tables: Record<string, Row[]>, options: { gate?: Gate
   });
   const invoke = vi.fn(() => Promise.resolve({ data: { connected: true }, error: null }));
   stubApi(invoke);
-  return { client: { from, auth: session } as never, requests, writes };
+  const rpc = (name: string) => {
+    if (name !== "server_now") return Promise.resolve({ data: null, error: new Error(name) });
+    if (options.rpcError) return Promise.resolve({ data: null, error: options.rpcError });
+    const at = options.serverNow?.() ?? Date.now();
+    return Promise.resolve({ data: new Date(at).toISOString(), error: null });
+  };
+  return { client: { from, rpc, auth: session } as never, requests, writes };
 }
