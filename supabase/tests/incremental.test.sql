@@ -2,7 +2,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 delete from auth.users where email = 'prueba@critical.test';
 delete from private.app_config where key = 'owner';
-select plan(16);
+select plan(19);
 
 insert into auth.users (id, email) values
   ('00000000-0000-0000-0000-0000000000e1', 'e1@test.local'),
@@ -85,6 +85,30 @@ select is((select count(*)::int from public.deleted_rows where row_key = 'viejo-
 select is((select count(*)::int from public.deleted_rows where row_key = '2026-12-01'), 1, 'the fresh tombstone stays');
 -- Las columnas e índices existen una sola vez (la migración se puede repetir).
 select has_index('public', 'deleted_rows', 'deleted_rows_user_deleted_idx', 'tombstones are pruned by an index');
+
+-- Borrar una cuenta no deja nada suyo: ni lápidas de antes ni las que haría la cascada, y no falla.
+reset role;
+insert into auth.users (id, email) values ('00000000-0000-0000-0000-0000000000e3', 'e3@test.local');
+insert into public.activities (user_id, id, name, color, academic)
+values ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-00000000a003', 'Q', '#fff', true);
+insert into public.tasks (user_id, id, activity_id, title, kind, priority, status)
+values ('00000000-0000-0000-0000-0000000000e3', '00000000-0000-0000-0000-00000000b003',
+        '00000000-0000-0000-0000-00000000a003', 'T', 'deliverable', 1, 'active');
+insert into public.plan_blocks (user_id, id, task_id, start_at, end_at, level, soft)
+values ('00000000-0000-0000-0000-0000000000e3', 'e3-blk', '00000000-0000-0000-0000-00000000b003',
+        '2026-11-25 10:00+00', '2026-11-25 11:00+00', 'ok', false);
+insert into public.calendar_events (user_id, source, external_id, title, start_at, end_at, busy, all_day)
+values ('00000000-0000-0000-0000-0000000000e3', 'google', 'e3-ev', 'X', '2026-11-25 12:00+00', '2026-11-25 13:00+00', true, false);
+insert into public.day_overrides (user_id, date, wake, bed)
+values ('00000000-0000-0000-0000-0000000000e3', '2026-11-25', 420, 1380);
+-- Como «Revocar conexiones»: los eventos se borran con la cuenta todavía viva.
+delete from public.calendar_events where user_id = '00000000-0000-0000-0000-0000000000e3';
+select is((select count(*)::int from public.deleted_rows where user_id = '00000000-0000-0000-0000-0000000000e3'), 1,
+  'revoking connections leaves a tombstone while the account lives');
+select lives_ok($$ delete from auth.users where id = '00000000-0000-0000-0000-0000000000e3' $$,
+  'deleting an account does not fail on its tombstones');
+select is((select count(*)::int from public.deleted_rows where user_id = '00000000-0000-0000-0000-0000000000e3'), 0,
+  'nothing of a deleted account is left in deleted_rows');
 
 select * from finish();
 rollback;
