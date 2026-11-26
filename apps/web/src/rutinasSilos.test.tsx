@@ -45,7 +45,7 @@ describe("Silos: las rutinas no son silos", () => {
     expect(document.querySelector('[data-task="gym"]')).toBeNull();
   });
 
-  it("«planificado vs. hecho» keeps the routine, marked as such", () => {
+  it("«hecho / planificado» keeps the routine, marked as such", () => {
     const d = demoData(WEDNESDAY);
     const block = {
       id: "g1",
@@ -57,7 +57,7 @@ describe("Silos: las rutinas no son silos", () => {
     const rows = plannedVsDone({ ...d, plan: [block] }, WEDNESDAY);
     expect(rows.find((r) => r.taskId === "gym")?.routine).toBe(true);
     silos(() => ({ ...d, plan: [block] }), WEDNESDAY);
-    const card = screen.getByText("Esta semana: planificado vs. hecho").closest(".card");
+    const card = screen.getByText("Esta semana: hecho / planificado").closest(".card");
     expect(within(card as HTMLElement).getByText(/rutina/)).toBeTruthy();
   });
 });

@@ -669,11 +669,14 @@ textarea[aria-invalid="true"] {
 .toasts.low {
   position: static;
   align-self: stretch;
+  /* Keeps clear of the round button, whose place the notice would cover. */
+  padding-right: 56px;
 }
 
-/* The notice itself takes the pointer (so it stays while hovered); around it, touches pass. */
+/* A notice covers no control: touches go through it to what is underneath. Only «Deshacer» takes them
+   (and a pointer on it keeps the notice a while longer). */
 .snack {
-  pointer-events: auto;
+  pointer-events: none;
   display: flex;
   align-items: center;
   gap: var(--space-3);
@@ -2869,6 +2872,12 @@ label.check {
   text-overflow: ellipsis;
 }
 
+.place-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .place-mode {
   flex: none;
   color: var(--ink-soft);
@@ -3066,6 +3075,7 @@ body:has(.sheet) .toasts.toasts.low {
   top: calc(var(--safe-t) + 8px);
   left: 12px;
   right: 12px;
+  padding-right: 0;
 }
 
 @media (min-width: 720px) {

@@ -35,23 +35,24 @@ const mealRows = (f: WeekFormValues): { field: string; at: string; minutes: stri
 /** Every minutes field that is not a whole number from 0 to 240, each said for its field. */
 function minutesProblems(form: WeekFormValues): WeekProblem[] {
   // A figure out of range would be corrected without a word (−20 → 0, 999 → 240).
+  // What the person reads: the field says «Dura (min)» beside its meal, never its technical name.
   return (
     [
-      ["Arreglarse, traslado (min)", form.morning],
-      ["Dura (min), desayuno", form.breakfastMin],
-      ["Dura (min), almuerzo", form.lunchMin],
-      ["Dura (min), merienda", form.snackMin],
-      ["Dura (min), cena", form.dinnerMin],
+      ["Arreglarse, traslado (min)", form.morning, "«Arreglarse, traslado (min)»"],
+      ["Dura (min), desayuno", form.breakfastMin, "«Dura (min)» del desayuno"],
+      ["Dura (min), almuerzo", form.lunchMin, "«Dura (min)» del almuerzo"],
+      ["Dura (min), merienda", form.snackMin, "«Dura (min)» de la merienda"],
+      ["Dura (min), cena", form.dinnerMin, "«Dura (min)» de la cena"],
     ] as const
   )
     .filter(([, v]) => v.trim() !== "" && !(isWhole(v) && Number(v) <= 240))
-    .map(([field, typed]) => ({
+    .map(([field, typed, shown]) => ({
       fields: [field],
       // «1,5» is not rounded behind the back: whole minutes only (as in Rutinas and Materias).
       message:
         isFigure(typed) && !isWhole(typed)
-          ? `«${field}»: solo números enteros, entre 0 y 240 min.`
-          : `«${field}» tiene que ser un número de minutos entre 0 y 240.`,
+          ? `${shown}: solo números enteros, entre 0 y 240 min.`
+          : `${shown} tiene que ser un número de minutos entre 0 y 240.`,
     }));
 }
 

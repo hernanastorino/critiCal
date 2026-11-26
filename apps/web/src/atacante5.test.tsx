@@ -69,7 +69,7 @@ function Log() {
   );
 }
 
-describe("Silos: «Esta semana: planificado vs. hecho»", () => {
+describe("Silos: «Esta semana: hecho / planificado»", () => {
   afterEach(() => vi.useRealTimers());
 
   it("counts what was just logged, though the screen's clock has not ticked yet", () => {
@@ -87,7 +87,7 @@ describe("Silos: «Esta semana: planificado vs. hecho»", () => {
     // 30 s later, before the minute tick: the check-in is stamped after the screen's clock.
     vi.setSystemTime(NOW + 30_000);
     fireEvent.click(screen.getByText("anotar"));
-    expect(screen.getByText("Esta semana: planificado vs. hecho")).toBeTruthy();
+    expect(screen.getByText("Esta semana: hecho / planificado")).toBeTruthy();
     expect(screen.getByText(/1h40 \/ 1h40/)).toBeTruthy();
   });
 });

@@ -68,7 +68,7 @@ describe("nombres sin espacios de más ni invisibles en el dato", () => {
   });
 });
 
-describe("«planificado vs. hecho» con la unidad en el número", () => {
+describe("«hecho / planificado» con la unidad en el número", () => {
   it("dice «1h40 / 1h40», no «de»", () => {
     inside(<Silos />, () => seedHistory(demoData(NOW), NOW));
     expect(document.querySelector(".pvd")?.textContent).toMatch(/\d+h(\d\d)? \/ \d+h/);

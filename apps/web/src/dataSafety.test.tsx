@@ -10,6 +10,7 @@ import type { AppData } from "./model.js";
 import { standingCheckIns } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 import { tapDone } from "./testDone.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = Date.parse("2026-11-03T12:00:00Z");
 const start = () => reducer(demoData(NOW), { type: "refresh", now: NOW });
@@ -203,6 +204,7 @@ describe("the silo form says what is wrong, beside the field", { timeout: 30_000
         <Probe />
       </StoreProvider>,
     );
+    pickMateria();
     return {
       name: screen.getByLabelText("Nombre"),
       estimate: screen.getByLabelText("Horas estimadas"),

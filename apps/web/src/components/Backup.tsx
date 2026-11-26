@@ -57,7 +57,10 @@ export function Backup() {
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const toast = useToast();
 
-  const download = () => downloadJson(data, now);
+  const download = () => {
+    downloadJson(data, now);
+    toast.show("Respaldo exportado");
+  };
 
   const restore = async (f: File) => {
     // With an account a file from elsewhere (another account, the demo) gets new ids.

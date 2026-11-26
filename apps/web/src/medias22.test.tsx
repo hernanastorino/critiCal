@@ -8,6 +8,7 @@ import { demoData } from "./demo.js";
 import type { AppData } from "./model.js";
 import { isPinned } from "./planning.js";
 import { reducer, StoreProvider } from "./store.js";
+import { pickMateria } from "./testing.js";
 
 const demoPlan = () => reducer(demoData(NOW), { type: "refresh", now: NOW }).plan;
 
@@ -25,6 +26,7 @@ describe("vuelta 22: doble toque en «Guardar»", () => {
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const sheet = screen.getByRole("dialog", { name: "Nueva actividad" });
+    pickMateria();
     fireEvent.change(within(sheet).getByLabelText("Nombre"), { target: { value: "Doble toque" } });
     fireEvent.change(within(sheet).getByLabelText("Fecha límite"), {
       target: { value: "2026-11-20T10:00" },
@@ -166,6 +168,7 @@ describe("vuelta 22: el mismo «Agregar» dos veces seguidas", () => {
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const sheet = screen.getByRole("dialog", { name: "Nueva actividad" });
+    pickMateria();
     fireEvent.change(within(sheet).getByLabelText("Nombre"), { target: { value: "Tanda" } });
     fireEvent.change(within(sheet).getByLabelText("Fecha límite"), {
       target: { value: "2026-11-20T10:00" },

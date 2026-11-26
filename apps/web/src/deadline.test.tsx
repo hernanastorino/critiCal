@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { demoData } from "./demo.js";
 import { dateYearInRange, deadlineInRange } from "./limits.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -43,6 +44,7 @@ describe("deadline range", () => {
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const sheet = screen.getByRole("dialog", { name: "Nueva actividad" });
+    pickMateria();
     fireEvent.change(within(sheet).getByLabelText("Nombre"), { target: { value: "Entrega" } });
     fireEvent.change(within(sheet).getByLabelText("Fecha límite"), { target: { value: deadline } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Guardar" }));

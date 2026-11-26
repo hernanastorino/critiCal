@@ -230,7 +230,7 @@ export function Silos() {
         )}
         {week.length > 0 && (
           <div className="card">
-            <div className="title">Esta semana: planificado vs. hecho</div>
+            <div className="title">Esta semana: hecho / planificado</div>
             <div className="pvd">
               {week.map((r) => (
                 <div key={r.taskId} style={{ display: "contents" }}>
