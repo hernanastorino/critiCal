@@ -6,7 +6,13 @@ import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import { isBlank, NAME_MAX, stripBidi } from "../limits.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { mealsOf } from "../planning.js";
-import { describeHours, emptyHoursForm, type HoursForm, readHours } from "../routineHours.js";
+import {
+  daysAllowed,
+  describeHours,
+  emptyHoursForm,
+  type HoursForm,
+  readHours,
+} from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
 import { detectedProblem, detectedToReset } from "../taskForm.js";
@@ -579,7 +585,7 @@ export function DetectedDefaults() {
 }
 
 /** What is wrong with the times a week and the minutes of a routine, each in its own field. */
-function routineProblems(times: string, minutes: string) {
+function routineProblems(times: string, minutes: string, days = 7) {
   // «3.5» is not rounded to 4 behind the back: whole numbers only.
   const t = isWhole(times) ? Number(times) : Number.NaN;
   const m = isWhole(minutes) ? Number(minutes) : Number.NaN;
@@ -593,7 +599,9 @@ function routineProblems(times: string, minutes: string) {
         ? "Las veces por semana van de 1 a 14."
         : !minutesBad && !validRoutine(t, m)
           ? "Eso suma más de 40 h por semana."
-          : null,
+          : t > days
+            ? `Como mucho una por día: con esos días son ${days} por semana.`
+            : null,
     minutes: decimals(minutes)
       ? "Los minutos por sesión: solo números enteros, de 1 a 360."
       : minutesBad
@@ -632,12 +640,18 @@ export function Routines() {
     const d = editorDraft("preferences");
     return (d && data.tasks.find((t) => t.id === d.taskId)) || null;
   });
-  const problem = routineProblems(times, minutes);
+  const minutesBad = routineProblems(times, minutes).minutes;
   // A franja shorter than the session is said once the session is a valid figure.
   const read = readHours(
     hours,
-    problem.minutes ? undefined : Number(minutes),
+    minutesBad ? undefined : Number(minutes),
     data.settings.slotMinutes,
+  );
+  // One a day at most: more times than days the routine can go is said in its own field.
+  const problem = routineProblems(
+    times,
+    minutes,
+    minutesBad ? 7 : daysAllowed(read.hours, Number(minutes), data.settings.slotMinutes),
   );
   const bad = !!(problem.times || problem.minutes || read.problems.length);
   const nameField = useRef<HTMLInputElement>(null);
