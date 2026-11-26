@@ -1387,7 +1387,8 @@ export function decisions(
     recommendations: recommendations(input, result),
     impossible,
     get noFits() {
-      return impossible.filter((id) => !this.options.some((o) => reaches(o, id)));
+      const offered = this.options;
+      return impossible.filter((id) => !offered.some((o) => reaches(o, id)));
     },
   };
 }
@@ -1396,7 +1397,7 @@ export function decisions(
 function reaches(option: PlanOption, taskId: string): boolean {
   if (option.kind === "drop") return false;
   const s = option.result.status.find((x) => x.taskId === taskId);
-  return !!s && s.minDeficit === 0;
+  return s !== undefined && s.minDeficit === 0;
 }
 
 /**

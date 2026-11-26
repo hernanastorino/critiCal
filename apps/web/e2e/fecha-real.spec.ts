@@ -36,9 +36,7 @@ test("Bandeja: sin título «no entra» si una opción deja entrar la tarea, y e
   const tarjeta = page.locator(".card").filter({ hasText: /Gym: esta semana entra \d de \d/ });
   const hayTarjeta = (await tarjeta.count()) > 0;
   if (hayTarjeta) {
-    const texto = (await tarjeta.first().locator(".title").textContent()) ?? "";
-    const n = Number(/entra (\d) de/.exec(texto)?.at(1));
-    expect(n).toBe(bloquesGym);
+    await expect(tarjeta.first().locator(".title")).toContainText(`entra ${bloquesGym} de`);
   } else {
     expect(bloquesGym).toBeGreaterThanOrEqual(3);
   }

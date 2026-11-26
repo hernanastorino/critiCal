@@ -59,13 +59,11 @@ function checkPromise({ data, now, plan }: Loaded) {
   const before = new Map(plan.result.status.map((s) => [s.taskId, s.minDeficit]));
   for (const o of d.options) {
     if (o.kind === "drop" || !onlyImpossibleLeft(o, d.impossible)) continue;
-    const own = o.result.status.find((s) => s.taskId === o.taskId);
-    const better = o.result.status.some(
-      (s) => s.taskId !== undefined && s.minDeficit < (before.get(s.taskId) ?? 0),
-    );
+    const better = o.result.status.some((s) => s.minDeficit < (before.get(s.taskId) ?? 0));
     expect(better, `${o.label} no mejora ningún déficit`).toBe(true);
     if (o.kind === "lower-minimum" || o.kind === "minimum-viable") {
-      expect(own?.minDeficit ?? 0, o.label).toBe(0);
+      const own = o.result.status.find((s) => s.taskId === o.taskId);
+      expect(own?.minDeficit, o.label).toBe(0);
     }
   }
 }
