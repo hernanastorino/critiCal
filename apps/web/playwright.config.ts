@@ -30,12 +30,16 @@ export default defineConfig({
   projects: [
     { name: "iphone", testIgnore: CONNECTED, use: { ...devices["iPhone 15"] } },
     { name: "desktop-safari", testIgnore: CONNECTED, use: { ...devices["Desktop Safari"] } },
-    // A build that talks to a (simulated) Supabase: the one place the signed-in loading runs.
-    {
-      name: "connected",
-      testMatch: CONNECTED,
-      use: { ...devices["iPhone 15"], baseURL: CONNECTED_URL },
-    },
+    // Only against the local build: a deployed site runs the smoke test alone.
+    ...(process.env.E2E_BASE_URL
+      ? []
+      : [
+          {
+            name: "connected",
+            testMatch: CONNECTED,
+            use: { ...devices["iPhone 15"], baseURL: CONNECTED_URL },
+          },
+        ]),
   ],
   webServer: process.env.E2E_BASE_URL
     ? undefined
