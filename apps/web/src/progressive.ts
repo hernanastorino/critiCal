@@ -58,9 +58,11 @@ export function weeksLeft(
 
 export interface ProgressiveOptions {
   /** Reads one week from the database. */
-  fetchWeek(week: number): Promise<Chunk>;
+  // eslint-disable-next-line no-unused-vars -- a parameter name in a function type
+  fetchWeek: (week: number) => Promise<Chunk>;
   /** Puts rows on the screen and in the baseline. */
-  apply(chunk: Chunk): void;
+  // eslint-disable-next-line no-unused-vars -- a parameter name in a function type
+  apply: (chunk: Chunk) => void;
   /** Told when anything the screen shows about the loading changed. */
   onChange: () => void;
   queue?: Pick<QueueOptions, "concurrency" | "attempts" | "delay">;
@@ -97,7 +99,9 @@ export class Progressive {
         this.buffer.push({ week, chunk });
         if (week === this.center) this.flush();
         else {
-          this.timer ??= setTimeout(() => this.flush(), opts.batchMs ?? BATCH_MS);
+          this.timer ??= setTimeout(() => {
+            this.flush();
+          }, opts.batchMs ?? BATCH_MS);
         }
       },
     });

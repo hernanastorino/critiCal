@@ -17,13 +17,15 @@ export const mondayOf = (n: number): string =>
 
 export interface QueueOptions {
   /** Brings in one week; a rejection is retried. */
-  run(week: number): Promise<void>;
+  // eslint-disable-next-line no-unused-vars -- a parameter name in a function type
+  run: (week: number) => Promise<void>;
   /** Jobs in flight at once. */
   concurrency?: number;
   /** Attempts before a week is given up (until `retryFailed`). */
   attempts?: number;
   /** Wait before attempt number `attempt` (1 = after the first failure). */
-  delay?(attempt: number): number;
+  // eslint-disable-next-line no-unused-vars -- a parameter name in a function type
+  delay?: (attempt: number) => number;
   /** Told after every change: something started, finished, failed. */
   onChange?: () => void;
 }

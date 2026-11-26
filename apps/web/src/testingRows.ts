@@ -3,6 +3,7 @@ import { queryFilters, session, stubApi } from "./testing.js";
 
 type Row = Record<string, unknown>;
 
+// eslint-disable-next-line no-unused-vars -- a parameter name in a function type
 export type Gate = (request: Omit<Request, "rows">) => Promise<void> | undefined;
 
 /** A cell of a row, by column (rows are read through a map, never by a computed key). */
