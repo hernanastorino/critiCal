@@ -15,6 +15,18 @@ Una cuenta nueva de Claude no ve la memoria local (`~/.claude/projects/...`), ni
 3. **Terminá lo que está en la tabla de §1** antes de empezar algo nuevo (salvo los PRs pausados a pedido del usuario, como el #68: se dejan como están y no se mergean). Un PR que abrió otra sesión se puede continuar: `gh pr checkout <n>` en un worktree propio (si la rama ya está en otro worktree, `git worktree list` y seguí en ese), leé lo que marcó Codacy y seguí el ciclo de §2.
 4. **Preguntas pendientes para el usuario**: §1.1 de este archivo. Recordáselas en cuanto escriba.
 
+### Traspaso (2026-11-26, ~12:45Z) — leer primero
+
+- **Estado**: `main` = producción = #302 (Deploy verde). No hay PRs abiertos ni hijas vivas. Better Stack limpio. Todo lo de 25/26 está en §6.
+- **Próximo**: 38.ª vuelta del atacante (van #284–#304 desde la 37.ª). Altas/Medias → hija con PR y tests; Bajas → §5.3. Si el usuario no está y la app no deja abrir hijas, la madre arregla Altas/Medias ella misma.
+- **Lo aprendido hoy** (trampas):
+  - Cupo de Vercel: con 5+ hijas a la vez se llena enseguida (cada push = 1 preview). Dar paso a pushes de a uno; `scripts/vercel-deploys.sh` hoy subcontaba ~25. Si `preview` falla solo por cupo, el Deploy de `main` (staging + `staging-e2e`) hace de preview.
+  - Merges en tanda: git puede mergear sin conflicto dos PRs que declaran lo mismo (`hoursField` en #298 y #300 rompió `main`). Tras varios merges seguidos, mirar CI de `main` antes del siguiente.
+  - Tests con fecha fija no alcanzan: la demo en producción corre con la fecha real (`fechaReal.test.ts` prueba 5 fechas).
+  - Nada de `git stash`: es compartido entre worktrees (una hija se llevó el de otra).
+  - Codacy da el detalle de cada issue por la API (`…/pull-requests/N/issues?status=new`): pasárselo a la hija, no dejar que adivine.
+  - Al panel de Better Stack se entra clickeando «Errors» en `telemetry.betterstack.com` (la navegación directa a `errors.betterstack.com` la bloquea el navegador integrado).
+
 ### Traspaso (2026-11-25, ~20:50Z, límite de 5 h al 90 %)
 
 - **Mergeado y en producción**: #284, #285 (CSP bloquea, sin violaciones), #287, #293. **#291** (Bajas Bandeja) mergeado: staging OK, `production` falló por el cupo de Vercel; un job en segundo plano lo relanza ~21:05Z (si no, `gh run rerun <Deploy> --failed`).
