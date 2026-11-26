@@ -31,16 +31,3 @@ test("Acerca de: la atribución de los horarios vive en una hoja, no suelta entr
   await page.keyboard.press("Escape");
   await expect(sheet(page)).toHaveAccessibleName("Ajustes");
 });
-
-test("Bandeja: avisa cuando la franja preferida de una rutina cae fuera de su franja válida", async ({
-  page,
-}) => {
-  await demoDePruebas(page);
-  await goTab(page, "Bandeja");
-  const tarjeta = page.locator(".card").filter({ hasText: /Preferís 17:00–21:00/ });
-  await expect(tarjeta).toContainText("Gym");
-  await expect(tarjeta).toContainText("solo puede ir 09:00–17:00");
-  await tarjeta.getByRole("button", { name: "Editar rutina" }).click();
-  await expect(sheet(page)).toHaveAccessibleName("Materias");
-  await expect(sheet(page).getByLabel("Nombre de la materia")).toHaveValue("Gym");
-});

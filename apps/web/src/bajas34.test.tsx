@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { App } from "./App.js";
-import { Inbox } from "./components/Inbox.js";
+import { ANSWER_GUARD_MS, Inbox } from "./components/Inbox.js";
 import { ToastProvider } from "./components/Toast.js";
 import { WeeklyPlan } from "./components/WeeklyPlan.js";
 import { demoData, emptyData, TIMEZONE } from "./demo.js";
@@ -14,7 +14,10 @@ import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 beforeEach(() => {
   localStorage.clear();
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 let api: ReturnType<typeof useStore> | undefined;
 function Probe() {
@@ -85,7 +88,13 @@ describe("Hecho y Deshacer dejan el plan idéntico", () => {
     fireEvent.click(done);
     // A task with parts asks which ones first.
     const confirm = screen.queryByRole("button", { name: "Anotar hecho" });
-    if (confirm) fireEvent.click(confirm);
+    if (confirm) {
+      const part = screen.getAllByRole("button").find((b) => b.hasAttribute("aria-pressed"));
+      if (!part) throw new Error("no part to pick");
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + ANSWER_GUARD_MS + 1);
+      fireEvent.click(part);
+      fireEvent.click(confirm);
+    }
     fireEvent.click(undoNotice());
     expect(planOf()).toBe(before);
   });

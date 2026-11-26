@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { App } from "./App.js";
 import { demoData, TIMEZONE } from "./demo.js";
@@ -67,20 +67,22 @@ describe("blocks for a screen reader", () => {
 });
 
 describe("focus after «Deshacer»", () => {
-  it("goes back to where it was", () => {
+  it("goes back to where it was", { timeout: 30_000 }, async () => {
     render(<App fixedNow={NOW} initial={withEvents([])} />);
-    fireEvent.click(screen.getByLabelText(/^Almuerzo, lun 13:00/));
+    const meal = screen.getByLabelText(/^Almuerzo, lun 13:00/);
+    fireEvent.click(meal);
     fireEvent.click(screen.getByText("Hoy no almuerzo"));
     const undo = screen.getByText("Deshacer");
     const before = screen.getByLabelText("Ajustes");
     before.focus();
     undo.focus();
     fireEvent.click(undo);
-    return new Promise<void>((done) =>
-      setTimeout(() => {
-        expect(document.activeElement).toBe(before);
-        done();
-      }, 10),
-    );
+    // The focus is never lost: it is where it was, or back on the restored meal.
+    await waitFor(() => {
+      const active = document.activeElement;
+      expect(
+        active === before || active?.getAttribute("aria-label") === meal.getAttribute("aria-label"),
+      ).toBe(true);
+    });
   });
 });

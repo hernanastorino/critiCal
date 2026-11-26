@@ -18,13 +18,16 @@ export const hoursRange = (r: MinuteRange) => `${minutesToHhmm(r.start)}–${min
 
 type ValidHours = NonNullable<Activity["validHours"]>;
 
-/** The ranges that decide: the general one for the days that follow it, else the days' own. */
+/**
+ * The ranges the routine can use: the general one for the days that follow it (a day with
+ * none of its own), plus every day's own. «No ese día» has none.
+ */
 function decidingRanges(validHours: ValidHours): MinuteRange[] | null {
   const own = Object.values(validHours.days ?? {});
-  // A day follows the general range when it has none of its own.
+  const mine = own.filter((r): r is MinuteRange => !!r);
   const follows = own.filter((r) => r !== undefined).length < 7;
-  if (!follows) return own.filter((r): r is MinuteRange => !!r);
-  return validHours.all ? [validHours.all] : null; // Unrestricted days: anything fits.
+  if (follows && !validHours.all) return null; // Unrestricted days: anything fits.
+  return follows && validHours.all ? [validHours.all, ...mine] : mine;
 }
 
 const hasActiveHabit = (data: AppData, activity: Activity) =>
@@ -37,9 +40,9 @@ function misfitOf(data: AppData, activity: Activity): PreferenceMisfit | null {
   if (activity.kind !== "rutina" || !preferred || !validHours) return null;
   if (!hasActiveHabit(data, activity)) return null;
   const ranges = decidingRanges(validHours);
-  const first = ranges?.at(0);
-  if (!ranges || !first || ranges.some((r) => overlaps(r, preferred))) return null;
-  return { activity, preferred, allowed: hoursRange(first) };
+  if (!ranges || ranges.length === 0 || ranges.some((r) => overlaps(r, preferred))) return null;
+  const allowed = [...new Set(ranges.map(hoursRange))].join(" y ");
+  return { activity, preferred, allowed };
 }
 
 /** Active routines whose preferred window never meets their valid hours. */
