@@ -164,7 +164,7 @@ describe("BAJAS", () => {
   it("horas con dígitos de ancho completo: solo el primer error", () => {
     inside(<TaskEditor onClose={noop} />, () => demoData(NOW));
     fireEvent.change(screen.getByLabelText("Horas estimadas"), { target: { value: "１２" } });
-    expect(screen.getAllByText(/Poné horas de 0 a/).length).toBe(1);
+    expect(screen.getAllByText(/Poné horas de más de 0 a/).length).toBe(1);
     expect(screen.queryByText(/El mínimo no puede ser mayor/)).toBeNull();
   });
 

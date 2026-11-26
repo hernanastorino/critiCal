@@ -196,8 +196,9 @@ export function Inbox({
   const [picked, setPicked] = useState<string[]>([]);
   const pendingParts = (b: PlanBlock) =>
     data.tasks.find((t) => t.id === b.taskId)?.units.filter((u) => !u.doneAt) ?? [];
+  const justAnswered = () => Date.now() - lastAnswer.current < ANSWER_GUARD_MS;
   const quick = (b: PlanBlock, status: "done" | "missed") => {
-    if (Date.now() - lastAnswer.current < ANSWER_GUARD_MS) return;
+    if (justAnswered()) return;
     lastAnswer.current = Date.now();
     buzz();
     if (status === "done" && pendingParts(b).length > 0) {
@@ -391,11 +392,7 @@ export function Inbox({
               <button type="button" className="btn" onClick={() => setEditing(t)}>
                 Ajustar
               </button>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => dispatch({ type: "review", taskId: t.id, keep: true })}
-              >
+              <button type="button" className="btn primary" onClick={() => answers.keep(t)}>
                 Planificar así
               </button>
             </div>
@@ -681,13 +678,15 @@ export function Inbox({
                         padding: "6px 12px",
                       }}
                       aria-pressed={picked.includes(u.id)}
-                      onClick={() =>
+                      onClick={() => {
+                        // A double tap on ✓ must not land on the part that appears under it.
+                        if (justAnswered()) return;
                         setPicked(
                           picked.includes(u.id)
                             ? picked.filter((x) => x !== u.id)
                             : [...picked, u.id],
-                        )
-                      }
+                        );
+                      }}
                     >
                       {u.title}
                     </button>
@@ -697,7 +696,12 @@ export function Inbox({
                   <button type="button" className="btn" onClick={() => setChoosing(null)}>
                     Volver
                   </button>
-                  <button type="button" className="btn primary" onClick={() => confirmParts(b)}>
+                  <button
+                    type="button"
+                    className="btn primary"
+                    disabled={picked.length === 0}
+                    onClick={() => confirmParts(b)}
+                  >
                     Anotar hecho
                   </button>
                 </div>

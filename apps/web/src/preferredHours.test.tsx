@@ -64,8 +64,8 @@ describe("a routine's preferred hours outside its valid hours", () => {
     expect(preferenceMisfits(e)).toEqual([]);
   });
 
-  it("is found in the Demo de pruebas, whose Gym prefers the evening but goes 09:00–17:00", () => {
-    expect(preferenceMisfits(pruebasData(NOW)).map((m) => m.activity.id)).toEqual(["gym"]);
+  it("is not found in the Demo de pruebas: its Gym prefers the evening and Wednesday has it", () => {
+    expect(preferenceMisfits(pruebasData(NOW))).toEqual([]);
   });
 
   it("is a card of the Bandeja with a button to edit the routine", () => {

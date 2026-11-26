@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { goTab, IPHONE_375, openDemo, sheet, toast, undo } from "./helpers";
+import { anotarHecho, goTab, IPHONE_375, openDemo, sheet, toast, undo } from "./helpers";
 
 test.use(IPHONE_375);
 
@@ -7,11 +7,7 @@ test.use(IPHONE_375);
 const hechos = (page: Page) => page.getByRole("button", { name: /^Hecho: / });
 const partes = (page: Page) => page.getByRole("button", { name: /^Hice una parte: / });
 const noHechos = (page: Page) => page.getByRole("button", { name: /^No hecho: / });
-/** Con partes pendientes la tarjeta pregunta cuáles; se sigue sin elegir ninguna. */
-const sinElegir = async (page: Page) => {
-  const anotar = page.getByRole("button", { name: "Anotar hecho" });
-  if (await anotar.isVisible()) await anotar.click();
-};
+/** Con partes pendientes la tarjeta pregunta cuáles. */
 const elegir = (page: Page) => page.getByRole("button", { name: /^Elegir: / });
 
 test.describe("Bandeja: cada acción tiene su «Deshacer»", () => {
@@ -24,9 +20,8 @@ test.describe("Bandeja: cada acción tiene su «Deshacer»", () => {
 
   test("Hecho", async ({ page }) => {
     await hechos(page).first().click();
-    // Con partes pendientes la tarjeta pregunta cuáles; se sigue sin elegir ninguna.
-    const anotar = page.getByRole("button", { name: "Anotar hecho" });
-    if (await anotar.isVisible()) await anotar.click();
+    // Con partes pendientes la tarjeta pregunta cuáles.
+    await anotarHecho(page);
     await expect(toast(page)).toContainText("Anotado como hecho.");
     await expect(hechos(page)).toHaveCount(1);
     await undo(page);
@@ -103,7 +98,7 @@ test.describe("Deslizar una tarjeta de «¿Cómo te fue?» (SPEC §14)", () => {
 
   test("a la derecha marca hecho y «Deshacer» la trae de vuelta", async ({ page }) => {
     await deslizar(tarjetas(page).first(), 140);
-    await sinElegir(page);
+    await anotarHecho(page);
     await expect(toast(page)).toContainText("Anotado como hecho.");
     await expect(hechos(page)).toHaveCount(1);
     await undo(page);
@@ -129,7 +124,7 @@ test.describe("Deslizar una tarjeta de «¿Cómo te fue?» (SPEC §14)", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await expect(hechos(page).first()).toBeVisible();
     await deslizar(tarjetas(page).first(), 140);
-    await sinElegir(page);
+    await anotarHecho(page);
     await expect(toast(page)).toContainText("Anotado como hecho.");
     await expect(hechos(page)).toHaveCount(1);
   });
@@ -143,7 +138,7 @@ test.describe("Deslizar una tarjeta de «¿Cómo te fue?» (SPEC §14)", () => {
       };
     });
     await deslizar(tarjetas(page).first(), 140);
-    await sinElegir(page);
+    await anotarHecho(page);
     await expect(toast(page)).toContainText("Anotado como hecho.");
     expect(await page.evaluate(() => (window as unknown as { buzzes: number[] }).buzzes)).toEqual([
       10,

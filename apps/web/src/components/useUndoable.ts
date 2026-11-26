@@ -100,6 +100,12 @@ export function useInboxAnswers(onBack: (key: string) => void) {
         key: t.id,
       });
     },
+    keep: (t: AppTask) => {
+      answer(`«${t.title}» planificada`, { type: "review", taskId: t.id, keep: true }, PLAN_KEYS, {
+        tasks: [t],
+        key: t.id,
+      });
+    },
     accept: (p: Proposal) => {
       answer(REPLANNED_TOAST, { type: "acceptProposal", id: p.id }, PROPOSAL_KEYS, {
         key: p.id,

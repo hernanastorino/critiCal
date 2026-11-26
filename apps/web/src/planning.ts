@@ -1003,17 +1003,18 @@ export function routineShortfalls(
     if (activity?.kind !== "rutina" || task.kind !== "habit" || minutes <= 0) return [];
     if (!isRunning(task, now)) return [];
     const wanted = sessionsThisWeek(task, tz, now);
-    const left = wanted * minutes - doneMinutes(data, task.id, monday);
-    const planned = blocks
-      .filter((b) => b.taskId === task.id && b.end > now && b.start < end)
-      .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
-    const missing = Math.ceil((left - planned) / minutes);
-    if (missing <= 0) return [];
+    // What the grid shows: the sessions already done this week and the blocks still planned.
+    const done = Math.floor(doneMinutes(data, task.id, monday) / minutes);
+    const planned = blocks.filter(
+      (b) => b.taskId === task.id && b.end > now && b.start < end,
+    ).length;
+    const placed = Math.min(wanted, done + planned);
+    if (placed >= wanted) return [];
     return [
       {
         activityId: activity.id,
         name: activity.name,
-        placed: Math.max(0, wanted - missing),
+        placed,
         wanted,
       },
     ];

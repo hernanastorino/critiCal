@@ -72,3 +72,19 @@ export async function siloLabels(page: Page): Promise<string[]> {
     .locator(".silo[data-task]")
     .evaluateAll((els) => els.map((e) => e.getAttribute("aria-label") ?? ""));
 }
+
+/**
+ * «Hecho» de una entrega con partes: pasa el toque fantasma, elige la primera parte y anota
+ * (sin partes pendientes, la tarjeta ya respondió y no hace nada).
+ */
+export async function anotarHecho(page: Page): Promise<void> {
+  const anotar = page.getByRole("button", { name: "Anotar hecho" });
+  if (!(await anotar.isVisible())) return;
+  await page.waitForTimeout(700);
+  await anotar
+    .locator("xpath=ancestor::div[contains(@class,'card')][1]")
+    .locator(".chip")
+    .first()
+    .click();
+  await anotar.click();
+}
