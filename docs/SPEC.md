@@ -403,4 +403,4 @@ Pedidos del usuario del 2026-11-06. Lo que dice «a decidir» se resuelve pregun
 - **«Guardar avance» en rutinas con tope**: el campo «Le dediqué (minutos)» no acepta más de lo que le falta a la rutina esa semana.
 - **Lugares: «Cancelar» con cambios** sigue preguntando «¿Descartar los cambios?», como hoy.
 - **Barra de pestañas en tema oscuro**: fondo opaco, para que no se vea el contenido a través. Misma barra, mismo lugar, pegada abajo; solo cambia el fondo en oscuro.
-- **Rutina que no entra**: si la semana no tiene lugar para todas sus sesiones dentro de su franja, la Bandeja lo dice («Gym: esta semana entra 1 de 3») con «Editar rutina»; no se perdona en silencio.
+- **Rutina que no entra**: si la semana no tiene lugar para todas sus sesiones dentro de su franja, la Bandeja lo dice («Gym: esta semana entra 1 de 3», contando la semana entera: las sesiones hechas, las pasadas que se planearon y las que quedan planeadas) con «Editar rutina»; no se perdona en silencio.
