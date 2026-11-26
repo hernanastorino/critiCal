@@ -46,11 +46,11 @@ export const MAX_SESSION_MINUTES = 1440;
 const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
 
 /**
- * Minutes as the hours a field shows: «5.42» for 5 h 25, not the fifteen digits of the
+ * Minutes as the hours a field shows, the way the app writes them: «5,42» for 5 h 25, «11,5», not the fifteen digits of the
  * division. Two decimals are at most 18 s off, so reading it back gives the same minute.
  */
 export const hoursField = (minutes: number): string =>
-  String(Math.round((minutes / 60) * 100) / 100);
+  String(Math.round((minutes / 60) * 100) / 100).replace(".", ",");
 
 /** Hours as typed, or NaN if they are not a valid figure. */
 export const typedHours = (v: string): number =>
@@ -61,9 +61,6 @@ export const isZeroHours = (v: string): boolean => {
   const n = typedHours(v);
   return Number.isFinite(n) && Math.round(n * 60) === 0;
 };
-
-/** Minutes as hours in a field, the way the app writes them: «4», «11,5». */
-export const hoursField = (minutes: number): string => String(minutes / 60).replace(".", ",");
 
 /** What is wrong with hours typed in a field, if anything (`positive`: 0 is not accepted). */
 export function hoursProblem(v: string, positive = false): string | null {
