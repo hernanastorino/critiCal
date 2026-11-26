@@ -4,7 +4,13 @@ import { clipName, dayDate, dueDate, hours } from "../format.js";
 import type { AppTask } from "../model.js";
 import { needOf } from "../need.js";
 import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
-import { type RecurrenceChange, settleSnapshot, snapshotOf, useStore } from "../store.js";
+import {
+  GONE_KEYS,
+  type RecurrenceChange,
+  settleSnapshot,
+  snapshotOf,
+  useStore,
+} from "../store.js";
 import { ActionSheet } from "./ActionSheet.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
@@ -13,7 +19,6 @@ import { useModal } from "./modal.js";
 import { useToast } from "./Toast.js";
 
 /** What deleting a silo may change, to put back exactly on «Deshacer». */
-const GONE_KEYS = ["tasks", "checkIns", "plan", "pins", "applied", "activities"] as const;
 
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 export const MAX_TOPICS = 500;
