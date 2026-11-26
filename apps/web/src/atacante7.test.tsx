@@ -15,6 +15,7 @@ import { zonedInstant } from "./engine.js";
 import { parseClock } from "./format.js";
 import type { AppData, AppTask } from "./model.js";
 import { StoreProvider, useStore } from "./store.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -50,6 +51,7 @@ const PART = "Nueva parte: nombre y minutos entre paréntesis";
 describe("1. «Nueva parte» sin tocar «Agregar»", () => {
   const open = (onClose = () => {}) => {
     inside(<TaskEditor onClose={onClose} />);
+    pickMateria();
     set("Nombre", "Entrega");
   };
 
@@ -89,11 +91,13 @@ describe("2. Partes junto a la estimación", () => {
       ],
     };
     inside(<TaskEditor task={task} onClose={() => {}} />);
+    pickMateria();
     expect(screen.getByText(/Partes: 2h de 3h estimadas/)).toBeTruthy();
   });
 
   it("shows nothing without parts", () => {
     inside(<TaskEditor onClose={() => {}} />);
+    pickMateria();
     expect(screen.queryByText(/Partes: .* estimadas/)).toBeNull();
   });
 });

@@ -4,6 +4,7 @@ import { Silos } from "./components/Silos.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData } from "./demo.js";
 import { reducer, StoreProvider } from "./store.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 const start = () => reducer(demoData(NOW), { type: "refresh", now: NOW });
@@ -67,6 +68,7 @@ describe("borradores de formularios (SPEC §14)", () => {
   it("guardar borra el borrador", () => {
     mount();
     openNew();
+    pickMateria();
     typeName("Entrega final");
     expect(sessionStorage.getItem("critical.drafts")).toContain("Entrega final");
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));

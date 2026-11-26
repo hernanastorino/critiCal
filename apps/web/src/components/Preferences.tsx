@@ -290,25 +290,42 @@ interface WeekDraft {
   held: Record<number, WeekForm>;
 }
 
-/**
- * Moves to another selection of days without losing what was typed: the form of a day
- * left behind is held (only if it differs from what is saved) and comes back with it. The
- * days that stay selected keep sharing the form.
- */
-export function switchDays(draft: WeekDraft, next: number[], week: DaySettings[]): WeekDraft {
+/** What each day left behind keeps waiting (only what was typed and differs from what is saved). */
+function heldAfterLeaving(draft: WeekDraft, next: number[], week: DaySettings[], shown: boolean) {
   const held = { ...draft.held };
   for (const d of draft.days.filter((x) => !next.includes(x))) {
-    if (JSON.stringify(draft.form) === JSON.stringify(formOf(week[d] as DaySettings)))
-      delete held[d];
+    const same = JSON.stringify(draft.form) === JSON.stringify(formOf(week[d] as DaySettings));
+    if (shown || same) delete held[d];
     else held[d] = draft.form;
   }
-  const first = next[0] as number;
-  const stays = next.some((d) => draft.days.includes(d));
-  const form = stays ? draft.form : (held[first] ?? formOf(week[first] as DaySettings));
-  return { days: next, held, form };
+  return held;
 }
 
-function formOf(d: DaySettings) {
+/**
+ * Moves to another selection of days without losing what was typed: the form of a day
+ * left behind is held (only if it differs from what is saved) and comes back with it. With
+ * nothing typed the form shows the values of the day just added (or, removing one, of the
+ * first that stays); what was typed is shared by the days that stay. Keys keep the draft's
+ * order: it is compared as text with what it started as.
+ */
+export function switchDays(draft: WeekDraft, next: number[], week: DaySettings[]): WeekDraft {
+  const now = JSON.stringify(draft.form);
+  // Nothing typed: the form only shows the values of one of the selected days.
+  const shown = draft.days.some((d) => JSON.stringify(formOf(week[d] as DaySettings)) === now);
+  const held = heldAfterLeaving(draft, next, week, shown);
+  const added = next.filter((d) => !draft.days.includes(d));
+  // Typed and kept for the days that stay: the added one takes it (its own values are replaced on save).
+  if (!shown && next.some((d) => draft.days.includes(d))) {
+    for (const d of added) delete held[d];
+    return { days: next, form: draft.form, held };
+  }
+  const target = (shown ? added.at(0) : undefined) ?? (next[0] as number);
+  const form = held[target] ?? formOf(week[target] as DaySettings);
+  delete held[target];
+  return { days: next, form, held };
+}
+
+export function formOf(d: DaySettings) {
   const meals = mealsOf(d);
   const [breakfast, lunch, snack, dinner] = (
     ["desayuno", "almuerzo", "merienda", "cena"] as const

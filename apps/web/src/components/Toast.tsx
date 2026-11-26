@@ -137,17 +137,11 @@ function Snack({
       cameFrom.current = from instanceof HTMLElement ? from : null;
     }
   };
-  // It can sit over a button: tapping it (not its «Deshacer») puts it away.
-  const tapAway = (e: React.MouseEvent) => {
-    if (!(e.target instanceof Element && e.target.closest("button"))) onDone(toast.id);
-  };
   return (
     // biome-ignore lint/a11y/noStaticElementInteractions: pausing a notice is not an action.
-    // biome-ignore lint/a11y/useKeyWithClickEvents: a tap only puts it away early; it goes by itself.
     <div
       ref={box}
       className={`snack${toast.tone === "alert" ? " alert" : ""}`}
-      onClick={tapAway}
       onPointerEnter={(e) => {
         hover.current = e.pointerType !== "touch";
       }}

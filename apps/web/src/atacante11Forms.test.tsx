@@ -8,6 +8,7 @@ import { clearDrafts } from "./drafts.js";
 import { zonedInstant } from "./engine.js";
 import { StoreProvider } from "./store.js";
 import { detectedProblem, estimateProblem } from "./taskForm.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -48,6 +49,7 @@ describe("2. Nueva entrega: un solo resumen de errores", () => {
 
   it("«Puedo empezar» typed badly counts in the summary, not as its own alert", () => {
     inside(<TaskEditor onClose={vi.fn()} />);
+    pickMateria();
     pickStart("in");
     set("Dentro de cuántos días", "x");
     click("Guardar");
@@ -57,6 +59,7 @@ describe("2. Nueva entrega: un solo resumen de errores", () => {
 
   it("a start after the deadline is said in its field, which takes the focus", () => {
     inside(<TaskEditor onClose={vi.fn()} />);
+    pickMateria();
     set("Nombre", "Entrega");
     pickStart("date");
     lateDate();
@@ -69,6 +72,7 @@ describe("2. Nueva entrega: un solo resumen de errores", () => {
 
   it("with another error too, the start error joins the summary", () => {
     inside(<TaskEditor onClose={vi.fn()} />);
+    pickMateria();
     pickStart("date");
     lateDate();
     click("Guardar");

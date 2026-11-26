@@ -24,8 +24,15 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
     const due = data.tasks.find((t) => t.id === s.taskId)?.deadline;
     return s.minDeficit > 0 && (due === undefined || (due >= from && due < to));
   });
-  // What the Bandeja says too: tasks that do not fit in any week, not only in this one.
-  const noFit = decisions.options.length > 0 ? decisions.impossible.length : 0;
+  // What the Bandeja says too: tasks that do not fit in any week, not only in this one. Not the
+  // ones that fell due before the week being planned (this week's, already over for this plan).
+  const noFit =
+    decisions.options.length > 0
+      ? decisions.impossible.filter((id) => {
+          const due = data.tasks.find((t) => t.id === id)?.deadline;
+          return due === undefined || due >= from;
+        }).length
+      : 0;
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
   const typeLine = weekTypeLine(data);
   const max = Math.max(60, ...days.map((d) => d.minutes));

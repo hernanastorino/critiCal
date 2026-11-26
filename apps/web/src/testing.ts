@@ -1,3 +1,4 @@
+import { fireEvent, screen } from "@testing-library/react";
 import { vi } from "vitest";
 import type { AppData } from "./model.js";
 import { reducer } from "./store.js";
@@ -46,3 +47,13 @@ export const queryFilters = {
     return this;
   },
 };
+
+/** Chooses the first materia in an open «Nueva» editor (none is chosen for the person). */
+export function pickMateria(): void {
+  const select = screen.getByLabelText("Materia o actividad");
+  const first = [...select.querySelectorAll("option")].find(
+    (o) => o.value !== "" && o.value !== "new",
+  );
+  if (!first) throw new Error("no materia to pick");
+  fireEvent.change(select, { target: { value: first.value } });
+}

@@ -16,6 +16,7 @@ import { zonedInstant } from "./engine.js";
 import { isBlank, isRealDate } from "./limits.js";
 import type { AppData, Place } from "./model.js";
 import { StoreProvider, useStore } from "./store.js";
+import { pickMateria } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -65,6 +66,7 @@ const typeUnreal = (label: string) => {
 describe("fecha límite imposible", () => {
   const open = () => {
     inside(<TaskEditor onClose={() => {}} />);
+    pickMateria();
     set("Nombre", "Entrega");
   };
 
@@ -83,9 +85,10 @@ describe("fecha límite imposible", () => {
     expect(latest?.tasks.some((t) => t.title === "Entrega")).toBe(true);
   });
 
-  it("the name has a cap", () => {
+  it("the name has a cap, said and not cut", () => {
     open();
-    expect(screen.getByLabelText("Nombre").getAttribute("maxlength")).toBe("80");
+    set("Nombre", "A".repeat(81));
+    expect(screen.getByText("Como máximo 80 caracteres")).toBeTruthy();
   });
 });
 
