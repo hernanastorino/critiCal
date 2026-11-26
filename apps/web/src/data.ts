@@ -348,8 +348,16 @@ export async function loadBounds(
   return found.length ? { first: Math.min(...found), last: Math.max(...found) } : null;
 }
 
-/** Every table whole except the growing ones, which are asked for `span` only. */
-async function loadWith(client: SupabaseClient, span: Span | null): Promise<AppData> {
+/** What narrows each table that grows with the years (none: the whole table). */
+interface Narrowing {
+  events?: Narrow;
+  overrides?: Narrow;
+  blocks?: Narrow;
+  checkIns?: Narrow;
+}
+
+/** The rows of every table: the small ones whole, the growing ones as `narrow` says. */
+async function fetchTables(client: SupabaseClient, narrow: Narrowing) {
   const all = (table: string, order: string[]) => allRows(client, table, order);
   const [
     settings,
@@ -378,16 +386,16 @@ async function loadWith(client: SupabaseClient, span: Span | null): Promise<AppD
     all("tasks", ["id"]),
     all("task_units", ["id"]),
     // The newest record of a block is the one that stands: oldest first.
-    all("check_ins", ["created_at", "id"]),
-    allRows(client, "calendar_events", EVENT_ORDER, span ? overlapping(span) : undefined),
-    allRows(client, "day_overrides", OVERRIDE_ORDER, span ? onDates(span) : undefined),
-    allRows(client, "plan_blocks", BLOCK_ORDER, span ? overlapping(span) : undefined),
+    allRows(client, "check_ins", ["created_at", "id"], narrow.checkIns),
+    allRows(client, "calendar_events", EVENT_ORDER, narrow.events),
+    allRows(client, "day_overrides", OVERRIDE_ORDER, narrow.overrides),
+    allRows(client, "plan_blocks", BLOCK_ORDER, narrow.blocks),
     all("calendars", ["source", "external_id"]),
     all("places", ["id"]),
     all("travel_times", ["from_place", "to_place"]),
     all("meal_runs", ["meal", "weekday", "from_date"]),
   ]);
-  return rowsToData({
+  return {
     settings,
     activities,
     tasks,
@@ -400,7 +408,19 @@ async function loadWith(client: SupabaseClient, span: Span | null): Promise<AppD
     places,
     travelTimes,
     mealRuns,
-  });
+  };
+}
+
+/** Every table whole except the growing ones, which are asked for `span` only. */
+async function loadWith(client: SupabaseClient, span: Span | null): Promise<AppData> {
+  return rowsToData(
+    await fetchTables(
+      client,
+      span
+        ? { events: overlapping(span), overrides: onDates(span), blocks: overlapping(span) }
+        : {},
+    ),
+  );
 }
 
 export function loadData(client: SupabaseClient): Promise<AppData> {
@@ -408,6 +428,78 @@ export function loadData(client: SupabaseClient): Promise<AppData> {
   // would be lost, and for check-ins those are the corrections. A full first page means
   // there may be more, so the rest is asked by range until a page comes back short.
   return loadWith(client, null);
+}
+
+/** Before this long without a sync the tombstones may be gone: everything is loaded instead. */
+export const TOMBSTONES_MS = 14 * 86_400_000;
+/** Changes are asked for from a little before the last sync: a slow write may land after it. */
+export const OVERLAP_MS = 2 * 60_000;
+
+/** The server's clock, in ms (never this device's: the marks of a sync are in its time). */
+export async function serverNow(client: SupabaseClient): Promise<number> {
+  const { data, error } = await client.rpc("server_now");
+  if (error) throw error;
+  const at = Date.parse(String(data));
+  if (!Number.isFinite(at)) throw new Error("server_now");
+  return at;
+}
+
+/**
+ * `base` brought up to date with what changed since `since` (server ms): the small tables
+ * whole, the rows of the growing ones changed or received after it, and what was deleted.
+ * Throws if the answer cannot be trusted; the caller loads everything instead.
+ */
+export async function loadSince(
+  client: SupabaseClient,
+  base: AppData,
+  since: number,
+): Promise<AppData> {
+  const from = iso(since - OVERLAP_MS);
+  const [rows, gone] = await Promise.all([
+    fetchTables(client, {
+      events: (q) => q.gt("updated_at", from),
+      overrides: (q) => q.gt("updated_at", from),
+      blocks: (q) => q.gt("updated_at", from),
+      checkIns: (q) => q.gt("received_at", from),
+    }),
+    allRows(client, "deleted_rows", ["deleted_at", "table_name", "row_key"], (q) =>
+      q.gt("deleted_at", from),
+    ),
+  ]);
+  return applyChanges(base, rowsToData(rows), gone);
+}
+
+/**
+ * Puts `changed` (the small tables whole, and only the changed rows of the growing ones)
+ * over `base`: a row that changed replaces its old one where it stood, a new one goes
+ * last, and what `gone` (tombstones) says was deleted leaves, unless it exists again.
+ * Weeks that have not come in yet get their changed rows too, without being marked loaded.
+ */
+export function applyChanges(base: AppData, changed: AppData, gone: Row[]): AppData {
+  const keysOf = (table: string) =>
+    new Set(gone.filter((g) => g.table_name === table).map((g) => String(g.row_key)));
+  const merge = <T>(old: T[], news: T[], key: (r: T) => string, deleted: Set<string>): T[] => {
+    const fresh = new Map(news.map((r) => [key(r), r]));
+    const kept = old
+      .filter((r) => fresh.has(key(r)) || !deleted.has(key(r)))
+      .map((r) => fresh.get(key(r)) ?? r);
+    const had = new Set(old.map(key));
+    return [...kept, ...news.filter((r) => !had.has(key(r)))];
+  };
+  const activityOf = new Map(changed.tasks.map((t) => [t.id, t.activityId]));
+  return {
+    ...changed,
+    events: merge(base.events, changed.events, (e) => e.id, keysOf("calendar_events")),
+    overrides: merge(base.overrides, changed.overrides, (o) => o.date, keysOf("day_overrides")),
+    plan: merge(base.plan, changed.plan, (b) => b.id, keysOf("plan_blocks")).map((b) => ({
+      ...b,
+      activityId: activityOf.get(b.taskId) ?? b.activityId,
+    })),
+    // The log only grows: what arrives is added, nothing is removed.
+    checkIns: merge(base.checkIns, changed.checkIns, (c) => c.id, new Set()).sort(
+      (a, b) => a.createdAt - b.createdAt || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0),
+    ),
+  };
 }
 
 /**
