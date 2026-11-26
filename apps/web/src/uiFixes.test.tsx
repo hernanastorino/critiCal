@@ -16,7 +16,7 @@ import { clearLocal } from "./offline.js";
 import { missingPairs, tripPairs } from "./places.js";
 import { applyOption, DECISIONS_SHOWN_MS, endOfWeek, routinesBack } from "./planning.js";
 import { reducer, removedWith, StoreProvider, useStore } from "./store.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -207,6 +207,7 @@ describe("driving times in the background", () => {
             order() {
               return this;
             },
+            ...queryFilters,
           }),
         upsert: () => Promise.resolve({ error: null }),
         insert: () => Promise.resolve({ error: null }),

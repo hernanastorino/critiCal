@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import { DEFAULTS, eventRole, normalize, visibleEvents } from "./calendars.js";
+import { type Chunk, mergeChunk } from "./data.js";
 import { demoData } from "./demo.js";
 import { isTestDemo, pruebasData } from "./demoPruebas.js";
 import {
@@ -113,6 +114,8 @@ export type RecurrenceChange = "skipWeek" | "pause" | "resume" | "endFromToday" 
 export type Action =
   | { type: "refresh"; now: number }
   | { type: "replace"; data: AppData; now: number }
+  /** Rows of other weeks that arrive after the app opened (`progressive.ts`): added, nothing replanned. */
+  | { type: "chunk"; chunk: Chunk; now: number }
   /** `id` lets the caller name the record it may take back (and keeps a repeat harmless). */
   | { type: "checkIn"; checkIn: Omit<CheckIn, "id" | "createdAt"> & { id?: string }; now: number }
   | { type: "saveTask"; task: AppTask; activity?: Activity; now: number }
@@ -544,6 +547,8 @@ function cleanNames(a: Action): Action {
 }
 
 export function reducer(data: AppData, input: Action): AppData {
+  // Old weeks coming in are not an action of the person: no freeze, no replan, no undo.
+  if (input.type === "chunk") return mergeChunk(data, input.chunk);
   const action = cleanNames(input);
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
@@ -650,6 +655,8 @@ function apply(data: AppData, action: Action): AppData {
   switch (action.type) {
     case "refresh":
       return refresh(data, now);
+    case "chunk":
+      return mergeChunk(data, action.chunk);
     case "replace":
       return refresh(rekeySpots(action.data), now);
     case "checkIn": {

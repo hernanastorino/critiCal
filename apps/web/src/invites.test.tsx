@@ -4,7 +4,7 @@ import { InviteGate } from "./App.js";
 import { Connected } from "./Connected.js";
 import { Invites } from "./components/Invites.js";
 import { clearLocal } from "./offline.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(() => {
   cleanup();
@@ -29,6 +29,7 @@ function client(owner: boolean) {
       return Object.assign(ok, {
         maybeSingle: () => Promise.resolve({ data: null, error: null }),
         order: () => ok,
+        ...queryFilters,
       });
     },
     upsert: (row: { email?: string }) => {

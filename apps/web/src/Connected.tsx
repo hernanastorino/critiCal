@@ -14,19 +14,26 @@ import { RoyLine } from "./components/Roy.js";
 import { WeekSkeleton } from "./components/Skeleton.js";
 import { FAKE_GOOGLE_REFRESH, fakeProviders } from "./devAuth.js";
 import { SPOT_TEXT_MAX } from "./limits.js";
+import { weekNo } from "./loadQueue.js";
 import type { AppData } from "./model.js";
 import { errorMessage, isNetworkFailure, reportError } from "./monitoring.js";
 import { clearLocal, isOffline, type LocalState, readLocal, writeLocal } from "./offline.js";
 import { home, missingPairs } from "./places.js";
+import { weekStart } from "./planning.js";
+import { firstSpan, Progressive, weekSpan, weeksLeft } from "./progressive.js";
 import {
   applyWrites,
   applyWritesEach,
+  type Chunk,
   computeTravel,
   connectFakeGoogle,
   diffData,
   isMissingParent,
   isPermanent,
   loadData,
+  loadFirst,
+  loadSpan,
+  mergeChunk,
   SPOTS_PER_CALL,
   type SyncResult,
   signInWithGoogle,
@@ -52,6 +59,8 @@ export interface SyncStatus {
   offline?: boolean;
   /** Changes the database refused for good (invalid data): not saved, and said so. */
   rejected?: number;
+  /** Weeks of history still on their way (or given up on) after the app opened. */
+  loading?: number;
 }
 
 export interface SyncApi {
@@ -66,6 +75,10 @@ export interface SyncApi {
   reconnectGoogle: () => void;
   connectICloud: (appleId: string, appPassword: string) => Promise<SyncResult>;
   disconnectICloud: () => Promise<void>;
+  /** Whether the week starting on Monday `monday` is on the screen (it may still be on its way). */
+  weekReady: (monday: string) => boolean;
+  /** The week in view: it goes first among the weeks still to load. */
+  focusWeek: (monday: string) => void;
 }
 
 export const SyncContext = createContext<SyncApi | null>(null);
@@ -109,6 +122,67 @@ export function Connected({
   const changes = useRef(0);
   // Puts a copy on screen (set by SyncProvider, which sits inside the store).
   const replace = useRef<((d: AppData) => void) | null>(null);
+  // The history beyond the first weeks, coming in week by week; null once all of it is here.
+  const progressive = useRef<Progressive | null>(null);
+  // While true this device holds only part of the history: that is not worth keeping as its copy.
+  const partial = useRef(false);
+  // Starts that loading once the screen is there to receive it (set by the first load).
+  const startRest = useRef<(() => void) | null>(null);
+  // Puts rows of the other weeks on the screen (set by SyncProvider, like `replace`).
+  const pour = useRef<((c: Chunk) => void) | null>(null);
+
+  /** A whole copy came in, or the account leaves: the rest of the history is no longer asked for. */
+  const endLoad = useCallback(() => {
+    progressive.current?.cancel();
+    progressive.current = null;
+    partial.current = false;
+    startRest.current = null;
+    setStatus((s) => (s.loading ? { ...s, loading: 0 } : s));
+  }, []);
+  useEffect(
+    () => () => {
+      progressive.current?.cancel();
+      progressive.current = null;
+    },
+    [],
+  );
+
+  const beginRest = useCallback(
+    (tz: string, left: number[]) => {
+      if (progressive.current) return;
+      const p: Progressive = new Progressive({
+        fetchWeek: (week) => loadSpan(client, weekSpan(tz, week)),
+        apply: (chunk) => {
+          // Both copies get the rows in one go, so the difference between them never
+          // shows a week that has not come yet as deleted.
+          if (stored.current) stored.current = mergeChunk(stored.current, chunk);
+          if (latest.current) latest.current = mergeChunk(latest.current, chunk);
+          pour.current?.(chunk);
+        },
+        onChange: () => {
+          const remaining = p.remaining;
+          setStatus((s) => (s.loading === remaining ? s : { ...s, loading: remaining }));
+          if (remaining > 0 || progressive.current !== p) return;
+          // Everything is here: now it is a copy worth keeping.
+          progressive.current = null;
+          partial.current = false;
+          startRest.current = null;
+          const [data, base] = [latest.current, stored.current];
+          if (alive.current && data && base) void writeLocal(uid, { data, stored: base });
+        },
+      });
+      progressive.current = p;
+      p.start(left, weekNo(weekStart(tz, Date.now())));
+    },
+    [client, uid],
+  );
+
+  // Weeks that ran out of attempts get another go when the network is back.
+  useEffect(() => {
+    const again = () => progressive.current?.retryFailed();
+    window.addEventListener("online", again);
+    return () => window.removeEventListener("online", again);
+  }, []);
 
   const pullCalendars = useCallback(async () => {
     setStatus((s) => ({ ...s, busy: true }));
@@ -144,10 +218,19 @@ export function Connected({
       try {
         // First sync stores the Google refresh token and imports events.
         await pullCalendars();
-        const loaded = owned(await loadData(client));
+        // The small tables, every check-in and the weeks the planner reaches: enough to
+        // open. The rest of the history follows week by week (SPEC «Carga progresiva»).
+        const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const first = await loadFirst(client, firstSpan(zone, Date.now()));
+        const loaded = owned(first.data);
         stored.current = loaded;
         latest.current = loaded;
-        if (alive.current) void writeLocal(uid, { data: loaded, stored: loaded });
+        const tz = loaded.settings.timezone;
+        const left = weeksLeft(tz, Date.now(), first.bounds);
+        if (left.length) {
+          partial.current = true;
+          startRest.current = () => beginRest(tz, left);
+        } else if (alive.current) void writeLocal(uid, { data: loaded, stored: loaded });
         if (!cancelled) setData(loaded);
       } catch (e) {
         reportError(e);
@@ -157,7 +240,7 @@ export function Connected({
     return () => {
       cancelled = true;
     };
-  }, [client, pullCalendars, local, uid, owned]);
+  }, [client, pullCalendars, local, uid, owned, beginRest]);
 
   // One flush at a time, so parents always land before children.
   const flushing = useRef<Promise<boolean> | null>(null);
@@ -167,6 +250,8 @@ export function Connected({
   const quietFlush = useRef(false);
   const seal = useCallback(() => {
     alive.current = false;
+    // Signing out: no more weeks are asked for in this account's name.
+    progressive.current?.cancel();
   }, []);
   useEffect(() => {
     alive.current = true;
@@ -181,11 +266,12 @@ export function Connected({
     const fresh = owned(await loadData(client));
     if (changes.current !== before || !stored.current || !latest.current) return;
     if (!nothing(diffData(stored.current, latest.current))) return;
+    endLoad();
     stored.current = fresh;
     latest.current = fresh;
     replace.current?.(fresh);
     if (alive.current) void writeLocal(uid, { data: fresh, stored: fresh });
-  }, [client, uid, owned]);
+  }, [client, uid, owned, endLoad]);
   /** Writes what is pending; true once the database has everything this device has. */
   const flush = useCallback(
     (quiet = false): Promise<boolean> => {
@@ -238,7 +324,7 @@ export function Connected({
             }
             stored.current = target;
             wrote = true;
-            if (alive.current)
+            if (alive.current && !partial.current)
               void writeLocal(uid, { data: latest.current ?? target, stored: target });
           }
           // What the database refused goes back to how it was on screen (SPEC §14): everything
@@ -277,14 +363,20 @@ export function Connected({
 
   const onChange = useCallback(
     (_prev: AppData, next: AppData) => {
+      // A week of history coming in is not a change of this device's: nothing to save.
+      if (partial.current && stored.current && nothing(diffData(stored.current, next))) {
+        latest.current = next;
+        return;
+      }
       changes.current++;
       latest.current = next;
       // Held from the start, so no reload for a new version slips in before the saves
       // report; stored nowhere, it stays held until a later save succeeds.
       hold("unsaved", true);
-      const local = alive.current
-        ? writeLocal(uid, { data: next, stored: stored.current })
-        : Promise.resolve(false);
+      const local =
+        alive.current && !partial.current
+          ? writeLocal(uid, { data: next, stored: stored.current })
+          : Promise.resolve(false);
       setStatus((s) => (s.pending ? s : { ...s, pending: true }));
       const remote = flush();
       void Promise.all([local, remote]).then(([l, r]) => {
@@ -354,6 +446,10 @@ export function Connected({
         seal={seal}
         stored={stored}
         replace={replace}
+        pour={pour}
+        startRest={startRest}
+        progressive={progressive}
+        endLoad={endLoad}
         latest={latest}
         changes={changes}
         owned={owned}
@@ -401,6 +497,10 @@ function SyncProvider({
   seal,
   stored,
   replace,
+  pour,
+  startRest,
+  progressive,
+  endLoad,
   latest,
   changes,
   owned,
@@ -416,6 +516,11 @@ function SyncProvider({
   seal: () => void;
   stored: React.MutableRefObject<AppData | null>;
   replace: React.MutableRefObject<((d: AppData) => void) | null>;
+  pour: React.MutableRefObject<((c: Chunk) => void) | null>;
+  startRest: React.MutableRefObject<(() => void) | null>;
+  progressive: React.MutableRefObject<Progressive | null>;
+  /** A whole copy of the history came in: the weeks still on their way are not needed. */
+  endLoad: () => void;
   latest: React.MutableRefObject<AppData | null>;
   changes: React.MutableRefObject<number>;
   owned: (d: AppData) => AppData;
@@ -423,6 +528,12 @@ function SyncProvider({
 }) {
   const { dispatch } = useStore();
   replace.current = (d) => dispatch({ type: "replace", data: d });
+  pour.current = (chunk) => dispatch({ type: "chunk", chunk });
+  // The screen is there: the rest of the history can start coming in.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the refs are stable and this runs on mount only.
+  useEffect(() => {
+    startRest.current?.();
+  }, []);
 
   /** Everything from the server replaces this device's copy (the server re-plans too). */
   const queue = useRef<Promise<void>>(Promise.resolve());
@@ -441,6 +552,7 @@ function SyncProvider({
         const merged = owned(await loadData(client));
         // An edit made meanwhile is not in `merged`: try again on the next sync.
         if (changes.current !== before) return;
+        endLoad();
         stored.current = merged;
         latest.current = merged;
         dispatch({ type: "replace", data: merged });
@@ -458,9 +570,10 @@ function SyncProvider({
     const fresh = owned(await loadData(client));
     // An edit made while loading is not in `fresh`: keep it; the next sync reloads.
     if (changes.current !== before) return;
+    endLoad();
     stored.current = fresh;
     dispatch({ type: "replace", data: fresh });
-  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus]);
+  }, [client, dispatch, flush, stored, latest, changes, owned, setStatus, endLoad]);
   /**
    * One reload at a time (mount, interval, foreground can overlap): an older merge's
    * writes must never land after a newer one set the baseline. Each call waits for
@@ -530,6 +643,8 @@ function SyncProvider({
       syncNow,
       flush,
       seal,
+      weekReady: (monday) => progressive.current?.ready(weekNo(monday)) ?? true,
+      focusWeek: (monday) => progressive.current?.focus(weekNo(monday)),
       // In development with invented providers, "Reconectar" stays in the app.
       reconnectGoogle: fakeProviders
         ? () => void connectFakeGoogle(client, FAKE_GOOGLE_REFRESH).then(() => syncNow())
@@ -547,7 +662,7 @@ function SyncProvider({
         await reload();
       },
     }),
-    [status, syncNow, flush, seal, client, setStatus, reload],
+    [status, syncNow, flush, seal, client, setStatus, reload, progressive],
   );
 
   return <SyncContext.Provider value={api}>{children}</SyncContext.Provider>;

@@ -46,6 +46,37 @@ const iso = (t: number) => new Date(t).toISOString();
 
 type Row = Record<string, unknown>;
 
+export const eventOf = (e: Row): AppEvent => ({
+  id: `${e.source}:${e.external_id}`,
+  title: e.title as string,
+  start: ms(e.start_at as string),
+  end: ms(e.end_at as string),
+  location: (e.location as string) ?? undefined,
+  busy: e.busy as boolean,
+  tentative: (e.tentative as boolean) || undefined,
+  allDay: e.all_day as boolean,
+  source: e.source as AppEvent["source"],
+  link: (e.link as string) ?? undefined,
+  calendarId: e.calendar_id ? `${e.source}:${e.calendar_id}` : undefined,
+});
+
+export const overrideOf = (o: Row): DayOverride => ({
+  date: o.date as string,
+  wake: (o.wake as number) ?? undefined,
+  bed: (o.bed as number) ?? undefined,
+});
+
+export const blockOf = (b: Row, activityId: string): PlanBlock => ({
+  id: b.id as string,
+  taskId: b.task_id as string,
+  activityId,
+  start: ms(b.start_at as string),
+  end: ms(b.end_at as string),
+  level: b.level as PlanBlock["level"],
+  soft: b.soft as boolean,
+  review: b.review === true ? true : undefined,
+});
+
 export function rowsToData(r: {
   settings: Row | null;
   activities: Row[];
@@ -141,39 +172,10 @@ export function rowsToData(r: {
         factor: (c.block_factor as number | null) ?? undefined,
       }),
     ),
-    events: r.events.map(
-      (e): AppEvent => ({
-        id: `${e.source}:${e.external_id}`,
-        title: e.title as string,
-        start: ms(e.start_at as string),
-        end: ms(e.end_at as string),
-        location: (e.location as string) ?? undefined,
-        busy: e.busy as boolean,
-        tentative: (e.tentative as boolean) || undefined,
-        allDay: e.all_day as boolean,
-        source: e.source as AppEvent["source"],
-        link: (e.link as string) ?? undefined,
-        calendarId: e.calendar_id ? `${e.source}:${e.calendar_id}` : undefined,
-      }),
-    ),
-    overrides: r.overrides.map(
-      (o): DayOverride => ({
-        date: o.date as string,
-        wake: (o.wake as number) ?? undefined,
-        bed: (o.bed as number) ?? undefined,
-      }),
-    ),
-    plan: r.blocks.map(
-      (b): PlanBlock => ({
-        id: b.id as string,
-        taskId: b.task_id as string,
-        activityId: (r.tasks.find((t) => t.id === b.task_id)?.activity_id as string) ?? "",
-        start: ms(b.start_at as string),
-        end: ms(b.end_at as string),
-        level: b.level as PlanBlock["level"],
-        soft: b.soft as boolean,
-        review: b.review === true ? true : undefined,
-      }),
+    events: r.events.map(eventOf),
+    overrides: r.overrides.map(overrideOf),
+    plan: r.blocks.map((b) =>
+      blockOf(b, (r.tasks.find((t) => t.id === b.task_id)?.activity_id as string) ?? ""),
     ),
     calendars: (r.calendars ?? []).map(
       (c): AppCalendar => ({
@@ -241,21 +243,114 @@ export function rowsToData(r: {
 /** Rows the server returns per request (`max_rows` in supabase/config.toml). */
 const PAGE = 1000;
 
-export async function loadData(client: SupabaseClient): Promise<AppData> {
-  // The server returns at most `max_rows` (1000) per request: past that the newest rows
-  // would be lost, and for check-ins those are the corrections. A full first page means
-  // there may be more, so the rest is asked by range until a page comes back short.
-  const all = async (table: string, order: string[]) => {
-    const query = () => order.reduce((q, col) => q.order(col), client.from(table).select("*"));
-    const rows: Row[] = [];
-    for (let from = 0; ; from += PAGE) {
-      const { data, error } = await (from === 0 ? query() : query().range(from, from + PAGE - 1));
-      if (error) throw error;
-      const page = (data ?? []) as Row[];
-      rows.push(...page);
-      if (page.length < PAGE) return rows;
-    }
+/** A stretch of time, as instants and as the local dates it covers (`toDate` excluded). */
+export interface Span {
+  from: number;
+  to: number;
+  fromDate: string;
+  toDate: string;
+}
+
+/** Rows of the tables that grow with the years, for one stretch of time. */
+export interface Chunk {
+  events: AppEvent[];
+  overrides: DayOverride[];
+  /** With no `activityId`: it comes from the task when the chunk is merged. */
+  blocks: PlanBlock[];
+}
+
+type Narrow = (q: Filterable) => Filterable;
+// The query builder is thenable and chainable; only what is used here is typed.
+interface Filterable {
+  order: (col: string) => Filterable;
+  range: (from: number, to: number) => Filterable;
+  gt: (col: string, v: string) => Filterable;
+  gte: (col: string, v: string) => Filterable;
+  lt: (col: string, v: string) => Filterable;
+  then: PromiseLike<{ data: unknown; error: unknown }>["then"];
+}
+
+/** Every row of a table, `PAGE` at a time (see `loadData`), optionally narrowed. */
+async function allRows(
+  client: SupabaseClient,
+  table: string,
+  order: string[],
+  narrow: Narrow = (q) => q,
+): Promise<Row[]> {
+  const query = () =>
+    narrow(
+      order.reduce(
+        (q, col) => q.order(col),
+        client.from(table).select("*") as unknown as Filterable,
+      ),
+    );
+  const rows: Row[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await (from === 0 ? query() : query().range(from, from + PAGE - 1));
+    if (error) throw error;
+    const page = (data ?? []) as Row[];
+    rows.push(...page);
+    if (page.length < PAGE) return rows;
+  }
+}
+
+const overlapping =
+  (span: Span): Narrow =>
+  (q) =>
+    q.lt("start_at", iso(span.to)).gt("end_at", iso(span.from));
+
+const EVENT_ORDER = ["source", "external_id"];
+const BLOCK_ORDER = ["id"];
+const OVERRIDE_ORDER = ["date"];
+const onDates =
+  (span: Span): Narrow =>
+  (q) =>
+    q.gte("date", span.fromDate).lt("date", span.toDate);
+
+/** The rows of the growing tables inside `span`. */
+export async function loadSpan(client: SupabaseClient, span: Span): Promise<Chunk> {
+  const [events, blocks, overrides] = await Promise.all([
+    allRows(client, "calendar_events", EVENT_ORDER, overlapping(span)),
+    allRows(client, "plan_blocks", BLOCK_ORDER, overlapping(span)),
+    allRows(client, "day_overrides", OVERRIDE_ORDER, onDates(span)),
+  ]);
+  return {
+    events: events.map(eventOf),
+    blocks: blocks.map((b) => blockOf(b, "")),
+    overrides: overrides.map(overrideOf),
   };
+}
+
+/** The oldest and newest instant (ms) the growing tables hold, or null when they are empty. */
+export async function loadBounds(
+  client: SupabaseClient,
+): Promise<{ first: number; last: number } | null> {
+  const edge = async (table: string, col: string, ascending: boolean) => {
+    const { data, error } = await client.from(table).select(col).order(col, { ascending }).limit(1);
+    if (error) throw error;
+    const row = (data as unknown as Row[] | null)?.at(0);
+    // Only `col` is selected: its value is the row's only one.
+    const v = row ? Object.values(row).at(0) : undefined;
+    return typeof v === "string" ? (col === "date" ? Date.parse(`${v}T00:00:00Z`) : ms(v)) : null;
+  };
+  const found = (
+    await Promise.all(
+      [
+        ["calendar_events", "start_at"],
+        ["plan_blocks", "start_at"],
+        ["day_overrides", "date"],
+      ].flatMap(([t, c]) => [
+        edge(t as string, c as string, true),
+        edge(t as string, c as string, false),
+      ]),
+    )
+  ).filter((v): v is number => v !== null && Number.isFinite(v));
+  return found.length ? { first: Math.min(...found), last: Math.max(...found) } : null;
+}
+
+/** Every table whole except the growing ones, which are asked for `span` only. */
+async function loadWith(client: SupabaseClient, span: Span | null): Promise<AppData> {
+  const all = (table: string, order: string[]) => allRows(client, table, order);
   const [
     settings,
     activities,
@@ -284,9 +379,9 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     all("task_units", ["id"]),
     // The newest record of a block is the one that stands: oldest first.
     all("check_ins", ["created_at", "id"]),
-    all("calendar_events", ["source", "external_id"]),
-    all("day_overrides", ["date"]),
-    all("plan_blocks", ["id"]),
+    allRows(client, "calendar_events", EVENT_ORDER, span ? overlapping(span) : undefined),
+    allRows(client, "day_overrides", OVERRIDE_ORDER, span ? onDates(span) : undefined),
+    allRows(client, "plan_blocks", BLOCK_ORDER, span ? overlapping(span) : undefined),
     all("calendars", ["source", "external_id"]),
     all("places", ["id"]),
     all("travel_times", ["from_place", "to_place"]),
@@ -306,6 +401,57 @@ export async function loadData(client: SupabaseClient): Promise<AppData> {
     travelTimes,
     mealRuns,
   });
+}
+
+export function loadData(client: SupabaseClient): Promise<AppData> {
+  // The server returns at most `max_rows` (1000) per request: past that the newest rows
+  // would be lost, and for check-ins those are the corrections. A full first page means
+  // there may be more, so the rest is asked by range until a page comes back short.
+  return loadWith(client, null);
+}
+
+/**
+ * What it takes to open the app: every small table and every check-in (the plan counts
+ * all of them), and the calendar, the plan and the day overrides of `span` only. The rest
+ * arrives later, week by week (`loadQueue.ts`).
+ */
+export async function loadFirst(
+  client: SupabaseClient,
+  span: Span,
+): Promise<{ data: AppData; bounds: { first: number; last: number } | null }> {
+  const [data, bounds] = await Promise.all([loadWith(client, span), loadBounds(client)]);
+  return { data, bounds };
+}
+
+/**
+ * Adds the rows of `chunk` the data does not have yet (by id): what is already there,
+ * edited on this device or newer, stays. A block whose task is gone is left out.
+ */
+export function mergeChunk(data: AppData, chunk: Chunk): AppData {
+  // Weeks overlap (an event across midnight Sunday comes with both), so a row seen
+  // once while filtering is not taken twice.
+  const fresh = <T>(rows: T[], seen: Set<string>, key: (r: T) => string) =>
+    rows.filter((r) => {
+      const k = key(r);
+      return !seen.has(k) && !!seen.add(k);
+    });
+  const events = fresh(chunk.events, new Set(data.events.map((e) => e.id)), (e) => e.id);
+  const overrides = fresh(
+    chunk.overrides,
+    new Set(data.overrides.map((o) => o.date)),
+    (o) => o.date,
+  );
+  const activityOf = new Map(data.tasks.map((t) => [t.id, t.activityId]));
+  const blocks = fresh(chunk.blocks, new Set(data.plan.map((b) => b.id)), (b) => b.id)
+    .filter((b) => activityOf.has(b.taskId))
+    .map((b) => ({ ...b, activityId: activityOf.get(b.taskId) ?? "" }));
+  if (!events.length && !overrides.length && !blocks.length) return data;
+  return {
+    ...data,
+    events: [...data.events, ...events],
+    overrides: [...data.overrides, ...overrides],
+    plan: [...data.plan, ...blocks],
+  };
 }
 
 const changed = <T extends { id: string }>(before: T[], after: T[]) => {

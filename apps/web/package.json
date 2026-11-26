@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview --port 4173 --strictPort",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "build:connected": "VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_PUBLISHABLE_KEY=e2e-key vite build --outDir dist-connected --emptyOutDir",
+    "preview:connected": "npm run build:connected && vite preview --outDir dist-connected --port 4174 --strictPort"
   },
   "dependencies": {
     "@critical/engine": "^0.0.0",

@@ -29,6 +29,25 @@ export function runningSince(data: AppData, now: number): AppData {
   return reducer({ ...data, tasks }, { type: "refresh", now });
 }
 
+/** The filters of Supabase's query builder that the loader chains, for fakes that ignore them. */
+export const queryFilters = {
+  gt() {
+    return this;
+  },
+  gte() {
+    return this;
+  },
+  lt() {
+    return this;
+  },
+  range() {
+    return this;
+  },
+  limit() {
+    return this;
+  },
+};
+
 /** Chooses the first materia in an open «Nueva» editor (none is chosen for the person). */
 export function pickMateria(): void {
   const select = screen.getByLabelText("Materia o actividad");

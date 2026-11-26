@@ -1,4 +1,5 @@
 import { type CSSProperties, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useSync } from "../Connected.js";
 import { isTentative, visibleEvents } from "../calendars.js";
 import { dropTarget, keyboardLanding, nearestFree } from "../drag.js";
 import {
@@ -436,6 +437,18 @@ export function Week({
   const ref = now + offset * 7 * DAY_MS;
   const dates = weekDates(tz, ref);
   const today = localParts(tz, now).date;
+  // A week far from now may still be on its way (SPEC «Carga progresiva»): looking at it
+  // puts it first in line, and until its rows are in the week shows grey, not empty.
+  const sync = useSync();
+  const monday = dates[0] as string;
+  const weekReady = sync?.weekReady(monday) ?? true;
+  const focusWeek = useRef(sync?.focusWeek);
+  focusWeek.current = sync?.focusWeek;
+  const loading = !!sync?.status.loading;
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `loading` re-sends the week once the queue exists.
+  useEffect(() => {
+    focusWeek.current?.(monday);
+  }, [monday, loading]);
   const rangeEnd = zonedInstant(tz, dates[6] as string, 720);
   // Another year's week says which one, so it is never mistaken for this one.
   const rangeDays = dayRange(tz, zonedInstant(tz, dates[0] as string, 720), rangeEnd);
@@ -1043,7 +1056,8 @@ export function Week({
       )}
       <div
         ref={weekRef}
-        className={`week${critical ? " critical-mode" : ""}${editing ? " editing" : ""}${drag?.active ? " dragging-on" : ""}`}
+        aria-busy={!weekReady || undefined}
+        className={`week${weekReady ? "" : " unloaded"}${critical ? " critical-mode" : ""}${editing ? " editing" : ""}${drag?.active ? " dragging-on" : ""}`}
         data-testid="week"
       >
         <div />

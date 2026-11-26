@@ -6,7 +6,7 @@ import { Settings } from "./components/Settings.js";
 import { demoData } from "./demo.js";
 import { clearLocal, readLocal, writeLocal } from "./offline.js";
 import { StoreProvider } from "./store.js";
-import { session, stubApi } from "./testing.js";
+import { queryFilters, session, stubApi } from "./testing.js";
 
 afterEach(async () => {
   cleanup();
@@ -297,6 +297,7 @@ describe("Ajustes for a signed-in account", () => {
           Object.assign(ok, {
             maybeSingle: () => Promise.resolve({ data: null, error: null }),
             order: () => ok,
+            ...queryFilters,
           }),
         upsert: () => Promise.resolve({ error: null }),
         insert: () => Promise.resolve({ error: null }),
@@ -367,6 +368,7 @@ describe("Ajustes for a signed-in account", () => {
           Object.assign(ok, {
             maybeSingle: () => Promise.resolve({ data: null, error: null }),
             order: () => ok,
+            ...queryFilters,
           }),
         upsert: fail,
         insert: fail,
@@ -417,6 +419,7 @@ describe("Ajustes for a signed-in account", () => {
           Object.assign(ok, {
             maybeSingle: () => Promise.resolve({ data: null, error: null }),
             order: () => ok,
+            ...queryFilters,
           }),
         upsert: started,
         insert: started,
