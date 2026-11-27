@@ -192,9 +192,11 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     const chunkMinutes = task.sessionMinutes ?? activity.minBlockMinutes;
     // Sessions land on whole slots (45 min on 30-min slots take 60): what a task asks is
     // counted in those, or its last session would be left out for 15 minutes.
-    const whole = task.sessionMinutes
-      ? Math.max(1, Math.round(chunkMinutes / slotMinutes)) * slotMinutes
-      : 0;
+    const chunkSlots = Math.max(
+      1,
+      (task.sessionMinutes ? Math.ceil : Math.round)(chunkMinutes / slotMinutes),
+    );
+    const whole = task.sessionMinutes ? chunkSlots * slotMinutes : 0;
     const inSlots = (m: number) =>
       whole > 0 && whole !== chunkMinutes ? Math.ceil(m / chunkMinutes) * whole : m;
     const min = Math.max(0, inSlots(task.minRemainingMinutes) - frozenMinutes);
@@ -206,7 +208,7 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
       min,
       target,
       frozenMinutes,
-      chunkSlots: Math.max(1, Math.round(chunkMinutes / slotMinutes)),
+      chunkSlots,
     });
   }
   prepared.sort((a, b) => a.task.deadline - b.task.deadline || b.task.priority - a.task.priority);

@@ -35,6 +35,9 @@ describe("una sesión que no es múltiplo de la grilla (45 min en franjas de 30)
     [4, 45],
     [3, 75],
     [3, 60],
+    [3, 15],
+    [2, 75],
+    [3, 100],
   ])("%d sesiones de %d min se planifican enteras, una por día", (times, session) => {
     const r = schedule(input(times, session));
     const mine = r.blocks.filter((b) => b.taskId === "bici");
