@@ -15,7 +15,7 @@ import {
 } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
-import { detectedProblem, detectedToReset } from "../taskForm.js";
+import { detectedProblem, detectedToReset, slotNote } from "../taskForm.js";
 import { clockText, type WeekProblem, weekProblems } from "../weekForm.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import {
@@ -657,6 +657,7 @@ export function Routines({ openId }: { openId?: string }) {
     minutesBad ? 7 : daysAllowed(read.hours, Number(minutes), data.settings.slotMinutes),
   );
   const bad = !!(problem.times || problem.minutes || read.problems.length);
+  const rounding = minutesBad ? null : slotNote(Number(minutes), data.settings.slotMinutes);
   const nameField = useRef<HTMLInputElement>(null);
   // Nothing readable in the name (spaces, zero-width characters): said when typed or tried.
   const [nameTried, setNameTried] = useState(false);
@@ -811,7 +812,7 @@ export function Routines({ openId }: { openId?: string }) {
               onChange={(e) => setMinutes(e.target.value)}
             />
           </label>
-          <Help id="routine-minutes-help" text="Lo que dura cada vez." />
+          <Help id="routine-minutes-help" text={rounding ?? "Lo que dura cada vez."} />
         </div>
       </div>
       <RoutineHours

@@ -295,9 +295,12 @@ export function semesterLabel(tz: string, instant: number) {
   return m <= 7 ? `1.er cuatrimestre ${y}` : `2.º cuatrimestre ${y}`;
 }
 
-/** Active and not paused or skipped this week: the planner works on it. */
+/**
+ * Active, not paused or skipped this week, and not waiting in the Bandeja to be accepted
+ * (SPEC §18.14): the planner works on it.
+ */
 export const isRunning = (task: AppTask, now: number) =>
-  task.status === "active" && !task.paused && !((task.skipUntil ?? 0) > now);
+  task.status === "active" && !task.needsReview && !task.paused && !((task.skipUntil ?? 0) > now);
 
 /**
  * The sessions a habit asks of the week `now` is in. One made mid-week asks the share of

@@ -184,3 +184,14 @@ function habitTotalProblem(times: number, minutes: number, room: number, routine
     ? `No entra en una semana: ${times} × ${minutes} min son ${durationLabel(times * minutes)} y en una semana entran ${Math.floor(room / 60)} h.`
     : null;
 }
+
+/**
+ * A routine session is placed in whole slots (SPEC §18.14): when its minutes are not a
+ * multiple of the slot, a one-line note says what the plan will really reserve.
+ */
+export function slotNote(minutes: number, slotMinutes: number): string | null {
+  if (!Number.isFinite(minutes) || minutes <= 0 || slotMinutes <= 0) return null;
+  if (minutes % slotMinutes === 0) return null;
+  const reserved = Math.ceil(minutes / slotMinutes) * slotMinutes;
+  return `Se planifica en bloques de ${slotMinutes} min: ${reserved} min`;
+}
