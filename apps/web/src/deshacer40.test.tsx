@@ -113,10 +113,9 @@ describe("Falla 1: ↶ deshace solo lo último", () => {
     const d = demo();
     const trip = must(d.events.find((e) => e.start > NOW && e.location && e.id !== "evento-gran"));
     const adjusted = reducer(d, {
-      type: "tripMinutes",
+      type: "eventTravelMinutes",
       eventId: trip.id,
       minutes: 25,
-      start: trip.start,
       now: NOW,
     });
     expect(adjusted.planHistory?.at(-1)?.label).toBe("ajustar un traslado");
@@ -163,7 +162,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     ],
     ["marcar Hecho", markDone],
     [
-      "guardar Leer",
+      "crear Leer",
       () => ({
         type: "saveRoutine",
         name: "Leer",
@@ -194,16 +193,16 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
       () => ({ type: "review", taskId: "parcial-nuevo", keep: false, now: NOW }),
     ],
     [
-      "planificar Parcial SD (del calendar…",
+      "aceptar Parcial SD (del calendar…",
       () => ({ type: "review", taskId: "parcial-nuevo", keep: true, now: NOW }),
     ],
-    ["ordenar Charla", () => ({ type: "classTitle", title: "Charla", as: "event", now: NOW })],
+    ["clasificar Charla", () => ({ type: "classTitle", title: "Charla", as: "event", now: NOW })],
     [
-      "ordenar Física I",
+      "clasificar Física I",
       () => ({ type: "sortActivity", activityId: "fis", as: "rutina", now: NOW }),
     ],
     [
-      "ajustar el día",
+      "cambiar el plan de hoy",
       () => ({ type: "override", override: { date: "2026-11-22", wake: 600 }, now: NOW }),
     ],
     [
@@ -274,7 +273,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     });
     const two = reducer(one, { type: "review", taskId: "parcial-nuevo", keep: false, now: NOW });
     expect(two.planHistory?.map((v) => v.label)).toEqual([
-      "guardar Leer",
+      "crear Leer",
       "ignorar Parcial SD (del calendar…",
     ]);
     const back = undo(two);

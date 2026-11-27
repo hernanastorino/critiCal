@@ -134,7 +134,13 @@ export type Action =
       /** The plan before the answer and right after it, to put the first one back. */
       plans?: { before: PlanBlock[]; after: PlanBlock[] };
     }
-  | { type: "override"; override: DayOverride; now: number }
+  /** `label`: what the ↶ calls it (default «cambiar el plan de hoy»). */
+  | { type: "override"; override: DayOverride; label?: string; now: number }
+  /**
+   * One tap that changes several things: one entry in the ↶, named `label`, that takes
+   * all of them back (SPEC §14).
+   */
+  | { type: "batch"; label: string; actions: DistributiveOmit<Action, "now">[]; now: number }
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
   | { type: "applyOption"; optionId: string; now: number }
@@ -197,7 +203,8 @@ export type Action =
   | { type: "spots"; results: { text: string; minutes: number | null }[]; now: number }
   /** Minutes from home typed for an event, without saving a place. */
   | { type: "forgetTravelTime"; from: string; to: string; now: number }
-  | { type: "spotMinutes"; text: string; minutes: number; now: number }
+  /** `label`: what the ↶ calls it (default «cambiar minutos de una dirección»). */
+  | { type: "spotMinutes"; text: string; minutes: number; label?: string; now: number }
   /** Turns an event address into a saved place called `name`. */
   | { type: "saveSpot"; key: string; name: string; now: number }
   | { type: "forgetSpot"; key: string; now: number }
@@ -286,7 +293,7 @@ const VERSIONED: Partial<Record<Action["type"], string>> = {
   unpinAll: "soltar varios bloques",
   pinAll: "fijar varios bloques",
   replanWeek: "reacomodar la semana",
-  override: "ajustar el día",
+  override: "cambiar el plan de hoy",
   acceptProposal: "aceptar un cambio propuesto",
   rejectProposal: "rechazar un cambio propuesto",
   mealChoice: "mover o sacar una comida",
@@ -582,6 +589,7 @@ function cleanNames(a: Action): Action {
 export function reducer(data: AppData, input: Action): AppData {
   // Old weeks coming in are not an action of the person: no freeze, no replan, no undo.
   if (input.type === "chunk") return mergeChunk(data, input.chunk);
+  if (input.type === "batch") return batched(data, input);
   const action = cleanNames(input);
   // Old keys are fixed before planning, so the plan sees the saved minutes; a routine a
   // decision took out for a week comes back when that week is over.
@@ -690,6 +698,8 @@ function apply(data: AppData, action: Action): AppData {
       return refresh(data, now);
     case "chunk":
       return mergeChunk(data, action.chunk);
+    case "batch":
+      return batched(data, action);
     case "replace":
       return refresh(rekeySpots(action.data), now);
     case "checkIn": {
@@ -2167,7 +2177,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
   if (action.type === "checkIn") return answered(data, action, next);
   if (action.type === "logProgress") return logged(data, action, next);
   if (action.type === "applyOption") return chosen(data, action, next);
-  const label = VERSIONED[action.type];
+  const label = action.type === "override" && action.label ? action.label : VERSIONED[action.type];
   if (!label) return edited(data, action, next);
   // A replan that changed nothing has nothing to undo.
   if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
@@ -2227,16 +2237,16 @@ function editLabel(data: AppData, action: Action): string | undefined {
     case "saveActivity":
       return `guardar ${name(action.activity.name)}`;
     case "saveRoutine":
-      return `guardar ${name(action.name)}`;
+      return `crear ${name(action.name)}`;
     case "newSubject":
       return `crear ${name(action.name)}`;
     case "review":
-      return `${action.keep ? "planificar" : "ignorar"} ${task(action.taskId)}`;
+      return `${action.keep ? "aceptar" : "ignorar"} ${task(action.taskId)}`;
     case "classTitle":
     case "classOf":
-      return `ordenar ${name(action.title)}`;
+      return `clasificar ${name(action.title)}`;
     case "sortActivity":
-      return `ordenar ${activity(action.activityId)}`;
+      return `clasificar ${activity(action.activityId)}`;
     case "mergeActivity":
       return `juntar ${activity(action.activityId)}`;
     case "assignSubject":
@@ -2279,9 +2289,13 @@ const PLAN_PARTS = new Set<string>([
 ]);
 
 /** The parts of the data the change touched, each with only the entries it changed. */
-function touched(data: AppData, next: AppData): Snapshot | undefined {
+function touched(
+  data: AppData,
+  next: AppData,
+  skip: ReadonlySet<string> = new Set(),
+): Snapshot | undefined {
   const keys = [...new Set([...Object.keys(data), ...Object.keys(next)])]
-    .filter((k) => !PLAN_PARTS.has(k))
+    .filter((k) => !PLAN_PARTS.has(k) && !skip.has(k))
     .filter((k) => Reflect.get(data, k) !== Reflect.get(next, k))
     .filter((k) => !same(Reflect.get(data, k), Reflect.get(next, k)));
   if (keys.length === 0) return undefined;
@@ -2477,22 +2491,45 @@ function saveLabel(data: AppData, action: Action): string | undefined {
     case "forgetTravelTime":
       return "cambiar minutos en auto";
     case "spotMinutes":
-      return "cambiar minutos de una dirección";
+      return action.label ?? "cambiar minutos de una dirección";
     case "forgetSpot":
       return "olvidar una dirección";
     case "deletePlace": {
       const place = data.places?.find((p) => p.id === action.placeId);
       return place ? `borrar ${clipName(place.name, 24)}` : undefined;
     }
+    // `tripMinutes` is a calculation (the bus's answer), not an action of the person.
     case "eventTravelMinutes":
     case "tripMode":
-    case "tripMinutes":
       return "ajustar un traslado";
     case "saveSpot":
       return "guardar un lugar";
     default:
       return undefined;
   }
+}
+
+/**
+ * Several actions of one tap leave one entry in the ↶: the steps run in order, and the
+ * entry holds what the whole tap changed (saved parts and edited entries), so undoing it
+ * leaves everything as it was before the tap.
+ */
+function batched(data: AppData, action: Extract<Action, { type: "batch" }>): AppData {
+  const end = action.actions.reduce(
+    (d, step) => reducer(d, { ...step, now: action.now } as Action),
+    data,
+  );
+  const next: AppData = { ...end, planHistory: data.planHistory };
+  const label = clipName(action.label, 40);
+  const parts = SAVED_PARTS.map((p) => ({ part: p.id, before: p.get(data), after: p.get(next) }));
+  const changed = parts.filter((p) => !same(p.before, p.after));
+  const snap = touched(data, next, new Set(SAVED_PARTS.map((p) => p.id)));
+  if (changed.length === 0 && !snap) return next;
+  return pushVersion(data, next, {
+    ...planVersion(data, action.now, label),
+    ...(changed.length > 0 && { saved: changed }),
+    ...(snap && { edit: { snap } }),
+  });
 }
 
 /** Records a save in the undo history, with the parts it changed. */
