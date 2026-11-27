@@ -9,7 +9,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { DEFAULTS, eventRole, normalize, visibleEvents } from "./calendars.js";
+import { DEFAULTS, detectedRole, normalize, visibleEvents } from "./calendars.js";
 import { type Chunk, mergeChunk } from "./data.js";
 import { demoData } from "./demo.js";
 import { isTestDemo, pruebasData } from "./demoPruebas.js";
@@ -210,6 +210,8 @@ export type Action =
       kind: MealKind;
       start?: number;
       skip?: boolean;
+      /** The «¿Movés …?» of the Bandeja was answered: not asked again that day. */
+      asked?: boolean;
       now: number;
     }
   /** Minutes kept for one event (after «Eliminar lugar») changed, or forgotten (`null`). */
@@ -986,9 +988,8 @@ function apply(data: AppData, action: Action): AppData {
       // Detected tasks go back to their category's default hours.
       const tasks = data.tasks.map((t) => {
         if (!t.sourceEventId || (action.taskId && t.id !== action.taskId)) return t;
-        const event = data.events.find((e) => e.id === t.sourceEventId);
-        const role = event ? eventRole(data, event) : undefined;
-        if (role !== "parcial" && role !== "entrega" && role !== "presentacion") return t;
+        const role = detectedRole(data, t);
+        if (!role) return t;
         const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
         // Resetting hours keeps dropped or done tasks as they are; only an explicit
         // single-task reset brings one back.
@@ -1177,8 +1178,19 @@ function apply(data: AppData, action: Action): AppData {
     }
     case "settings":
       return refresh({ ...data, settings: action.settings }, now);
-    case "preferences":
-      return refresh({ ...data, preferences: action.preferences }, now);
+    case "preferences": {
+      const next = { ...data, preferences: action.preferences };
+      // What was detected and not accepted yet takes the new hours of its kind.
+      const tasks = data.tasks.map((t) => {
+        const role = t.needsReview ? detectedRole(data, t) : undefined;
+        if (!role) return t;
+        const was = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
+        const d = action.preferences.importDefaults?.[role] ?? DEFAULTS[role];
+        if (was.estimate === d.estimate && was.min === d.min) return t;
+        return { ...t, estimateMinutes: d.estimate, minMinutes: d.min };
+      });
+      return refresh({ ...next, tasks }, now);
+    }
     case "saveActivity": {
       const old = data.activities.find((a) => a.id === action.activity.id);
       // A second tap on «Agregar» (a new id, the same name) does not add it twice.
@@ -1600,6 +1612,7 @@ function apply(data: AppData, action: Action): AppData {
               {
                 date: action.date,
                 kind: action.kind,
+                ...(action.asked ? { asked: true } : {}),
                 // Skipped, its moved time is kept: putting it back returns it there.
                 ...(action.skip
                   ? { skip: true, ...(start !== undefined ? { start } : {}) }

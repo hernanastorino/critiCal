@@ -1,5 +1,5 @@
 // What the silo form checks before saving: each problem is said beside its field.
-import { DEFAULTS, eventRole } from "./calendars.js";
+import { DEFAULTS, detectedRole } from "./calendars.js";
 import { hours } from "./format.js";
 import { MAX_HOURS, TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppData } from "./model.js";
@@ -28,9 +28,8 @@ export function detectedProblem(
 /** How many detected tasks «Volver todo lo detectado a estas horas» would change. */
 export function detectedToReset(data: AppData): number {
   return data.tasks.filter((t) => {
-    const event = t.sourceEventId ? data.events.find((e) => e.id === t.sourceEventId) : undefined;
-    const role = event ? eventRole(data, event) : undefined;
-    if (role !== "parcial" && role !== "entrega" && role !== "presentacion") return false;
+    const role = detectedRole(data, t);
+    if (!role) return false;
     const d = data.preferences?.importDefaults?.[role] ?? DEFAULTS[role];
     return t.estimateMinutes !== d.estimate || t.minMinutes !== d.min;
   }).length;
@@ -194,4 +193,18 @@ export function slotNote(minutes: number, slotMinutes: number): string | null {
   if (minutes % slotMinutes === 0) return null;
   const reserved = Math.ceil(minutes / slotMinutes) * slotMinutes;
   return `Se planifica en bloques de ${slotMinutes} min: ${reserved} min`;
+}
+
+/** Minutes as a routine list writes them: «30 min», «2h» (whole hours from 1). */
+const sessionLabel = (m: number) => (m >= 60 && m % 60 === 0 ? `${m / 60}h` : `${m} min`);
+
+/**
+ * A routine session as the list shows it: what it takes in the plan (whole slots), and when
+ * that is not what was asked, «30 min (pediste 15)». A multiple of the slot is just «90 min».
+ */
+export function sessionShown(minutes: number, slotMinutes: number): string {
+  if (!(slotMinutes > 0) || minutes % slotMinutes === 0) return `${minutes} min`;
+  const reserved = Math.ceil(minutes / slotMinutes) * slotMinutes;
+  const asked = minutes >= 60 && minutes % 60 === 0 ? `${minutes / 60}h` : `${minutes}`;
+  return `${sessionLabel(reserved)} (pediste ${asked}${asked.endsWith("h") ? "" : " min"})`;
 }

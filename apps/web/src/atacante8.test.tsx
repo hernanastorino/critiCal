@@ -16,7 +16,6 @@ import { decisions, refreshPlan } from "./planning.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
 import { parseUnit } from "./taskForm.js";
 import { tapDone } from "./testDone.js";
-import { withBreaksOnTop } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -287,8 +286,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
    * declares a part, so it counts as done (SPEC §3): the figures are those of 17th round.
    */
   const scenario = (study: number) => {
-    // The load the demo had before breaks counted whole (SPEC §18.17), where this was tuned.
-    const base = reducer(withBreaksOnTop(demoData(NOW)), { type: "refresh", now: NOW });
+    const base = reducer(demoData(NOW), { type: "refresh", now: NOW });
     const withStudy = {
       ...base,
       checkIns: [
@@ -319,7 +317,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
   });
 
   it("is not offered when choosing it would change nothing", () => {
-    const d = scenario(330);
+    const d = scenario(300);
     const r = refreshPlan(d, NOW);
     // The target is short, but the parts hold what is left: a lower estimate cuts nothing.
     expect(r.result.status.some((s) => s.targetDeficit > 0)).toBe(true);

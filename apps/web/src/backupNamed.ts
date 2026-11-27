@@ -317,6 +317,7 @@ const mealTests: Test[] = [
   ["kind", oneOf(...MEALS)],
   ["start", opt(int(0, 2880))],
   ["skip", opt(bool)],
+  ["asked", opt(bool)],
 ];
 const mealChoice: Ok = (v) => shape(mealTests)(v);
 
