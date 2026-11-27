@@ -20,6 +20,7 @@ import {
 } from "../model.js";
 import {
   aliasTaken,
+  drivingMinutes,
   keepableEvents,
   keptTravel,
   minutesBetween,
@@ -336,6 +337,7 @@ export function Places() {
                 <MinutesInput
                   label={`Minutos de ${placeName(from)} a ${placeName(to)}`}
                   value={minutesBetween(data, from, to)}
+                  placeholder={drivingMinutes(data, from, to)}
                   onCommit={(minutes) => dispatch({ type: "travelTime", from, to, minutes })}
                   onClear={() => dispatch({ type: "forgetTravelTime", from, to })}
                 />
@@ -492,11 +494,14 @@ function MinutesNote({ problem, id }: { problem: Problem; id: string }) {
 export function MinutesInput({
   label,
   value,
+  placeholder,
   onCommit,
   onClear,
 }: {
   label: string;
   value: number | undefined;
+  /** What the plan uses when nothing is saved (an estimate, or the way back's minutes). */
+  placeholder?: number;
   onCommit: (minutes: number) => void;
   onClear?: () => void;
 }) {
@@ -524,6 +529,7 @@ export function MinutesInput({
         aria-label={label}
         {...minutesAttrs(problem, errorId)}
         value={draft ?? value ?? ""}
+        placeholder={placeholder === undefined ? undefined : String(placeholder)}
         onChange={(e) => typing(e.target.value)}
         onBlur={commit}
         onKeyDown={blurOnEnter}

@@ -7,7 +7,8 @@ test.use(IPHONE_375);
 // «Demo de pruebas» trae dos eventos futuros con lugar en modo Ómnibus, una casa con dirección
 // y horarios inventados (src/demoTransit.ts).
 //   · «Clase en la Facultad» (mañana de lunes, 14:00–16:00): hay ómnibus, con un transbordo.
-//   · «Taller en el Cerro» (pasado mañana, 10:00–11:30): sin datos de tránsito, va en auto.
+//   · «Taller en el Cerro» (pasado mañana, 10:00–11:30): con paradas inventadas del Cerro; la prueba
+//     de «sin datos de tránsito» lo corre al oeste, donde la demo no tiene servicio.
 
 const MIN = 60_000;
 
@@ -123,6 +124,14 @@ test.describe("tarjeta del evento en ómnibus", () => {
     page,
   }) => {
     await abrirDemoDePruebas(page);
+    // El Cerro tiene paradas inventadas: para quedar sin datos, el lugar se corre al oeste.
+    await page.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
+      for (const p of d.places) if (p.id === "cerro") p.lon = -56.5;
+      localStorage.setItem("critical.demo.v2", JSON.stringify(d));
+    });
+    await page.reload();
+    await expect(page.getByTestId("week")).toBeVisible({ timeout: 20_000 });
     const tarjeta = await abrirTarjeta(page, "Taller en el Cerro");
     await expect(tarjeta.getByRole("button", { name: "Ómnibus" })).toHaveAttribute(
       "aria-pressed",

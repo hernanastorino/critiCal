@@ -51,7 +51,10 @@ export function travelBuffers(events: readonly CalendarEvent[], opts: TravelOpti
     const prevPlace = places[i - 1];
     const fromPrev = prev && prevPlace && event.start - prev.end <= gapLimit;
     const origin = fromPrev ? prevPlace : opts.home;
-    if (origin !== place) {
+    // An event that starts before the previous one ends leaves no time to go from one to
+    // the other: no trip is reserved inside the class (the event's card warns of the clash).
+    const overlapsPrev = fromPrev && event.start < prev.end;
+    if (origin !== place && !overlapsPrev) {
       // Only a trip from home has a figure of its own: from another place it is unknown.
       const own = origin === opts.home ? opts.tripMinutes?.(event, "there") : undefined;
       const there = own ?? opts.travelMinutes(origin, place) ?? 0;

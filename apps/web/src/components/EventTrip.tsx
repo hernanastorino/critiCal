@@ -28,6 +28,7 @@ import { isTestDemo } from "../demoPruebas.js";
 import { demoPlan } from "../demoTransit.js";
 import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
+import { placeClash } from "../planning.js";
 import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
 import { hhmm, type PlanResponse, type StaleReason, type TransitOption } from "../transit.js";
@@ -59,6 +60,18 @@ function staleNote(reason: StaleReason): string {
     case "expired":
       return "Los horarios de la ruta habitual ya vencieron.";
   }
+}
+
+/** One line when this event overlaps another fixed one at a different place. */
+export function PlaceClash({ event }: { event: AppEvent }) {
+  const { data, now } = useStore();
+  const other = event.end > now ? placeClash(data, event) : undefined;
+  if (!other) return null;
+  return (
+    <p className="meta" role="note">
+      Se superpone con «{other.title}», en otro lugar.
+    </p>
+  );
 }
 
 type Result = { for: string; res: PlanResponse } | null;

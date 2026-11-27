@@ -31,6 +31,7 @@ import {
   MEAL_NAMES,
   mealOverPin,
   mealTimes,
+  onFixedOrTrip,
   pinId,
   progress,
   sleptBlockIds,
@@ -43,7 +44,7 @@ import { blockRuns } from "../runs.js";
 import { useStore } from "../store.js";
 import { BlockSheet } from "./BlockSheet.js";
 import { SyncDot } from "./Calendars.js";
-import { EventTrip } from "./EventTrip.js";
+import { EventTrip, PlaceClash } from "./EventTrip.js";
 import { FirstSteps } from "./FirstSteps.js";
 import {
   CheckIcon,
@@ -123,6 +124,9 @@ const mealName = (m: MealTime) => (m.kind ? MEAL_NAMES[m.kind] : "Comida");
 const mealKey = (m: MealTime) => `meal:${m.date}:${m.kind ?? m.preferred.start}`;
 
 const DAY_MS = 86_400_000;
+/** Said when a meal is dropped on an event or a trip: it goes back where it was. */
+export const MEAL_BLOCKED = "Ahí hay un evento o un traslado: la comida vuelve a su lugar";
+
 /** Hold this long on a block to start dragging it outside edit mode. */
 const LONG_PRESS_MS = 400;
 /** How long the replan button shows its tick. */
@@ -644,6 +648,8 @@ export function Week({
           : i.id !== blockId && i.start <= now && i.end > now,
       )
       .map((i) => ({ start: toMinute(i.start), end: toMinute(i.end) }));
+    // The time kept for trips is as fixed as the events: no block lands on it.
+    for (const t of trips) busy.push({ start: toMinute(t.start), end: toMinute(t.end) });
     const bounds = boundsOf(date, blockId);
     const earliest = Math.max(
       Math.ceil(Math.max(startMin, bounds.from) / slot) * slot,
@@ -747,6 +753,12 @@ export function Week({
   const landingFor = (d: Drag, x: number, y: number) =>
     d.meal ? mealLanding(d.meal, x, y, d.grab) : landing(x, y - d.grab, d.minutes, d.id);
 
+  /** Whether a meal of `length` minutes at `minute` of `date` would sit on something fixed or a trip. */
+  const mealBlocked = (date: string, minute: number, length: number) => {
+    const start = zonedInstant(tz, date, minute);
+    return onFixedOrTrip(data, { start, end: start + length * MINUTE });
+  };
+
   /** Moves a meal to where it lands, that day only; its id when it moved. */
   const dropMeal = (m: MealBubble["meal"], d: Drag, x: number, y: number) => {
     if (!m.kind) return null;
@@ -758,6 +770,10 @@ export function Week({
     }
     const start = zonedInstant(tz, target.date, target.minute);
     if (start === m.at.start) return null;
+    if (mealBlocked(target.date, target.minute, (m.at.end - m.at.start) / MINUTE)) {
+      refuse(MEAL_BLOCKED);
+      return null;
+    }
     dispatch({ type: "mealChoice", date: m.date, kind: m.kind, start: target.minute });
     sayMeal(`${mealName(m)} a las ${time(tz, start)}, solo ese día`);
     return mealKey(m);
@@ -1211,6 +1227,7 @@ export function Week({
                               const minute =
                                 (m.at.start - zonedInstant(tz, m.date, 0)) / MINUTE + step * slot;
                               if (minute < earliest || minute > latest) return;
+                              if (mealBlocked(m.date, minute, length)) return refuse(MEAL_BLOCKED);
                               dispatch({
                                 type: "mealChoice",
                                 date: m.date,
@@ -1642,6 +1659,7 @@ function BubbleCard({
           {item.event.location && <p>{item.event.location}</p>}
           <p className="more">Abrir evento ›</p>
         </button>
+        <PlaceClash event={item.event} />
         <EventTrip event={item.event} />
       </BubbleDialog>
     );
@@ -1918,6 +1936,11 @@ function MealCard({
                   setMoveError(
                     `Elegí una hora entre las ${minutesToHhmm(wake)} y las ${minutesToHhmm(bed - length)}, cuando estás despierto.`,
                   );
+                  return;
+                }
+                const from = zonedInstant(tz, meal.date, start);
+                if (onFixedOrTrip(data, { start: from, end: from + length * MINUTE })) {
+                  setMoveError(MEAL_BLOCKED);
                   return;
                 }
                 choose({ start }, `${name} a las ${at}, solo ese día`);
