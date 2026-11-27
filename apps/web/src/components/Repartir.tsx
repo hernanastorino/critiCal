@@ -274,7 +274,11 @@ export function Repartir({
   // The task as it was when the sheet opened: the plan is not worked out again for a new object.
   const [task] = useState(given);
   const sheetEl = useRef<HTMLDivElement>(null);
-  const done = useMemo(() => doneMinutes(data, task.id), [data, task.id]);
+  // A weekly silo counts what was done in its week, not all of it: no floor from the past.
+  const done = useMemo(
+    () => (task.kind === "habit" ? 0 : doneMinutes(data, task.id)),
+    [data, task],
+  );
   const [start] = useState(() => openSheet(initial ?? task, done));
   const [s, setS] = useState<Sheet>(start);
   const [typing, setTyping] = useState<"total" | string | null>(null);
@@ -484,14 +488,8 @@ export function Repartir({
 function weekly(task: AppTask, next: AppTask): AppTask {
   const session = task.sessionMinutes ?? 0;
   if (task.kind !== "habit" || session <= 0) return next;
-  const sessions = Math.max(1, Math.round(next.estimateMinutes / session));
-  const total = sessions * session;
-  return {
-    ...next,
-    sessionsPerWeek: sessions,
-    estimateMinutes: total,
-    minMinutes: Math.min(next.minMinutes, total),
-  };
+  // The exact minutes are kept; the sessions that hold them are rounded up (as Semester does).
+  return { ...next, sessionsPerWeek: Math.max(1, Math.ceil(next.estimateMinutes / session)) };
 }
 
 /**
@@ -519,10 +517,22 @@ export function RepartirTask({
   onUndone?: () => void;
 }) {
   const answer = useUndoable(() => onUndone?.());
+  // A weekly study silo opens with what its week holds: its minutes or its sessions.
+  const week =
+    task.kind === "habit" && !initial
+      ? {
+          estimateMinutes:
+            task.estimateMinutes > 0
+              ? task.estimateMinutes
+              : (task.sessionsPerWeek ?? 0) * (task.sessionMinutes ?? 0),
+          minMinutes: task.minMinutes,
+          units: [],
+        }
+      : initial;
   return (
     <Repartir
       task={task}
-      initial={initial}
+      initial={week}
       onClose={onClose}
       onAccept={(next) => {
         answer(

@@ -7,6 +7,7 @@ import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
 import { StoreProvider, useStore } from "./store.js";
+import { weekLeft } from "./week-review.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -188,3 +189,62 @@ describe("tareas sin temas", () => {
     expect((accept() as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+describe("silo de estudio semanal", () => {
+  const STUDY = "estudio-rep";
+  const study = (now: number): AppData => {
+    const d = demoData(now);
+    const activityId = d.activities.find((a) => a.kind !== "rutina")?.id ?? "";
+    const task: AppTask = {
+      id: STUDY,
+      activityId,
+      title: "Estudio Rep",
+      study: true,
+      kind: "habit",
+      estimateMinutes: 0,
+      minMinutes: 240,
+      sessionsPerWeek: 4,
+      sessionMinutes: 60,
+      priority: 2,
+      status: "active",
+      units: [],
+    };
+    return { ...d, tasks: [...d.tasks, task] };
+  };
+
+  it("el Total pasa de 4h a 5h30: el silo dice falta / asignado, el plan lo reserva y ↶ deja todo igual", () => {
+    render(
+      <ToastProvider>
+        <StoreProvider initial={study} persist={false} fixedNow={NOW}>
+          <Spy />
+          <Study />
+        </StoreProvider>
+      </ToastProvider>,
+    );
+    const before = JSON.stringify([latest?.tasks, latest?.plan]);
+    expect(slider("Total").getAttribute("aria-valuetext")).toMatch(/^Total, 4 horas/);
+    expect(document.querySelector(".rep-list")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Escribir las horas de Total" }));
+    fireEvent.change(screen.getByLabelText("Horas"), { target: { value: "5" } });
+    fireEvent.click(screen.getByRole("radio", { name: "30" }));
+    fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
+    fireEvent.click(accept());
+    const saved = latest?.tasks.find((t) => t.id === STUDY);
+    expect(saved?.estimateMinutes).toBe(330);
+    expect(saved?.sessionsPerWeek).toBe(6);
+    const row = latest && weekLeft(latest, NOW).find((r) => r.taskId === STUDY);
+    expect(row?.assigned).toBe(330);
+    const planned = (latest?.plan ?? [])
+      .filter((b) => b.taskId === STUDY && b.end > NOW)
+      .reduce((n, b) => n + (b.end - b.start) / 60_000, 0);
+    expect(planned).toBeGreaterThanOrEqual(330);
+    fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
+    expect(JSON.stringify([latest?.tasks, latest?.plan])).toBe(before);
+  });
+});
+
+function Study() {
+  const { data } = useStore();
+  const task = data.tasks.find((t) => t.id === "estudio-rep");
+  return task ? <RepartirTask task={task} onClose={() => undefined} /> : null;
+}
