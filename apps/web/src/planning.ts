@@ -18,6 +18,7 @@ import {
   overlaps,
   type PlanBlock,
   type PlanOption,
+  placeMeal,
   placeMeals,
   type Recommendation,
   recommendations,
@@ -881,10 +882,10 @@ function startedToday(data: AppData, now: number): PlanBlock[] {
   return data.plan.filter((b) => b.start >= dayStart && b.start <= now);
 }
 
-function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
-  const events = plannerEvents(data);
+/** What a meal goes around: busy events, their trips, running pins and blocks already started. */
+function mealBusy(data: AppData, now: number, events: ReturnType<typeof plannerEvents>) {
   const travel = travelOptions(data);
-  const busy = [
+  return [
     ...events.filter((e) => e.busy && !e.allDay),
     ...(travel ? travelBuffers(events, travel).busy : []),
     ...(data.pins ?? []).filter((p) =>
@@ -892,6 +893,11 @@ function workedMealTimes(data: AppData, now: number, from: number, to: number): 
     ),
     ...startedToday(data, now),
   ];
+}
+
+function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
+  const events = plannerEvents(data);
+  const busy = mealBusy(data, now, events);
   return placeMeals(
     withMeals(data.settings),
     overridesFor(data, now, from, to),
@@ -1022,6 +1028,76 @@ export function mealOverPin(data: AppData, now: number, block: PlanBlock, start:
   return mealTimes(next, now, pin.start - 1440 * MINUTE, pin.end + 1440 * MINUTE).some(
     (m) => m.at && overlaps(m.at, pin),
   );
+}
+
+/** The meals of a day in the order they are eaten (those that exist). */
+const MEAL_ORDER: MealKind[] = ["desayuno", "almuerzo", "merienda", "cena"];
+
+/**
+ * Whether a meal of `length` minutes starting at `minute` of `date` would sit before the
+ * day's previous meal ends or after its next one starts: breakfast, lunch, snack and
+ * dinner keep their order (the ones that exist that day).
+ */
+export function mealOutOfOrder(
+  data: AppData,
+  now: number,
+  date: string,
+  kind: MealKind,
+  minute: number,
+  length: number,
+): boolean {
+  const tz = data.settings.timezone;
+  const midnight = zonedInstant(tz, date, 0);
+  const start = midnight + minute * MINUTE;
+  const end = start + length * MINUTE;
+  const rank = MEAL_ORDER.indexOf(kind);
+  return mealTimes(data, now, midnight, zonedInstant(tz, addDays(date, 1), 0)).some((m) => {
+    if (m.date !== date || !m.kind || !m.at || m.kind === kind) return false;
+    return MEAL_ORDER.indexOf(m.kind) < rank ? start < m.at.end : end > m.at.start;
+  });
+}
+
+/** A meal put by hand on top of something fixed that has free room in its range: «¿Movés …?». */
+export interface MealOffer {
+  date: string;
+  kind: MealKind;
+  /** Where it is now. */
+  at: Interval;
+  /** Minutes since that day's midnight of the free time it could go to. */
+  minute: number;
+  /** That free time as an instant. */
+  to: number;
+}
+
+/**
+ * Meals put by hand on an event or a trip (they stay: one can eat during it) that have a
+ * free gap within reach of their time: asked once per meal and day (`asked`), whatever the
+ * answer. A meal the plan put is moved by the plan instead.
+ */
+export function mealOffers(data: AppData, now: number): MealOffer[] {
+  const tz = data.settings.timezone;
+  const meals = mealTimes(data, now, now, now + 7 * 1440 * MINUTE);
+  const busy = mealBusy(data, now, plannerEvents(data));
+  return meals.flatMap((m): MealOffer[] => {
+    const { kind, at } = m;
+    if (!m.chosen || !kind || !at || at.end <= now || !onFixedOrTrip(data, at)) return [];
+    if (data.mealChoices?.some((c) => c.date === m.date && c.kind === kind && c.asked)) return [];
+    const others = meals.flatMap((o) =>
+      o.date === m.date && o.kind !== kind && o.at ? [o.at] : [],
+    );
+    const { wake, bed } = wakingDay(data, now, m.date);
+    const free = placeMeal(
+      at,
+      [...busy, ...others],
+      zonedInstant(tz, m.date, bed),
+      Math.max(zonedInstant(tz, m.date, wake), now),
+      kind === "desayuno",
+    );
+    if (!free || free.start === at.start || free.start < now) return [];
+    const minute = Math.round((free.start - zonedInstant(tz, m.date, 0)) / MINUTE);
+    if (mealOutOfOrder(data, now, m.date, kind, minute, (at.end - at.start) / MINUTE)) return [];
+    return [{ date: m.date, kind, at, minute, to: free.start }];
+  });
 }
 
 /**

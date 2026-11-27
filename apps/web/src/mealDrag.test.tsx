@@ -16,6 +16,15 @@ const initial = (now: number): AppData => ({
   events: [],
   preferences: { holidaysOff: false },
 });
+// Only dinner: dragged to the top of the day, it would otherwise pass the meals before it.
+const dinnerOnly = (now: number): AppData => {
+  const d = initial(now);
+  const week = d.settings.week.map((v) => ({
+    ...v,
+    meals: v.meals.filter((m) => m.kind === "cena"),
+  }));
+  return { ...d, settings: { ...d.settings, week } };
+};
 const stored = (): AppData => JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
 
 beforeEach(() => {
@@ -42,7 +51,7 @@ const hold = (el: HTMLElement, id: number) => {
 
 describe("dragging a meal", () => {
   it("moves it for that day only, says so, and «Deshacer» puts it back", () => {
-    render(<App fixedNow={NOW} initial={initial} />);
+    render(<App fixedNow={NOW} initial={dinnerOnly} />);
     const dinner = pill(/^Cena, mié 21:00/);
     hold(dinner, 3);
     expect(dinner.className).toContain("dragging");

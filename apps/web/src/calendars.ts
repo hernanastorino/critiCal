@@ -104,6 +104,17 @@ export function eventRole(data: AppData, e: AppEvent): CalendarRole {
   return tagRole(e.title) ?? role;
 }
 
+/**
+ * The detected kind a task made from a calendar event stands for: its event's role, or,
+ * when the event is no longer in the data, the role it was made with (a parcial is an exam).
+ */
+export function detectedRole(data: AppData, t: AppTask): DetectedKind | undefined {
+  if (!t.sourceEventId) return undefined;
+  const event = data.events.find((e) => e.id === t.sourceEventId);
+  const role = event ? eventRole(data, event) : (t.sourceRole ?? (t.exam ? "parcial" : undefined));
+  return role === "parcial" || role === "entrega" || role === "presentacion" ? role : undefined;
+}
+
 /** An event that may be moved when the minimums do not fit: #flex, or a flexible calendar. */
 export function isFlexible(data: AppData, e: AppEvent): boolean {
   const c = calendarFor(data, e);

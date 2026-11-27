@@ -1,7 +1,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { useSync } from "../Connected.js";
 import { subjectName } from "../calendars.js";
-import { type Activity, localParts, MINUTE, type OptionKind, type PlanBlock } from "../engine.js";
+import {
+  type Activity,
+  localParts,
+  MINUTE,
+  type OptionKind,
+  type PlanBlock,
+  zonedInstant,
+} from "../engine.js";
 import {
   clipName,
   dayAndTime,
@@ -25,7 +32,13 @@ import { lateNight } from "../lateNight.js";
 import { isBlank } from "../limits.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
-import { DECISIONS_SHOWN_MS, endOfDay, onlyImpossibleLeft } from "../planning.js";
+import {
+  DECISIONS_SHOWN_MS,
+  endOfDay,
+  MEAL_NAMES,
+  mealOffers,
+  onlyImpossibleLeft,
+} from "../planning.js";
 import { hoursRange, preferenceMisfits } from "../preferredHours.js";
 import { hoursTooShort } from "../routineHours.js";
 import { useStore } from "../store.js";
@@ -142,6 +155,7 @@ export function Inbox({
   const unassigned = unassignedTasks(data);
   const unsorted = unsortedActivities(data);
   const misfits = preferenceMisfits(data);
+  const offers = mealOffers(data, now);
   // Only decisions something can still be undone in (free-time ones never had tasks),
   // from the last week: older ones are archived. One about a routine holds for its week
   // only, so it goes when that week ends.
@@ -187,6 +201,8 @@ export function Inbox({
 
   // Answers that are taken at the tap and offer «Deshacer»; undoing gives the focus back.
   const answers = useInboxAnswers(setRestored);
+  const mealAnswer = useUndoable();
+  const mealKeys = [...PLAN_KEYS, "mealChoices"] as const;
 
   // The list reflows after each answer: a second tap right after lands on the next item.
   const lastAnswer = useRef(0);
@@ -545,6 +561,59 @@ export function Inbox({
             )}
           </div>
         ))}
+
+        {offers.map((o) => {
+          const name = MEAL_NAMES[o.kind];
+          const here = Math.round((o.at.start - zonedInstant(tz, o.date, 0)) / MINUTE);
+          return (
+            <div
+              key={`offer-${o.date}-${o.kind}`}
+              className="card"
+              style={{ ["--c" as string]: "var(--meal)" }}
+            >
+              <div className="title">
+                ¿Movés {name} a {time(tz, o.to)}? · {dayDate(tz, o.at.start)}
+              </div>
+              <div className="row">
+                <button
+                  type="button"
+                  className="btn small"
+                  aria-label={`Mover ${name} a ${time(tz, o.to)}`}
+                  onClick={() =>
+                    mealAnswer(
+                      `${name} a las ${time(tz, o.to)}, solo ese día`,
+                      {
+                        type: "mealChoice",
+                        date: o.date,
+                        kind: o.kind,
+                        start: o.minute,
+                        asked: true,
+                      },
+                      mealKeys,
+                    )
+                  }
+                >
+                  Mover
+                </button>
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={() =>
+                    dispatch({
+                      type: "mealChoice",
+                      date: o.date,
+                      kind: o.kind,
+                      start: here,
+                      asked: true,
+                    })
+                  }
+                >
+                  Dejarla ahí
+                </button>
+              </div>
+            </div>
+          );
+        })}
 
         {decisions.options.length > 0 && (
           <>

@@ -29,6 +29,7 @@ import { type MoveBounds, moveBounds, moveRefusal } from "../moveBounds.js";
 import {
   isPinned,
   MEAL_NAMES,
+  mealOutOfOrder,
   mealOverPin,
   mealTimes,
   onFixedOrTrip,
@@ -124,6 +125,8 @@ const mealName = (m: MealTime) => (m.kind ? MEAL_NAMES[m.kind] : "Comida");
 const mealKey = (m: MealTime) => `meal:${m.date}:${m.kind ?? m.preferred.start}`;
 
 const DAY_MS = 86_400_000;
+/** Said when a meal is moved before the previous one or after the next: it goes back. */
+export const MEAL_ORDER_SAID = "Va antes o después de otra comida: la comida vuelve a su lugar";
 /** Said when a meal is dropped on an event or a trip: it goes back where it was. */
 export const MEAL_BLOCKED = "Ahí hay un evento o un traslado: la comida vuelve a su lugar";
 
@@ -770,7 +773,12 @@ export function Week({
     }
     const start = zonedInstant(tz, target.date, target.minute);
     if (start === m.at.start) return null;
-    if (mealBlocked(target.date, target.minute, (m.at.end - m.at.start) / MINUTE)) {
+    const length = (m.at.end - m.at.start) / MINUTE;
+    if (mealOutOfOrder(data, now, m.date, m.kind, target.minute, length)) {
+      refuse(MEAL_ORDER_SAID);
+      return null;
+    }
+    if (mealBlocked(target.date, target.minute, length)) {
       refuse(MEAL_BLOCKED);
       return null;
     }
@@ -1227,6 +1235,8 @@ export function Week({
                               const minute =
                                 (m.at.start - zonedInstant(tz, m.date, 0)) / MINUTE + step * slot;
                               if (minute < earliest || minute > latest) return;
+                              if (mealOutOfOrder(data, now, m.date, m.kind, minute, length))
+                                return refuse(MEAL_ORDER_SAID);
                               if (mealBlocked(m.date, minute, length)) return refuse(MEAL_BLOCKED);
                               dispatch({
                                 type: "mealChoice",
@@ -1936,6 +1946,10 @@ function MealCard({
                   setMoveError(
                     `Elegí una hora entre las ${minutesToHhmm(wake)} y las ${minutesToHhmm(bed - length)}, cuando estás despierto.`,
                   );
+                  return;
+                }
+                if (mealOutOfOrder(data, now, meal.date, kind, start, length)) {
+                  setMoveError(MEAL_ORDER_SAID);
                   return;
                 }
                 const from = zonedInstant(tz, meal.date, start);
