@@ -77,7 +77,7 @@ describe("1. Comida a mano sobre un evento: se queda y se pregunta una vez", () 
     // Se queda encima del evento.
     expect(dinner?.chosen).toBe(true);
     expect(dinner?.at?.start).toBe(at(date, 21 * 60));
-    const [offer] = mealOffers(data, now);
+    const offer = mealOffers(data, now).at(0);
     if (!offer) throw new Error("falta la oferta");
     expect(offer.kind).toBe("cena");
     expect(offer.date).toBe(date);

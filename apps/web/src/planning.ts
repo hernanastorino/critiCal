@@ -1083,6 +1083,12 @@ export function mealOffers(data: AppData, now: number): MealOffer[] {
   });
 }
 
+/** A meal put by hand on something fixed, still to come, whose move was never asked. */
+function askable(data: AppData, now: number, m: MealTime, kind: string, at: Interval): boolean {
+  if (!m.chosen || at.end <= now || !onFixedOrTrip(data, at)) return false;
+  return !data.mealChoices?.some((c) => c.date === m.date && c.kind === kind && c.asked);
+}
+
 /** The offer for one meal, if it is one put by hand on something fixed with a free gap near. */
 function offerFor(
   data: AppData,
@@ -1093,8 +1099,7 @@ function offerFor(
 ): MealOffer | null {
   const tz = data.settings.timezone;
   const { kind, at } = m;
-  if (!m.chosen || !kind || !at || at.end <= now || !onFixedOrTrip(data, at)) return null;
-  if (data.mealChoices?.some((c) => c.date === m.date && c.kind === kind && c.asked)) return null;
+  if (!kind || !at || !askable(data, now, m, kind, at)) return null;
   const others = meals.flatMap((o) => (o.date === m.date && o.kind !== kind && o.at ? [o.at] : []));
   const { wake, bed } = wakingDay(data, now, m.date);
   const free = placeMeal(
