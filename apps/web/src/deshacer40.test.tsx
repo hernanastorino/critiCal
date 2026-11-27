@@ -142,31 +142,26 @@ describe("El historial sembrado de la demo", () => {
   });
 });
 
+/** How an action is made from the data it starts from. */
+const markDone = (d: AppData): Action => {
+  const b = must(pendingConfirmations(d, NOW).at(0));
+  return {
+    type: "checkIn",
+    checkIn: { blockId: b.id, taskId: b.taskId, status: "done", minutesDone: 30, unitIds: [] },
+    now: NOW,
+  };
+};
+type Maker = typeof markDone;
+
 describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
   const task = (d: AppData, id: string): AppTask => must(d.tasks.find((t) => t.id === id));
   /** Every action of the person that changes data: its label and how to make it. */
-  const ACTIONS: [label: string, make: (...args: [AppData]) => Action][] = [
+  const ACTIONS: [label: string, make: Maker][] = [
     [
       "registrar avance",
       () => ({ type: "logProgress", taskId: "entrega-sd", minutes: 60, now: NOW }),
     ],
-    [
-      "marcar Hecho",
-      (d) => {
-        const b = must(pendingConfirmations(d, NOW).at(0));
-        return {
-          type: "checkIn",
-          checkIn: {
-            blockId: b.id,
-            taskId: b.taskId,
-            status: "done",
-            minutesDone: 30,
-            unitIds: [],
-          },
-          now: NOW,
-        };
-      },
-    ],
+    ["marcar Hecho", markDone],
     [
       "guardar Leer",
       () => ({
@@ -180,7 +175,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     ["crear Arte", () => ({ type: "newSubject", name: "Arte", now: NOW })],
     [
       "guardar Informe nuevo",
-      (d) => ({
+      (d: AppData) => ({
         type: "saveTask",
         task: { ...task(d, "entrega-sd"), title: "Informe nuevo" },
         now: NOW,
@@ -188,7 +183,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     ],
     [
       "guardar Física nueva",
-      (d) => ({
+      (d: AppData) => ({
         type: "saveActivity",
         activity: { ...must(d.activities.find((a) => a.id === "fis")), name: "Física nueva" },
         now: NOW,
@@ -221,7 +216,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     ],
     [
       "guardar Reglas",
-      (d) => ({
+      (d: AppData) => ({
         type: "settings",
         settings: { ...d.settings, maxActivitiesPerDay: d.settings.maxActivitiesPerDay + 1 },
         now: NOW,
@@ -229,7 +224,7 @@ describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
     ],
     [
       "mover o fijar un bloque",
-      (d) => {
+      (d: AppData) => {
         const b = must(d.plan.find((x) => x.start > NOW + 3 * 3_600_000));
         return { type: "pin", blockId: b.id, start: b.start + 30 * 60_000, now: NOW };
       },
