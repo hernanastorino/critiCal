@@ -138,8 +138,8 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                                                                                                                                                                                                                                      | Qué falta                                                                       |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Qué                                    | Estado                                                                                                                                                                                                                              | Qué falta                                        |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
 | Ciclo del agente atacante sobre `main` | 40.ª arreglada (#317–#319, 2026-11-27). 41.ª en curso (2026-11-27): sin Altas; Medias: abrir un evento con traslado deja ↶ vacío, Horas para lo detectado no se aplican, % de una parte sobre 50 min, comidas fuera de orden (§5.3) | Hijas para las Medias de la 41.ª. Bajas en §5.3. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
