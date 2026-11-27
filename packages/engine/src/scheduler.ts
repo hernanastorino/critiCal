@@ -189,9 +189,16 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     const frozenMinutes = frozen
       .filter((b) => b.taskId === task.id)
       .reduce((sum, b) => sum + (b.end - b.start) / MINUTE, 0);
-    const min = Math.max(0, task.minRemainingMinutes - frozenMinutes);
-    const target = Math.max(min, task.remainingMinutes - frozenMinutes);
     const chunkMinutes = task.sessionMinutes ?? activity.minBlockMinutes;
+    // Sessions land on whole slots (45 min on 30-min slots take 60): what a task asks is
+    // counted in those, or its last session would be left out for 15 minutes.
+    const whole = task.sessionMinutes
+      ? Math.max(1, Math.round(chunkMinutes / slotMinutes)) * slotMinutes
+      : 0;
+    const inSlots = (m: number) =>
+      whole > 0 && whole !== chunkMinutes ? Math.ceil(m / chunkMinutes) * whole : m;
+    const min = Math.max(0, inSlots(task.minRemainingMinutes) - frozenMinutes);
+    const target = Math.max(min, inSlots(task.remainingMinutes) - frozenMinutes);
     prepared.push({
       index: 0,
       task,
@@ -326,10 +333,15 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
       if (!o || activityOf(o) !== p.activity.id) break;
       run++;
     }
-    if (run * slotMinutes > p.activity.maxSessionMinutes) return null;
+    // Nor does the session cap sit under one whole session (see the day's cap below).
+    const sessionCap = Math.max(p.activity.maxSessionMinutes, p.chunkSlots * slotMinutes);
+    if (run * slotMinutes > sessionCap) return null;
     const perDay = p.task.maxPerDayMinutes;
     const today = board.dayTask.get(`${p.task.id}|${first.date}`) ?? 0;
-    if (perDay !== undefined && today + length * slotMinutes > perDay) return null;
+    // A session of 45 min on 30-min slots is two slots (60 min): the day's cap never sits
+    // under one whole session, or a routine of 45 min could not be placed on any day.
+    const dayCap = perDay === undefined ? undefined : Math.max(perDay, p.chunkSlots * slotMinutes);
+    if (dayCap !== undefined && today + length * slotMinutes > dayCap) return null;
 
     const mix = mixScore(p, first.date);
     if (mix === null) return null;
@@ -386,7 +398,10 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     for (let attempt = 0; attempt < 1000; attempt++) {
       const missing = goal - (placed.get(p.task.id) ?? 0);
       if (missing <= 0) return;
-      const wanted = Math.min(p.chunkSlots, Math.ceil(missing / slotMinutes));
+      // A session is always whole: its last one is not cut to what is missing.
+      const wanted = p.task.sessionMinutes
+        ? p.chunkSlots
+        : Math.min(p.chunkSlots, Math.ceil(missing / slotMinutes));
       let done = false;
       const lengths = p.task.sessionMinutes ? [wanted] : range(wanted, 1);
       for (const strict of input.allowFreeTime ? [true, false] : [true]) {

@@ -519,7 +519,7 @@ export function Settings({
           title: "Rutinas",
           icon: I.repeat,
           value: String(routines),
-          content: <Routines />,
+          content: <Routines openId={initialActivity} />,
         },
         { id: "rules", title: "Reglas", icon: I.rules, content: <RuleSettings /> },
         {

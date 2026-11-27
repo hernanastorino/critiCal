@@ -534,7 +534,15 @@ export function TaskEditor({
       };
     }
     if (ownRoutine && kind === "habit") {
-      activity = { ...ownRoutine, validHours: hoursRead.hours };
+      // The routine's name is the one of its silo: renaming one renames both, unless
+      // another routine already has that name.
+      const name = stripInvisible(title);
+      const taken = data.activities.some((a) => a.id !== ownRoutine.id && sameName(a.name, name));
+      activity = {
+        ...ownRoutine,
+        ...(name && !taken && { name }),
+        validHours: hoursRead.hours,
+      };
     }
     const h = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
     const next: AppTask = {

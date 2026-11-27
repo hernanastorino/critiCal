@@ -747,10 +747,16 @@ function apply(data: AppData, action: Action): AppData {
             }
           : action.task;
       // A new habit remembers when it was made: its first week asks only the days left.
-      const task =
+      const made =
         !before && synced.kind === "habit" && synced.createdAt === undefined
           ? { ...synced, createdAt: action.now }
           : synced;
+      // A routine and its silo carry one name.
+      const routineName =
+        action.activity?.kind === "rutina" && made.kind === "habit"
+          ? action.activity.name
+          : made.title;
+      const task = routineName === made.title ? made : { ...made, title: routineName };
       const tasks = before
         ? data.tasks.map((t) => (t.id === task.id ? task : t))
         : [...data.tasks, task];
@@ -1905,7 +1911,9 @@ export function StoreProvider({
       persist ? { ...u, lookup: false } : u,
     );
     const pinShort = pinShortfall(data, now, r.result);
-    const routineShort = routineShortfalls(data, now, r.result.blocks, r.input);
+    // The plan the Semana shows (the saved one), not a new calculation: every screen counts
+    // the same blocks.
+    const routineShort = routineShortfalls(data, now, data.plan, r.input);
     const clashes = pinClashes(data, now, r.input);
     const meals = missedMeals(data, now);
     return {
@@ -1931,7 +1939,7 @@ export function StoreProvider({
         const tz = data.settings.timezone;
         const inPlan = weekAt < endOfWeek(tz, zonedInstant(tz, nextWeekStart(tz, now), 0));
         return task && inPlan
-          ? routineWeek(data, now, r.result.blocks, task, undefined, weekAt)
+          ? routineWeek(data, now, data.plan, task, undefined, weekAt)
           : undefined;
       },
       clashes,
