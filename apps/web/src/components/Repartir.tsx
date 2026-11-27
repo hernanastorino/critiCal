@@ -7,6 +7,7 @@ import {
   applySheet,
   byWeight,
   canAccept,
+  type Fit,
   fillRest,
   fitOf,
   hasWeights,
@@ -254,6 +255,181 @@ function MinHandle({
   );
 }
 
+type SetSheet = (next: Sheet) => void;
+
+/** The total's row: its slider with the minimum's handle over it. */
+function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: () => void }) {
+  return (
+    <div className="rep-row">
+      <div className="rep-head">
+        <b className="rep-name">Total</b>
+      </div>
+      <TimeSlider
+        name="Total"
+        spokenText={`Total, ${spoken(s.total)}, mínimo ${spoken(s.min)}`}
+        value={s.total}
+        scale={s.totalScale}
+        floor={s.totalFloor}
+        mark={0}
+        onSlide={(v) => setS(slideTotal(s, v))}
+        onOpen={onOpen}
+        extra={
+          <MinHandle
+            sheet={s}
+            max={Math.max(s.totalScale, s.total, STEP)}
+            onMove={(v) => setS(slideMin(s, v))}
+          />
+        }
+      />
+    </div>
+  );
+}
+
+/** «No entra en el plan» / «No entra hasta la entrega» (it is accepted all the same). */
+function FitWarning({ fit }: { fit: Fit }) {
+  if (!fit) return null;
+  return (
+    <p className="rep-warn" role="status">
+      {fit === "plan" ? "No entra en el plan" : "No entra hasta la entrega"}
+    </p>
+  );
+}
+
+/** «Sin asignar» (red while the sum is not the total) and the presets. */
+function Rest({ s, setS }: { s: Sheet; setS: SetSheet }) {
+  const rest = unassigned(s);
+  return (
+    <>
+      <p className={`rep-rest${rest === 0 ? "" : " red"}`} role="status">
+        Sin asignar <b>{rest < 0 ? `−${hours(-rest)}` : hours(rest)}</b>
+      </p>
+      <div className="rep-presets">
+        <button type="button" className="btn small" onClick={() => setS(proportional(s))}>
+          Proporcional
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          disabled={!hasWeights(s)}
+          onClick={() => setS(byWeight(s))}
+        >
+          Por peso
+        </button>
+        <button
+          type="button"
+          className="btn small"
+          disabled={rest === 0}
+          onClick={() => setS(fillRest(s))}
+        >
+          Repartir el resto
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** A tema: its name (typed when it is new), ✕ and its slider. */
+function TemaRow({ s, r, setS, onOpen }: { s: Sheet; r: Row; setS: SetSheet; onOpen: () => void }) {
+  const rename = (title: string) =>
+    setS({ ...s, rows: s.rows.map((x) => (x.id === r.id ? { ...x, title } : x)) });
+  return (
+    <li className="rep-row">
+      <div className="rep-head">
+        {r.added ? (
+          <input
+            className="rep-name"
+            aria-label="Nombre del tema"
+            value={r.title}
+            onChange={(e) => rename(e.target.value)}
+          />
+        ) : (
+          <span className="rep-name">{r.title}</span>
+        )}
+        {r.locked ? (
+          <span className="meta">hecho</span>
+        ) : (
+          <button
+            type="button"
+            className="rep-x"
+            aria-label={`Quitar ${r.title}`}
+            onClick={() => setS(removeRow(s, r.id))}
+          >
+            <Marks.close />
+          </button>
+        )}
+      </div>
+      <TimeSlider
+        name={r.title}
+        spokenText={`${r.title}, ${spoken(r.minutes)}, mínimo ${spoken(Math.round(markOf(s, r)))}`}
+        value={r.minutes}
+        scale={r.scale}
+        floor={r.floor}
+        mark={markOf(s, r)}
+        locked={r.locked}
+        red={overRow(s, r.id)}
+        onSlide={(v) => setS(slideRow(s, r.id, v))}
+        onOpen={onOpen}
+      />
+    </li>
+  );
+}
+
+/** The temas and «+ Tema» at the end. */
+function TemaList({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: (id: string) => void }) {
+  return (
+    <ul className="rep-list">
+      {s.rows.map((r) => (
+        <TemaRow key={r.id} s={s} r={r} setS={setS} onOpen={() => onOpen(r.id)} />
+      ))}
+      <li className="rep-add">
+        <button
+          type="button"
+          className="btn small"
+          onClick={() => setS(addRow(s, `Tema ${s.rows.length + 1}`))}
+        >
+          + Tema
+        </button>
+      </li>
+    </ul>
+  );
+}
+
+/** The hour picker of the total or of the tema being written. */
+function Pickers({
+  s,
+  setS,
+  typing,
+  onClose,
+}: {
+  s: Sheet;
+  setS: SetSheet;
+  typing: string | null;
+  onClose: () => void;
+}) {
+  const row = typing && typing !== "total" ? s.rows.find((r) => r.id === typing) : undefined;
+  if (typing === "total") {
+    return (
+      <TimePicker
+        title="Total"
+        value={s.total}
+        floor={s.totalFloor}
+        onPick={(v) => setS(typeTotal(s, v))}
+        onClose={onClose}
+      />
+    );
+  }
+  if (!row) return null;
+  return (
+    <TimePicker
+      title={row.title}
+      value={row.minutes}
+      floor={row.floor}
+      onPick={(v) => setS(slideRow(s, row.id, v, true))}
+      onClose={onClose}
+    />
+  );
+}
+
 /**
  * «Repartir tiempo» (SPEC §18 punto 18): the total of a task and a slider for each tema.
  * It only gives back what was decided (`onAccept`); the caller saves it.
@@ -289,57 +465,7 @@ export function Repartir({
   // The plan is worked out for what the sliders stopped on, not for every step of a drag.
   const calm = useDeferredValue(s);
   const fit = useMemo(() => fitOf(data, now, trialOf(task, calm)), [data, now, task, calm]);
-  const rest = unassigned(s);
   const hasRows = s.rows.length > 0;
-  const total = s.total;
-  const row = (id: string) => s.rows.find((r) => r.id === id);
-  const typedRow = typing && typing !== "total" ? row(typing) : undefined;
-
-  const renderRow = (r: Row) => (
-    <li key={r.id} className="rep-row">
-      <div className="rep-head">
-        {r.added ? (
-          <input
-            className="rep-name"
-            aria-label="Nombre del tema"
-            value={r.title}
-            onChange={(e) =>
-              setS({
-                ...s,
-                rows: s.rows.map((x) => (x.id === r.id ? { ...x, title: e.target.value } : x)),
-              })
-            }
-          />
-        ) : (
-          <span className="rep-name">{r.title}</span>
-        )}
-        {r.locked ? (
-          <span className="meta">hecho</span>
-        ) : (
-          <button
-            type="button"
-            className="rep-x"
-            aria-label={`Quitar ${r.title}`}
-            onClick={() => setS(removeRow(s, r.id))}
-          >
-            <Marks.close />
-          </button>
-        )}
-      </div>
-      <TimeSlider
-        name={r.title}
-        spokenText={`${r.title}, ${spoken(r.minutes)}, mínimo ${spoken(Math.round(markOf(s, r)))}`}
-        value={r.minutes}
-        scale={r.scale}
-        floor={r.floor}
-        mark={markOf(s, r)}
-        locked={r.locked}
-        red={overRow(s, r.id)}
-        onSlide={(v) => setS(slideRow(s, r.id, v))}
-        onOpen={() => setTyping(r.id)}
-      />
-    </li>
-  );
 
   return (
     <>
@@ -366,81 +492,11 @@ export function Repartir({
         <h2>Repartir tiempo</h2>
         <p className="meta rep-task">{clipName(task.title)}</p>
         <div className="rep-top">
-          <div className="rep-row">
-            <div className="rep-head">
-              <b className="rep-name">Total</b>
-            </div>
-            <TimeSlider
-              name="Total"
-              spokenText={`Total, ${spoken(total)}, mínimo ${spoken(s.min)}`}
-              value={total}
-              scale={s.totalScale}
-              floor={s.totalFloor}
-              mark={0}
-              onSlide={(v) => setS(slideTotal(s, v))}
-              onOpen={() => setTyping("total")}
-              extra={
-                <MinHandle
-                  sheet={s}
-                  max={Math.max(s.totalScale, total, STEP)}
-                  onMove={(v) => setS(slideMin(s, v))}
-                />
-              }
-            />
-          </div>
-          {fit === "plan" && (
-            <p className="rep-warn" role="status">
-              No entra en el plan
-            </p>
-          )}
-          {fit === "deadline" && (
-            <p className="rep-warn" role="status">
-              No entra hasta la entrega
-            </p>
-          )}
-          {hasRows && (
-            <p className={`rep-rest${rest === 0 ? "" : " red"}`} role="status">
-              Sin asignar <b>{rest < 0 ? `−${hours(-rest)}` : hours(rest)}</b>
-            </p>
-          )}
-          {hasRows && (
-            <div className="rep-presets">
-              <button type="button" className="btn small" onClick={() => setS(proportional(s))}>
-                Proporcional
-              </button>
-              <button
-                type="button"
-                className="btn small"
-                disabled={!hasWeights(s)}
-                onClick={() => setS(byWeight(s))}
-              >
-                Por peso
-              </button>
-              <button
-                type="button"
-                className="btn small"
-                disabled={rest === 0}
-                onClick={() => setS(fillRest(s))}
-              >
-                Repartir el resto
-              </button>
-            </div>
-          )}
+          <TotalRow s={s} setS={setS} onOpen={() => setTyping("total")} />
+          <FitWarning fit={fit} />
+          {hasRows && <Rest s={s} setS={setS} />}
         </div>
-        {(hasRows || task.kind !== "habit") && (
-          <ul className="rep-list">
-            {s.rows.map(renderRow)}
-            <li className="rep-add">
-              <button
-                type="button"
-                className="btn small"
-                onClick={() => setS(addRow(s, `Tema ${s.rows.length + 1}`))}
-              >
-                + Tema
-              </button>
-            </li>
-          </ul>
-        )}
+        {(hasRows || task.kind !== "habit") && <TemaList s={s} setS={setS} onOpen={setTyping} />}
         <button
           type="button"
           className="btn primary rep-accept"
@@ -450,24 +506,7 @@ export function Repartir({
           Aceptar reparto
         </button>
       </div>
-      {typing === "total" && (
-        <TimePicker
-          title="Total"
-          value={total}
-          floor={s.totalFloor}
-          onPick={(v) => setS(typeTotal(s, v))}
-          onClose={() => setTyping(null)}
-        />
-      )}
-      {typedRow && (
-        <TimePicker
-          title={typedRow.title}
-          value={typedRow.minutes}
-          floor={typedRow.floor}
-          onPick={(v) => setS(slideRow(s, typedRow.id, v, true))}
-          onClose={() => setTyping(null)}
-        />
-      )}
+      <Pickers s={s} setS={setS} typing={typing} onClose={() => setTyping(null)} />
       {asking && (
         <ConfirmDiscard
           onDiscard={() => {
