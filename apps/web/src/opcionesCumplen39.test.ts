@@ -52,8 +52,8 @@ function keepsPromise(data: AppData, now: number, o: PlanOption, minimumsMet: bo
     expect(lacking, `${o.label}: su propia tarea tiene que entrar`).not.toContain(own);
   const names = lacking.flatMap((id) => data.tasks.find((t) => t.id === id)?.title ?? []);
   const line = optionLine(o, minimumsMet, onlyImpossibleLeft(o, impossible) ? names : null);
-  if (/todos los mínimos/.test(line)) expect(lacking, `${o.label}: ${line}`).toEqual([]);
-  if (/todo menos/.test(line)) {
+  if (line.includes("todos los mínimos")) expect(lacking, `${o.label}: ${line}`).toEqual([]);
+  if (line.includes("todo menos")) {
     expect(lacking.length, `${o.label}: ${line}`).toBeGreaterThan(0);
     expect(lacking.every((id) => impossible.includes(id))).toBe(true);
   }
