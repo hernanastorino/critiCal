@@ -70,11 +70,7 @@ function savedActivity(
  * The form as it reads after saving: what was really stored (20 and 25 minutes become
  * 30 and 30).
  */
-function savedForm<F extends ActivityForm>(
-  form: F,
-  maxSession: number,
-  minBlock: number,
-): F {
+function savedForm<F extends ActivityForm>(form: F, maxSession: number, minBlock: number): F {
   return {
     ...form,
     // «24:00» is stored as midnight and shown as a time field can hold it.
