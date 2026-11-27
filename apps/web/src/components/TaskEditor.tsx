@@ -35,6 +35,7 @@ import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { focusFirstInvalid, Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
+import { Repartir } from "./Repartir.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
@@ -206,6 +207,7 @@ export function TaskEditor({
   const [unitTitle, setUnitTitle] = useState(start.unitTitle);
   const [hoursForm, setHoursForm] = useState<HoursForm>(start.hoursForm);
   const [unitError, setUnitError] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
   const unitInput = useRef<HTMLInputElement>(null);
   const addUnit = () => {
     const parsed = parseUnit(unitTitle);
@@ -826,6 +828,14 @@ export function TaskEditor({
             )}
             <FieldError id="estimate-error" text={estimateShown} role={alertRole} />
             <FieldError id="minimum-error" text={minimumShown} role={alertRole} />
+            <button
+              type="button"
+              className="btn"
+              disabled={hoursBlocked}
+              onClick={() => setSharing(true)}
+            >
+              Repartir tiempo
+            </button>
             <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
               <legend style={{ padding: 0 }}>Partes (opcional)</legend>
               <span className="meta" style={{ margin: 0 }}>
@@ -1011,6 +1021,34 @@ export function TaskEditor({
         </div>
       </div>
       {asking && <ConfirmDiscard onDiscard={done} onKeep={() => setAsking(false)} />}
+      {sharing && (
+        <Repartir
+          task={{
+            ...(task ?? {
+              id: freshIds.current.task,
+              activityId,
+              title: title || "Nueva",
+              kind,
+              priority,
+              status: "active" as const,
+            }),
+            deadline: Number.isFinite(dueNow) ? dueNow : now + 86_400_000,
+            estimateMinutes: Math.max(
+              Math.round(typedHours(estimate) * 60) || 0,
+              units.reduce((n, u) => n + u.estimateMinutes, 0),
+            ),
+            minMinutes: Math.round(typedHours(minimum) * 60) || 0,
+            units,
+          }}
+          onClose={() => setSharing(false)}
+          onAccept={(next) => {
+            setEstimate(hoursField(next.estimateMinutes));
+            setMinimum(hoursField(next.minMinutes));
+            setUnits(next.units);
+            setSharing(false);
+          }}
+        />
+      )}
     </>
   );
 }

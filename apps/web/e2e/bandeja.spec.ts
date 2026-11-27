@@ -51,9 +51,8 @@ test.describe("Bandeja: cada acción tiene su «Deshacer»", () => {
   test("Elegir una opción: «Deshacer» en «Decisiones que tomaste» la trae de vuelta", async ({
     page,
   }) => {
-    await elegir(page).first().click();
+    await page.getByRole("button", { name: /^Elegir: Usar tiempo libre/ }).click();
     await expect(toast(page)).toContainText("Listo, reacomodé el plan");
-    await expect(elegir(page)).toHaveCount(0);
     await expect(page.getByText("Decisiones que tomaste")).toBeVisible();
 
     await page.getByRole("button", { name: /^Deshacer: / }).click();

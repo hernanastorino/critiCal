@@ -368,7 +368,12 @@ describe("10. Bandeja: después de «Deshacer»", () => {
     render(<App fixedNow={T} initial={tight} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
     fireEvent.click(screen.getAllByText("Elegir")[i] as HTMLElement);
-    const undo = screen.getByRole("button", { name: /^Deshacer:/ });
+    // The options that cut a silo open «Repartir tiempo» first.
+    const accept = screen.queryByRole("button", { name: "Aceptar reparto" });
+    if (accept) fireEvent.click(accept);
+    const undo =
+      screen.queryByRole("button", { name: /^Deshacer:/ }) ??
+      screen.getByRole("button", { name: "Deshacer" });
     act(() => undo.focus());
     fireEvent.click(undo);
     expect(document.activeElement).not.toBe(document.body);

@@ -421,7 +421,12 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
     .filter((t) => isRunning(t, now))
     .map((task) => {
       if (task.kind === "habit") {
-        const total = sessionsOf(data, task, now, weekAt) * (task.sessionMinutes ?? 0);
+        // A weekly study silo whose total was split by hand (SPEC §18.18) keeps those minutes,
+        // not the whole sessions that hold them.
+        const total =
+          task.study && task.estimateMinutes > 0
+            ? task.estimateMinutes
+            : sessionsOf(data, task, now, weekAt) * (task.sessionMinutes ?? 0);
         const since = zonedInstant(tz, weekStart(tz, weekAt), 0);
         const left = Math.max(0, total - doneMinutes(data, task.id, since));
         return {
