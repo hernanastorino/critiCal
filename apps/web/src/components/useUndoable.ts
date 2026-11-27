@@ -1,6 +1,6 @@
 import type { Activity } from "../engine.js";
 import { REPLANNED_TOAST } from "../friendly.js";
-import type { AppData, AppTask, Proposal } from "../model.js";
+import type { AppData, AppTask, PlanVersion, Proposal } from "../model.js";
 import { MEAL_OVER_STUDY } from "../planning.js";
 import { leftAfterUndo, settleSnapshot, snapshotOf, useStore } from "../store.js";
 import { useToast } from "./Toast.js";
@@ -37,12 +37,20 @@ export function useUndoable(onBack?: (key: string) => void) {
   ) => {
     const before = snapshotOf(data, keys, opts.tasks);
     const steps = Array.isArray(doing) ? (doing as readonly Doing[]) : [doing as Doing];
+    // The entries the answer left in the header's «Deshacer»: taking it back here takes them out.
+    const entries: PlanVersion[] = [];
     steps.forEach((step, i) => {
       dispatch(
         step,
         i === steps.length - 1
           ? (after) => {
               settleSnapshot(before, after);
+              const had = data.planHistory ?? [];
+              entries.splice(
+                0,
+                entries.length,
+                ...(after.planHistory ?? []).filter((v) => !had.includes(v)),
+              );
             }
           : undefined,
       );
@@ -51,7 +59,7 @@ export function useUndoable(onBack?: (key: string) => void) {
       roy: opts.roy,
       undo: () => {
         let said = false;
-        dispatch({ type: "restoreState", before }, (now) => {
+        dispatch({ type: "restoreState", before, entries }, (now) => {
           // Runs inside the reducer (and may run twice): the notice waits for it to end.
           const left = leftAfterUndo(now, before);
           if (said || left.length === 0) return;
