@@ -174,7 +174,18 @@ export function pruebasData(now: number): AppData {
               u.id === "u3" || u.id === "u4" ? { ...u, estimateMinutes: 120 } : u,
             ),
           }
-        : t,
+        : t.id === "informe-fis"
+          ? {
+              ...t,
+              // Heavier than the plain demo's, so the Gym still gets 1 of 3 sessions on Monday.
+              estimateMinutes: 450,
+              minMinutes: 270,
+              units: t.units.map((u) => ({
+                ...u,
+                estimateMinutes: u.estimateMinutes === 60 ? 90 : 180,
+              })),
+            }
+          : t,
     );
 
   const events: AppEvent[] = [

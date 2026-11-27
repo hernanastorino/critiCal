@@ -13,6 +13,8 @@ async function demoDePruebas(page: Page) {
 }
 
 async function tocarFlecha(page: Page) {
+  // Un toque humano llega unos cientos de ms después de guardar: no en el mismo instante.
+  await page.waitForTimeout(700);
   const box = await page.getByRole("button", { name: /^Deshacer: / }).boundingBox();
   if (!box) throw new Error("sin flecha");
   await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
