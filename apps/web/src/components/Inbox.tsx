@@ -802,11 +802,20 @@ function WhereCard({
     undoable(
       save ? `«${name.trim()}» guardado como lugar` : `${typed} min para «${item.event.title}»`,
       save
-        ? [
-            { type: "spotMinutes", text: item.text, minutes: typed },
-            { type: "saveSpot", key: spotKey(item.text), name },
-          ]
-        : { type: "spotMinutes", text: item.text, minutes: typed },
+        ? {
+            type: "batch",
+            label: `guardar ${clipName(name.trim(), 24)}`,
+            actions: [
+              { type: "spotMinutes", text: item.text, minutes: typed },
+              { type: "saveSpot", key: spotKey(item.text), name },
+            ],
+          }
+        : {
+            type: "spotMinutes",
+            text: item.text,
+            minutes: typed,
+            label: `usar ${typed} min para ${clipName(item.event.title, 24)}`,
+          },
       [...PLAN_KEYS, "spots", "places", "travelTimes"],
     );
   };
@@ -948,6 +957,7 @@ function LateNightCard({ late }: { late: NonNullable<ReturnType<typeof lateNight
             dispatch({
               type: "override",
               override: { ...own, date: late.date, wake: hhmmToMinutes(wake) },
+              label: `Me levanté a las ${minutesToHhmm(hhmmToMinutes(wake))}`,
             });
           }}
         >

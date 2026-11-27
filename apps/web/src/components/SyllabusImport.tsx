@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSync } from "../Connected.js";
 import { zonedInstant } from "../engine.js";
+import { clipName } from "../format.js";
 import {
   dateYearInRange,
   deadlineInRange,
@@ -156,9 +157,18 @@ export function SyllabusImport() {
       newId,
       color: nextColor(data.activities),
     });
-    if (isNew && tasks.length === 0) dispatch({ type: "saveActivity", activity });
-    tasks.forEach((task, i) => {
-      dispatch({ type: "saveTask", task, activity: isNew && i === 0 ? activity : undefined });
+    // One tap, one entry in the ↶: the materia and all its evaluaciones come out together.
+    dispatch({
+      type: "batch",
+      label: `importar ${clipName(activity.name, 24)}`,
+      actions:
+        isNew && tasks.length === 0
+          ? [{ type: "saveActivity", activity }]
+          : tasks.map((task, i) => ({
+              type: "saveTask",
+              task,
+              activity: isNew && i === 0 ? activity : undefined,
+            })),
     });
     setDraft(null);
     setDone(`${activity.name}: ${tasks.length} evaluaciones agregadas ✓`);
