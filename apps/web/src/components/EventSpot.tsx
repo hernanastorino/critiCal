@@ -12,7 +12,7 @@ export function EventSpot({ event }: { event: AppEvent }) {
   const undoable = useUndoable();
   const key = eventSpotKey(event);
   const spot = (data.spots ?? []).find((s) => s.key === key);
-  if (!spot || spot.minutes === undefined) return null;
+  if (spot?.minutes === undefined) return null;
   const title = event.title.slice(0, 40);
   return (
     <div className="bubble-trip">
@@ -23,25 +23,25 @@ export function EventSpot({ event }: { event: AppEvent }) {
         <MinutesInput
           label={`Minutos desde casa para ${title}`}
           value={spot.minutes}
-          onCommit={(minutes) =>
+          onCommit={(minutes) => {
             undoable(
               `Traslado de «${title}» cambiado`,
               { type: "spotMinutes", text: spot.text, minutes },
               [...PLAN_KEYS, "spots"],
-            )
-          }
+            );
+          }}
         />
         <button
           type="button"
           className="btn small"
           aria-label={`Olvidar el traslado de ${title}`}
-          onClick={() =>
+          onClick={() => {
             undoable(`Traslado de «${title}» olvidado`, { type: "forgetSpot", key }, [
               ...PLAN_KEYS,
               "spots",
               "eventTravel",
-            ])
-          }
+            ]);
+          }}
         >
           Olvidar
         </button>
