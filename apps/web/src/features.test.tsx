@@ -274,7 +274,12 @@ describe("decisions and defaults", () => {
   it("shows applied decisions in the inbox with an undo button", () => {
     render(<App fixedNow={NOW} initial={tight} />);
     fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
-    fireEvent.click(screen.getAllByText("Elegir")[0] as HTMLElement);
+    // A cut opens «Repartir tiempo» and is accepted there (one entry in the ↶, not a decision);
+    // the other options are applied at the tap and listed as decisions.
+    const option = screen
+      .getAllByRole("button", { name: /^Elegir: / })
+      .find((b) => !/mínimo|temas/.test(b.getAttribute("aria-label") ?? ""));
+    fireEvent.click(option as HTMLElement);
     expect(screen.getByText("Decisiones que tomaste")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /^Deshacer: / }));
     expect(screen.queryByText("Decisiones que tomaste")).toBeNull();

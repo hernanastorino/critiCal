@@ -40,6 +40,9 @@ test("la versión mínima deja el mismo mínimo en la Bandeja, la ficha y el for
   expect(nombrado).not.toBe("");
 
   await opcion.getByRole("button", { name: /^Elegir: / }).click();
+  await page.getByRole("button", { name: "Aceptar reparto" }).click();
+  // Un toque humano llega unos cientos de ms después de cerrar la hoja.
+  await page.waitForTimeout(700);
   await expect(toast(page)).toContainText("Listo, reacomodé el plan");
   // La entrega ya llega: ninguna opción habla de ella.
   await expect(

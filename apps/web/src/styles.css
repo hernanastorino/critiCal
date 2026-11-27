@@ -3123,3 +3123,290 @@ body:has(.sheet) .toasts .snack > span {
   color: #fff;
   pointer-events: none;
 }
+
+/* ---------- Repartir tiempo (SPEC §18 punto 18) ---------- */
+
+.sheet.repartir {
+  --rep-thumb: 28px;
+  z-index: 51;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.scrim.dim.top.over {
+  z-index: 60;
+}
+
+.sheet.rep-picker {
+  z-index: 61;
+}
+
+.rep-task {
+  margin: 0 0 var(--space-2);
+}
+
+/* The total and what is left stay at the top; only the temas scroll (375 px: no sideways scroll). */
+.rep-top {
+  flex: none;
+}
+
+.rep-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  margin: var(--space-2) 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rep-row {
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+
+.rep-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+}
+
+.rep-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-l);
+  overflow-wrap: anywhere;
+}
+
+input.rep-name {
+  min-height: 44px;
+}
+
+.rep-x {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+}
+
+.rep-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The mark's handle sits in a strip above the track: its 44 pt target never covers the thumb. */
+.rep-track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 44px;
+  --fill: 0%;
+}
+
+.rep-track:has(.rep-handle) {
+  margin-top: 28px;
+}
+
+.rep-track input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 44px;
+  margin: 0;
+  background: transparent;
+  touch-action: pan-y;
+}
+
+.rep-track input[type="range"]::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(to right, var(--ink) var(--fill), var(--glass-strong) var(--fill));
+}
+
+.rep-track input[type="range"]::-moz-range-track {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--glass-strong);
+}
+
+.rep-track input[type="range"]::-moz-range-progress {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ink);
+}
+
+.rep-track input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: var(--rep-thumb);
+  height: var(--rep-thumb);
+  margin-top: -10px;
+  border-radius: var(--radius-round);
+  background: var(--surface);
+  border: 3px solid var(--ink);
+}
+
+.rep-track input[type="range"]::-moz-range-thumb {
+  width: calc(var(--rep-thumb) - 6px);
+  height: calc(var(--rep-thumb) - 6px);
+  border-radius: var(--radius-round);
+  background: var(--surface);
+  border: 3px solid var(--ink);
+}
+
+.rep-track input[type="range"]:disabled {
+  opacity: 0.5;
+}
+
+.rep-track input[type="range"]:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+  border-radius: var(--radius-s);
+}
+
+/* What was done: the strip filled at the start of the track, under the thumb. */
+.rep-floor {
+  position: absolute;
+  left: 0;
+  top: 18px;
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--ok);
+  pointer-events: none;
+}
+
+.rep-mark {
+  position: absolute;
+  top: 8px;
+  width: 3px;
+  height: 28px;
+  margin-left: -1.5px;
+  border-radius: var(--radius-xs);
+  background: var(--critical);
+  pointer-events: none;
+}
+
+.rep-handle {
+  position: absolute;
+  top: -30px;
+  width: 44px;
+  height: 44px;
+  margin-left: -22px;
+  background: transparent;
+  touch-action: none;
+  z-index: 2;
+}
+
+.rep-handle::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 4px;
+  width: 4px;
+  height: 66px;
+  margin-left: -2px;
+  border-radius: var(--radius-xs);
+  background: var(--critical);
+}
+
+.rep-handle:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 0;
+  border-radius: var(--radius-s);
+}
+
+.rep-tip {
+  position: absolute;
+  top: -58px;
+  transform: translateX(-50%);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-s);
+  background: var(--ink);
+  color: var(--surface);
+  font-size: var(--text-l);
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.rep-time {
+  flex: none;
+  min-width: 64px;
+  min-height: 44px;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-m);
+  background: var(--glass);
+  font-size: var(--text-l);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.rep-time.red {
+  color: var(--critical-ink);
+}
+
+.rep-time:disabled {
+  opacity: 0.5;
+}
+
+.rep-warn {
+  margin: var(--space-2) 0 0;
+  font-size: var(--text-m);
+  font-weight: 600;
+  color: var(--warn-ink);
+}
+
+.rep-rest {
+  margin: var(--space-2) 0;
+  font-size: var(--text-l);
+  color: var(--ink-soft);
+}
+
+.rep-rest.red,
+.rep-rest.red b {
+  color: var(--critical-ink);
+}
+
+.rep-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.rep-presets .btn {
+  min-height: 44px;
+}
+
+.rep-add {
+  padding: var(--space-2) 0;
+  list-style: none;
+}
+
+.rep-add .btn {
+  min-height: 44px;
+}
+
+.rep-accept {
+  flex: none;
+  margin-top: var(--space-2);
+  min-height: 44px;
+}
+
+.rep-mins {
+  display: flex;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.rep-mins .btn {
+  min-height: 44px;
+}

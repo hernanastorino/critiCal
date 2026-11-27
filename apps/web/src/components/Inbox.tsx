@@ -7,6 +7,7 @@ import {
   MINUTE,
   type OptionKind,
   type PlanBlock,
+  type PlanOption,
   zonedInstant,
 } from "../engine.js";
 import {
@@ -33,11 +34,13 @@ import { isBlank } from "../limits.js";
 import { type AppTask, undoable } from "../model.js";
 import { nameTaken, spotFor, spotKey } from "../places.js";
 import {
+  applyOption,
   DECISIONS_SHOWN_MS,
   endOfDay,
   MEAL_NAMES,
   mealOffers,
   onlyImpossibleLeft,
+  refreshPlan,
 } from "../planning.js";
 import { hoursRange, preferenceMisfits } from "../preferredHours.js";
 import { hoursTooShort } from "../routineHours.js";
@@ -49,6 +52,7 @@ import { Marks } from "./icons.js";
 import { useKeepFocus } from "./inboxFocus.js";
 import { Loading } from "./Loading.js";
 import { PlaceSearch } from "./PlaceSearch.js";
+import { RepartirTask } from "./Repartir.js";
 import { type RoyAnim, RoyLine } from "./Roy.js";
 import { SubjectSearch } from "./SubjectSearch.js";
 import { editorDraft, TaskEditor } from "./TaskEditor.js";
@@ -56,6 +60,14 @@ import { useToast } from "./Toast.js";
 import { useCheckIn } from "./useCheckIn.js";
 import { buzz, swipeAnswer } from "./useSwipe.js";
 import { PLAN_KEYS, useInboxAnswers, useUndoable } from "./useUndoable.js";
+
+/** The options that open «Repartir tiempo» with what they would leave, instead of applying it. */
+const SPLITS: ReadonlySet<OptionKind> = new Set([
+  "lower-minimum",
+  "minimum-only",
+  "minimum-viable",
+  "prioritize",
+]);
 
 /** Taps on «Hecho» / «No hecho» this soon after an answer are ignored (the list moved). */
 export const ANSWER_GUARD_MS = 600;
@@ -124,6 +136,18 @@ export function Inbox({
   const toast = useToast();
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
+  // «Repartir tiempo» with what an option would leave, to adjust before accepting.
+  const [splitting, setSplitting] = useState<{ task: AppTask; initial: AppTask } | null>(null);
+  const split = (o: PlanOption) => {
+    const task = data.tasks.find((t) => t.id === o.taskId);
+    if (!task) return false;
+    const after = applyOption(data, refreshPlan(data, now).input, o, now).tasks.find(
+      (t) => t.id === task.id,
+    );
+    if (!after) return false;
+    setSplitting({ task, initial: after });
+    return true;
+  };
   const [editing, setEditing] = useState<AppTask | null>(() => {
     const d = editorDraft("inbox");
     return (d && data.tasks.find((t) => t.id === d.taskId)) || null;
@@ -654,6 +678,7 @@ export function Inbox({
                   className="btn small"
                   aria-label={`Elegir: ${o.label}`}
                   onClick={() => {
+                    if (SPLITS.has(o.kind) && split(o)) return;
                     chose.current = true;
                     // The decision is recorded as it is made: «Deshacer» takes that one back.
                     let made: string | undefined;
@@ -820,6 +845,21 @@ export function Inbox({
           task={editing}
           onClose={() => setEditing(null)}
           onSaved={(t) => dispatch({ type: "review", taskId: t.id, keep: true })}
+        />
+      )}
+      {splitting && (
+        <RepartirTask
+          task={splitting.task}
+          initial={splitting.initial}
+          message={REPLANNED_TOAST}
+          onDone={() => {
+            chose.current = true;
+          }}
+          onUndone={() => titleRef.current?.focus()}
+          onClose={() => {
+            keepFocus.rearm();
+            setSplitting(null);
+          }}
         />
       )}
       {open && (

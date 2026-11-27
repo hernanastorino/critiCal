@@ -31,7 +31,11 @@ test("«Bajar el mínimo» cambia solo el mínimo, en minutos enteros", async ({
   const opcion = page.locator(".card", { hasText: `Bajar el mínimo de ${INFORME}` });
   await expect(opcion).toBeVisible();
   await opcion.getByRole("button", { name: /^Elegir: / }).click();
+  // Bajar el mínimo abre «Repartir tiempo» con el resultado: se acepta ahí.
+  await page.getByRole("button", { name: "Aceptar reparto" }).click();
   await expect(page.getByText(/^Listo, reacomodé el plan/)).toBeVisible();
+  // Un toque humano llega unos cientos de ms después de cerrar la hoja.
+  await page.waitForTimeout(700);
   await abrirEditor(page, INFORME);
   // Las horas siguen siendo las de antes y el mínimo es un número redondo de minutos.
   await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("9");

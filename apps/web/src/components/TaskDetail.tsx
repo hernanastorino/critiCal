@@ -18,6 +18,7 @@ import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { focusFirstInvalid, isFigure, isWhole, Problem } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
+import { RepartirTask } from "./Repartir.js";
 import { useToast } from "./Toast.js";
 
 /** What deleting a silo may change, to put back exactly on «Deshacer». */
@@ -166,6 +167,7 @@ export function TaskDetail({
   /** Parts already done that were unchecked here. */
   const [reopen, setReopen] = useState<string[]>([]);
   const [ask, setAsk] = useState<"off" | "delete" | null>(null);
+  const [sharing, setSharing] = useState(false);
   const live = data.tasks.find((t) => t.id === task.id) ?? task;
   const repeat = (change: RecurrenceChange) => {
     if (change === "deleteAll" || change === "endFromToday") {
@@ -364,6 +366,11 @@ export function TaskDetail({
           <button type="button" className="btn" onClick={onEdit}>
             Editar
           </button>
+          {task.kind !== "habit" && !task.study && (
+            <button type="button" className="btn" onClick={() => setSharing(true)}>
+              Repartir tiempo
+            </button>
+          )}
           {!closed && (
             <button
               type="button"
@@ -435,6 +442,7 @@ export function TaskDetail({
         )}
       </div>
       {discarding && <ConfirmDiscard onDiscard={onClose} onKeep={() => setDiscarding(false)} />}
+      {sharing && <RepartirTask task={live} onClose={() => setSharing(false)} />}
       {ask === "off" && (
         <ActionSheet
           title={`Desactivar ${task.title}`}
