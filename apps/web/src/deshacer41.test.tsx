@@ -226,12 +226,12 @@ describe("la Bandeja deja una sola entrada con su rótulo", () => {
     expect(stack(must(latest)).map((v) => v.label)).toEqual(["usar 20 min para Reunión"]);
   });
 
-  it("«Usar» con «Guardar como lugar»: una entrada «guardar Oficina»", async () => {
+  it("«Usar» con «Guardar como lugar»: una entrada «guardar Oficina»", () => {
     open();
     typeMinutes();
     fireEvent.click(screen.getByRole("checkbox", { name: "Guardar como lugar" }));
     fireEvent.change(screen.getByLabelText("Nombre del lugar"), { target: { value: "Oficina" } });
-    await act(() => {
+    act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Usar" }));
     });
     expect(must(latest).places?.some((p) => p.name === "Oficina")).toBe(true);
