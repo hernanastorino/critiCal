@@ -153,7 +153,7 @@ export interface CheckIn {
   origin?: "undo" | "slept";
   /**
    * Legacy (until the 40.ª): block time per study minute. Not written nor read any more:
-   * a block done counts its whole time, break included (SPEC §18.15).
+   * a block done counts its whole time, break included (SPEC §18.17).
    */
   factor?: number;
 }

@@ -229,7 +229,7 @@ function samples(data: AppData) {
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
-      // Block time counts whole, break included (SPEC §18.15): a 60-minute block done is 60.
+      // Block time counts whole, break included (SPEC §18.17): a 60-minute block done is 60.
       return [
         {
           activityId: task.activityId,
@@ -435,7 +435,7 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
           deadline: endOfWeek(tz, weekAt),
         };
       }
-      // Hours and check-ins are both block time, break included (SPEC §18.15).
+      // Hours and check-ins are both block time, break included (SPEC §18.17).
       const done = standingCheckIns(data)
         .filter((c) => c.taskId === task.id)
         .reduce((sum, c) => sum + c.minutesDone, 0);

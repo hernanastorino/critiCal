@@ -60,7 +60,7 @@ export function pickMateria(): void {
 
 /**
  * The tasks' hours scaled by 60/50, the load the planner carried before breaks counted whole
- * (SPEC §18.15): for tests that need an overloaded week the way the demos were tuned for.
+ * (SPEC §18.17): for tests that need an overloaded week the way the demos were tuned for.
  */
 export function withBreaksOnTop(data: AppData): AppData {
   const up = (minutes: number) => Math.round(minutes * 1.2);

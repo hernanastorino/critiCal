@@ -810,7 +810,7 @@ describe("tentative events", () => {
   });
 });
 
-describe("breaks count (SPEC §18.15)", () => {
+describe("breaks count (SPEC §18.17)", () => {
   it("a block done counts its whole time, break included, and the planner gets the same hours", async () => {
     const { applyOption, progress, toEngineTasks } = await import("./planning.js");
     const now = zonedInstant(TIMEZONE, "2026-11-03", 9 * 60);

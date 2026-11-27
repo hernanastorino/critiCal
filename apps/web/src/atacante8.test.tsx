@@ -287,7 +287,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
    * declares a part, so it counts as done (SPEC §3): the figures are those of 17th round.
    */
   const scenario = (study: number) => {
-    // The load the demo had before breaks counted whole (SPEC §18.15), where this was tuned.
+    // The load the demo had before breaks counted whole (SPEC §18.17), where this was tuned.
     const base = reducer(withBreaksOnTop(demoData(NOW)), { type: "refresh", now: NOW });
     const withStudy = {
       ...base,

@@ -47,7 +47,7 @@ export interface WeekLeft {
   color?: string;
   /** A routine (Gym...) rather than a materia's task. */
   routine?: boolean;
-  /** What is left of it, the same figure as its silo's «faltan» (SPEC §18.15). */
+  /** What is left of it, the same figure as its silo's «faltan» (SPEC §18.17). */
   left: number;
   /** The hours given to it (to the week, for a weekly silo): moving a block never changes them. */
   assigned: number;

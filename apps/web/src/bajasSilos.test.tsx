@@ -101,7 +101,7 @@ describe("la hoja de un silo", () => {
     expect(screen.queryByLabelText("Temas en total")).toBeNull();
   });
 
-  it("no explica descuentos por descanso: un bloque cuenta lo que dura (SPEC §18.15)", () => {
+  it("no explica descuentos por descanso: un bloque cuenta lo que dura (SPEC §18.17)", () => {
     open(/^Parcial Cálculo II:/);
     expect(document.body.textContent).not.toMatch(/descuentan/);
     expect(document.body.textContent).not.toMatch(/de estudio/);

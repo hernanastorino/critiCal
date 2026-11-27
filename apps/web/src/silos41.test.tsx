@@ -9,7 +9,7 @@ import { progress } from "./planning.js";
 import { StoreProvider, useStore } from "./store.js";
 import { weekLeft } from "./week-review.js";
 
-// 41.ª vuelta (SPEC §18.15): el descanso cuenta y un silo lee «falta / asignado».
+// 41.ª vuelta (SPEC §18.17): el descanso cuenta y un silo lee «falta / asignado».
 const seen: { store?: ReturnType<typeof useStore> } = {};
 const Probe = () => {
   seen.store = useStore();

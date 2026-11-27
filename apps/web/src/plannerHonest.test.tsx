@@ -133,7 +133,7 @@ describe("left vs assigned this week", () => {
       now: NOW,
     });
     const row = weekLeft(d, NOW).find((x) => x.taskId === "informe-fis");
-    // 120 min of block are 120 min, break included (SPEC §18.15).
+    // 120 min of block are 120 min, break included (SPEC §18.17).
     expect((before?.left ?? 0) - (row?.left ?? 0)).toBe(120);
     expect(row?.assigned).toBe(before?.assigned ?? 0);
   });
