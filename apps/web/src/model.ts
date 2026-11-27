@@ -475,6 +475,8 @@ export interface PlanVersion {
   removed?: RemovedActivity;
   /** A silo (a routine) deleted or ended from today: undoing this version puts it back as it was. */
   gone?: { taskId: string; snap: Snapshot };
+  /** Progress logged on a silo: undoing this version takes back what it wrote (records, parts). */
+  logged?: { taskId: string; snap: Snapshot };
   /** A check-in (Hecho / No hecho): undoing this version takes that answer back. */
   checkIn?: string;
   /** Saved parts (Mi semana, un lugar…) as they were, and right after: undoing puts back what is still as saved. */
