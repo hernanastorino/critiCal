@@ -8,6 +8,8 @@ import type { AppData } from "./model.js";
 import { unlocated } from "./places.js";
 import {
   decisions,
+  MEAL_NAMES,
+  mealOffers,
   missedMeals,
   pendingConfirmations,
   pinClashes,
@@ -122,6 +124,13 @@ function planCards(i: InboxInputs): InboxCard[] {
     cards.push({
       title: `Sin lugar para ${eat} · ${dayDate(tz, m.preferred.start)}`,
       detail: "Comidas sin lugar",
+    });
+  }
+  for (const o of mealOffers(data, i.now)) {
+    cards.push({
+      title: `¿Movés ${MEAL_NAMES[o.kind]} a ${time(tz, o.to)}?`,
+      detail: `Comida sobre algo fijo · ${dayDate(tz, o.at.start)}`,
+      color: "var(--meal)",
     });
   }
   for (const r of i.routineShort) {

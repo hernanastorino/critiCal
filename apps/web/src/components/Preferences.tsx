@@ -15,7 +15,7 @@ import {
 } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName, validRoutine } from "../subjects.js";
-import { detectedProblem, detectedToReset, slotNote } from "../taskForm.js";
+import { detectedProblem, detectedToReset, sessionShown, slotNote } from "../taskForm.js";
 import { clockText, type WeekProblem, weekProblems } from "../weekForm.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import {
@@ -725,7 +725,7 @@ export function Routines({ openId }: { openId?: string }) {
             type="button"
             data-task={h.id}
             className="check routine-row"
-            aria-label={`${r.name}, ${h.sessionsPerWeek} por semana de ${h.sessionMinutes} min${h.paused ? ", pausada" : skipped(h) ? ", salteada esta semana" : ""}: editar, pausar o eliminar`}
+            aria-label={`${r.name}, ${h.sessionsPerWeek} por semana de ${sessionShown(h.sessionMinutes ?? 0, data.settings.slotMinutes)}${h.paused ? ", pausada" : skipped(h) ? ", salteada esta semana" : ""}: editar, pausar o eliminar`}
             onClick={() => setDetail(h)}
           >
             <span className="swatch" style={{ background: r.color }} />
@@ -733,7 +733,7 @@ export function Routines({ openId }: { openId?: string }) {
             <span style={{ flex: 1, minWidth: "35%" }}>{r.name}</span>
             <span className="meta" style={{ margin: 0 }}>
               {h.paused ? "pausada · " : skipped(h) ? "salteada · " : ""}
-              {h.sessionsPerWeek}× {h.sessionMinutes} min
+              {h.sessionsPerWeek}× {sessionShown(h.sessionMinutes ?? 0, data.settings.slotMinutes)}
               {r.validHours ? ` · ${describeHours(r.validHours)}` : ""}
             </span>
           </button>

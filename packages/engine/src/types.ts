@@ -85,6 +85,8 @@ export interface MealChoice {
   /** Minutes since the day's midnight, as chosen by the user. */
   start?: number;
   skip?: boolean;
+  /** The question «¿Movés …?» about this meal that day was answered: it is not asked again. */
+  asked?: boolean;
 }
 
 /**
