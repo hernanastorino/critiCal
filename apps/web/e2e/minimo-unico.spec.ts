@@ -7,7 +7,7 @@ test.use(IPHONE_375);
 // la ficha y el formulario, y la semana no marca «crítico» lo que ya llega.
 test.describe.configure({ timeout: 90_000 });
 
-/** Miércoles 25/11/2026, 10:00 en Montevideo: el informe de 10 h vence el sábado y no entra. */
+/** Miércoles 25/11/2026, 10:00 en Montevideo: el informe de 9 h vence el sábado y no entra. */
 const MIERCOLES = new Date("2026-11-25T13:00:00Z");
 const INFORME = "Informe corto SD";
 
