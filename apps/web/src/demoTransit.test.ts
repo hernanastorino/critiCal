@@ -31,8 +31,15 @@ describe("los ómnibus inventados de la demo", () => {
     expect(r.options[0] && wayMinutes(r.options[0], "back", back)).toBe(DEMO_MINUTES.back);
   });
 
-  it("no hay datos en el Cerro", () => {
-    expect(demoPlan(req({ to: { lat: -34.89, lon: -56.26 } }))).toEqual({
+  it("el Cerro trae paradas inventadas: hay plan y baja en el Cerro", () => {
+    const r = demoPlan(req({ to: { lat: -34.89, lon: -56.26 } }));
+    if (!r.ok) throw new Error("debía haber plan");
+    const bus = r.options[0]?.legs.filter((l) => l.kind === "bus").at(-1);
+    expect(bus?.kind === "bus" && bus.alight.name).toContain("Grecia");
+  });
+
+  it("mucho más al oeste el ómnibus no llega", () => {
+    expect(demoPlan(req({ to: { lat: -34.8, lon: -56.5 } }))).toEqual({
       ok: false,
       error: "no_stops_near",
     });

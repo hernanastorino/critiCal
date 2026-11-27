@@ -9,8 +9,10 @@ import {
   parseHhmm,
 } from "./transit.js";
 
-/** West of this longitude there is no service in the demo: «Club del Cerro» has no data. */
-export const DEMO_NO_SERVICE_WEST = -56.24;
+/** West of this longitude there is no service in the demo (beyond the Cerro, which has invented stops). */
+export const DEMO_NO_SERVICE_WEST = -56.4;
+/** West of this one the demo's stops are the Cerro's, not the Facultad's. */
+const DEMO_CERRO_WEST = -56.24;
 
 const stop = (id: string, name: string, lat: number, lon: number): BusStop => ({
   id,
@@ -22,6 +24,7 @@ const stop = (id: string, name: string, lat: number, lon: number): BusStop => ({
 const RIVERA = stop("d1", "Rivera y Ellauri", -34.9, -56.15);
 const TRES_CRUCES = stop("d2", "Tres Cruces", -34.894, -56.166);
 const FING = stop("d3", "Herrera y Reissig", -34.918, -56.166);
+const CERRO = stop("d4", "Grecia y Carlos Ma. Ramírez", -34.89, -56.26);
 
 /** Minutes a way takes in the demo, door to door. */
 export const DEMO_MINUTES = { there: 42, back: 48 } as const;
@@ -34,6 +37,7 @@ export function demoPlan(request: PlanRequest): PlanResponse {
   if (request.from.lon < DEMO_NO_SERVICE_WEST || request.to.lon < DEMO_NO_SERVICE_WEST) {
     return { ok: false, error: "no_stops_near" };
   }
+  const end = [request.from, request.to].some((p) => p.lon < DEMO_CERRO_WEST) ? CERRO : FING;
   const asked = parseHhmm(request.time) ?? 0;
   const arrives = request.mode === "arrive";
   const total = arrives ? DEMO_MINUTES.there : DEMO_MINUTES.back - 5;
@@ -80,11 +84,11 @@ export function demoPlan(request: PlanRequest): PlanResponse {
           {
             kind: "bus",
             line: "710",
-            headsign: "Facultad",
+            headsign: end.id === CERRO.id ? "Cerro" : "Facultad",
             company: null,
             source: "stm",
             board: TRES_CRUCES,
-            alight: FING,
+            alight: end,
             boardMin: board2,
             alightMin: alight2,
             stops: 7,
@@ -96,7 +100,7 @@ export function demoPlan(request: PlanRequest): PlanResponse {
             minutes: arriveMin - alight2,
             meters: 300,
             source: "estimate",
-            from: FING,
+            from: end,
           },
         ],
       },

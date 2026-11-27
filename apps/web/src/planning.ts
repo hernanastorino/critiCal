@@ -700,6 +700,31 @@ export function travelIntervals(data: AppData): { start: number; end: number }[]
   return travelBuffers(plannerEvents(data), travel).busy.filter((i) => i.end > i.start);
 }
 
+/**
+ * Whether `span` lands on something fixed: a busy event that is not flexible, or the time
+ * the plan keeps for a trip. A meal is never dropped there by hand.
+ */
+export function onFixedOrTrip(data: AppData, span: { start: number; end: number }): boolean {
+  const fixed = plannerEvents(data).filter((e) => e.busy && !e.allDay && !e.flexible);
+  return [...fixed, ...travelIntervals(data)].some((i) => overlaps(i, span));
+}
+
+/**
+ * Another fixed event that `event` overlaps at a different place (two classes at once in
+ * two sites): the plan cannot get you to both, so its card says so.
+ */
+export function placeClash(data: AppData, event: AppEvent): AppEvent | undefined {
+  if (!event.busy || event.allDay || event.flexible) return undefined;
+  const events = plannerEvents(data);
+  const place = events.find((e) => e.id === event.id)?.location;
+  if (!place) return undefined;
+  return visibleEvents(data).find((o) => {
+    if (o.id === event.id || !o.busy || o.allDay || o.flexible || !overlaps(o, event)) return false;
+    const there = events.find((e) => e.id === o.id)?.location;
+    return !!there && there !== place;
+  });
+}
+
 /** The day overrides the planner uses: late nights and, unless turned off, holidays. */
 function overridesFor(data: AppData, now: number, from: number, to: number) {
   const base =
@@ -1344,7 +1369,10 @@ export function refreshPlan(data: AppData, now: number): Refresh {
     data.tasks.find((t) => t.id === b.taskId)?.activityId ?? b.activityId;
   const reserved = (b: PlanBlock) =>
     kept.some((k) => k.activityId !== activityOf(b) && overlaps(k.span, b));
-  const clashes = (b: PlanBlock) => busy.some((e) => overlaps(e, b));
+  // A trip kept since (a new place, longer minutes) takes that time as an event does.
+  const trips = travelIntervals(data);
+  const clashes = (b: PlanBlock) =>
+    busy.some((e) => overlaps(e, b)) || trips.some((t) => overlaps(t, b));
   // A meal of today on top of a block (moved there by hand, or with no room) takes
   // that time: the block is planned again, as a proposal since it is today (§5.7).
   const meals = mealTimes(data, now, now, todayEnd).flatMap((m) => (m.at ? [m.at] : []));

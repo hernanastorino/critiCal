@@ -22,6 +22,19 @@ const options = (extra: Partial<TravelOptions> = {}): TravelOptions => ({
   ...extra,
 });
 
+describe("travelBuffers with events that overlap", () => {
+  it("reserves no trip between two events at different places that overlap", () => {
+    const clase = ev("clase", "14:00", "16:00", "Facultad");
+    const estudio = ev("estudio", "15:00", "17:00", "Gym");
+    const { busy } = travelBuffers([clase, estudio], options());
+    // Only the way there (to the class) and the way back (from the last one).
+    expect(busy).toEqual([
+      { start: clase.start - 30 * MINUTE, end: clase.start },
+      { start: estudio.end, end: estudio.end + 20 * MINUTE },
+    ]);
+  });
+});
+
 describe("travelBuffers by bus", () => {
   const clase = ev("clase", "10:00", "12:00", "Facultad");
 
