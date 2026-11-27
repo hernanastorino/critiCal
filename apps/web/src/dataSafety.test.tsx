@@ -92,7 +92,7 @@ describe("Bandeja: a double tap answers one block, and it can be undone", {
 describe("Registrar avance", { timeout: 30_000 }, () => {
   afterEach(cleanup);
 
-  it("refuses minutes that are negative, not a figure or over a day, next to the field", () => {
+  it("refuses minutes that are negative, not a figure or over the hours awake, next to the field", () => {
     const closed = vi.fn();
     const task = demoData(MON).tasks.find((t) => t.kind === "deliverable") as AppData["tasks"][0];
     render(
@@ -102,9 +102,9 @@ describe("Registrar avance", { timeout: 30_000 }, () => {
       </StoreProvider>,
     );
     const before = (latest as AppData | null)?.checkIns.length;
-    for (const bad of ["-500", "1e2", "abc", "1441"]) {
+    for (const bad of ["-500", "1e2", "abc", "901", "1441"]) {
       fireEvent.change(screen.getByPlaceholderText("40"), { target: { value: bad } });
-      expect(screen.getByRole("alert").textContent).toMatch(/0 a 1440/);
+      expect(screen.getByRole("alert").textContent).toMatch(/0 a 900,/);
       fireEvent.click(screen.getByRole("button", { name: "Guardar avance" }));
     }
     expect(closed).not.toHaveBeenCalled();

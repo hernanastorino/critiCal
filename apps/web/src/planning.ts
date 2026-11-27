@@ -843,6 +843,16 @@ function firstRun(runs: readonly MealRun[], meal: MealKind, date: string): MealR
   return first && date < first.from ? first : undefined;
 }
 
+/**
+ * Today's blocks that already started: they stay where they were (the plan is not worked
+ * out again under them), so a meal never lands on top of one.
+ */
+function startedToday(data: AppData, now: number): PlanBlock[] {
+  const tz = data.settings.timezone;
+  const dayStart = zonedInstant(tz, localParts(tz, now).date, 0);
+  return data.plan.filter((b) => b.start >= dayStart && b.start <= now);
+}
+
 function workedMealTimes(data: AppData, now: number, from: number, to: number): MealTime[] {
   const events = plannerEvents(data);
   const travel = travelOptions(data);
@@ -852,6 +862,7 @@ function workedMealTimes(data: AppData, now: number, from: number, to: number): 
     ...(data.pins ?? []).filter((p) =>
       data.tasks.some((t) => t.id === p.taskId && isRunning(t, now)),
     ),
+    ...startedToday(data, now),
   ];
   return placeMeals(
     withMeals(data.settings),
