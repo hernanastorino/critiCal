@@ -124,7 +124,7 @@ const withTaller = (now: number): AppData => ({
   preferences: { holidaysOff: false },
 });
 
-describe("una comida no se deja sobre un evento ni un traslado", () => {
+describe("una comida a mano sí se deja sobre un evento o un traslado", () => {
   const span = (from: string, to: string) => ({
     start: at("2026-11-03", from),
     end: at("2026-11-03", to),
@@ -140,18 +140,16 @@ describe("una comida no se deja sobre un evento ni un traslado", () => {
     expect(onFixedOrTrip(d, span("12:00", "12:30"))).toBe(false);
   });
 
-  it("«Mover a» encima del evento avisa y la comida queda donde estaba", () => {
+  it("«Mover a» encima del evento la deja ahí, fijada a mano y con ↶", () => {
     render(<App fixedNow={NOW} initial={withTaller} />);
     const dinner = document.querySelector('[aria-label^="Cena, mar"]');
-    expect(dinner).toBeTruthy();
-    if (!dinner) return;
-    const label = dinner.getAttribute("aria-label");
+    if (!dinner) throw new Error("falta la cena");
     fireEvent.click(dinner);
     fireEvent.change(screen.getByLabelText("Mover cena a"), { target: { value: "21:00" } });
     fireEvent.click(screen.getByText("Mover"));
-    expect(screen.getByRole("alert").textContent).toContain("un evento o un traslado");
-    const after = document.querySelector('[aria-label^="Cena, mar"]');
-    expect(after?.getAttribute("aria-label")).toBe(label);
+    expect(screen.queryByText(/un evento o un traslado/)).toBeNull();
+    expect(document.querySelector('[aria-label^="Cena, mar 21:00"]')).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Deshacer: mover o sacar una comida" })).toBeTruthy();
   });
 
   it("«Mover a» a un rato libre sí la mueve", () => {
