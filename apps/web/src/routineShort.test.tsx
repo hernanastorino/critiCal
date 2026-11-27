@@ -81,6 +81,6 @@ describe("a routine that does not fit the week", () => {
       });
     }
     expect(onRoutine).toHaveBeenCalledTimes(1);
-    expect(onRoutine).toHaveBeenCalledWith("gym");
+    expect(onRoutine).toHaveBeenCalledWith("gym", "routines");
   }, 90_000);
 });

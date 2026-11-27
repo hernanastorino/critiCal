@@ -170,7 +170,7 @@ export function inboxRows(data: AppData, now: number): InboxRow[] {
     unlocated: unlocated(data, visibleEvents(data), now),
     pinShort: pinShortfall(data, now, plan.result),
     clashes: pinClashes(data, now, plan.input),
-    routineShort: routineShortfalls(data, now, plan.result.blocks, plan.input),
+    routineShort: routineShortfalls(data, now, data.plan, plan.input),
     missedMeals: missedMeals(data, now),
     asked: { choose: asked.hasOptions, recommendations: asked.recommendations },
   });

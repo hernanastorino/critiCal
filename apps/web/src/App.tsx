@@ -128,9 +128,9 @@ export function Shell({
                 setDay(undefined);
                 setTab("week");
               }}
-              onRoutine={(id) => {
+              onRoutine={(id, page = "subjects") => {
                 setSettingsActivity(id);
-                setSettings("subjects");
+                setSettings(page);
               }}
             />
           )}

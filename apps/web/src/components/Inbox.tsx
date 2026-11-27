@@ -92,7 +92,7 @@ export function Inbox({
   onDay?: (date: string) => void;
   onWeek?: () => void;
   /** Opens Ajustes on that routine, to edit it. */
-  onRoutine?: (activityId: string) => void;
+  onRoutine?: (activityId: string, page?: "subjects" | "routines") => void;
 }) {
   const {
     data,
@@ -431,7 +431,11 @@ export function Inbox({
               {r.name}: esta semana entra {r.placed} de {r.wanted}
             </div>
             {onRoutine && (
-              <button type="button" className="btn small" onClick={() => onRoutine(r.activityId)}>
+              <button
+                type="button"
+                className="btn small"
+                onClick={() => onRoutine(r.activityId, "routines")}
+              >
                 Editar rutina
               </button>
             )}

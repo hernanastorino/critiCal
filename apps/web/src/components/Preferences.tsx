@@ -611,7 +611,8 @@ function routineProblems(times: string, minutes: string, days = 7) {
 }
 
 /** Routines like the gym: the plan places them N times a week; never a materia. */
-export function Routines() {
+/** `openId`: a routine (its activity) whose sheet opens at once. */
+export function Routines({ openId }: { openId?: string }) {
   const { data, now, dispatch } = useStore();
   const routines = data.activities.filter((a) => a.kind === "rutina");
   const [draft, setDraft, drafted, dirty] = useDraft("routines", () => ({
@@ -633,7 +634,9 @@ export function Routines() {
   const habitOf = (id: string) =>
     data.tasks.find((t) => t.activityId === id && t.kind === "habit" && t.status === "active");
   const skipped = (t: AppTask) => (t.skipUntil ?? 0) > now;
-  const [detail, setDetail] = useState<AppTask | null>(null);
+  const [detail, setDetail] = useState<AppTask | null>(
+    () => (openId ? habitOf(openId) : null) ?? null,
+  );
   // Two «Nadar» would be told apart by nothing.
   const repeated = data.activities.some((a) => sameName(a.name, name));
   const [editing, setEditing] = useState<AppTask | null>(() => {
