@@ -1075,29 +1075,39 @@ export interface MealOffer {
  * answer. A meal the plan put is moved by the plan instead.
  */
 export function mealOffers(data: AppData, now: number): MealOffer[] {
-  const tz = data.settings.timezone;
   const meals = mealTimes(data, now, now, now + 7 * 1440 * MINUTE);
   const busy = mealBusy(data, now, plannerEvents(data));
-  return meals.flatMap((m): MealOffer[] => {
-    const { kind, at } = m;
-    if (!m.chosen || !kind || !at || at.end <= now || !onFixedOrTrip(data, at)) return [];
-    if (data.mealChoices?.some((c) => c.date === m.date && c.kind === kind && c.asked)) return [];
-    const others = meals.flatMap((o) =>
-      o.date === m.date && o.kind !== kind && o.at ? [o.at] : [],
-    );
-    const { wake, bed } = wakingDay(data, now, m.date);
-    const free = placeMeal(
-      at,
-      [...busy, ...others],
-      zonedInstant(tz, m.date, bed),
-      Math.max(zonedInstant(tz, m.date, wake), now),
-      kind === "desayuno",
-    );
-    if (!free || free.start === at.start || free.start < now) return [];
-    const minute = Math.round((free.start - zonedInstant(tz, m.date, 0)) / MINUTE);
-    if (mealOutOfOrder(data, now, m.date, kind, minute, (at.end - at.start) / MINUTE)) return [];
-    return [{ date: m.date, kind, at, minute, to: free.start }];
+  return meals.flatMap((m) => {
+    const offer = offerFor(data, now, m, meals, busy);
+    return offer ? [offer] : [];
   });
+}
+
+/** The offer for one meal, if it is one put by hand on something fixed with a free gap near. */
+function offerFor(
+  data: AppData,
+  now: number,
+  m: MealTime,
+  meals: readonly MealTime[],
+  busy: readonly Interval[],
+): MealOffer | null {
+  const tz = data.settings.timezone;
+  const { kind, at } = m;
+  if (!m.chosen || !kind || !at || at.end <= now || !onFixedOrTrip(data, at)) return null;
+  if (data.mealChoices?.some((c) => c.date === m.date && c.kind === kind && c.asked)) return null;
+  const others = meals.flatMap((o) => (o.date === m.date && o.kind !== kind && o.at ? [o.at] : []));
+  const { wake, bed } = wakingDay(data, now, m.date);
+  const free = placeMeal(
+    at,
+    [...busy, ...others],
+    zonedInstant(tz, m.date, bed),
+    Math.max(zonedInstant(tz, m.date, wake), now),
+    kind === "desayuno",
+  );
+  if (!free || free.start === at.start || free.start < now) return null;
+  const minute = Math.round((free.start - zonedInstant(tz, m.date, 0)) / MINUTE);
+  if (mealOutOfOrder(data, now, m.date, kind, minute, (at.end - at.start) / MINUTE)) return null;
+  return { date: m.date, kind, at, minute, to: free.start };
 }
 
 /**

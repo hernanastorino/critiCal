@@ -78,9 +78,10 @@ describe("1. Comida a mano sobre un evento: se queda y se pregunta una vez", () 
     expect(dinner?.chosen).toBe(true);
     expect(dinner?.at?.start).toBe(at(date, 21 * 60));
     const [offer] = mealOffers(data, now);
-    expect(offer?.kind).toBe("cena");
-    expect(offer?.date).toBe(date);
-    expect(offer?.to).not.toBe(at(date, 21 * 60));
+    if (!offer) throw new Error("falta la oferta");
+    expect(offer.kind).toBe("cena");
+    expect(offer.date).toBe(date);
+    expect(offer.to).not.toBe(at(date, 21 * 60));
     expect(inboxRows(data, now).some((r) => r.title.startsWith("¿Movés Cena a "))).toBe(true);
   });
 
