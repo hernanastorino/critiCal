@@ -83,12 +83,12 @@ describe("Silos: «Esta semana: hecho / planificado»", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    expect(screen.queryByText(/1h40 \/ 1h40/)).toBeNull();
+    expect(screen.queryByText(/^1h40 \//)).toBeNull();
     // 30 s later, before the minute tick: the check-in is stamped after the screen's clock.
     vi.setSystemTime(NOW + 30_000);
     fireEvent.click(screen.getByText("anotar"));
     expect(screen.getByText("Esta semana: hecho / planificado")).toBeTruthy();
-    expect(screen.getByText(/1h40 \/ 1h40/)).toBeTruthy();
+    expect(screen.getByText(/^1h40 \//)).toBeTruthy();
   });
 });
 

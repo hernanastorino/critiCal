@@ -117,7 +117,8 @@ describe("a routine of 14 × 60 in the demo", () => {
 });
 
 describe("planned vs done this week", () => {
-  it("counts study time on both sides, work logged outside the plan included", () => {
+  it("counts study time on both sides, and logging never moves «planned»", () => {
+    const before = plannedVsDone(demo(), NOW).find((x) => x.taskId === "informe-fis");
     const d = reducer(demo(), {
       type: "logProgress",
       taskId: "informe-fis",
@@ -126,7 +127,8 @@ describe("planned vs done this week", () => {
     });
     const row = plannedVsDone(d, NOW).find((x) => x.taskId === "informe-fis");
     // 120 min of block are 1 h 40 of study with 50/10 breaks, as the silo counts them.
-    expect(row).toMatchObject({ planned: 100, done: 100 });
+    expect(row?.done).toBe(100);
+    expect(row?.planned).toBe(before?.planned ?? 0);
   });
 });
 

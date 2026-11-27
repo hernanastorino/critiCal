@@ -34,7 +34,7 @@ describe("vuelta 22: doble toque en «Guardar»", () => {
     const save = within(sheet).getByRole("button", { name: "Guardar" });
     fireEvent.click(save);
     fireEvent.click(save);
-    expect(screen.getAllByText("Doble toque")).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: /^Doble toque: faltan/ })).toHaveLength(1);
   });
 });
 

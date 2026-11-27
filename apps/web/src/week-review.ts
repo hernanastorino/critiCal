@@ -5,6 +5,7 @@ import type { AppData } from "./model.js";
 import {
   blockFactor,
   blockStartOf,
+  endOfWeek,
   nextWeekStart,
   standingCheckIns,
   studyMinutes,
@@ -47,18 +48,19 @@ export interface PlannedDone {
   /** A routine (Gym...) rather than a materia's task. */
   routine?: boolean;
   /**
-   * Study minutes planned in blocks that already ended this week, plus work logged this
-   * week outside them (the plan made room for it by taking it off later blocks).
+   * Study minutes in the plan's blocks of this real week (Monday to Sunday), those already
+   * over and those still ahead. Only blocks: logging progress never changes it (SPEC §18.14).
    */
   planned: number;
   /** Study minutes really done, like the silos (breaks are not work). */
   done: number;
 }
 
-/** This week so far: what was planned (blocks already over) and what was really done. */
+/** This real week: what the plan has in blocks and what was really done. */
 export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
   const tz = data.settings.timezone;
   const since = zonedInstant(tz, weekStart(tz, now), 0);
+  const until = endOfWeek(tz, now);
   const rows = new Map<string, PlannedDone>();
   const row = (taskId: string) => {
     let r = rows.get(taskId);
@@ -77,16 +79,16 @@ export function plannedVsDone(data: AppData, now: number): PlannedDone[] {
     }
     return r;
   };
-  const ended = data.plan.filter((b) => b.start >= since && b.end <= now);
-  for (const b of ended) row(b.taskId).planned += (b.end - b.start) / MINUTE / factorOf(data, b);
-  const counted = new Set(ended.map((b) => b.id));
+  for (const b of data.plan) {
+    if (b.start < since || b.start >= until) continue;
+    row(b.taskId).planned += (b.end - b.start) / MINUTE / factorOf(data, b);
+  }
   for (const c of standingCheckIns(data)) {
     // No upper bound: the screen's clock ticks once a minute, so what was just logged is
     // stamped a little after it.
     if (blockStartOf(data, c) < since) continue;
     const r = row(c.taskId);
     r.done += studyMinutes(c);
-    if (!counted.has(c.blockId)) r.planned += studyMinutes(c);
   }
   for (const r of rows.values()) {
     r.planned = Math.round(r.planned);

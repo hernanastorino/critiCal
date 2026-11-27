@@ -116,7 +116,7 @@ export function Silos() {
   };
   // Weekly silos switched off (this week or until resumed), shown faded.
   const off = data.tasks.filter(
-    (t) => t.status === "active" && !isRunning(t, now) && !isRoutine(t),
+    (t) => t.status === "active" && !t.needsReview && !isRunning(t, now) && !isRoutine(t),
   );
   const week = plannedVsDone(data, now).filter((r) => r.planned > 0 || r.done > 0);
 

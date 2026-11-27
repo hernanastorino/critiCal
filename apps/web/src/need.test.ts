@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
 import { TIMEZONE } from "./demo.js";
-import { DEMO_KIND_KEY } from "./demoPruebas.js";
+import { pruebasData } from "./demoPruebas.js";
 import { zonedInstant } from "./engine.js";
 import { hours } from "./format.js";
 import { improves, needOf, shortfall } from "./need.js";
 import { applyOption, decisions, progress, refreshPlan } from "./planning.js";
-import { loadDemo } from "./store.js";
+import { seedHistory } from "./store.js";
 
 // Wednesday 25/11 in the tests' demo: «Informe corto SD» (10 h, minimum 9 h) does not fit.
 const NOW = zonedInstant(TIMEZONE, "2026-11-25", 10 * 60);
 const REPORT = "entrega-corta";
 
 function demo() {
-  localStorage.setItem(DEMO_KIND_KEY, "pruebas");
-  return loadDemo(NOW);
+  const raw = pruebasData(NOW);
+  // What the calendar detected is already accepted here: these options are about the plan,
+  // and a detected task waits out of it until it is (SPEC §18.14).
+  const accepted = { ...raw, tasks: raw.tasks.map((t) => ({ ...t, needsReview: undefined })) };
+  return seedHistory(accepted, NOW);
 }
 
 function plan() {

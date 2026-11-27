@@ -28,10 +28,11 @@ import {
   parseUnit,
   partsProblem,
   partsSummary,
+  slotNote,
   typedHours,
 } from "../taskForm.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
-import { focusFirstInvalid } from "./fields.js";
+import { focusFirstInvalid, Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
@@ -406,6 +407,8 @@ export function TaskEditor({
     kind === "habit"
       ? habitProblems(sessions, sessionMin, awakeWeekMinutes(data.settings.week), routineAct)
       : { times: null, minutes: null };
+  const rounding =
+    routineAct && !habit.minutes ? slotNote(Number(sessionMin), data.settings.slotMinutes) : null;
   // A routine's valid hours are edited with its habit (not for a new one: Rutinas has them).
   const ownRoutine = data.activities.find(
     (a) => a.id === task?.activityId && a.kind === "rutina" && a.id === activityId,
@@ -928,6 +931,7 @@ export function TaskEditor({
           <>
             <FieldError id="times-error" text={habit.times} role={alertRole} />
             <FieldError id="session-error" text={habit.minutes} role={alertRole} />
+            {rounding && <Help id="session-rounding" text={rounding} />}
           </>
         )}
         {ownRoutine && kind === "habit" && (
