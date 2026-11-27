@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useId, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { useSync } from "../Connected.js";
 import { normalize } from "../calendars.js";
 import { awakeProblem, bedPassedProblem } from "../dayLength.js";
@@ -14,6 +15,7 @@ import {
 import { localParts } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm, parseClock } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
+import { forgetImport } from "../importUndo.js";
 import { stripInvisible } from "../limits.js";
 import { home } from "../places.js";
 import { mealsOf } from "../planning.js";
@@ -341,6 +343,15 @@ export function Settings({
         leaving.current = false;
         return;
       }
+    }
+    // The ↶ starts empty the next time (SPEC §14): its history is emptied, and saved, first.
+    forgetImport();
+    flushSync(() => dispatch({ type: "forgetHistory" }));
+    if (sync && saved) {
+      await Promise.race([
+        sync.flush(true),
+        new Promise<boolean>((r) => setTimeout(r, 3000, false)),
+      ]);
     }
     // Whatever save is still running must not write this device's copy after it is wiped.
     sync?.seal();

@@ -46,7 +46,9 @@ describe("closing a silo takes its future blocks out of the plan", () => {
       task: { ...task, status: "done" },
       now: NOW,
     });
-    const back = reducer(closed, { type: "undoPlan", now: NOW });
+    // Closing it is not the entry on top here: the reorganization is what gets undone.
+    const onTop = { ...closed, planHistory: replanned.planHistory };
+    const back = reducer(onTop, { type: "undoPlan", now: NOW });
     expect(future(back)).toEqual([]);
   });
 });

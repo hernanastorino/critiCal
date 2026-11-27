@@ -48,6 +48,7 @@ import type {
   CheckIn,
   EventTravel,
   Place,
+  PlanInputs,
   PlanVersion,
   Preferences,
   Spot,
@@ -176,7 +177,9 @@ export type Action =
    * Takes back an answer («Deshacer»): puts back only what the answer touched, entity by
    * entity, and leaves what was added or edited since.
    */
-  | { type: "restoreState"; before: Snapshot; now: number }
+  | { type: "restoreState"; before: Snapshot; now: number; entries?: PlanVersion[] }
+  /** Signing out: the history of «Deshacer» is emptied, so the next session starts without it. */
+  | { type: "forgetHistory"; now: number }
   | { type: "savePlace"; place: Place; now: number }
   | { type: "deletePlace"; placeId: string; now: number }
   /** Takes back a `deletePlace`: its version of the undo history, else the place and its typed times. */
@@ -300,6 +303,8 @@ export interface Snapshot {
   keys?: Partial<AppData>;
   /** The same parts right after the answer: what it touched is what differs from `keys`. */
   after?: { tasks?: AppTask[]; keys: Partial<AppData> };
+  /** `keys` hold only the entries that changed: the rest of each list stays as it is now. */
+  partial?: boolean;
 }
 
 /** The parts `keys` of `data` as they are now (a missing one stays missing). */
@@ -427,12 +432,27 @@ function pick<T>(k: string, e: Entries<T>, only?: ReadonlySet<string>): T | symb
  * edited returns to its earlier version, what it added goes, and anything else (made or
  * edited since) stays. `only` limits it to those entries.
  */
-function mergeBack<T>(now: T[], before: T[], after: T[], only?: ReadonlySet<string>): T[] {
+function mergeBack<T>(
+  now: T[],
+  before: T[],
+  after: T[],
+  only?: ReadonlySet<string>,
+  partial = false,
+): T[] {
   const by = (list: T[]) => new Map(list.map((e) => [keyOf(e), e]));
   const entries = { b: by(before), a: by(after), c: by(now) };
-  // What there was before keeps its order; what is new since goes after.
-  const keys = new Set([...entries.b.keys(), ...entries.c.keys()]);
-  return [...keys].map((k) => pick(k, entries, only)).filter((e): e is T => e !== DROP);
+  // The whole list: what there was before keeps its order; what is new since goes after.
+  // Only some entries (`only`, `partial`): what stands keeps its order, what comes back goes where it was.
+  const keys =
+    only || partial
+      ? [...entries.c.keys()]
+      : [...new Set([...entries.b.keys(), ...entries.c.keys()])];
+  if (only || partial) {
+    [...entries.b.keys()].forEach((k, i) => {
+      if (!entries.c.has(k)) keys.splice(Math.min(i, keys.length), 0, k);
+    });
+  }
+  return keys.map((k) => pick(k, entries, only)).filter((e): e is T => e !== DROP);
 }
 
 type Records = AppData["checkIns"];
@@ -472,7 +492,13 @@ function restoreSnapshot(data: AppData, snap: Snapshot, now: number): AppData {
       continue;
     }
     const list = Array.isArray(cur) ? cur : [];
-    const merged = mergeBack(list, (was[k] as unknown[]) ?? [], (mid[k] as unknown[]) ?? []);
+    const merged = mergeBack(
+      list,
+      (was[k] as unknown[]) ?? [],
+      (mid[k] as unknown[]) ?? [],
+      undefined,
+      snap.partial,
+    );
     // A part that was missing stays missing while it has nothing in it.
     next[k] = merged.length === 0 && was[k] === undefined ? undefined : merged;
   }
@@ -497,6 +523,7 @@ export function removedWith(data: AppData, id: string): RemovedActivity | undefi
     tasks,
     checkIns: data.checkIns.filter((c) => ids.has(c.taskId)),
     pins: (data.pins ?? []).filter((b) => ids.has(b.taskId)),
+    blocks: data.plan.filter((b) => ids.has(b.taskId)),
   };
 }
 
@@ -928,9 +955,12 @@ function apply(data: AppData, action: Action): AppData {
             }
           : t;
       });
+      // Its place in the history of «Deshacer» is taken: it is back already.
+      const history = data.planHistory?.filter((v) => v.decision !== record.id);
       return refresh(
         {
           ...data,
+          ...(history && { planHistory: history }),
           tasks,
           movedEvents: undoMove(data.movedEvents, record),
           // Only the decision that lent the free time takes it back: undoing another one
@@ -1204,15 +1234,19 @@ function apply(data: AppData, action: Action): AppData {
       const ids = new Set((action.before.tasks ?? []).map((t) => t.id));
       const back = restoreSnapshot(data, action.before, now);
       // Its place in the history of «Deshacer» is taken: it is back already.
-      return back.planHistory?.some((v) => v.gone && ids.has(v.gone.taskId))
-        ? {
-            ...back,
-            planHistory: back.planHistory.filter((v) => !(v.gone && ids.has(v.gone.taskId))),
-          }
+      const taken = (v: PlanVersion) =>
+        (v.gone && ids.has(v.gone.taskId)) || !!action.entries?.some((e) => e === v || same(e, v));
+      const left = back.planHistory?.filter((v) => !taken(v));
+      return left && left.length !== back.planHistory?.length
+        ? { ...back, planHistory: left.length > 0 ? left : undefined }
         : back;
     }
+    case "forgetHistory": {
+      const { planHistory: _gone, ...rest } = data;
+      return data.planHistory ? rest : data;
+    }
     case "restoreActivity": {
-      const { activity, index, tasks, checkIns, pins } = action.removed;
+      const { activity, index, tasks, checkIns, pins, blocks = [] } = action.removed;
       // Back only once, and never over something made since with the same id.
       if (data.activities.some((a) => a.id === activity.id)) return data;
       const have = new Set(data.tasks.map((t) => t.id));
@@ -1234,6 +1268,13 @@ function apply(data: AppData, action: Action): AppData {
           checkIns: [
             ...data.checkIns,
             ...checkIns.filter((c) => ids.has(c.taskId) && !checked.has(c.blockId)),
+          ],
+          // The blocks already started come back (the ones ahead are planned again).
+          plan: [
+            ...data.plan,
+            ...blocks.filter(
+              (b) => ids.has(b.taskId) && b.start <= now && !data.plan.some((p) => p.id === b.id),
+            ),
           ],
           // A pinned block that is still ahead goes back to where it was pinned.
           pins: [...(data.pins ?? []), ...pins.filter((b) => ids.has(b.taskId) && b.start > now)],
@@ -2058,9 +2099,12 @@ export function replanChanged(before: AppData, after: AppData): boolean {
 
 /** What the plan looked like before an action, to put back with «Deshacer». */
 function planVersion(data: AppData, now: number, label: string): PlanVersion {
+  return { at: now, label, ...inputsOf(data, now) };
+}
+
+/** The plan's inputs as `data` has them (today's blocks: those of `now`'s day not started yet). */
+function inputsOf(data: AppData, now: number): PlanInputs {
   return {
-    at: now,
-    label,
     pins: data.pins ?? [],
     today: data.plan.filter(
       (b) => b.start > now && b.start < endOfDay(data.settings.timezone, now),
@@ -2074,9 +2118,12 @@ function planVersion(data: AppData, now: number, label: string): PlanVersion {
   };
 }
 
+/** The version goes on the history with the inputs as the change left them (`after`). */
 const pushVersion = (data: AppData, next: AppData, v: PlanVersion): AppData => ({
   ...next,
-  planHistory: [...(data.planHistory ?? []), v].slice(-PLAN_HISTORY),
+  planHistory: [...(data.planHistory ?? []), { ...v, after: inputsOf(next, v.at) }].slice(
+    -PLAN_HISTORY,
+  ),
 });
 
 const ENDS = new Set(["deleteAll", "endFromToday"]);
@@ -2106,8 +2153,9 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
   if (action.type === "recurrence" && ENDS.has(action.change)) return silo(data, action, next);
   if (action.type === "checkIn") return answered(data, action, next);
   if (action.type === "logProgress") return logged(data, action, next);
+  if (action.type === "applyOption") return chosen(data, action, next);
   const label = VERSIONED[action.type];
-  if (!label) return next;
+  if (!label) return edited(data, action, next);
   // A replan that changed nothing has nothing to undo.
   if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
   return pushVersion(data, next, planVersion(data, action.now, label));
@@ -2145,6 +2193,109 @@ function logged(data: AppData, action: Extract<Action, { type: "logProgress" }>,
     ...planVersion(data, action.now, "registrar avance"),
     logged: { taskId: task.id, snap },
   });
+}
+
+/** «Elegir» in the Bandeja leaves its decision in the history: undoing it takes that one back. */
+function chosen(data: AppData, action: Extract<Action, { type: "applyOption" }>, next: AppData) {
+  const made = next.applied?.find((d) => !data.applied?.some((o) => o.id === d.id));
+  if (!made) return next;
+  const label = clipName(made.label, 40);
+  return pushVersion(data, next, { ...planVersion(data, action.now, label), decision: made.id });
+}
+
+/** What an answer or edit is called in «Deshacer: …» (none: it is not an action to undo). */
+function editLabel(data: AppData, action: Action): string | undefined {
+  const name = (s: string | undefined) => clipName(s ?? "", 24);
+  const task = (id: string) => name(data.tasks.find((t) => t.id === id)?.title);
+  const activity = (id: string) => name(data.activities.find((a) => a.id === id)?.name);
+  switch (action.type) {
+    case "saveTask":
+      return `guardar ${name(action.task.title)}`;
+    case "saveActivity":
+      return `guardar ${name(action.activity.name)}`;
+    case "saveRoutine":
+      return `guardar ${name(action.name)}`;
+    case "newSubject":
+      return `crear ${name(action.name)}`;
+    case "review":
+      return `${action.keep ? "planificar" : "ignorar"} ${task(action.taskId)}`;
+    case "classTitle":
+    case "classOf":
+      return `ordenar ${name(action.title)}`;
+    case "sortActivity":
+      return `ordenar ${activity(action.activityId)}`;
+    case "mergeActivity":
+      return `juntar ${activity(action.activityId)}`;
+    case "assignSubject":
+      return `asignar materia a ${task(action.taskId)}`;
+    case "weeklyStudy":
+      return `cambiar estudio semanal de ${activity(action.activityId)}`;
+    case "unarchive":
+      return `recuperar ${task(action.taskId)}`;
+    case "resetDetected":
+      return "volver a lo detectado";
+    case "preferences":
+      return "guardar Preferencias";
+    case "calendarRole":
+      return "cambiar un calendario";
+    case "recurrence":
+      return `${action.change === "resume" ? "retomar" : "pausar"} ${task(action.taskId)}`;
+    case "moveEvent":
+    case "unmoveEvent":
+      return "mover un evento";
+    default:
+      return undefined;
+  }
+}
+
+/** Actions of the history that edit what is not a plan input: kept apart from the answer's snapshot. */
+const PLAN_PARTS = new Set<string>([
+  "plan",
+  "planHistory",
+  "pins",
+  "overrides",
+  "proposals",
+  "mealChoices",
+  "freeTimeUntil",
+  "relaxContextUntil",
+  "tentativeHoldUntil",
+  "events",
+  "tentativeSeen",
+  "mealRuns",
+  "mealsFrozenThrough",
+]);
+
+/** The parts of the data the change touched, each with only the entries it changed. */
+function touched(data: AppData, next: AppData): Snapshot | undefined {
+  const keys = [...new Set([...Object.keys(data), ...Object.keys(next)])]
+    .filter((k) => !PLAN_PARTS.has(k))
+    .filter((k) => Reflect.get(data, k) !== Reflect.get(next, k))
+    .filter((k) => !same(Reflect.get(data, k), Reflect.get(next, k)));
+  if (keys.length === 0) return undefined;
+  // Only the entries that changed, unless one went: then the whole list, to put it back in place.
+  const slim = (list: unknown, other: unknown, whole: boolean) => {
+    if (!Array.isArray(list) || !Array.isArray(other)) return list;
+    const there = new Map(other.map((e) => [keyOf(e), e]));
+    if (whole && list.some((e) => !there.has(keyOf(e)))) return list;
+    return list.filter((e) => !same(e, there.get(keyOf(e))));
+  };
+  const parts = (from: AppData, to: AppData, whole: boolean) =>
+    Object.fromEntries(
+      keys.map((k) => [k, slim(Reflect.get(from, k), Reflect.get(to, k), whole)]),
+    ) as Partial<AppData>;
+  return {
+    keys: parts(data, next, true),
+    after: { keys: parts(next, data, false) },
+    partial: true,
+  };
+}
+
+/** An answer or edit leaves its own «Deshacer»: it takes back only the entries it changed. */
+function edited(data: AppData, action: Action, next: AppData) {
+  const label = editLabel(data, action);
+  const snap = label ? touched(data, next) : undefined;
+  if (!label || !snap) return next;
+  return pushVersion(data, next, { ...planVersion(data, action.now, label), edit: { snap } });
 }
 
 /** Whether an undo version keeps the address `key` in its saved spots. */
@@ -2218,6 +2369,41 @@ function putSavedBack(data: AppData, saved: NonNullable<PlanVersion["saved"]>): 
   }, data);
 }
 
+/** The inputs a version keeps, that go back one by one. */
+const INPUT_KEYS = [
+  "pins",
+  "overrides",
+  "proposals",
+  "mealChoices",
+  "freeTimeUntil",
+  "relaxContextUntil",
+  "tentativeHoldUntil",
+] as const;
+
+/**
+ * The plan's inputs of `v` that go back: each one only while it stands as the change left
+ * it. What was decided elsewhere since (a «Usar tiempo libre», a pin…) is not undone by
+ * taking back an older entry.
+ */
+function inputsBack(start: AppData, v: PlanVersion): Partial<AppData> {
+  const now = inputsOf(start, v.at);
+  const after = v.after;
+  const stands = (k: string) => !after || same(Reflect.get(now, k), Reflect.get(after, k));
+  // Versions from before meals were kept do not say: the choices stay as they are.
+  return Object.fromEntries(
+    INPUT_KEYS.filter((k) => stands(k) && (k !== "mealChoices" || v.mealChoices)).map((k) => [
+      k,
+      Reflect.get(v, k),
+    ]),
+  );
+}
+
+/** Today's blocks go back only while nothing else moved them since (not the ones that started). */
+function todayStands(start: AppData, v: PlanVersion, at: number): boolean {
+  const ahead = (blocks: PlanBlock[]) => blocks.filter((b) => b.start > at);
+  return !v.after || same(ahead(inputsOf(start, v.at).today), ahead(v.after.today));
+}
+
 /** Takes back the last version of the undo history (`only`: that one, if it is still the last). */
 function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): AppData {
   const history = start.planHistory ?? [];
@@ -2228,29 +2414,28 @@ function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): A
     ? apply(start, { type: "restoreActivity", removed: v.removed, now })
     : v.checkIn
       ? apply(start, { type: "undoCheckIn", id: v.checkIn, now })
-      : start;
+      : v.decision
+        ? apply(start, { type: "undoDecision", id: v.decision, now })
+        : start;
   const back = v.saved ? putSavedBack(restored, v.saved) : restored;
-  const snap = v.gone?.snap ?? v.logged?.snap;
+  const snap = v.gone?.snap ?? v.logged?.snap ?? v.edit?.snap;
   const data = snap ? restoreSnapshot(back, snap, now) : back;
   // What already started stays; today's blocks ahead and the inputs come back.
   const kept = data.plan.filter((b) => b.start <= now);
   // A task deleted since then does not come back with its blocks.
   // Nor does one that is closed, dropped or past its deadline.
   const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
+  const inputs = inputsBack(start, v);
   // The wake-up goes back with the day: what it closed as «dormías» is open again.
   return refresh(
     settleSlept(
       {
         ...data,
-        plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
-        pins: v.pins.filter((b) => live.has(b.taskId)),
-        overrides: v.overrides,
-        proposals: v.proposals,
-        // Versions from before meals were kept do not say: the choices stay as they are.
-        ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
-        freeTimeUntil: v.freeTimeUntil,
-        relaxContextUntil: v.relaxContextUntil,
-        tentativeHoldUntil: v.tentativeHoldUntil,
+        ...(todayStands(start, v, now) && {
+          plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
+        }),
+        ...inputs,
+        ...(inputs.pins && { pins: v.pins.filter((b) => live.has(b.taskId)) }),
         planHistory: history.slice(0, -1),
       },
       now,

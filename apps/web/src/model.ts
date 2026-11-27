@@ -481,7 +481,30 @@ export interface PlanVersion {
   checkIn?: string;
   /** Saved parts (Mi semana, un lugar…) as they were, and right after: undoing puts back what is still as saved. */
   saved?: { part: string; before: unknown; after: unknown }[];
+  /** A decision of the inbox («Elegir»): undoing this version takes that decision back. */
+  decision?: string;
+  /** An answer or edit: undoing it puts back only the entries it changed (`Snapshot`). */
+  edit?: { snap: Snapshot };
+  /**
+   * The plan's inputs right after the change: an input is put back only while it still
+   * stands as the change left it, so what was decided elsewhere since is never undone.
+   * Versions from before this was kept do not have it: all their inputs go back.
+   */
+  after?: PlanInputs;
 }
+
+/** The plan's inputs that a version keeps (see `PlanVersion`). */
+export type PlanInputs = Pick<
+  PlanVersion,
+  | "pins"
+  | "today"
+  | "overrides"
+  | "proposals"
+  | "mealChoices"
+  | "freeTimeUntil"
+  | "relaxContextUntil"
+  | "tentativeHoldUntil"
+>;
 
 /** What `deleteActivity` takes out, kept to put it back on undo. */
 export interface RemovedActivity {
@@ -491,6 +514,8 @@ export interface RemovedActivity {
   tasks: AppTask[];
   checkIns: AppData["checkIns"];
   pins: NonNullable<AppData["pins"]>;
+  /** Its blocks in the plan; versions from before this was kept do not have them. */
+  blocks?: PlanBlock[];
 }
 
 /**

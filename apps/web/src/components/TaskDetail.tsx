@@ -225,16 +225,23 @@ export function TaskDetail({
     if (change === "pause" || change === "skipWeek") {
       // With «Deshacer», like taking it away: the silo and the plan come back as they were.
       const before = snapshotOf(data, ["plan"], [live]);
-      dispatch({ type: "recurrence", taskId: task.id, change }, (after) =>
-        settleSnapshot(before, after),
-      );
+      const entries: PlanVersion[] = [];
+      dispatch({ type: "recurrence", taskId: task.id, change }, (after) => {
+        settleSnapshot(before, after);
+        const had = data.planHistory ?? [];
+        entries.splice(
+          0,
+          entries.length,
+          ...(after.planHistory ?? []).filter((v) => !had.includes(v)),
+        );
+      });
       toast.show(
         change === "pause"
           ? `${clipName(task.title)} en pausa`
           : `${clipName(task.title)} salteada esta semana`,
         {
           undo: () => {
-            dispatch({ type: "restoreState", before });
+            dispatch({ type: "restoreState", before, entries });
             requestAnimationFrame(() =>
               document.querySelector<HTMLElement>(`[data-task="${CSS.escape(task.id)}"]`)?.focus(),
             );
