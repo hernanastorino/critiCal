@@ -267,9 +267,7 @@ describe("abrir un evento con traslado no deja entrada en el ↶", () => {
   it.each([0, 1, 2])("el evento %i", { timeout: 30_000 }, async (i) => {
     const event = must(events().at(i));
     const view = open(event);
-    await act(async () => {
-      await new Promise((r) => setTimeout(r, 50));
-    });
+    await act(() => new Promise((r) => setTimeout(r, 50)));
     expect(stack(must(latest))).toHaveLength(0);
     view.unmount();
   });
@@ -277,9 +275,7 @@ describe("abrir un evento con traslado no deja entrada en el ↶", () => {
   it("abrir los tres seguidos deja la pila vacía", { timeout: 30_000 }, async () => {
     for (const event of events()) {
       const view = open(event);
-      await act(async () => {
-        await new Promise((r) => setTimeout(r, 50));
-      });
+      await act(() => new Promise((r) => setTimeout(r, 50)));
       view.unmount();
     }
     expect(stack(must(latest))).toHaveLength(0);
