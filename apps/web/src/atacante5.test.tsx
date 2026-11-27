@@ -12,8 +12,8 @@ import { runningSince } from "./testing.js";
 
 afterEach(cleanup);
 
-// Thursday 19/11 at 16:40, with a single materia allowed per day: «Sugerencia» shows up.
-const NOW = zonedInstant("America/Montevideo", "2026-11-19", 1000);
+// Friday 20/11 at 18:20, with a single materia allowed per day: «Sugerencia» shows up.
+const NOW = zonedInstant("America/Montevideo", "2026-11-20", 1100);
 const oneAtATime = (): AppData => {
   const d = reducer(demoData(NOW), { type: "refresh", now: NOW });
   return reducer(
@@ -62,14 +62,16 @@ function Log() {
   return (
     <button
       type="button"
-      onClick={() => dispatch({ type: "logProgress", taskId: "informe-fis", minutes: 120 })}
+      onClick={() =>
+        dispatch({ type: "logProgress", taskId: "informe-fis", minutes: 120, unitIds: ["u5"] })
+      }
     >
       anotar
     </button>
   );
 }
 
-describe("Silos: «Esta semana: hecho / planificado»", () => {
+describe("Silos: «Esta semana: falta / asignado»", () => {
   afterEach(() => vi.useRealTimers());
 
   it("counts what was just logged, though the screen's clock has not ticked yet", () => {
@@ -83,12 +85,12 @@ describe("Silos: «Esta semana: hecho / planificado»", () => {
         </ToastProvider>
       </StoreProvider>,
     );
-    expect(screen.queryByText(/^1h40 \//)).toBeNull();
+    const week = () => screen.getByText("Esta semana: falta / asignado").parentElement?.textContent;
+    const before = week();
     // 30 s later, before the minute tick: the check-in is stamped after the screen's clock.
     vi.setSystemTime(NOW + 30_000);
     fireEvent.click(screen.getByText("anotar"));
-    expect(screen.getByText("Esta semana: hecho / planificado")).toBeTruthy();
-    expect(screen.getByText(/^1h40 \//)).toBeTruthy();
+    expect(week()).not.toBe(before);
   });
 });
 

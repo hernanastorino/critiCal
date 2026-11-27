@@ -6,7 +6,7 @@ import { MINUTE, type PlanBlock, zonedInstant } from "./engine.js";
 import type { AppData, AppTask, CheckIn } from "./model.js";
 import { doneMinutes, latestCheckIns, progress, standingCheckIns, weekStart } from "./planning.js";
 import { reducer } from "./store.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 const at = (date: string, hhmm: string) => {
   const [h, m] = hhmm.split(":").map(Number) as [number, number];
@@ -207,8 +207,8 @@ describe("15th round: a block belongs to the week it was planned in", () => {
     const since = zonedInstant(TIMEZONE, weekStart(TIMEZONE, MON), 0);
     expect(doneMinutes(d, "t", since)).toBe(0);
     expect(doneMinutes(d, "t", block.start)).toBe(120);
-    const row = plannedVsDone(d, MON).find((r) => r.taskId === "t");
-    expect(row?.done ?? 0).toBe(0);
+    // Nothing of that block belongs to this week: the task has no row in it.
+    expect(weekLeft(d, MON).find((r) => r.taskId === "t")).toBeUndefined();
   });
 });
 

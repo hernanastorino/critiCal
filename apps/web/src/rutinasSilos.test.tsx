@@ -9,7 +9,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { refreshPlan } from "./planning.js";
 import { StoreProvider } from "./store.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 afterEach(cleanup);
 
@@ -45,7 +45,7 @@ describe("Silos: las rutinas no son silos", () => {
     expect(document.querySelector('[data-task="gym"]')).toBeNull();
   });
 
-  it("«hecho / planificado» keeps the routine, marked as such", () => {
+  it("«falta / asignado» keeps the routine, marked as such", () => {
     const d = demoData(WEDNESDAY);
     const block = {
       id: "g1",
@@ -54,10 +54,10 @@ describe("Silos: las rutinas no son silos", () => {
       start: zonedInstant(TIMEZONE, "2026-11-25", 17 * 60),
       end: zonedInstant(TIMEZONE, "2026-11-25", 18 * 60 + 30),
     };
-    const rows = plannedVsDone({ ...d, plan: [block] }, WEDNESDAY);
+    const rows = weekLeft({ ...d, plan: [block] }, WEDNESDAY);
     expect(rows.find((r) => r.taskId === "gym")?.routine).toBe(true);
     silos(() => ({ ...d, plan: [block] }), WEDNESDAY);
-    const card = screen.getByText("Esta semana: hecho / planificado").closest(".card");
+    const card = screen.getByText("Esta semana: falta / asignado").closest(".card");
     expect(within(card as HTMLElement).getByText(/rutina/)).toBeTruthy();
   });
 });

@@ -57,3 +57,24 @@ export function pickMateria(): void {
   if (!first) throw new Error("no materia to pick");
   fireEvent.change(select, { target: { value: first.value } });
 }
+
+/**
+ * The tasks' hours scaled by 60/50, the load the planner carried before breaks counted whole
+ * (SPEC §18.15): for tests that need an overloaded week the way the demos were tuned for.
+ */
+export function withBreaksOnTop(data: AppData): AppData {
+  const up = (minutes: number) => Math.round(minutes * 1.2);
+  return {
+    ...data,
+    tasks: data.tasks.map((t) =>
+      t.kind === "habit"
+        ? t
+        : {
+            ...t,
+            estimateMinutes: up(t.estimateMinutes),
+            minMinutes: up(t.minMinutes),
+            units: t.units.map((u) => ({ ...u, estimateMinutes: up(u.estimateMinutes) })),
+          },
+    ),
+  };
+}

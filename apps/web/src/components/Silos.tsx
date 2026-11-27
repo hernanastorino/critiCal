@@ -12,7 +12,7 @@ import {
   type TaskProgress,
 } from "../planning.js";
 import { useStore } from "../store.js";
-import { plannedVsDone } from "../week-review.js";
+import { weekLeft } from "../week-review.js";
 import { CountUp } from "./CountUp.js";
 import { TaskDetail } from "./TaskDetail.js";
 import { editorDraft, TaskEditor } from "./TaskEditor.js";
@@ -118,7 +118,7 @@ export function Silos() {
   const off = data.tasks.filter(
     (t) => t.status === "active" && !t.needsReview && !isRunning(t, now) && !isRoutine(t),
   );
-  const week = plannedVsDone(data, now).filter((r) => r.planned > 0 || r.done > 0);
+  const week = weekLeft(data, now);
 
   return (
     <div className="screen">
@@ -230,7 +230,7 @@ export function Silos() {
         )}
         {week.length > 0 && (
           <div className="card">
-            <div className="title">Esta semana: hecho / planificado</div>
+            <div className="title">Esta semana: falta / asignado</div>
             <div className="pvd">
               {week.map((r) => (
                 <div key={r.taskId} style={{ display: "contents" }}>
@@ -239,12 +239,12 @@ export function Silos() {
                     {r.routine && <span className="meta"> · rutina</span>}
                   </span>
                   <span className="meta" style={{ margin: 0 }}>
-                    <CountUp value={r.done} /> / <CountUp value={r.planned} />
+                    <CountUp value={r.left} /> / <CountUp value={r.assigned} />
                   </span>
                   <div className="track" style={{ ["--c" as string]: r.color }}>
                     <div
                       style={{
-                        width: `${r.planned > 0 ? Math.min(100, (r.done / r.planned) * 100) : 100}%`,
+                        width: `${Math.min(100, (r.left / r.assigned) * 100)}%`,
                       }}
                     />
                   </div>

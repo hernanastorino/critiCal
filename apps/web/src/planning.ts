@@ -1,6 +1,5 @@
 import { eventRole, normalize, visibleEvents } from "./calendars.js";
 import {
-  type Activity,
   addDays,
   type CalendarEvent,
   type DayOverride,
@@ -75,17 +74,6 @@ export function endOfWeek(tz: string, instant: number): number {
 /** Study minutes and break after them, by default, for materias (academic activities). */
 export const DEFAULT_STUDY_MINUTES = 50;
 export const DEFAULT_BREAK_MINUTES = 10;
-
-/**
- * Block time per study minute of an activity: 60/50 with the default 50 + 10 breaks.
- * Breaks are not drawn; a planned block includes them. Routines have none.
- */
-export function blockFactor(activity: Activity | undefined): number {
-  if (!activity) return 1;
-  const study = activity.studyMinutes ?? (activity.academic ? DEFAULT_STUDY_MINUTES : 0);
-  const rest = activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0);
-  return study > 0 && rest > 0 ? (study + rest) / study : 1;
-}
 
 /** The newest record of each block: by date, then by id (rows come back in any order). */
 export function latestCheckIns(data: AppData): Map<string, CheckIn> {
@@ -231,17 +219,6 @@ export function doneMinutes(data: AppData, taskId: string, since = 0): number {
     .reduce((sum, c) => sum + c.minutesDone, 0);
 }
 
-/** Study minutes of a check-in: its block time without the breaks it had then. */
-export const studyMinutes = (c: CheckIn) => c.minutesDone / (c.factor ?? 1);
-
-/** The block factor to record on a new check-in of a task. */
-export function checkInFactor(data: AppData, taskId: string): number | undefined {
-  const task = data.tasks.find((t) => t.id === taskId);
-  if (!task || task.kind === "habit") return undefined;
-  const k = blockFactor(data.activities.find((a) => a.id === task.activityId));
-  return k === 1 ? undefined : k;
-}
-
 function samples(data: AppData) {
   return standingCheckIns(data)
     .filter((c) => c.status !== "missed")
@@ -252,12 +229,12 @@ function samples(data: AppData) {
       const estimated = task.units
         .filter((u) => c.unitIds.includes(u.id))
         .reduce((sum, u) => sum + u.estimateMinutes, 0);
-      // Check-ins count block time, breaks included; estimates are study time.
+      // Block time counts whole, break included (SPEC §18.15): a 60-minute block done is 60.
       return [
         {
           activityId: task.activityId,
           estimatedMinutes: estimated,
-          actualMinutes: studyMinutes(c),
+          actualMinutes: c.minutesDone,
         },
       ];
     });
@@ -458,10 +435,10 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
           deadline: endOfWeek(tz, weekAt),
         };
       }
-      // Estimates are study time and check-ins block time (breaks included then).
+      // Hours and check-ins are both block time, break included (SPEC §18.15).
       const done = standingCheckIns(data)
         .filter((c) => c.taskId === task.id)
-        .reduce((sum, c) => sum + studyMinutes(c), 0);
+        .reduce((sum, c) => sum + c.minutesDone, 0);
       const capLeft = Math.max(0, task.estimateMinutes - done);
       // With parts, what is left is the parts still unmarked (left out ones are neither
       // done nor missing); the minutes logged already marked them, so they are not
@@ -507,19 +484,19 @@ export function shownTotal(p: TaskProgress): number {
  * the rest they never exceed what is left of the task (capped by its estimate), so
  * leaving some out never takes the time of the ones kept.
  */
-function weighedUnits(p: TaskProgress, k: number, ratio: number, remaining: number) {
+function weighedUnits(p: TaskProgress, ratio: number, remaining: number) {
   if (!p.task.units.some((u) => u.weight !== undefined)) return undefined;
   const open = p.task.units.filter((u) => !u.doneAt && !u.skipped);
-  const raw = (u: (typeof open)[number]) => u.estimateMinutes * ratio * k;
+  const raw = (u: (typeof open)[number]) => u.estimateMinutes * ratio;
   const total = open.reduce((sum, u) => sum + raw(u), 0);
-  const left = remaining * k;
+  const left = remaining;
   const scale = total > left && total > 0 ? left / total : 1;
   return open
     .filter((u) => u.weight !== undefined)
     .map((u) => ({
       id: u.id,
       title: u.title,
-      // Like what is left: the learned effort ratio, then block time.
+      // Like what is left: the learned effort ratio.
       minutes: Math.floor(raw(u) * scale),
       weight: u.weight as number,
     }));
@@ -585,22 +562,13 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
   const planned = (p: TaskProgress) => p.remainingMinutes;
   return progress(data, now)
     .filter((p) => p.deadline > now && (p.remainingMinutes > 0 || p.minRemainingMinutes > 0))
-    .map((p) => {
-      // The planner places block time: study plus its breaks. Weekly silos are already
-      // counted in blocks (a 60-minute session includes its rest).
-      const k =
-        p.task.kind === "habit"
-          ? 1
-          : blockFactor(data.activities.find((a) => a.id === p.task.activityId));
-      return { p, k };
-    })
-    .map(({ p, k }) => ({
+    .map((p) => ({
       id: p.task.id,
       activityId: p.task.activityId,
       title: p.task.title,
       deadline: p.deadline,
-      remainingMinutes: Math.ceil(planned(p) * k),
-      minRemainingMinutes: Math.ceil(Math.min(planned(p), p.minRemainingMinutes) * k),
+      remainingMinutes: Math.ceil(planned(p)),
+      minRemainingMinutes: Math.ceil(Math.min(planned(p), p.minRemainingMinutes)),
       sessionMinutes: p.task.sessionMinutes,
       maxPerDayMinutes: maxPerDay(p.task),
       priority: p.task.priority,
@@ -609,11 +577,11 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       // (study time, planned as block time like the rest).
       mvpMinutes:
         p.task.kind === "deliverable" && !isExam(data, p.task) && p.minRemainingMinutes > 60
-          ? Math.ceil(Math.max(60, Math.ceil(p.minRemainingMinutes / 2)) * k)
+          ? Math.max(60, Math.ceil(p.minRemainingMinutes / 2))
           : undefined,
       // Exams with weighed units can leave the lightest ones out; a unit with no weight
       // is of unknown importance, so it is never offered to leave out.
-      units: weighedUnits(p, k, effortRatio(effort, p.task.activityId), planned(p)),
+      units: weighedUnits(p, effortRatio(effort, p.task.activityId), planned(p)),
       reviewDates:
         p.task.exam && p.task.deadline ? examDays(tz, p.task.deadline, now).reviews : undefined,
       avoid: kept.filter((day) => day.activityId !== p.task.activityId).map((day) => day.span),
@@ -1809,14 +1777,12 @@ function minutesAfter(
   next: Task,
   kind: PlanOption["kind"],
 ): Partial<Pick<AppTask, "minMinutes" | "estimateMinutes">> {
-  const k =
-    task.kind === "habit" ? 1 : blockFactor(data.activities.find((a) => a.id === task.activityId));
-  if (kind === "minimum-only") return estimateAfter(task, old, next, k);
+  if (kind === "minimum-only") return estimateAfter(task, old, next);
   if (kind !== "lower-minimum" && kind !== "minimum-viable" && kind !== "proportional") return {};
   if (next.minRemainingMinutes >= old.minRemainingMinutes) return {};
   return {
-    minMinutes: minimumAfter(data, task, next, k),
-    ...(kind === "minimum-viable" ? estimateAfter(task, old, next, k) : {}),
+    minMinutes: minimumAfter(data, task, next),
+    ...(kind === "minimum-viable" ? estimateAfter(task, old, next) : {}),
   };
 }
 
@@ -1825,22 +1791,22 @@ function minutesAfter(
  * left is measured from it, with parts capped by it): «quedarme con el mínimo», and a
  * smaller version, which is the whole delivery then.
  */
-function estimateAfter(task: AppTask, old: Task, next: Task, k: number) {
-  const cut = Math.round((old.remainingMinutes - next.remainingMinutes) / k);
+function estimateAfter(task: AppTask, old: Task, next: Task) {
+  const cut = Math.round(old.remainingMinutes - next.remainingMinutes);
   return cut > 0 ? { estimateMinutes: Math.max(1, Math.round(task.estimateMinutes) - cut) } : {};
 }
 
 /** The stored minimum that leaves what the option previewed (what was done counts in it). */
-function minimumAfter(data: AppData, task: AppTask, next: Task, k: number): number {
+function minimumAfter(data: AppData, task: AppTask, next: Task): number {
   const done =
     task.kind === "habit"
       ? 0
       : Math.ceil(
           standingCheckIns(data)
             .filter((c) => c.taskId === task.id)
-            .reduce((s, c) => s + studyMinutes(c), 0),
+            .reduce((s, c) => s + c.minutesDone, 0),
         );
-  const minimum = Math.round(next.minRemainingMinutes / k) + done;
+  const minimum = Math.round(next.minRemainingMinutes) + done;
   const cap = task.minMinutes > 0 ? Math.round(task.minMinutes) : minimum;
   return Math.max(1, Math.min(cap, minimum));
 }

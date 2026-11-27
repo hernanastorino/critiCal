@@ -10,6 +10,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
 import { refresh } from "./refresh.js";
 import { reducer, StoreProvider, seedHistory, useStore } from "./store.js";
+import { withBreaksOnTop } from "./testing.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -50,7 +51,7 @@ const undoNotice = () => {
 describe("Bandeja: elegir una opción se puede deshacer desde el aviso", () => {
   const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
   const crowded = (now: number) =>
-    reducer(reducer(demoData(now), { type: "refresh", now }), {
+    reducer(reducer(withBreaksOnTop(demoData(now)), { type: "refresh", now }), {
       type: "saveRoutine",
       name: "Leer",
       sessionsPerWeek: 14,

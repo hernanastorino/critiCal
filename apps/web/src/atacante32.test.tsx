@@ -9,7 +9,7 @@ import { clearDrafts } from "./drafts.js";
 import { hours } from "./format.js";
 import { forgetImport } from "./importUndo.js";
 import type { AppData } from "./model.js";
-import { blockFactor, progress, refreshPlan, toEngineTasks } from "./planning.js";
+import { progress, refreshPlan, toEngineTasks } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 
 // Hallazgos de la 32.ª vuelta del agente atacante.
@@ -164,8 +164,7 @@ describe("Lo que la SPEC dice que es así", () => {
     const planned = toEngineTasks(d, monday).find((t) => t.id === "parcial-calc");
     // «Faltan» y lo que se planifica son lo mismo: las partes por el ratio aprendido.
     expect(shown?.remainingMinutes).toBeLessThan(420);
-    const k = blockFactor(d.activities.find((a) => a.id === shown?.task.activityId));
-    expect(planned?.remainingMinutes).toBe(Math.ceil((shown?.remainingMinutes ?? 0) * k));
+    expect(planned?.remainingMinutes).toBe(Math.ceil(shown?.remainingMinutes ?? 0));
     // El silo dice lo mismo que lo que el plan reserva.
     render(
       <StoreProvider initial={() => d} persist={false} fixedNow={monday}>

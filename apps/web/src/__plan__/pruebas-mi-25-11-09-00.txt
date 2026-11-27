@@ -1,15 +1,15 @@
 {
-  "blocks": "db5da8438814",
-  "status": "3fc78a778953",
+  "blocks": "1297b98c6068",
+  "status": "f27092456464",
   "meals": "a9934b1d3812",
   "feasible": false,
   "options": [
-    "use-free-time:04beb89ac841",
-    "lower-minimum:parcial-calc:bf4a92029638",
-    "lower-minimum:entrega-corta:e0bf642ba5df",
-    "minimum-viable:entrega-corta:2c4ac8ae370a",
-    "drop:parcial-calc:b86abf39591c",
-    "drop:entrega-corta:3f139b8a926f"
+    "use-free-time:d5e75281779e",
+    "lower-minimum:parcial-calc:92a60e7e7f3b",
+    "lower-minimum:entrega-corta:07cf90dac05c",
+    "minimum-viable:entrega-corta:47bfeec4adb8",
+    "drop:parcial-calc:bcd98645bcb0",
+    "drop:entrega-corta:177b6672b534"
   ],
   "hasOptions": true,
   "impossible": [

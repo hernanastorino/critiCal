@@ -5,14 +5,7 @@ import { clipName, dayDate, dueDate, hours } from "../format.js";
 import { routineWeekText } from "../friendly.js";
 import type { AppData, AppTask, PlanVersion } from "../model.js";
 import { needOf } from "../need.js";
-import {
-  checkInFactor,
-  earliestStartOf,
-  endOfWeek,
-  focusWeekAt,
-  progress,
-  wakingDay,
-} from "../planning.js";
+import { earliestStartOf, endOfWeek, focusWeekAt, progress, wakingDay } from "../planning.js";
 import {
   GONE_KEYS,
   type RecurrenceChange,
@@ -102,14 +95,10 @@ function MinutesField({
   value,
   error,
   onChange,
-  factor,
-  hasParts,
 }: {
   value: string;
   error: string | null;
   onChange: (text: string) => void;
-  factor: number;
-  hasParts: boolean;
 }) {
   return (
     <label className="field">
@@ -120,10 +109,7 @@ function MinutesField({
         onChange={(e) => onChange(e.target.value)}
         placeholder="40"
         aria-invalid={error ? true : undefined}
-        aria-describedby={
-          [error && "minutes-error", factor > 1 && "break-note"].filter(Boolean).join(" ") ||
-          undefined
-        }
+        aria-describedby={error ? "minutes-error" : undefined}
       />
       {error && (
         <span
@@ -133,13 +119,6 @@ function MinutesField({
           style={{ margin: 0, color: "var(--critical)" }}
         >
           {error}
-        </span>
-      )}
-      {factor > 1 && (
-        <span className="meta" id="break-note" style={{ margin: 0 }}>
-          Contá el tiempo con descansos: {hours(240)} de bloque descuentan ~
-          {hours(Math.round(240 / factor))} de estudio.
-          {hasParts && " Marcá también las partes hechas: lo que falta se mide por ellas."}
         </span>
       )}
     </label>
@@ -180,7 +159,6 @@ export function TaskDetail({
   // A routine takes no more than what it lacks this week (the same figure «faltan» shows);
   // with nothing lacking, or switched off, there is nothing to log.
   const weeklyLeft = weekly?.remainingMinutes;
-  const factor = checkInFactor(data, task.id) ?? 1;
   const [minutes, setMinutes] = useState("");
   const [topics, setTopics] = useState("");
   const [topicsDone, setTopicsDone] = useState("");
@@ -329,15 +307,7 @@ export function TaskDetail({
             Registrar avance
           </div>
         )}
-        {!closed && (
-          <MinutesField
-            value={minutes}
-            error={badMinutes}
-            onChange={setMinutes}
-            factor={factor}
-            hasParts={task.units.length > 0}
-          />
-        )}
+        {!closed && <MinutesField value={minutes} error={badMinutes} onChange={setMinutes} />}
         {closed ? null : task.units.length > 0 ? (
           <div className="field">
             <span>
