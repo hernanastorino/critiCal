@@ -489,7 +489,7 @@ function MinutesNote({ problem, id }: { problem: Problem; id: string }) {
  * untouched field never turns a computed time into a manual one. Emptied, it forgets the
  * value when the row has `onClear`; past a day it says where the limit is.
  */
-function MinutesInput({
+export function MinutesInput({
   label,
   value,
   onCommit,

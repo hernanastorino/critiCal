@@ -288,6 +288,24 @@ export function pruebasData(now: number): AppData {
         aliases: ["Fiesta 2026", "Mariano Uriarte 6134 11500 Montevideo Montevideo Uruguay"],
       },
     ],
+    // The demo has no server to work the minutes out: the ones of the trips it uses are here.
+    // The Facultad is a walk from home: the demo's classes and its Gym window leave no room for more.
+    travelTimes: [
+      ["casa", "fran", 15],
+      ["fran", "casa", 15],
+      ["casa", "fing", 0],
+      ["fing", "casa", 0],
+      ["casa", "cerro", 40],
+      ["cerro", "casa", 40],
+      ["casa", "abuela", 25],
+      ["abuela", "casa", 25],
+      ["cerro", "abuela", 30],
+    ].map(([from, to, minutes]) => ({
+      from: String(from),
+      to: String(to),
+      minutes: Number(minutes),
+      manual: false,
+    })),
     spots: [{ key: "atlantida 1213 bis", text: "Atlántida 1213 Bis", minutes: 55 }],
     mealRuns: runs,
     mealsFrozenThrough: addDays(today, -1),
