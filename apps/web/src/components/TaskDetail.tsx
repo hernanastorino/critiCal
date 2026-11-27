@@ -1,10 +1,18 @@
 import { useRef, useState } from "react";
 import { dropEditorDraftOf } from "../drafts.js";
+import { localParts } from "../engine.js";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import { routineWeekText } from "../friendly.js";
-import type { AppTask } from "../model.js";
+import type { AppData, AppTask, PlanVersion } from "../model.js";
 import { needOf } from "../need.js";
-import { checkInFactor, earliestStartOf, endOfWeek, focusWeekAt, progress } from "../planning.js";
+import {
+  checkInFactor,
+  earliestStartOf,
+  endOfWeek,
+  focusWeekAt,
+  progress,
+  wakingDay,
+} from "../planning.js";
 import {
   GONE_KEYS,
   type RecurrenceChange,
@@ -24,8 +32,11 @@ import { useToast } from "./Toast.js";
 /** Each topic becomes a unit, so a typo like 1e9 must not allocate a billion. */
 export const MAX_TOPICS = 500;
 
-/** The most minutes one record can hold: a whole day. */
-const MAX_LOG_MINUTES = 1440;
+/** The most minutes one record can hold: the hours awake in a day (a day has no more study). */
+export function maxLogMinutes(data: AppData, now: number): number {
+  const day = wakingDay(data, now, localParts(data.settings.timezone, now).date);
+  return Math.min(1440, day.bed - day.wake);
+}
 
 /** What is wrong with the minutes typed in the log, if anything (empty is fine: 0). */
 /** What the notice says once progress is saved. */
@@ -50,7 +61,7 @@ function nothingToLog(task: AppTask, off: boolean, weeklyLeft: number | undefine
   return task.kind === "habit" && (off || weeklyLeft === 0);
 }
 
-export function minutesError(text: string, max = MAX_LOG_MINUTES): string | null {
+export function minutesError(text: string, max = 1440): string | null {
   if (text.trim() === "") return null;
   const ok = isFigure(text) && Number(text.replace(",", ".")) <= max;
   if (!ok) return `Poné minutos de 0 a ${max}, solo cifras.`;
@@ -246,7 +257,8 @@ export function TaskDetail({
   const askClose = () => (pending ? setDiscarding(true) : onClose());
   const justOpened = useModal(sheet, askClose);
   const closed = nothingToLog(live, !!offState, weeklyLeft);
-  const badMinutes = minutesError(minutes, weeklyLeft ?? MAX_LOG_MINUTES);
+  const dayMax = maxLogMinutes(data, now);
+  const badMinutes = minutesError(minutes, Math.min(weeklyLeft ?? dayMax, dayMax));
   const badTopics = topicsError(topics, task.estimateMinutes);
   const badDone = topicsDoneError(topicsDone, topics, task.estimateMinutes);
   const invalid = !!(badMinutes || badTopics || badDone);
@@ -391,16 +403,27 @@ export function TaskDetail({
                   setEmptyAt(form);
                   return;
                 }
-                dispatch({
-                  type: "logProgress",
-                  taskId: task.id,
-                  minutes: logged,
-                  unitIds: units,
-                  reopenUnitIds: reopen,
-                  topics: total || undefined,
-                  topicsDone: Number(topicsDone) || 0,
+                // «Deshacer» (the notice and the header's ↶) takes back this very version.
+                let made: PlanVersion | undefined;
+                dispatch(
+                  {
+                    type: "logProgress",
+                    taskId: task.id,
+                    minutes: logged,
+                    unitIds: units,
+                    reopenUnitIds: reopen,
+                    topics: total || undefined,
+                    topicsDone: Number(topicsDone) || 0,
+                  },
+                  (after) => {
+                    made = after.planHistory?.at(-1);
+                  },
+                );
+                toast.show(savedText(logged, task.title), {
+                  undo: () => {
+                    if (made) dispatch({ type: "undoPlan", only: made });
+                  },
                 });
-                toast.show(savedText(logged, task.title));
                 onClose();
               }}
             >

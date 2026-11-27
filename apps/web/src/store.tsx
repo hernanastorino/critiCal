@@ -2097,6 +2097,7 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
   }
   if (action.type === "recurrence" && ENDS.has(action.change)) return silo(data, action, next);
   if (action.type === "checkIn") return answered(data, action, next);
+  if (action.type === "logProgress") return logged(data, action, next);
   const label = VERSIONED[action.type];
   if (!label) return next;
   // A replan that changed nothing has nothing to undo.
@@ -2117,6 +2118,25 @@ function answered(data: AppData, action: Extract<Action, { type: "checkIn" }>, n
   const label = made && answerLabel(made.status);
   if (!made || !label) return next;
   return pushVersion(data, next, { ...planVersion(data, action.now, label), checkIn: made.id });
+}
+
+/** Progress logged on a silo leaves its own «Deshacer»: its records and parts go back as they were. */
+function logged(data: AppData, action: Extract<Action, { type: "logProgress" }>, next: AppData) {
+  const task = data.tasks.find((t) => t.id === action.taskId);
+  const now = next.tasks.find((t) => t.id === action.taskId);
+  if (!task || !now) return next;
+  const mine = (d: AppData) => d.checkIns.filter((c) => c.taskId === task.id);
+  const snap: Snapshot = {
+    tasks: [task],
+    keys: { checkIns: mine(data) },
+    after: { tasks: [now], keys: { checkIns: mine(next) } },
+  };
+  // Nothing was written (the silo or its parts did not change): nothing to take back.
+  if (same(snap.keys, snap.after?.keys) && same(task.units, now.units)) return next;
+  return pushVersion(data, next, {
+    ...planVersion(data, action.now, "registrar avance"),
+    logged: { taskId: task.id, snap },
+  });
 }
 
 /** Whether an undo version keeps the address `key` in its saved spots. */
@@ -2202,26 +2222,31 @@ function undoPlan(start: AppData, only: PlanVersion | undefined, now: number): A
       ? apply(start, { type: "undoCheckIn", id: v.checkIn, now })
       : start;
   const back = v.saved ? putSavedBack(restored, v.saved) : restored;
-  const data = v.gone ? restoreSnapshot(back, v.gone.snap, now) : back;
+  const snap = v.gone?.snap ?? v.logged?.snap;
+  const data = snap ? restoreSnapshot(back, snap, now) : back;
   // What already started stays; today's blocks ahead and the inputs come back.
   const kept = data.plan.filter((b) => b.start <= now);
   // A task deleted since then does not come back with its blocks.
   // Nor does one that is closed, dropped or past its deadline.
   const live = new Set(data.tasks.filter((t) => isPlannable(t, now)).map((t) => t.id));
+  // The wake-up goes back with the day: what it closed as «dormías» is open again.
   return refresh(
-    {
-      ...data,
-      plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
-      pins: v.pins.filter((b) => live.has(b.taskId)),
-      overrides: v.overrides,
-      proposals: v.proposals,
-      // Versions from before meals were kept do not say: the choices stay as they are.
-      ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
-      freeTimeUntil: v.freeTimeUntil,
-      relaxContextUntil: v.relaxContextUntil,
-      tentativeHoldUntil: v.tentativeHoldUntil,
-      planHistory: history.slice(0, -1),
-    },
+    settleSlept(
+      {
+        ...data,
+        plan: [...kept, ...v.today.filter((b) => b.start > now && live.has(b.taskId))],
+        pins: v.pins.filter((b) => live.has(b.taskId)),
+        overrides: v.overrides,
+        proposals: v.proposals,
+        // Versions from before meals were kept do not say: the choices stay as they are.
+        ...(v.mealChoices ? { mealChoices: v.mealChoices } : {}),
+        freeTimeUntil: v.freeTimeUntil,
+        relaxContextUntil: v.relaxContextUntil,
+        tentativeHoldUntil: v.tentativeHoldUntil,
+        planHistory: history.slice(0, -1),
+      },
+      now,
+    ),
     now,
   );
 }
