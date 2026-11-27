@@ -145,7 +145,7 @@ describe("El historial sembrado de la demo", () => {
 describe("Falla 2: cada acción deja una entrada y ↶ la deshace sola", () => {
   const task = (d: AppData, id: string): AppTask => must(d.tasks.find((t) => t.id === id));
   /** Every action of the person that changes data: its label and how to make it. */
-  const ACTIONS: [label: string, make: (d: AppData) => Action][] = [
+  const ACTIONS: [label: string, make: (...args: [AppData]) => Action][] = [
     [
       "registrar avance",
       () => ({ type: "logProgress", taskId: "entrega-sd", minutes: 60, now: NOW }),
