@@ -14,6 +14,7 @@ test("Bandeja: avisa cuando una rutina no entra entera en la semana y deja edita
   const tarjeta = page.locator(".card").filter({ hasText: /Gym: esta semana entra 1 de 3/ });
   await expect(tarjeta).toBeVisible();
   await tarjeta.getByRole("button", { name: "Editar rutina" }).click();
-  await expect(sheet(page)).toHaveAccessibleName("Materias");
-  await expect(sheet(page).getByLabel("Nombre de la materia")).toHaveValue("Gym");
+  // Ajustes › Rutinas, con la hoja de esa rutina abierta.
+  await expect(sheet(page)).toHaveAccessibleName("Gym");
+  await expect(sheet(page).getByRole("button", { name: "Editar", exact: true })).toBeVisible();
 });
