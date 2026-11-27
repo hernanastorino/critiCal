@@ -136,8 +136,8 @@ export function pruebasData(now: number): AppData {
       kind: "deliverable",
       deadline: at(addDays(today, 3), "23:59"),
       startAfter: { date: addDays(today, 3) },
-      estimateMinutes: 600,
-      minMinutes: 540,
+      estimateMinutes: 540,
+      minMinutes: 480,
       priority: 3,
       status: "active",
       units: [],
@@ -289,12 +289,11 @@ export function pruebasData(now: number): AppData {
       },
     ],
     // The demo has no server to work the minutes out: the ones of the trips it uses are here.
-    // The Facultad is a walk from home: the demo's classes and its Gym window leave no room for more.
     travelTimes: [
       ["casa", "fran", 15],
       ["fran", "casa", 15],
-      ["casa", "fing", 0],
-      ["fing", "casa", 0],
+      ["casa", "fing", 10],
+      ["fing", "casa", 10],
       ["casa", "cerro", 40],
       ["cerro", "casa", 40],
       ["casa", "abuela", 25],

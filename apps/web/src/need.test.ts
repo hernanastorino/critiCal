@@ -30,7 +30,7 @@ describe("needOf", () => {
       expect(need?.left).toBe(p.remainingMinutes);
       expect(need?.minimum).toBeLessThanOrEqual(need?.left ?? 0);
     }
-    expect(needOf(data, NOW, REPORT)).toEqual({ left: 600, minimum: 540 });
+    expect(needOf(data, NOW, REPORT)).toEqual({ left: 540, minimum: 480 });
     expect(needOf(data, NOW, "no-such-task")).toBeUndefined();
   }, 30_000);
 });
@@ -78,6 +78,6 @@ describe("the options of «No llegás a todo»", () => {
     expect(real.result.feasible).toBe(true);
     expect(real.plan.filter((b) => b.end > NOW && b.level === "critical")).toEqual([]);
     // Ficha and plan agree: what it asked is what it has.
-    expect(needOf(after, NOW, REPORT)?.minimum).toBe(270);
+    expect(needOf(after, NOW, REPORT)?.minimum).toBe(240);
   }, 30_000);
 });
