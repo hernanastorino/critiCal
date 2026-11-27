@@ -338,17 +338,17 @@ describe("7. Números enteros", () => {
     expect(latest?.activities.length).toBe(before);
   });
 
-  it.each([
-    ["Descanso (min, 0 = sin)", "5.5"],
-    ["Sesión máxima (min)", "60,5"],
-  ])("Materia: %s with decimals is an error", (label, value) => {
-    inside(<ActivitySettings />);
-    const name = (latest as AppData).activities[0]?.name as string;
-    fireEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
-    set(label, value);
-    expect(alerts().join(" ")).toMatch(/solo números enteros/);
-    expect(screen.getByLabelText(label).getAttribute("aria-invalid")).toBe("true");
-  });
+  it.each([["Sesión máxima (min)", "60,5"]])(
+    "Materia: %s with decimals is an error",
+    (label, value) => {
+      inside(<ActivitySettings />);
+      const name = (latest as AppData).activities[0]?.name as string;
+      fireEvent.click(screen.getByRole("button", { name: new RegExp(name) }));
+      set(label, value);
+      expect(alerts().join(" ")).toMatch(/solo números enteros/);
+      expect(screen.getByLabelText(label).getAttribute("aria-invalid")).toBe("true");
+    },
+  );
 });
 
 describe("10. Bandeja: después de «Deshacer»", () => {

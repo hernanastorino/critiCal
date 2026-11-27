@@ -158,12 +158,6 @@ describe("formulario de una materia", () => {
   it.each([
     ["Sesión máxima (min)", ["0", "-5", "9999", "abc"], /sesión máxima va de 30 a 480/],
     ["Bloque mínimo (min)", ["0", "-5", "9999", "abc"], /bloque mínimo va de 30 a 480/],
-    [
-      "Estudio antes del descanso (min)",
-      ["0", "999", "x"],
-      /estudio antes del descanso va de 5 a 240/,
-    ],
-    ["Descanso (min, 0 = sin)", ["-1", "500", "x"], /descanso va de 0 a 120/],
   ])("%s: out of range is said, not fixed", (label, values, message) => {
     const name = openFirst();
     const before = JSON.stringify(latest?.activities[0]);

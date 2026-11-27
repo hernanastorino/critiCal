@@ -32,7 +32,6 @@ import {
   mealOutOfOrder,
   mealOverPin,
   mealTimes,
-  onFixedOrTrip,
   pinId,
   progress,
   sleptBlockIds,
@@ -127,8 +126,6 @@ const mealKey = (m: MealTime) => `meal:${m.date}:${m.kind ?? m.preferred.start}`
 const DAY_MS = 86_400_000;
 /** Said when a meal is moved before the previous one or after the next: it goes back. */
 export const MEAL_ORDER_SAID = "Va antes o después de otra comida: la comida vuelve a su lugar";
-/** Said when a meal is dropped on an event or a trip: it goes back where it was. */
-export const MEAL_BLOCKED = "Ahí hay un evento o un traslado: la comida vuelve a su lugar";
 
 /** Hold this long on a block to start dragging it outside edit mode. */
 const LONG_PRESS_MS = 400;
@@ -756,12 +753,6 @@ export function Week({
   const landingFor = (d: Drag, x: number, y: number) =>
     d.meal ? mealLanding(d.meal, x, y, d.grab) : landing(x, y - d.grab, d.minutes, d.id);
 
-  /** Whether a meal of `length` minutes at `minute` of `date` would sit on something fixed or a trip. */
-  const mealBlocked = (date: string, minute: number, length: number) => {
-    const start = zonedInstant(tz, date, minute);
-    return onFixedOrTrip(data, { start, end: start + length * MINUTE });
-  };
-
   /** Moves a meal to where it lands, that day only; its id when it moved. */
   const dropMeal = (m: MealBubble["meal"], d: Drag, x: number, y: number) => {
     if (!m.kind) return null;
@@ -776,10 +767,6 @@ export function Week({
     const length = (m.at.end - m.at.start) / MINUTE;
     if (mealOutOfOrder(data, now, m.date, m.kind, target.minute, length)) {
       refuse(MEAL_ORDER_SAID);
-      return null;
-    }
-    if (mealBlocked(target.date, target.minute, length)) {
-      refuse(MEAL_BLOCKED);
       return null;
     }
     dispatch({ type: "mealChoice", date: m.date, kind: m.kind, start: target.minute });
@@ -1237,7 +1224,6 @@ export function Week({
                               if (minute < earliest || minute > latest) return;
                               if (mealOutOfOrder(data, now, m.date, m.kind, minute, length))
                                 return refuse(MEAL_ORDER_SAID);
-                              if (mealBlocked(m.date, minute, length)) return refuse(MEAL_BLOCKED);
                               dispatch({
                                 type: "mealChoice",
                                 date: m.date,
@@ -1950,11 +1936,6 @@ function MealCard({
                 }
                 if (mealOutOfOrder(data, now, meal.date, kind, start, length)) {
                   setMoveError(MEAL_ORDER_SAID);
-                  return;
-                }
-                const from = zonedInstant(tz, meal.date, start);
-                if (onFixedOrTrip(data, { start: from, end: from + length * MINUTE })) {
-                  setMoveError(MEAL_BLOCKED);
                   return;
                 }
                 choose({ start }, `${name} a las ${at}, solo ese día`);

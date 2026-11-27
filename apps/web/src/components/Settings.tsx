@@ -86,7 +86,7 @@ const KEYWORDS: Record<PageId, string> = {
   semester: "cuatrimestre semestre fechas empieza termina feriados domingo clases parcial examen",
   syllabus: "programa pdf ia gemini temas unidades evaluaciones horas de preparacion",
   week: "semana dias levanto me acuesto dormir desayuno almuerzo cena comida arreglarse estudio horario",
-  subjects: "materias color alias sesion descanso bloque minimo estudio semanal horas",
+  subjects: "materias color alias sesion bloque minimo estudio semanal horas",
   routines: "rutinas gimnasio habito veces por semana minutos",
   rules: "reglas maximo materias por dia margen evento aviso",
   detected: "horas detectado parcial entrega presentacion defensa examen minimo",

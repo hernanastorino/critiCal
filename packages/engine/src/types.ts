@@ -126,9 +126,9 @@ export interface Activity {
   startAfter?: StartAfter;
   /** Other names a materia goes by in events, normalized ("add"). */
   aliases?: string[];
-  /** Study minutes before each break (the app's default for materias: 50). */
+  /** Legacy (no UI, no calculation): kept so old backups and rows still load. */
   studyMinutes?: number;
-  /** Rest after each study stretch, inside the block's time (default for materias: 10). */
+  /** Legacy (no UI, no calculation): kept so old backups and rows still load. */
   breakMinutes?: number;
 }
 
