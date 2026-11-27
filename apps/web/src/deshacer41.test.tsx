@@ -217,10 +217,10 @@ describe("la Bandeja deja una sola entrada con su rótulo", () => {
     });
   };
 
-  it("«Usar» sin guardar lugar: «usar 20 min para Reunión»", async () => {
+  it("«Usar» sin guardar lugar: «usar 20 min para Reunión»", () => {
     open();
     typeMinutes();
-    await act(() => {
+    act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Usar" }));
     });
     expect(stack(must(latest)).map((v) => v.label)).toEqual(["usar 20 min para Reunión"]);
