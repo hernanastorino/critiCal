@@ -366,7 +366,7 @@ export function TaskDetail({
           <button type="button" className="btn" onClick={onEdit}>
             Editar
           </button>
-          {task.kind !== "habit" && !task.study && (
+          {(task.kind !== "habit" || task.study) && (
             <button type="button" className="btn" onClick={() => setSharing(true)}>
               Repartir tiempo
             </button>

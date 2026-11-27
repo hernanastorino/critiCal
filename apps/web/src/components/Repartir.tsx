@@ -423,7 +423,7 @@ export function Repartir({
             </div>
           )}
         </div>
-        {hasRows && (
+        {(hasRows || task.kind !== "habit") && (
           <ul className="rep-list">
             {s.rows.map(renderRow)}
             <li className="rep-add">
@@ -478,6 +478,23 @@ export function Repartir({
 }
 
 /**
+ * A weekly study silo has only its total: it is kept as whole sessions of the length it
+ * already has (the week asks sessions × minutes).
+ */
+function weekly(task: AppTask, next: AppTask): AppTask {
+  const session = task.sessionMinutes ?? 0;
+  if (task.kind !== "habit" || session <= 0) return next;
+  const sessions = Math.max(1, Math.round(next.estimateMinutes / session));
+  const total = sessions * session;
+  return {
+    ...next,
+    sessionsPerWeek: sessions,
+    estimateMinutes: total,
+    minMinutes: Math.min(next.minMinutes, total),
+  };
+}
+
+/**
  * «Repartir tiempo» on a task of the app: «Aceptar» saves it in one step, which leaves one
  * entry in the ↶ («repartir X»), and says so with a notice that undoes it.
  */
@@ -485,6 +502,7 @@ export function RepartirTask({
   task,
   initial,
   message,
+  optionId,
   onClose,
   onDone,
   onUndone,
@@ -493,6 +511,8 @@ export function RepartirTask({
   initial?: Prefill;
   /** What the notice says (it always offers «Deshacer»). */
   message?: string;
+  /** An option of the Bandeja: accepted as that decision (it keeps its «Decisión que tomaste»). */
+  optionId?: string;
   onClose: () => void;
   onDone?: () => void;
   /** Called when the notice's «Deshacer» took it back (where focus should go). */
@@ -507,11 +527,13 @@ export function RepartirTask({
       onAccept={(next) => {
         answer(
           message ?? `Repartiste ${clipName(task.title)}`,
-          {
-            type: "batch",
-            label: `repartir ${clipName(task.title, 24)}`,
-            actions: [{ type: "saveTask", task: next }],
-          },
+          optionId
+            ? { type: "applyOption", optionId, task: next }
+            : {
+                type: "batch",
+                label: `repartir ${clipName(task.title, 24)}`,
+                actions: [{ type: "saveTask", task: weekly(task, next) }],
+              },
           [...PLAN_KEYS],
           { tasks: [task], key: "repartir", ...(message ? { roy: "festejo" as const } : {}) },
         );

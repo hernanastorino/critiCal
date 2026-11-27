@@ -142,7 +142,7 @@ export type Action =
   | { type: "batch"; label: string; actions: DistributiveOmit<Action, "now">[]; now: number }
   | { type: "acceptProposal"; id: string; now: number }
   | { type: "rejectProposal"; id: string; now: number }
-  | { type: "applyOption"; optionId: string; now: number }
+  | { type: "applyOption"; optionId: string; now: number; task?: AppTask }
   | { type: "relaxContext"; until: number; now: number }
   | { type: "calendarRole"; calendarId: string; role: CalendarRole; now: number }
   | { type: "review"; taskId: string; keep: boolean; now: number }
@@ -839,7 +839,12 @@ function apply(data: AppData, action: Action): AppData {
         (o) => o.id === action.optionId,
       );
       if (!option) return data;
-      const next = applyOption(data, r.input, option, now);
+      const applied = applyOption(data, r.input, option, now);
+      // «Repartir tiempo» hands over the task as the person left it: the decision is the same.
+      const given = action.task;
+      const next = given
+        ? { ...applied, tasks: applied.tasks.map((t) => (t.id === given.id ? given : t)) }
+        : applied;
       const previousMove =
         option.kind === "move-event"
           ? data.movedEvents?.find((m) => m.eventId === option.eventId)

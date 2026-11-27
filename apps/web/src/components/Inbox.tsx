@@ -137,7 +137,11 @@ export function Inbox({
   const tz = data.settings.timezone;
   const [open, setOpen] = useState<PlanBlock | null>(null);
   // «Repartir tiempo» with what an option would leave, to adjust before accepting.
-  const [splitting, setSplitting] = useState<{ task: AppTask; initial: AppTask } | null>(null);
+  const [splitting, setSplitting] = useState<{
+    task: AppTask;
+    initial: AppTask;
+    optionId: string;
+  } | null>(null);
   const split = (o: PlanOption) => {
     const task = data.tasks.find((t) => t.id === o.taskId);
     if (!task) return false;
@@ -145,7 +149,7 @@ export function Inbox({
       (t) => t.id === task.id,
     );
     if (!after) return false;
-    setSplitting({ task, initial: after });
+    setSplitting({ task, initial: after, optionId: o.id });
     return true;
   };
   const [editing, setEditing] = useState<AppTask | null>(() => {
@@ -851,6 +855,7 @@ export function Inbox({
         <RepartirTask
           task={splitting.task}
           initial={splitting.initial}
+          optionId={splitting.optionId}
           message={REPLANNED_TOAST}
           onDone={() => {
             chose.current = true;

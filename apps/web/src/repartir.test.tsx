@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { App } from "./App.js";
 import { RepartirTask } from "./components/Repartir.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
@@ -141,5 +142,49 @@ describe("hoja «Repartir tiempo»", () => {
     }
     expect(document.querySelector(".rep-top")).not.toBeNull();
     expect(document.querySelector(".rep-list")).not.toBeNull();
+  });
+});
+
+describe("opciones de la Bandeja aceptadas por la hoja", () => {
+  const tight = (now: number): AppData => {
+    const d = demoData(now);
+    return {
+      ...d,
+      tasks: d.tasks.map((t) =>
+        t.id === "parcial-calc" ? { ...t, minMinutes: 3000, estimateMinutes: 3000, units: [] } : t,
+      ),
+    };
+  };
+  const T = Date.UTC(2026, 10, 2, 20);
+
+  it("siguen siendo una «Decisión que tomaste»: no se ofrece de nuevo y ↶ la devuelve", () => {
+    localStorage.setItem("critical.mode", "demo");
+    render(<App fixedNow={T} initial={tight} />);
+    fireEvent.click(screen.getByRole("button", { name: /Bandeja/ }));
+    const names = () =>
+      screen
+        .queryAllByRole("button", { name: /^Elegir:/ })
+        .map((b) => b.getAttribute("aria-label"));
+    const first = names().find((n) => /Bajar el mínimo/.test(n ?? ""));
+    expect(first).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: first as string }));
+    expect(screen.getByRole("dialog", { name: "Repartir tiempo" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Aceptar reparto" }));
+    expect(screen.getByText("Decisiones que tomaste")).toBeTruthy();
+    expect(names()).not.toContain(first);
+    fireEvent.click(screen.getByRole("button", { name: /^Deshacer: Bajar el mínimo/ }));
+    expect(names()).toContain(first);
+  });
+});
+
+describe("tareas sin temas", () => {
+  it("se ofrece «+ Tema» y con el primero empieza el reparto", () => {
+    start();
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Derivadas" }));
+    fireEvent.click(screen.getByRole("button", { name: "Quitar Integrales" }));
+    expect(document.querySelector(".rep-rest")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "+ Tema" }));
+    expect(document.querySelector(".rep-rest.red")).not.toBeNull();
+    expect((accept() as HTMLButtonElement).disabled).toBe(true);
   });
 });
