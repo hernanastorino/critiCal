@@ -590,25 +590,31 @@ it("migrates a demo saved before the study mark, once", () => {
   expect(localStorage.getItem("critical.demo.v2")).toBeNull();
 });
 
-it("edits a materia's study and break minutes", async () => {
+it("la materia no muestra estudio / descanso y guardar conserva lo viejo", async () => {
   render(
-    <StoreProvider initial={() => data()} persist={false} fixedNow={NOW}>
+    <StoreProvider
+      initial={() => {
+        const d = data();
+        return {
+          ...d,
+          activities: d.activities.map((a, i) =>
+            i === 0 ? { ...a, studyMinutes: 25, breakMinutes: 5 } : a,
+          ),
+        };
+      }}
+      persist={false}
+      fixedNow={NOW}
+    >
       <ActivitySettings />
       <Probe />
     </StoreProvider>,
   );
   fireEvent.click(screen.getByRole("button", { name: /Análisis y Diseño/ }));
-  expect((screen.getByLabelText(/Estudio antes del descanso/) as HTMLInputElement).value).toBe(
-    "50",
-  );
-  expect((screen.getByLabelText(/Descanso \(min/) as HTMLInputElement).value).toBe("10");
-  fireEvent.change(screen.getByLabelText(/Estudio antes del descanso/), {
-    target: { value: "25" },
-  });
-  fireEvent.change(screen.getByLabelText(/Descanso \(min/), { target: { value: "5" } });
+  expect(screen.queryByLabelText(/Estudio antes del descanso/)).toBeNull();
+  expect(screen.queryByLabelText(/Descanso \(min/)).toBeNull();
+  fireEvent.change(screen.getByLabelText(/Bloque mínimo/), { target: { value: "45" } });
   await act(async () => {
     fireEvent.click(screen.getByRole("button", { name: /Guardar Análisis y Diseño/ }));
   });
   expect(screen.getByTestId("subjects").textContent).toContain('"studyMinutes":25');
-  expect(screen.getByTestId("subjects").textContent).toContain('"breakMinutes":5');
 });

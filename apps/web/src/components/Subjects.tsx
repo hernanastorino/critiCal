@@ -4,7 +4,6 @@ import type { Activity } from "../engine.js";
 import { clipName, minutesToHhmm, parseClock } from "../format.js";
 import { isBlank, NAME_MAX, stripInvisible } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
-import { DEFAULT_BREAK_MINUTES, DEFAULT_STUDY_MINUTES } from "../planning.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
 import { sameName, studyOf, subjectsOf } from "../subjects.js";
 import {
@@ -27,8 +26,6 @@ import { UNDO_MS, useToast } from "./Toast.js";
 interface ActivityForm {
   name: string;
   academic: boolean;
-  study: string;
-  rest: string;
   from: string;
   to: string;
 }
@@ -42,12 +39,10 @@ function minutesProblem(v: string, lo: number, hi: number, what: string): string
 }
 
 /** What is wrong with each number of the materia form (nothing is fixed behind the back). */
-function numberProblems(form: { max: string; min: string; study: string; rest: string }) {
+function numberProblems(form: { max: string; min: string }) {
   return {
     max: minutesProblem(form.max, 30, 480, "La sesión máxima"),
     min: minutesProblem(form.min, 30, 480, "El bloque mínimo"),
-    study: minutesProblem(form.study, 5, 240, "El estudio antes del descanso"),
-    rest: minutesProblem(form.rest, 0, 120, "El descanso"),
   };
 }
 
@@ -64,9 +59,6 @@ function savedActivity(
     academic: form.academic,
     maxSessionMinutes: maxSession,
     minBlockMinutes: minBlock,
-    // Breaks live inside the block: a 50 + 10 hour plans 50 minutes of study.
-    studyMinutes: clampMinutes(form.study, 5, 240) ?? activity.studyMinutes,
-    breakMinutes: clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes,
     preferred:
       form.from.trim() && form.to.trim()
         ? { start: parseClock(form.from) ?? 0, end: windowEnd(form.from, form.to) ?? 0 }
@@ -76,10 +68,9 @@ function savedActivity(
 
 /**
  * The form as it reads after saving: what was really stored (20 and 25 minutes become
- * 30 and 30, 999 of study 240).
+ * 30 and 30).
  */
 function savedForm<F extends ActivityForm>(
-  activity: Activity,
   form: F,
   maxSession: number,
   minBlock: number,
@@ -93,8 +84,6 @@ function savedForm<F extends ActivityForm>(
         : form.to,
     max: String(maxSession),
     min: String(minBlock),
-    study: String(clampMinutes(form.study, 5, 240) ?? activity.studyMinutes ?? form.study),
-    rest: String(clampMinutes(form.rest, 0, 120) ?? activity.breakMinutes ?? form.rest),
   };
 }
 
@@ -273,8 +262,6 @@ function ActivityRow({
     min: String(activity.minBlockMinutes),
     from: activity.preferred ? minutesToHhmm(activity.preferred.start) : "",
     to: activity.preferred ? minutesToHhmm(activity.preferred.end) : "",
-    study: String(activity.studyMinutes ?? DEFAULT_STUDY_MINUTES),
-    rest: String(activity.breakMinutes ?? (activity.academic ? DEFAULT_BREAK_MINUTES : 0)),
   }));
   const taken = new Set(
     data.activities.filter((a) => a.id !== activity.id).map((a) => a.color.toLowerCase()),
@@ -306,7 +293,7 @@ function ActivityRow({
       : null;
   const windowProblem = windowError(form.from, form.to);
   const nameProblem = nameError(form.name, repeated);
-  const numberProblem = numbers.max ?? numbers.min ?? numbers.study ?? numbers.rest;
+  const numberProblem = numbers.max ?? numbers.min;
   const problem = nameProblem ?? numberProblem ?? blockProblem ?? windowProblem?.message;
   const saved = activity.name;
   // A long name would wrap the button onto two lines.
@@ -379,20 +366,6 @@ function ActivityRow({
               onChange={(e) => setForm({ ...form, min: e.target.value })}
             />
             <Field
-              label="Estudio antes del descanso (min)"
-              invalid={!!numbers.study}
-              errorId={`${key}-study-error`}
-              value={form.study}
-              onChange={(e) => setForm({ ...form, study: e.target.value })}
-            />
-            <Field
-              label="Descanso (min, 0 = sin)"
-              invalid={!!numbers.rest}
-              errorId={`${key}-rest-error`}
-              value={form.rest}
-              onChange={(e) => setForm({ ...form, rest: e.target.value })}
-            />
-            <Field
               label="Prefiero desde"
               type="time"
               invalid={!!windowProblem?.from}
@@ -412,8 +385,6 @@ function ActivityRow({
           <ProblemSlot>
             <Problem id={`${key}-max-error`} text={numbers.max} />
             <Problem id={`${key}-min-error`} text={numbers.min} />
-            <Problem id={`${key}-study-error`} text={numbers.study} />
-            <Problem id={`${key}-rest-error`} text={numbers.rest} />
             <Problem id={`${key}-block-error`} text={blockProblem} />
             <Problem id={`${key}-window-error`} text={windowProblem?.message ?? null} />
           </ProblemSlot>
@@ -493,7 +464,7 @@ function ActivityRow({
               // Reopened, it shows what was saved.
               startSaved(startAfter ?? undefined);
               weeklySaved(weekly);
-              formSaved(savedForm(activity, form, maxSession, minBlock));
+              formSaved(savedForm(form, maxSession, minBlock));
               setOpen(false);
             }}
           >
