@@ -39,14 +39,12 @@ describe("needOf", () => {
 });
 
 describe("shortfall", () => {
-  it("counts the lack in study minutes, not in block minutes", () => {
-    const { data, r } = plan();
+  it("counts the lack in the minutes of block time, break included", () => {
+    const { r } = plan();
     const block = r.result.status.find((s) => s.taskId === REPORT)?.minDeficit ?? 0;
     expect(block).toBeGreaterThan(0);
-    const lack = shortfall(data, r.result).get(REPORT) ?? 0;
-    // 50 study + 10 break: 1.2 block minutes for each study minute.
-    expect(lack).toBe(Math.ceil(block / 1.2));
-    expect(lack).toBeLessThan(block);
+    const lack = shortfall(r.result).get(REPORT) ?? 0;
+    expect(lack).toBe(Math.ceil(block));
   }, 30_000);
 });
 
@@ -77,7 +75,7 @@ describe("the options of «No llegás a todo»", () => {
     const after = applyOption(data, r.input, smaller, NOW);
     const real = refreshPlan(after, NOW);
     expect(real.result.feasible).toBe(smaller.result.feasible);
-    expect([...shortfall(after, real.result)]).toEqual([...shortfall(after, smaller.result)]);
+    expect([...shortfall(real.result)]).toEqual([...shortfall(smaller.result)]);
     expect(real.result.feasible).toBe(true);
     expect(real.plan.filter((b) => b.end > NOW && b.level === "critical")).toEqual([]);
     // Ficha and plan agree: what it asked is what it has.

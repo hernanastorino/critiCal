@@ -8,6 +8,7 @@ import { time, weekdayShort } from "./format.js";
 import type { AppData } from "./model.js";
 import { isPinned, pinClashes, pinShortfall, refreshPlan } from "./planning.js";
 import { reducer } from "./store.js";
+import { withBreaksOnTop } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -776,7 +777,7 @@ describe("edit mode", () => {
 
     it("ignores the click that ends a drag even when it arrives late", () => {
       vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout", "Date"] });
-      render(<App fixedNow={NOW} initial={demoData} />);
+      render(<App fixedNow={NOW} initial={(n) => withBreaksOnTop(demoData(n))} />);
       const pill = future();
       fireEvent.pointerDown(pill, { clientX: 10, clientY: 110, pointerId: 8 });
       act(() => {

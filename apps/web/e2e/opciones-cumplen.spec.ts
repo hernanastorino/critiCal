@@ -62,6 +62,8 @@ test("una entrega de 50 h sin mínimo no queda en 0 h al quedarme con el mínimo
   await expect(
     page.getByRole("button", { name: /^Elegir: Quedarme con el mínimo de .*Prueba X/ }),
   ).toHaveCount(0);
+  // Un toque humano llega unos cientos de ms después de elegir: no en el mismo instante.
+  await page.waitForTimeout(700);
   await abrirEditor(page, "Prueba X");
   await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("50");
 });

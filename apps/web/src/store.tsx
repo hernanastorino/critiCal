@@ -68,7 +68,6 @@ import {
 } from "./places.js";
 import {
   applyOption,
-  checkInFactor,
   type Decisions,
   decisions,
   endOfDay,
@@ -711,7 +710,6 @@ function apply(data: AppData, action: Action): AppData {
         ...action.checkIn,
         id,
         createdAt: stampAfter(data, action.checkIn.blockId, now),
-        factor: checkInFactor(data, action.checkIn.taskId),
       };
       return refresh(withRecord(data, checkIn), now);
     }
@@ -1075,7 +1073,6 @@ function apply(data: AppData, action: Action): AppData {
                 minutesDone: Math.max(0, Math.round(action.minutes)),
                 unitIds: newlyDone,
                 createdAt: now,
-                factor: checkInFactor(data, task.id),
               },
             ]
           : next.checkIns;
@@ -1807,7 +1804,6 @@ export function seedHistory(data: AppData, now: number): AppData {
     minutesDone: (b.end - b.start) / 60_000,
     unitIds: [],
     createdAt: b.end,
-    factor: checkInFactor(caught, b.taskId),
   }));
   return { ...caught, checkIns };
 }

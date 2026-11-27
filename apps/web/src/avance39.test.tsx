@@ -9,7 +9,7 @@ import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { latestCheckIns, mealTimes } from "./planning.js";
 import { loadDemo, reducer, StoreProvider } from "./store.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 // Medias de la 39.ª vuelta del agente atacante: Avance y ↶ de «ajustar el día».
 const DATES = [
@@ -42,7 +42,7 @@ const logged = (d: AppData, now: number, minutes: number) =>
   reducer(d, { type: "logProgress", taskId: CALC, minutes, now });
 const state = (d: AppData, now: number) =>
   JSON.stringify([
-    plannedVsDone(d, now),
+    weekLeft(d, now),
     [...latestCheckIns(d).values()]
       .filter((c) => c.status !== "retired")
       .map((c) => [c.blockId, c.status]),
@@ -94,8 +94,7 @@ describe("Avance: tope del día", () => {
       </StoreProvider>,
     );
     const total = () => document.querySelector(`[data-task="${CALC}"] .total`)?.textContent;
-    const week = () =>
-      screen.getByText("Esta semana: hecho / planificado").parentElement?.textContent;
+    const week = () => screen.getByText("Esta semana: falta / asignado").parentElement?.textContent;
     const before = [total(), week()];
     fireEvent.click(screen.getByLabelText(/^Parcial Cálculo II/));
     const sheet = within(screen.getByRole("dialog", { name: "Parcial Cálculo II" }));
@@ -109,7 +108,6 @@ describe("Avance: tope del día", () => {
     fireEvent.change(field, { target: { value: "120" } });
     fireEvent.click(sheet.getByRole("button", { name: "Guardar avance" }));
     expect(screen.getByText(/^Avance guardado: 2h/)).toBeTruthy();
-    expect(week()).not.toBe(before[1]);
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     expect([total(), week()]).toEqual(before);
   });

@@ -15,7 +15,7 @@ const left = (data: ReturnType<typeof demoData>) => {
 describe("Guardar avance con partes", () => {
   it("marcar una parte sin minutos descuenta solo esa parte", () => {
     const data = demoData(NOW);
-    expect(left(data).remainingMinutes).toBe(600);
+    expect(left(data).remainingMinutes).toBe(720);
     const after = reducer(data, {
       type: "logProgress",
       taskId: "parcial-calc",
@@ -24,7 +24,7 @@ describe("Guardar avance con partes", () => {
       now: NOW,
     });
     const p = left(after);
-    expect(p.remainingMinutes).toBe(420);
+    expect(p.remainingMinutes).toBe(540);
     expect(p.minRemainingMinutes).toBeLessThanOrEqual(p.remainingMinutes);
   });
 

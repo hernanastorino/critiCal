@@ -101,10 +101,9 @@ describe("la hoja de un silo", () => {
     expect(screen.queryByLabelText("Temas en total")).toBeNull();
   });
 
-  it("explica por qué 240 min de bloque descuentan menos de estudio", () => {
+  it("no explica descuentos por descanso: un bloque cuenta lo que dura (SPEC §18.17)", () => {
     open(/^Parcial Cálculo II:/);
-    expect(document.body.textContent).toMatch(
-      /descansos: 4h de bloque descuentan ~3h20 de estudio/,
-    );
+    expect(document.body.textContent).not.toMatch(/descuentan/);
+    expect(document.body.textContent).not.toMatch(/de estudio/);
   });
 });

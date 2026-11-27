@@ -191,8 +191,11 @@ function startEarlierOptions(input: ScheduleInput, pending: Task[]): PlanOption[
 
 /** The latest start of a local day before `from` that fits everything, else now if it does. */
 function earlierStart(input: ScheduleInput, t: Task, from: number): number | undefined {
+  // A routine that fell behind may stay short (the plan forgives it): it is no reason to wait.
   const fits = (at: number) =>
-    schedule(withTask(input, t.id, (x) => ({ ...x, earliestStart: at }))).feasible;
+    schedule(withTask(input, t.id, (x) => ({ ...x, earliestStart: at }))).status.every(
+      (s) => s.minDeficit === 0 || input.tasks.some((x) => x.id === s.taskId && x.forgiving),
+    );
   const tz = input.settings.timezone;
   const fromDay = localParts(tz, from).date;
   // Latest day first: the first that fits is the least change (feasibility need not

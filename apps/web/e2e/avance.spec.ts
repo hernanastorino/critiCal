@@ -31,9 +31,9 @@ test("doble toque en «Guardar avance» guarda una vez y no cambia de pestaña",
     "page",
   );
   await expect(page.getByRole("heading", { name: "Lo que falta" })).toBeVisible();
-  // …y se descontó una sola vez: a lo sumo los 30 min anotados (con descansos, algo menos), no el doble.
+  // …y se descontó una sola vez: los 30 min anotados, no el doble (el descanso cuenta entero).
   await expect.poll(async () => antes - (await faltan())).toBeGreaterThan(0);
-  expect(antes - (await faltan())).toBeLessThanOrEqual(30);
+  expect(antes - (await faltan())).toBe(30);
   expect(
     (await siloLabels(page)).filter((l) => l.includes("Entrega TP Programación")),
   ).toHaveLength(1);

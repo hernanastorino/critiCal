@@ -8,7 +8,7 @@ import type { AppData, AppTask } from "./model.js";
 import { decisions, refreshPlan, routineShortfalls } from "./planning.js";
 import { reducer, StoreProvider, useStore } from "./store.js";
 import { runningSince } from "./testing.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 afterEach(cleanup);
 
@@ -116,19 +116,26 @@ describe("a routine of 14 × 60 in the demo", () => {
   });
 });
 
-describe("planned vs done this week", () => {
-  it("counts study time on both sides, and logging never moves «planned»", () => {
-    const before = plannedVsDone(demo(), NOW).find((x) => x.taskId === "informe-fis");
-    const d = reducer(demo(), {
+describe("left vs assigned this week", () => {
+  it("counts block time whole, and logging never moves «assigned»", () => {
+    const bare = () => {
+      const d0 = demo();
+      return {
+        ...d0,
+        tasks: d0.tasks.map((t) => (t.id === "informe-fis" ? { ...t, units: [] } : t)),
+      };
+    };
+    const before = weekLeft(bare(), NOW).find((x) => x.taskId === "informe-fis");
+    const d = reducer(bare(), {
       type: "logProgress",
       taskId: "informe-fis",
       minutes: 120,
       now: NOW,
     });
-    const row = plannedVsDone(d, NOW).find((x) => x.taskId === "informe-fis");
-    // 120 min of block are 1 h 40 of study with 50/10 breaks, as the silo counts them.
-    expect(row?.done).toBe(100);
-    expect(row?.planned).toBe(before?.planned ?? 0);
+    const row = weekLeft(d, NOW).find((x) => x.taskId === "informe-fis");
+    // 120 min of block are 120 min, break included (SPEC §18.17).
+    expect((before?.left ?? 0) - (row?.left ?? 0)).toBe(120);
+    expect(row?.assigned).toBe(before?.assigned ?? 0);
   });
 });
 

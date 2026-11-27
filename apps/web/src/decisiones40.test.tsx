@@ -6,12 +6,12 @@ import { TaskEditor } from "./components/TaskEditor.js";
 import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { DEMO_KIND_KEY } from "./demoPruebas.js";
-import { MINUTE, zonedInstant } from "./engine.js";
+import { zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
-import { blockFactor, endOfWeek, progress, weekStart } from "./planning.js";
+import { progress } from "./planning.js";
 import { loadDemo, reducer, StoreProvider } from "./store.js";
 import { slotNote } from "./taskForm.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 // Decisiones del 2026-11-27 (SPEC §18.14): redondeo de rutinas, «planificado» y lo detectado.
 const DATES = [
@@ -41,21 +41,6 @@ beforeEach(() => {
 afterEach(cleanup);
 
 const load = (now: number): AppData => reducer(loadDemo(now), { type: "refresh", now });
-
-/** What the Semana shows for a task: its blocks of the real week, in study minutes. */
-function blocksOf(data: AppData, taskId: string, now: number): number {
-  const tz = data.settings.timezone;
-  const since = zonedInstant(tz, weekStart(tz, now), 0);
-  const until = endOfWeek(tz, now);
-  const task = data.tasks.find((t) => t.id === taskId);
-  const factor =
-    task?.kind === "habit"
-      ? 1
-      : blockFactor(data.activities.find((a) => a.id === task?.activityId));
-  return data.plan
-    .filter((b) => b.taskId === taskId && b.start >= since && b.start < until)
-    .reduce((sum, b) => sum + (b.end - b.start) / MINUTE / factor, 0);
-}
 
 describe("1. Rutinas que no son múltiplo de 30", () => {
   it("slotNote dice los minutos que se reservan, solo si no es múltiplo", () => {
@@ -100,33 +85,73 @@ describe("1. Rutinas que no son múltiplo de 30", () => {
   });
 });
 
-describe("2. «Planificado» son solo los bloques", () => {
-  it.each(instants())("%s: coincide con la suma de los bloques de la Semana", (_n, now) => {
-    const data = load(now);
-    for (const row of plannedVsDone(data, now)) {
-      expect(row.planned, row.title).toBe(Math.round(blocksOf(data, row.taskId, now)));
-    }
+describe("2. Un silo arranca lleno y se vacía con el avance (41.ª)", () => {
+  const row = (d: AppData, now: number) => weekLeft(d, now).find((r) => r.taskId === CALC);
+
+  it.each(instants())("%s: sin avance, falta todo lo asignado", (_n, now) => {
+    const r = row(load(now), now);
+    expect(r).toBeDefined();
+    expect(r?.left).toBe(r?.assigned);
   });
 
-  it.each(instants())("%s: registrar avance no suma a «planificado»", (_n, now) => {
+  it.each(instants())("%s: registrar avance baja lo que falta y no toca lo asignado", (_n, now) => {
+    // Without parts, what is left is the estimate minus what was logged.
+    const loaded = load(now);
+    const before = {
+      ...loaded,
+      tasks: loaded.tasks.map((t) => (t.id === CALC ? { ...t, units: [] } : t)),
+    };
+    const after = reducer(before, { type: "logProgress", taskId: CALC, minutes: 60, now });
+    expect(row(after, now)?.assigned).toBe(row(before, now)?.assigned);
+    expect(row(after, now)?.left).toBeLessThan(row(before, now)?.left ?? 0);
+  });
+
+  it.each(instants())("%s: saltear un bloque no cambia lo asignado", (_n, now) => {
     const before = load(now);
-    const after = reducer(before, { type: "logProgress", taskId: CALC, minutes: 240, now });
-    const planned = (d: AppData) => plannedVsDone(d, now).find((r) => r.taskId === CALC)?.planned;
-    const done = (d: AppData) => plannedVsDone(d, now).find((r) => r.taskId === CALC)?.done ?? 0;
-    expect(done(after)).toBeGreaterThan(done(before));
-    expect(planned(after)).toBe(Math.round(blocksOf(after, CALC, now)));
-    // The plan may take the logged time off later blocks, but never adds to «planned».
-    expect(planned(after) ?? 0).toBeLessThanOrEqual(planned(before) ?? 0);
+    const block = before.plan.find((b) => b.taskId === CALC && b.start > now);
+    if (!block) throw new Error("the demo has a block ahead");
+    const after = reducer(before, {
+      type: "checkIn",
+      checkIn: {
+        blockId: block.id,
+        taskId: CALC,
+        status: "missed",
+        minutesDone: 0,
+        unitIds: [],
+      },
+      now,
+    });
+    expect(row(after, now)?.assigned).toBe(row(before, now)?.assigned);
   });
 
-  it("un avance sin bloques en la semana no inventa «planificado»", () => {
+  it("una tarea de 2h dice 2h / 2h sin avance y 0h / 2h completada", () => {
     const now = zonedInstant(TIMEZONE, "2026-11-25", 12 * 60);
     const d = load(now);
-    const bare = { ...d, plan: d.plan.filter((b) => b.taskId !== CALC) };
-    const after = reducer(bare, { type: "logProgress", taskId: CALC, minutes: 60, now });
-    const row = plannedVsDone(after, now).find((r) => r.taskId === CALC);
-    expect(row?.done).toBeGreaterThan(0);
-    expect(row?.planned).toBe(Math.round(blocksOf(after, CALC, now)));
+    const task = d.tasks.find((t) => t.id === CALC);
+    if (!task) throw new Error("the demo has the task");
+    const two = { ...task, estimateMinutes: 120, minMinutes: 60, units: [] };
+    const one = {
+      ...d,
+      tasks: d.tasks.map((t) => (t.id === CALC ? two : t)),
+      checkIns: [],
+    };
+    expect(row(one, now)).toMatchObject({ left: 120, assigned: 120 });
+    const full = reducer(one, { type: "logProgress", taskId: CALC, minutes: 120, now });
+    expect(row(full, now)).toMatchObject({ left: 0, assigned: 120 });
+  });
+
+  it("Silos lo muestra como «falta / asignado», con el descanso adentro", () => {
+    const now = zonedInstant(TIMEZONE, "2026-11-25", 12 * 60);
+    const d = load(now);
+    render(
+      <ToastProvider>
+        <StoreProvider initial={() => d} persist={false} fixedNow={now}>
+          <Silos />
+        </StoreProvider>
+      </ToastProvider>,
+    );
+    expect(screen.getByText("Esta semana: falta / asignado")).toBeTruthy();
+    expect(screen.queryByText(/hecho \/ planificado/)).toBeNull();
   });
 });
 
@@ -141,7 +166,7 @@ describe("3. Lo detectado espera a que lo aceptes", () => {
       expect(d.tasks.find((t) => t.id === DETECTED)?.needsReview).toBe(true);
       expect(countBlocks(d)).toBe(0);
       expect(ids(d, now)).not.toContain(DETECTED);
-      expect(plannedVsDone(d, now).some((r) => r.taskId === DETECTED)).toBe(false);
+      expect(weekLeft(d, now).some((r) => r.taskId === DETECTED)).toBe(false);
     },
   );
 
@@ -169,6 +194,6 @@ describe("3. Lo detectado espera a que lo aceptes", () => {
     expect(d.tasks.find((t) => t.id === DETECTED)?.status).toBe("dropped");
     expect(countBlocks(d)).toBe(0);
     expect(ids(d, now)).not.toContain(DETECTED);
-    expect(d.plan).toEqual(before.plan);
+    expect(d.plan).toEqual(reducer(before, { type: "refresh", now }).plan);
   });
 });

@@ -297,7 +297,6 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
           status: "done" as const,
           minutesDone: study,
           createdAt: NOW - 3_600_000,
-          factor: 1.2,
           unitIds: ["u1"],
         },
       ],
@@ -318,7 +317,7 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
   });
 
   it("is not offered when choosing it would change nothing", () => {
-    const d = scenario(330);
+    const d = scenario(300);
     const r = refreshPlan(d, NOW);
     // The target is short, but the parts hold what is left: a lower estimate cuts nothing.
     expect(r.result.status.some((s) => s.targetDeficit > 0)).toBe(true);

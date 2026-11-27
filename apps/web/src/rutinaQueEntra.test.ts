@@ -17,6 +17,7 @@ import {
   standingCheckIns,
 } from "./planning.js";
 import { loadDemo, reducer } from "./store.js";
+import { withBreaksOnTop } from "./testing.js";
 
 afterEach(() => {
   localStorage.removeItem(DEMO_KIND_KEY);
@@ -213,7 +214,7 @@ describe("el texto de la semana de una rutina", () => {
 describe("la sugerencia de la Bandeja", () => {
   it("cuenta lo que da mezclar por hoy y se va al hacerlo", () => {
     const now = at("2026-11-19", 1000);
-    const base = demoData(now);
+    const base = withBreaksOnTop(demoData(now));
     const data = reducer(
       { ...base, settings: { ...base.settings, maxActivitiesPerDay: 1 } },
       { type: "refresh", now },

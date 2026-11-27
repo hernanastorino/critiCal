@@ -11,6 +11,7 @@ import { zonedInstant } from "./engine.js";
 import { optionPromise } from "./friendly.js";
 import type { AppData, AppTask } from "./model.js";
 import { reducer, StoreProvider } from "./store.js";
+import { withBreaksOnTop } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 
@@ -116,7 +117,7 @@ describe("7. La opción de tiempo libre dice lo que hace", () => {
 
 describe("5. Bandeja: deshacer una opción avisa qué se deshizo", () => {
   it("says «Deshecho: …»", { timeout: 30_000 }, () => {
-    const d0 = reducer(demoData(NOW), { type: "refresh", now: NOW });
+    const d0 = reducer(withBreaksOnTop(demoData(NOW)), { type: "refresh", now: NOW });
     const d = reducer(d0, {
       type: "saveRoutine",
       name: "Leer",

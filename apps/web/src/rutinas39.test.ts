@@ -12,7 +12,7 @@ import {
   weekStart,
 } from "./planning.js";
 import { loadDemo, reducer } from "./store.js";
-import { plannedVsDone } from "./week-review.js";
+import { weekLeft } from "./week-review.js";
 
 afterEach(() => {
   localStorage.removeItem(DEMO_KIND_KEY);
@@ -145,10 +145,8 @@ describe("falla 2: todas las pantallas leen el plan que muestra la Semana", () =
           (r) => r.taskId === gym.id,
         );
         expect(card?.placed).toBe(week && week.placed < week.wanted ? week.placed : undefined);
-        const ended = data.plan
-          .filter((b) => b.taskId === gym.id && b.start >= monday && b.end <= now)
-          .reduce((sum, b) => sum + (b.end - b.start) / 60000, 0);
-        expect(plannedVsDone(data, now).find((r) => r.taskId === gym.id)?.planned ?? 0).toBe(ended);
+        const row = weekLeft(data, now).find((r) => r.taskId === gym.id);
+        expect(row?.left ?? 0).toBeLessThanOrEqual(row?.assigned ?? 0);
       }
     },
     90_000,

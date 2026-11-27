@@ -152,8 +152,8 @@ export interface CheckIn {
    */
   origin?: "undo" | "slept";
   /**
-   * Block time per study minute when it was recorded (breaks included; see blockFactor).
-   * Missing on older check-ins, which had no breaks: 1.
+   * Legacy (until the 40.ª): block time per study minute. Not written nor read any more:
+   * a block done counts its whole time, break included (SPEC §18.17).
    */
   factor?: number;
 }

@@ -35,8 +35,8 @@ const inside = (ui: React.ReactNode, initial: () => AppData, fixedNow = NOW) =>
 describe("ALTA 1: «faltan» se mide por partes y la pantalla lo dice", () => {
   it("un «Hecho» de la Bandeja cuenta en lo hecho de la semana pero no baja «faltan»", () => {
     inside(<Silos />, () => seedHistory(demoData(NOW), NOW));
-    expect(screen.getByText("Esta semana: hecho / planificado")).toBeTruthy();
-    expect(screen.getByLabelText(/^Parcial Cálculo II: faltan 10h/)).toBeTruthy();
+    expect(screen.getByText("Esta semana: falta / asignado")).toBeTruthy();
+    expect(screen.getByLabelText(/^Parcial Cálculo II: faltan 12h/)).toBeTruthy();
     expect(screen.queryByText(/«faltan» baja al marcar/)).toBeNull();
   });
 });

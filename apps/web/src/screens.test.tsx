@@ -12,7 +12,7 @@ import { zonedInstant } from "./engine.js";
 import { easter, holidaysBetween, uruguayHolidays, withHolidays } from "./holidays.js";
 import { scheduleInput } from "./planning.js";
 import { StoreProvider, useStore } from "./store.js";
-import { plannedVsDone, weekPlan, weekToPlan } from "./week-review.js";
+import { weekLeft, weekPlan, weekToPlan } from "./week-review.js";
 
 afterEach(() => {
   cleanup();
@@ -76,7 +76,7 @@ describe("weekly review", () => {
     expect(weekToPlan(data, at("2026-11-04", 600))[6]).toBe("2026-11-15");
   });
 
-  it("sums each day and compares planned with done", () => {
+  it("sums each day and reads what is left of what was assigned", () => {
     const data = {
       ...emptyData(),
       activities: [
@@ -134,9 +134,9 @@ describe("weekly review", () => {
     const days = weekPlan(data, weekToPlan(data, at("2026-10-28", 600)));
     expect(days[1]).toMatchObject({ date: "2026-11-03", minutes: 120, critical: 1 });
     expect(days[0]?.holiday).toBe("Día de los Difuntos");
-    expect(plannedVsDone(data, at("2026-11-04", 600))).toEqual([
-      // Study time, like the silos: 2 h and 1 h of block (the one ahead too) are 1 h 40 and 50 min of study with 50/10 breaks.
-      { taskId: "t", title: "Parcial", color: "#f80", planned: 150, done: 90 },
+    expect(weekLeft(data, at("2026-11-04", 600))).toEqual([
+      // Block time whole, break included: 600 assigned minus the 90 logged.
+      { taskId: "t", title: "Parcial", color: "#f80", left: 510, assigned: 600 },
     ]);
   });
 

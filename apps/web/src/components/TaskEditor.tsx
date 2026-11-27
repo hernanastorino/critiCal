@@ -354,7 +354,7 @@ export function TaskEditor({
     if (from === undefined) return null;
     if (from !== undefined && from >= due) return AFTER_DUE;
     const next = { ...data, tasks: [...data.tasks.filter((t) => t.id !== trial.id), trial] };
-    const lacking = shortfall(next, refreshPlan(next, now).result).get(trial.id);
+    const lacking = shortfall(refreshPlan(next, now).result).get(trial.id);
     return lacking
       ? `Empezando ${from !== undefined ? `el ${dayDate(tz, from)}` : "así"} no llegás al mínimo: faltarían ${hours(lacking)}. Se guarda igual y la Bandeja te da opciones.`
       : null;

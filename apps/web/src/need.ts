@@ -1,6 +1,6 @@
 import type { ScheduleResult } from "./engine.js";
 import type { AppData } from "./model.js";
-import { blockFactor, progress } from "./planning.js";
+import { progress } from "./planning.js";
 
 /**
  * What a task needs, in study minutes (the unit the screens speak): what the plan reserves
@@ -24,16 +24,11 @@ export function needOf(data: AppData, now: number, taskId: string): Need | undef
  * What each task lacks of its minimum in the plan, in study minutes (the plan counts block
  * time, breaks included). Only the tasks that lack some.
  */
-export function shortfall(data: AppData, result: ScheduleResult): Map<string, number> {
+export function shortfall(result: ScheduleResult): Map<string, number> {
   const out = new Map<string, number>();
   for (const s of result.status) {
     if (s.minDeficit <= 0) continue;
-    const task = data.tasks.find((t) => t.id === s.taskId);
-    const k =
-      task?.kind === "habit"
-        ? 1
-        : blockFactor(data.activities.find((a) => a.id === task?.activityId));
-    out.set(s.taskId, Math.ceil(s.minDeficit / k));
+    out.set(s.taskId, Math.ceil(s.minDeficit));
   }
   return out;
 }

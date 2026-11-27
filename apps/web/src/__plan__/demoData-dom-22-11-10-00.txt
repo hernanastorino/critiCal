@@ -1,11 +1,11 @@
 {
-  "blocks": "d5701b6cceb2",
-  "status": "c595f50c9c9b",
+  "blocks": "022c9cc27efc",
+  "status": "e538bc7e46b8",
   "meals": "2154fd5c3a80",
   "feasible": false,
   "options": [
-    "use-free-time:73dd70d31d36",
-    "drop:parcial-calc:e416f436d05c"
+    "use-free-time:9158828bd391",
+    "drop:parcial-calc:793233c8ffba"
   ],
   "hasOptions": true,
   "impossible": [],
