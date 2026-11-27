@@ -72,10 +72,6 @@ export function endOfWeek(tz: string, instant: number): number {
   return zonedInstant(tz, addDays(weekStart(tz, instant), 7), 0);
 }
 
-/** Study minutes and break after them, by default, for materias (academic activities). */
-export const DEFAULT_STUDY_MINUTES = 50;
-export const DEFAULT_BREAK_MINUTES = 10;
-
 /** The newest record of each block: by date, then by id (rows come back in any order). */
 export function latestCheckIns(data: AppData): Map<string, CheckIn> {
   const last = new Map<string, CheckIn>();
