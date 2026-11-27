@@ -32,6 +32,7 @@ import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
 import { hhmm, type PlanResponse, type StaleReason, type TransitOption } from "../transit.js";
 import { useBusRoutes } from "../useBusRoutes.js";
+import { EventSpot } from "./EventSpot.js";
 
 const MODES: { mode: TravelMode; label: string }[] = [
   { mode: "car", label: "Auto" },
@@ -71,7 +72,8 @@ export function EventTrip({ event }: { event: AppEvent }) {
   const tz = data.settings.timezone;
   const trip = tripOf(data, event);
   // A trip already made is history; one with no saved place or home has nothing to choose.
-  if (!trip || event.end <= now) return null;
+  if (event.end <= now) return null;
+  if (!trip) return event.busy ? <EventSpot event={event} /> : null;
   const choose = (mode: TravelMode) => {
     dispatch({
       type: "tripMode",

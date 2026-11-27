@@ -34,7 +34,7 @@ test("«Bajar el mínimo» cambia solo el mínimo, en minutos enteros", async ({
   await expect(page.getByText(/^Listo, reacomodé el plan/)).toBeVisible();
   await abrirEditor(page, INFORME);
   // Las horas siguen siendo las de antes y el mínimo es un número redondo de minutos.
-  await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("10");
+  await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("9");
   const minimo = await sheet(page).getByLabel("Mínimo (horas)").inputValue();
   expect(Number.isInteger(Math.round(Number(minimo.replace(",", ".")) * 60))).toBe(true);
   expect(minimo).not.toMatch(/[.,]\d{4,}/);

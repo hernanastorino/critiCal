@@ -29,6 +29,25 @@ const gymOf = (d: AppData): AppTask => {
   return task;
 };
 
+/**
+ * «1 hecha el miércoles» written down, not left to where the planner happened to put the
+ * Gym that evening: with the trips the demo's plan gives that slot to another task.
+ */
+function withGymDone(data: AppData): AppData {
+  const gym = gymOf(data);
+  const wednesday = at("2026-11-25", 18 * 60);
+  const done = {
+    id: "gym-miercoles",
+    blockId: `${gym.id}@${wednesday}`,
+    taskId: gym.id,
+    status: "done" as const,
+    minutesDone: gym.sessionMinutes ?? 0,
+    unitIds: [],
+    createdAt: wednesday,
+  };
+  return { ...data, checkIns: [...data.checkIns, done] };
+}
+
 /** A routine 3×/week of an hour, lunes a sábado de 07 a 18, made at `now`. */
 function made(date: string, minute: number): { data: AppData; task: AppTask; now: number } {
   const now = at(date, minute);
@@ -70,7 +89,7 @@ describe("la regla: mín(faltan, días posibles que quedan), una por día", () =
   it("ejemplo 3: Gym de la demo con 1 hecha el miércoles, el jueves 10:13 → 3 en la semana", () => {
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
     const now = at("2026-11-26", 10 * 60 + 13);
-    const data = loadDemo(now);
+    const data = withGymDone(loadDemo(now));
     const gym = gymOf(data);
     expect(routineDaysLeft(data, gym, now)).toBe(2);
     expect(routineCapacity(data, gym, now)).toBe(3);
@@ -159,7 +178,12 @@ describe("la materia de 168 h no hace pasar al Gym por imposible (38.ª vuelta)"
   it("el jueves 26/11: Gym entra solo, lo imposible es la materia, y hay 2 días para las 2 que faltan", () => {
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
     const now = at("2026-11-26", 10 * 60 + 13);
-    const data = withHugeSubject(loadDemo(now));
+    const demo = withGymDone(loadDemo(now));
+    // With the demo's trips the Thursday gap between classes holds an hour, not an hour and a half.
+    const data = withHugeSubject({
+      ...demo,
+      tasks: demo.tasks.map((t) => (t.id === gymOf(demo).id ? { ...t, sessionMinutes: 60 } : t)),
+    });
     const plan = refreshPlan(data, now);
     const d = decisions(plan.input, plan.result, { data, now });
     const gym = gymOf(data);

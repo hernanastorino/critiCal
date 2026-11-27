@@ -54,6 +54,34 @@ export function minutesBetween(data: AppData, from: string, to: string): number 
   return (times.find((t) => t.manual) ?? times[0])?.minutes;
 }
 
+const EARTH_KM = 6371;
+/** Straight-line km → minutes by car: a winding road at city speed. */
+const MINUTES_PER_KM = 2.8;
+
+/** Minutes by car from the straight line between two places' coordinates, if both have them. */
+export function estimatedMinutes(data: AppData, from: string, to: string): number | undefined {
+  const places = data.places ?? [];
+  const a = places.find((p) => p.id === from);
+  const b = places.find((p) => p.id === to);
+  if (a?.lat == null || a.lon == null || b?.lat == null || b.lon == null) return undefined;
+  const rad = (d: number) => (d * Math.PI) / 180;
+  const h =
+    Math.sin(rad(b.lat - a.lat) / 2) ** 2 +
+    Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(rad(b.lon - a.lon) / 2) ** 2;
+  const km = 2 * EARTH_KM * Math.asin(Math.sqrt(h));
+  return Math.max(5, Math.round(km * MINUTES_PER_KM));
+}
+
+/**
+ * What the plan reserves for a trip between two places: its minutes (manual first, then
+ * computed), else the way back's, else an estimate from the coordinates. Never 0 by
+ * default: a pair with nothing known has no figure (undefined).
+ */
+export const drivingMinutes = (data: AppData, from: string, to: string): number | undefined =>
+  minutesBetween(data, from, to) ??
+  minutesBetween(data, to, from) ??
+  estimatedMinutes(data, from, to);
+
 const skipped = (data: AppData, text: string | undefined) =>
   !!text && (data.noTravel ?? []).includes(normalize(text));
 
@@ -263,7 +291,7 @@ export function travelOptions(data: AppData): TravelOptions | undefined {
     // A spot is only timed from home; trips between it and another place take that long too.
     travelMinutes: (from, to) => {
       const spots = [from, to].filter((id) => id.startsWith(SPOT) || id.startsWith(EVENT));
-      if (spots.length === 0) return minutesBetween(data, from, to);
+      if (spots.length === 0) return drivingMinutes(data, from, to);
       return Math.max(
         ...spots.map((id) =>
           id.startsWith(EVENT)
