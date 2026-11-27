@@ -76,7 +76,7 @@ describe("minutos en auto que faltan", () => {
     const d = withEvents([taller]);
     const guess = estimatedMinutes(d, "casa", "club") ?? 0;
     const margin = d.settings.travelMarginMinutes;
-    const [there] = travelIntervals(d);
+    const there = travelIntervals(d).at(0);
     expect(there?.end).toBe(taller.start);
     expect((taller.start - (there?.start ?? 0)) / 60_000).toBe(guess + margin);
   });
