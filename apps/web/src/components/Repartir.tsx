@@ -10,20 +10,24 @@ import {
   type Fit,
   fillRest,
   fitOf,
+  freeName,
   hasWeights,
   markOf,
+  nameProblem,
   openSheet,
   overRow,
   type Prefill,
   proportional,
   type Row,
   removeRow,
+  rowSpoken,
   type Sheet,
   STEP,
   slideMin,
   slideRow,
   slideTotal,
   spoken,
+  TEMAS_MAX,
   trialOf,
   typeTotal,
   unassigned,
@@ -56,6 +60,7 @@ function TimePicker({
   const sheet = useRef<HTMLDivElement>(null);
   const justOpened = useModal(sheet, onClose);
   const hoursId = useId();
+  const errId = useId();
   const [h, setH] = useState(String(Math.floor(value / 60)));
   const [m, setM] = useState<number>(Math.floor((value % 60) / STEP) * STEP);
   const typed = /^\d{1,3}$/.test(h.trim()) ? Number(h) : Number.NaN;
@@ -92,6 +97,7 @@ function TimePicker({
               value={h}
               data-autofocus
               aria-invalid={bad ? true : undefined}
+              aria-describedby={bad ? errId : undefined}
               onChange={(e) => setH(e.target.value)}
             />
           </label>
@@ -111,9 +117,16 @@ function TimePicker({
             </button>
           ))}
         </div>
-        {bad && Number.isFinite(typed) && (
-          <p className="meta" role="status" style={{ color: "var(--critical-ink)" }}>
-            No baja de lo hecho: {hours(floor)}.
+        {bad && (
+          <p
+            id={errId}
+            className="meta"
+            role="alert"
+            style={{ color: "var(--critical-ink)", margin: "var(--space-1) 0" }}
+          >
+            {Number.isNaN(typed)
+              ? "Poné horas y minutos válidos"
+              : `No baja de lo hecho: ${hours(floor)}.`}
           </p>
         )}
         <button
@@ -329,7 +342,23 @@ function Rest({ s, setS }: { s: Sheet; setS: SetSheet }) {
 }
 
 /** A tema: its name (typed when it is new), ✕ and its slider. */
-function TemaRow({ s, r, setS, onOpen }: { s: Sheet; r: Row; setS: SetSheet; onOpen: () => void }) {
+function TemaRow({
+  s,
+  r,
+  n,
+  setS,
+  onOpen,
+}: {
+  s: Sheet;
+  r: Row;
+  n: number;
+  setS: SetSheet;
+  onOpen: () => void;
+}) {
+  const problem = nameProblem(s, r);
+  // A name left empty is still read as something.
+  const label = r.title.trim() || `Tema ${n}`;
+  const problemId = useId();
   const rename = (title: string) =>
     setS({ ...s, rows: s.rows.map((x) => (x.id === r.id ? { ...x, title } : x)) });
   return (
@@ -338,8 +367,10 @@ function TemaRow({ s, r, setS, onOpen }: { s: Sheet; r: Row; setS: SetSheet; onO
         {r.added ? (
           <input
             className="rep-name"
-            aria-label="Nombre del tema"
+            aria-label={`Nombre del tema ${n}`}
             value={r.title}
+            aria-invalid={problem ? true : undefined}
+            aria-describedby={problem ? problemId : undefined}
             onChange={(e) => rename(e.target.value)}
           />
         ) : (
@@ -351,16 +382,26 @@ function TemaRow({ s, r, setS, onOpen }: { s: Sheet; r: Row; setS: SetSheet; onO
           <button
             type="button"
             className="rep-x"
-            aria-label={`Quitar ${r.title}`}
+            aria-label={`Quitar ${label}`}
             onClick={() => setS(removeRow(s, r.id))}
           >
             <Marks.close />
           </button>
         )}
       </div>
+      {problem && (
+        <p
+          id={problemId}
+          className="meta"
+          role="alert"
+          style={{ color: "var(--critical-ink)", margin: "0 0 var(--space-1)" }}
+        >
+          {problem}
+        </p>
+      )}
       <TimeSlider
-        name={r.title}
-        spokenText={`${r.title}, ${spoken(r.minutes)}, mínimo ${spoken(Math.round(markOf(s, r)))}`}
+        name={r.locked ? `${label}, hecho` : label}
+        spokenText={rowSpoken(s, { ...r, title: label })}
         value={r.minutes}
         scale={r.scale}
         floor={r.floor}
@@ -378,14 +419,15 @@ function TemaRow({ s, r, setS, onOpen }: { s: Sheet; r: Row; setS: SetSheet; onO
 function TemaList({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: (id: string) => void }) {
   return (
     <ul className="rep-list">
-      {s.rows.map((r) => (
-        <TemaRow key={r.id} s={s} r={r} setS={setS} onOpen={() => onOpen(r.id)} />
+      {s.rows.map((r, i) => (
+        <TemaRow key={r.id} s={s} r={r} n={i + 1} setS={setS} onOpen={() => onOpen(r.id)} />
       ))}
       <li className="rep-add">
         <button
           type="button"
           className="btn small"
-          onClick={() => setS(addRow(s, `Tema ${s.rows.length + 1}`))}
+          disabled={s.rows.length >= TEMAS_MAX}
+          onClick={() => setS(addRow(s, freeName(s)))}
         >
           + Tema
         </button>

@@ -1195,7 +1195,7 @@ input[type="radio"]:disabled {
      the document and the page scrolls under the list. */
   position: relative;
   overflow-y: auto;
-  padding-bottom: calc(var(--tab-h) + var(--space-5));
+  padding-bottom: calc(var(--tab-h) + var(--safe-b) + var(--space-5));
 }
 
 .silos {
@@ -3183,6 +3183,7 @@ body:has(.sheet) .toasts .snack > span {
 
 input.rep-name {
   min-height: 44px;
+  margin-bottom: var(--space-1);
 }
 
 .rep-x {

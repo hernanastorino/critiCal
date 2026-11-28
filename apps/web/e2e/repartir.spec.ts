@@ -41,6 +41,15 @@ test("el parcial con temas se reparte por peso y se acepta, sin desborde a 375 p
   await toast(page).getByRole("button", { name: "Deshacer" }).click();
 });
 
+test("temas nuevos: el nombre es obligatorio y Aceptar se apaga", async ({ page }) => {
+  await abrirHoja(page, "Parcial Física I");
+  const hoja = sheet(page);
+  await hoja.getByRole("button", { name: "+ Tema" }).click();
+  await hoja.getByRole("textbox", { name: /^Nombre del tema \d+$/ }).fill("   ");
+  await expect(hoja.getByText("Poné un nombre para el tema")).toBeVisible();
+  await expect(hoja.getByRole("button", { name: "Aceptar reparto" })).toBeDisabled();
+});
+
 test("la hora tocable abre el selector de horas y minutos", async ({ page }) => {
   await abrirHoja(page, "Informe corto SD");
   await sheet(page).getByRole("button", { name: "Escribir las horas de Total" }).click();
