@@ -5,7 +5,7 @@ import type { DaySettings, Meal, MealKind } from "../engine.js";
 import { hhmmToMinutes, minutesToHhmm } from "../format.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { mealsOf } from "../planning.js";
-import { describeHours, emptyHoursForm } from "../routineHours.js";
+import { describeHours } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { detectedProblem, detectedToReset, sessionShown } from "../taskForm.js";
 import { clockText, type WeekProblem, weekProblems } from "../weekForm.js";
@@ -20,7 +20,7 @@ import {
   Unsaved,
   useFocusInvalid,
 } from "./fields.js";
-import { RoutineForm, useRoutineDraft } from "./RoutineForm.js";
+import { emptyRoutineDraft, RoutineForm, useRoutineDraft } from "./RoutineForm.js";
 import { Section } from "./Section.js";
 import { useScreenEscape } from "./settingsHistory.js";
 import { TaskDetail } from "./TaskDetail.js";
@@ -688,7 +688,7 @@ export function Routines({ openId }: { openId?: string }) {
         <ConfirmDiscard
           onKeep={() => setLeaving(false)}
           onDiscard={() => {
-            state[2]({ name: "", times: "3", minutes: "60", hours: emptyHoursForm() });
+            state[2](emptyRoutineDraft());
             setLeaving(false);
             setCreating(false);
           }}

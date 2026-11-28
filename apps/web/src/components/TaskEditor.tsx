@@ -37,7 +37,7 @@ import { focusFirstInvalid, Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { Repartir } from "./Repartir.js";
-import { RoutineForm, useRoutineDraft } from "./RoutineForm.js";
+import { emptyRoutineDraft, RoutineForm, useRoutineDraft } from "./RoutineForm.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
@@ -326,7 +326,9 @@ export function TaskEditor({
     writeSheetDraft("editor", null);
     closing.current();
   }, [gone]);
-  const askClose = () => (dirty ? setAsking(true) : done());
+  // A new routine typed in the sheet asks too (its draft is not the editor's form).
+  const routineDirty = newRoutine && routineDraft[3];
+  const askClose = () => (dirty || routineDirty ? setAsking(true) : done());
   const justOpened = useModal(sheet, askClose);
   useEffect(() => {
     if (focusTick) focusFirstInvalid(sheet.current);
@@ -1052,7 +1054,15 @@ export function TaskEditor({
           </>
         )}
       </div>
-      {asking && <ConfirmDiscard onDiscard={done} onKeep={() => setAsking(false)} />}
+      {asking && (
+        <ConfirmDiscard
+          onDiscard={() => {
+            if (routineDirty) routineDraft[2](emptyRoutineDraft());
+            done();
+          }}
+          onKeep={() => setAsking(false)}
+        />
+      )}
       {sharing && (
         <Repartir
           task={{

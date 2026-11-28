@@ -93,6 +93,29 @@ describe("«Hábito semanal» es una rutina (45.ª vuelta)", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
+  it("cerrar el formulario de rutina con cambios pregunta antes de descartar", () => {
+    render(
+      <StoreProvider initial={() => loadDemo(SATURDAY)} persist={false} fixedNow={SATURDAY}>
+        <ToastProvider>
+          <Silos />
+        </ToastProvider>
+      </StoreProvider>,
+    );
+    fireEvent.click(screen.getByLabelText("Nueva actividad"));
+    fireEvent.click(screen.getByText("Hábito semanal"));
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Correr" } });
+    fireEvent.click(screen.getByLabelText("Cerrar"));
+    expect(screen.getByText("¿Descartar los cambios?")).toBeTruthy();
+    fireEvent.click(screen.getByText("Seguir editando"));
+    expect(screen.queryByText("¿Descartar los cambios?")).toBeNull();
+    fireEvent.click(screen.getByLabelText("Cerrar"));
+    fireEvent.click(screen.getByText("Descartar"));
+    // Descartado: al abrir de nuevo no queda el borrador.
+    fireEvent.click(screen.getByLabelText("Nueva actividad"));
+    fireEvent.click(screen.getByText("Hábito semanal"));
+    expect((screen.getByPlaceholderText("Gimnasio") as HTMLInputElement).value).toBe("");
+  });
+
   it("un hábito del camino viejo se lee como rutina, con los límites de una rutina", () => {
     const old = legacyCorrer(SATURDAY);
     const read = habitsAsRoutines(old);

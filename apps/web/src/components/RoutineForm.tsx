@@ -45,13 +45,15 @@ function routineProblems(times: string, minutes: string, days = 7) {
 }
 
 /** What is typed for a new routine; it waits (a draft) under `key` until it is added or left. */
+export const emptyRoutineDraft = () => ({
+  name: "",
+  times: "3",
+  minutes: "60",
+  hours: emptyHoursForm(),
+});
+
 export function useRoutineDraft(key: string) {
-  return useDraft(key, () => ({
-    name: "",
-    times: "3",
-    minutes: "60",
-    hours: emptyHoursForm(),
-  }));
+  return useDraft(key, emptyRoutineDraft);
 }
 
 /**
@@ -116,7 +118,7 @@ export function RoutineForm({
       validHours: read.hours,
     });
     // Back to the defaults: the next routine does not inherit this one's figures.
-    drafted({ name: "", times: "3", minutes: "60", hours: emptyHoursForm() });
+    drafted(emptyRoutineDraft());
     onAdded();
   };
   const onEnter = (e: React.KeyboardEvent<HTMLInputElement>) => {
