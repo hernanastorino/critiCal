@@ -113,7 +113,7 @@ describe("«Hábito semanal» es una rutina (45.ª vuelta)", () => {
     // Descartado: al abrir de nuevo no queda el borrador.
     fireEvent.click(screen.getByLabelText("Nueva actividad"));
     fireEvent.click(screen.getByText("Hábito semanal"));
-    expect((screen.getByPlaceholderText("Gimnasio") as HTMLInputElement).value).toBe("");
+    expect(screen.queryByDisplayValue("Correr")).toBeNull();
   });
 
   it("un hábito del camino viejo se lee como rutina, con los límites de una rutina", () => {
@@ -142,13 +142,19 @@ describe("«Hábito semanal» es una rutina (45.ª vuelta)", () => {
 
   it("una materia con otras tareas, o con su estudio, no se vuelve rutina", () => {
     const base = legacyCorrer(SATURDAY);
-    const withEntrega = {
-      ...base,
-      tasks: [
-        ...base.tasks,
-        { ...base.tasks.at(-1), id: "tp", kind: "deliverable" as const, deadline: SATURDAY + 9e8 },
-      ] as AppTask[],
+    const entrega: AppTask = {
+      id: "tp",
+      activityId: "correr-act",
+      title: "TP",
+      kind: "deliverable",
+      deadline: SATURDAY + 9e8,
+      estimateMinutes: 60,
+      minMinutes: 60,
+      priority: 2,
+      status: "active",
+      units: [],
     };
+    const withEntrega = { ...base, tasks: [...base.tasks, entrega] };
     expect(habitsAsRoutines(withEntrega).activities.find((a) => a.id === "correr-act")?.kind).toBe(
       undefined,
     );

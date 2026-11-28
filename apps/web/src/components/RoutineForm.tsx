@@ -18,7 +18,7 @@ import {
 } from "./fields.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 
-type Enter = (e: React.KeyboardEvent<HTMLInputElement>) => void;
+type Enter = (_e: React.KeyboardEvent<HTMLInputElement>) => void;
 
 /** A whole number from what was typed, or NaN: «3.5» is not rounded to 4 behind the back. */
 const wholeOf = (v: string) => (isWhole(v) ? Number(v) : Number.NaN);
@@ -70,7 +70,7 @@ function checkRoutine(draft: Draft, slot: number) {
   // One a day at most: more times than days the routine can go is said in its own field.
   const days = minutesBad ? 7 : daysAllowed(read.hours, Number(minutes), slot);
   const problem = routineProblems(times, minutes, days);
-  const bad = !!(problem.times || problem.minutes || read.problems.length);
+  const bad = Boolean(problem.times ?? problem.minutes) || read.problems.length > 0;
   const rounding = minutesBad ? null : slotNote(Number(minutes), slot);
   return { read, problem, bad, rounding };
 }
@@ -93,7 +93,7 @@ function NameField({
 }: {
   name: string;
   problemId: string | undefined;
-  onChange: (v: string) => void;
+  onChange: (_v: string) => void;
   onEnter: Enter;
 }) {
   return (
@@ -105,7 +105,9 @@ function NameField({
         aria-invalid={problemId ? true : undefined}
         aria-describedby={problemId}
         // Direction-changing characters never show in the field (see `stripBidi`).
-        onChange={(e) => onChange(stripBidi(e.target.value))}
+        onChange={(e) => {
+          onChange(stripBidi(e.target.value));
+        }}
         onKeyDown={onEnter}
         placeholder="Gimnasio"
       />
@@ -128,7 +130,7 @@ function FigureField({
   /** «times» or «minutes»: the ids of its error and its help. */
   id: string;
   help: string;
-  onChange: (v: string) => void;
+  onChange: (_v: string) => void;
   onEnter: Enter;
 }) {
   return (
@@ -144,7 +146,9 @@ function FigureField({
             `routine-${id}-help`,
           )}
           onKeyDown={onEnter}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(e) => {
+            onChange(e.target.value);
+          }}
         />
       </label>
       <Help id={`routine-${id}-help`} text={help} />
@@ -176,7 +180,7 @@ function AddFooter({
   repeated: boolean;
   blocked: boolean;
   dirty: boolean;
-  onAdd: (form: Element | null) => void;
+  onAdd: (_form: Element | null) => void;
 }) {
   return (
     <>
@@ -187,7 +191,9 @@ function AddFooter({
         style={{ width: "100%" }}
         disabled={repeated}
         aria-disabled={blocked ? true : undefined}
-        onClick={(e) => onAdd(e.currentTarget.parentElement)}
+        onClick={(e) => {
+          onAdd(e.currentTarget.parentElement);
+        }}
       >
         Agregar rutina
       </button>
@@ -261,7 +267,9 @@ export function RoutineForm({
           problem={problem.times}
           id="times"
           help="Cuántas veces por semana la hacés."
-          onChange={(v) => setDraft({ ...draft, times: v })}
+          onChange={(v) => {
+            setDraft({ ...draft, times: v });
+          }}
           onEnter={onEnter}
         />
         <FigureField
@@ -270,13 +278,17 @@ export function RoutineForm({
           problem={problem.minutes}
           id="minutes"
           help={rounding ?? "Lo que dura cada vez."}
-          onChange={(v) => setDraft({ ...draft, minutes: v })}
+          onChange={(v) => {
+            setDraft({ ...draft, minutes: v });
+          }}
           onEnter={onEnter}
         />
       </div>
       <RoutineHours
         form={hours}
-        onChange={(v) => setDraft({ ...draft, hours: v })}
+        onChange={(v) => {
+          setDraft({ ...draft, hours: v });
+        }}
         problems={read.problems}
         errorId="routine-hours-error"
         onEnter={onEnter}
