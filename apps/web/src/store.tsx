@@ -1488,6 +1488,8 @@ function apply(data: AppData, action: Action): AppData {
           sessionMinutes: 60,
           study: true,
         }),
+        // The exact total: the plan reserves it and the silo shows it (SPEC §18.17).
+        estimateMinutes: Math.round(action.minutes),
         minMinutes: Math.round(action.minutes),
         sessionsPerWeek: Math.min(
           SESSIONS_PER_WEEK_MAX,
