@@ -32,6 +32,7 @@ import {
   mealOutOfOrder,
   mealOverPin,
   mealTimes,
+  onFixedOrTrip,
   pinId,
   progress,
   shownTotal,
@@ -221,6 +222,18 @@ export function Week({
   };
   // Opens on the week of `day`.
   const [offset, setOffset] = useState(() => (day ? weekOffset(day) : 0));
+  // A week chosen with «›» or «‹» does not change by itself: when the clock crosses into a new
+  // week (Sunday midnight), `offset` (counted from this week) moves back to stay on it. Looking
+  // at this week (0), the screen goes on to the new one.
+  const thisMonday = weekDates(tz, now)[0] as string;
+  const [seenMonday, setSeenMonday] = useState(thisMonday);
+  if (seenMonday !== thisMonday) {
+    const passed = Math.round(
+      (zonedInstant(tz, thisMonday, 720) - zonedInstant(tz, seenMonday, 720)) / (7 * DAY_MS),
+    );
+    setSeenMonday(thisMonday);
+    setOffset((o) => (o === 0 ? 0 : o - passed));
+  }
   // The day the inbox sent us to: marked and focused, so it is the one to look at.
   const dayRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -1177,7 +1190,7 @@ export function Week({
                       key={`${d}-${key}`}
                       data-at={m.at.start}
                       type="button"
-                      aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)} a ${time(tz, m.at.end)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping ? ", encima de algo fijo" : ""}`}
+                      aria-label={`${mealName(m)}, ${weekdayShort(tz, m.at.start)} ${time(tz, m.at.start)} a ${time(tz, m.at.end)}${m.chosen ? ", movido por vos" : moved ? `, corrido de las ${time(tz, m.preferred.start)}` : ""}${m.overlapping || (m.chosen && onFixedOrTrip(data, m.at)) ? ", encima de algo fijo" : ""}`}
                       className={`pill meal${m.overlapping ? " over" : ""}${m.at.end <= now ? " past" : ""}${movable ? " movable" : ""}${lifted ? " dragging" : ""}${mealBubble && mealKey(mealBubble.meal) === key ? " selected" : ""}`}
                       style={style}
                       onPointerDown={

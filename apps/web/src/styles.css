@@ -333,7 +333,7 @@ textarea[aria-invalid="true"] {
 
 .header .icon-btn {
   flex: none;
-  width: 40px;
+  width: 44px;
   height: 44px;
 }
 
@@ -916,13 +916,17 @@ textarea[aria-invalid="true"] {
   top: 8px;
   z-index: 4;
   /* Out of the flow: it sits over the grabber bar, at the right. */
-  margin: -38px calc(var(--space-2) * -1) var(--space-2) auto;
-  width: 32px;
-  height: 32px;
+  /* A real 44 px box (SPEC §14) with the 32 px circle drawn inside it by its padding: the
+     margins take the 6 px of padding back, so it sits where the circle did. */
+  margin: -44px calc(var(--space-2) * -1 - 6px) calc(var(--space-2) - 6px) auto;
+  width: 44px;
+  height: 44px;
+  padding: 6px;
+  background-clip: content-box;
   border-radius: var(--radius-round);
   display: grid;
   place-items: center;
-  background: color-mix(in srgb, var(--ink) 12%, var(--surface));
+  background-color: color-mix(in srgb, var(--ink) 12%, var(--surface));
   color: var(--ink-soft);
   /* The circle is 32 px whatever the text size: a larger ✕ would run out of it, to the edge. */
   font-size: min(var(--text-xl), 20px);
@@ -1873,7 +1877,8 @@ input[type="radio"]:disabled {
 
 .grid2 {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Two columns, or one when two do not hold «12:00 a.m.» (large text): the hour is not cut. */
+  grid-template-columns: repeat(auto-fit, minmax(max(9.5em, 40%), 1fr));
   gap: 0 var(--space-3);
   align-items: end;
 }
@@ -2516,6 +2521,14 @@ textarea:focus-visible {
 .swatch.big,
 .check > button {
   position: relative;
+}
+
+/* The ✕ of a row is a real 44 px box too, drawn small by the icon inside. */
+.check > button {
+  min-width: 44px;
+  min-height: 44px;
+  display: grid;
+  place-items: center;
 }
 
 /* The header's tools and week arrows are drawn narrower (40 and 28 px) so they fit next to

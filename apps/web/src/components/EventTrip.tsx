@@ -28,7 +28,7 @@ import { isTestDemo } from "../demoPruebas.js";
 import { demoPlan } from "../demoTransit.js";
 import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
-import { placeClashes } from "../planning.js";
+import { earlyTripText, placeClashes } from "../planning.js";
 import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
 import { hhmm, type PlanResponse, type StaleReason, type TransitOption } from "../transit.js";
@@ -87,12 +87,13 @@ type Result = { for: string; res: PlanResponse } | null;
 
 /** The mode picker for an event held at a saved place, and the bus plan when it is the bus. */
 export function EventTrip({ event }: { event: AppEvent }) {
-  const { data, now, dispatch } = useStore();
+  const { data, now, dispatch, earlyTrips } = useStore();
   const sync = useSync();
   // The test demo has no account: its bus plans are invented (demoTransit.ts).
   const demo = !sync && isTestDemo();
   const tz = data.settings.timezone;
   const trip = tripOf(data, event);
+  const early = earlyTrips.find((t) => t.event.id === event.id);
   // A trip already made is history; one with no saved place or home has nothing to choose.
   if (event.end <= now) return null;
   if (!trip) return event.busy ? <EventSpot event={event} /> : null;
@@ -136,6 +137,11 @@ export function EventTrip({ event }: { event: AppEvent }) {
           >
             Volver a {placeMode(trip.place) === "bus" ? "ómnibus" : "auto"}
           </button>
+        </p>
+      )}
+      {early && (
+        <p className="meta" role="note">
+          {earlyTripText(tz, early)}
         </p>
       )}
       {trip.mode === "bus" &&
@@ -315,7 +321,7 @@ function missingNote(missing: "from" | "to" | "area", home: string, place: strin
 }
 
 /**
- * One way as a single line («Ida · salís 11:35 · 701 → 710»); touching it opens the detail
+ * One way as a single line («Ida · salís 11:35 · líneas 701 y 710»); touching it opens the detail
  * (stops, transfers, walks, arrival) and `children`, the regular-route controls. The data
  * attribution lives in Ajustes → Acerca de, not here.
  */
@@ -394,10 +400,16 @@ function LegDetail({
   );
 }
 
-/** «Ida · salís 11:35 · 701 → 710»: the lines in the order they are taken. */
+/** «Línea 701», «líneas 701 y 710», «líneas 17, 128 y 710»: the lines in the order they are taken. */
+const linesText = (lines: readonly string[]): string => {
+  const last = lines.at(-1);
+  if (last === undefined) return "a pie";
+  if (lines.length === 1) return `línea ${last}`;
+  return `líneas ${lines.slice(0, -1).join(", ")} y ${last}`;
+};
+
+/** «Ida · salís 11:35 · líneas 701 y 710». */
 export function legLine(title: string, option: TransitOption): string {
   const lines = option.legs.flatMap((l) => (l.kind === "walk" ? [] : [l.line]));
-  return [title, `salís ${hhmm(option.leaveMin)}`, lines.length ? lines.join(" → ") : "a pie"]
-    .filter(Boolean)
-    .join(" · ");
+  return [title, `salís ${hhmm(option.leaveMin)}`, linesText(lines)].filter(Boolean).join(" · ");
 }

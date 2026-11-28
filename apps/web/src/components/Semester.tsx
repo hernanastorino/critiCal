@@ -2,20 +2,13 @@ import { useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import { addDays, localParts, zonedInstant } from "../engine.js";
-import { clipName, dayDate } from "../format.js";
+import { clipName, dayDate, parseHoursText } from "../format.js";
 import { holidaysBetween } from "../holidays.js";
 import { dateError, deadlineMaxYear, isBlank, stripInvisible, TITLE_MAX } from "../limits.js";
 import { type AppTask, newId, nextColor } from "../model.js";
 import { useStore } from "../store.js";
 import { hasClasses, sameName, subjectsOf } from "../subjects.js";
-import {
-  describedBy,
-  focusFirstInvalid,
-  Help,
-  isFigure,
-  Problem,
-  useFocusInvalid,
-} from "./fields.js";
+import { describedBy, focusFirstInvalid, Help, Problem, useFocusInvalid } from "./fields.js";
 import { Section, useSectionOpen } from "./Section.js";
 import { useToast } from "./Toast.js";
 import { useTapOnce } from "./useTapOnce.js";
@@ -102,8 +95,8 @@ export function Semester() {
   const repeated = data.activities.some((a) => sameName(a.name, subject));
   const subjectField = useRef<HTMLInputElement>(null);
   // Blank means no weekly silo; otherwise a figure of at most a whole week (as in Materias).
-  const hoursNum = Number(weekly.replace(",", "."));
-  const hoursOk = weekly.trim() === "" || (isFigure(weekly) && hoursNum >= 0 && hoursNum <= 168);
+  const hoursNum = parseHoursText(weekly);
+  const hoursOk = weekly.trim() === "" || (hoursNum >= 0 && hoursNum <= 168);
   // Nothing readable in it (spaces, zero-width characters): said when typed or tried.
   const nameProblem = isBlank(subject) && (subject !== "" || nameTried) ? "Poné un nombre." : null;
   const backwards = !!start && !!end && end < start;
@@ -151,7 +144,7 @@ export function Semester() {
       maxSessionMinutes: 120,
       minBlockMinutes: 60,
     };
-    const hoursPerWeek = Number(weekly.replace(",", "."));
+    const hoursPerWeek = parseHoursText(weekly);
     if (hoursPerWeek > 0) {
       // A weekly minimum is a weekly silo of one-hour sessions.
       const task: AppTask = {
@@ -343,7 +336,7 @@ export function Semester() {
               <label className="field">
                 <span>Estudio semanal (h)</span>
                 <input
-                  inputMode="decimal"
+                  inputMode="text"
                   value={weekly}
                   aria-invalid={hoursOk ? undefined : true}
                   aria-describedby={describedBy(

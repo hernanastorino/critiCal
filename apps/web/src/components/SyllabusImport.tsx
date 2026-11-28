@@ -70,7 +70,7 @@ function HoursInput({
   const [text, setText] = useState<string | null>(null);
   return (
     <input
-      inputMode="decimal"
+      inputMode="text"
       style={{ width: 56 }}
       aria-label={label}
       value={text ?? String(value)}

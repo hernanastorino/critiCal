@@ -1,5 +1,6 @@
 // Small pieces shared by the forms of Ajustes.
 import { useEffect, useId, useRef, useState } from "react";
+import { parseHoursText } from "../format.js";
 
 /** What is typed and not saved yet: it stays until saved, even if Ajustes is closed. */
 export function Unsaved({ show = true }: { show?: boolean }) {
@@ -54,8 +55,7 @@ export const clampMinutes = (v: string, min: number, max: number) => {
 };
 
 export const toHours = (m: number) => String(Math.round((m / 60) * 100) / 100);
-export const fromHours = (v: string) =>
-  Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+export const fromHours = (v: string) => Math.max(0, Math.round(parseHoursText(v) * 60) || 0);
 
 export function Field({
   label,

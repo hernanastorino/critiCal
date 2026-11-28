@@ -74,16 +74,17 @@ export function Notifications() {
           {error}
         </p>
       )}
-      <div className="check">
-        <input
-          id="notif-critical"
-          type="checkbox"
-          checked={!!sync && prefs.critical}
-          disabled={!sync}
-          onChange={(e) => save({ critical: e.target.checked })}
-        />
-        <label htmlFor="notif-critical" style={{ flex: 1 }}>
-          Antes de cada bloque crítico
+      <div className="check" style={{ padding: 0 }}>
+        {/* The whole line is the label: its box is the 44 px touch target of the checkbox. */}
+        <label className="check" htmlFor="notif-critical" style={{ flex: 1 }}>
+          <input
+            id="notif-critical"
+            type="checkbox"
+            checked={!!sync && prefs.critical}
+            disabled={!sync}
+            onChange={(e) => save({ critical: e.target.checked })}
+          />
+          <span style={{ flex: 1 }}>Antes de cada bloque crítico</span>
         </label>
         <select
           aria-label="Minutos antes"

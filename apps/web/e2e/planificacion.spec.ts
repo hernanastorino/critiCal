@@ -37,9 +37,7 @@ test.describe("planificación semanal un domingo", () => {
     expect((box?.x ?? 0) + (box?.width ?? 0)).toBeLessThanOrEqual(375);
 
     await plan.getByRole("button", { name: "Cerrar resumen" }).click();
-    // Se abrió desde Ajustes: cerrar vuelve ahí.
-    await expect(sheet(page)).toHaveAccessibleName("Ajustes");
-    await sheet(page).getByRole("button", { name: "Cerrar", exact: true }).click();
+    // «Cerrar resumen» cierra todo, también Ajustes desde donde se abrió.
     await expect(page.getByRole("dialog")).toHaveCount(0);
 
     // La semana siguiente tiene las 3 sesiones de Gym, cada una un día distinto.

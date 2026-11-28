@@ -34,7 +34,7 @@ import {
   typedHours,
 } from "../taskForm.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
-import { focusFirstInvalid, Help } from "./fields.js";
+import { focusFirstInvalid, fromHours, Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { Repartir } from "./Repartir.js";
@@ -361,7 +361,7 @@ export function TaskEditor({
     if (kind !== "deliverable" || startAfter === null) return null;
     const due = fromLocalInput(tz, deadline);
     if (!Number.isFinite(due)) return null;
-    const hrs = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+    const hrs = fromHours;
     const trial: AppTask = {
       ...(task ?? {
         id: "nueva",
@@ -460,8 +460,7 @@ export function TaskEditor({
     if (kind !== "deliverable") return null;
     const due = fromLocalInput(tz, deadline);
     if (!Number.isFinite(due) || due <= now) return null;
-    const asked =
-      units.length > 0 ? partsMinutes : Math.round(Number(estimate.replace(",", ".")) * 60) || 0;
+    const asked = units.length > 0 ? partsMinutes : fromHours(estimate);
     const week = data.settings.week;
     const awake =
       week.reduce((n, d) => n + ((d.bed - d.wake + 1440) % 1440 || 1440), 0) / week.length;
@@ -568,7 +567,7 @@ export function TaskEditor({
         validHours: hoursRead.hours,
       };
     }
-    const h = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+    const h = fromHours;
     // A weekly study silo whose times and minutes were not touched keeps its exact total
     // (5h30 is 6 sessions of 1 h, but the silo is 5h30).
     const studyKept =
@@ -833,7 +832,7 @@ export function TaskEditor({
                     <span>Horas estimadas</span>
                     <input
                       id={estimateId}
-                      inputMode="decimal"
+                      inputMode="text"
                       value={units.length > 0 ? durationLabel(partsMinutes) : estimateIn}
                       disabled={units.length > 0}
                       className={suggested ? "suggested" : undefined}
@@ -846,7 +845,7 @@ export function TaskEditor({
                     <span>Mínimo (horas)</span>
                     <input
                       id={minimumId}
-                      inputMode="decimal"
+                      inputMode="text"
                       value={minimumIn}
                       className={suggested ? "suggested" : undefined}
                       aria-invalid={minimumShown ? true : undefined}

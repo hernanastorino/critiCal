@@ -51,8 +51,8 @@ test.describe("tarjeta del evento en ómnibus", () => {
     // Llega a las 14:00: 42 min puerta a puerta → sale 13:18. Vuelve al terminar, 16:00 → 16:05.
     const ida = tarjeta.getByRole("region", { name: "Ida" });
     const vuelta = tarjeta.getByRole("region", { name: "Vuelta" });
-    await expect(ida.locator("summary")).toHaveText("Ida · salís 13:18 · 128 → 710");
-    await expect(vuelta.locator("summary")).toHaveText("Vuelta · salís 16:05 · 128 → 710");
+    await expect(ida.locator("summary")).toHaveText("Ida · salís 13:18 · líneas 128 y 710");
+    await expect(vuelta.locator("summary")).toHaveText("Vuelta · salís 16:05 · líneas 128 y 710");
 
     // Cerrada, nada más: ni paradas, ni transbordos, ni caminatas.
     await expect(ida.locator("details")).not.toHaveAttribute("open", "");
@@ -124,10 +124,27 @@ test.describe("tarjeta del evento en ómnibus", () => {
     page,
   }) => {
     await abrirDemoDePruebas(page);
+    // La app pide sola los minutos de los eventos en ómnibus al abrir, de a uno: se espera a que
+    // termine (la cantidad guardada deja de cambiar), para que no pise lo que sigue.
+    let ultima = -1;
+    let quieta = 0;
+    await expect
+      .poll(
+        async () => {
+          const cuantos = Object.keys((await guardado(page)).tripMinutes ?? {}).length;
+          quieta = cuantos === ultima ? quieta + 1 : 0;
+          ultima = cuantos;
+          return cuantos > 0 && quieta >= 4;
+        },
+        { intervals: [250] },
+      )
+      .toBe(true);
     // El Cerro tiene paradas inventadas: para quedar sin datos, el lugar se corre al oeste.
     await page.evaluate(() => {
       const d = JSON.parse(localStorage.getItem("critical.demo.v2") ?? "{}");
       for (const p of d.places) if (p.id === "cerro") p.lon = -56.5;
+      // Lo que la app ya había pedido para el Cerro, con las paradas de antes, se olvida.
+      delete d.tripMinutes?.["taller-cerro"];
       localStorage.setItem("critical.demo.v2", JSON.stringify(d));
     });
     await page.reload();

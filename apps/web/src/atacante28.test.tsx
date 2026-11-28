@@ -161,9 +161,9 @@ describe("MEDIA 1: Planificación semanal no se contradice", () => {
 });
 
 describe("BAJAS", () => {
-  it("horas con dígitos de ancho completo: solo el primer error", () => {
+  it("horas que no son cifras: solo el primer error", () => {
     inside(<TaskEditor onClose={noop} />, () => demoData(NOW));
-    fireEvent.change(screen.getByLabelText("Horas estimadas"), { target: { value: "１２" } });
+    fireEvent.change(screen.getByLabelText("Horas estimadas"), { target: { value: "doce" } });
     expect(screen.getAllByText(/Poné horas de más de 0 a/).length).toBe(1);
     expect(screen.queryByText(/El mínimo no puede ser mayor/)).toBeNull();
   });
