@@ -18,7 +18,7 @@ import {
 } from "./fields.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 
-type Enter = (_e: React.KeyboardEvent<HTMLInputElement>) => void;
+type Enter = React.KeyboardEventHandler<HTMLInputElement>;
 
 /** A whole number from what was typed, or NaN: «3.5» is not rounded to 4 behind the back. */
 const wholeOf = (v: string) => (isWhole(v) ? Number(v) : Number.NaN);
@@ -93,7 +93,7 @@ function NameField({
 }: {
   name: string;
   problemId: string | undefined;
-  onChange: (_v: string) => void;
+  onChange(value: string): void;
   onEnter: Enter;
 }) {
   return (
@@ -130,7 +130,7 @@ function FigureField({
   /** «times» or «minutes»: the ids of its error and its help. */
   id: string;
   help: string;
-  onChange: (_v: string) => void;
+  onChange(value: string): void;
   onEnter: Enter;
 }) {
   return (
@@ -180,7 +180,7 @@ function AddFooter({
   repeated: boolean;
   blocked: boolean;
   dirty: boolean;
-  onAdd: (_form: Element | null) => void;
+  onAdd(form: Element | null): void;
 }) {
   return (
     <>
