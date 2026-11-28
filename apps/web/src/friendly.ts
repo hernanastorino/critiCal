@@ -24,10 +24,21 @@ export const STILL_SHORT = "Con esto todavía faltaría tiempo: sumá otra opci�
  * plan reached them before the option.
  */
 export function optionPromise(
-  option: { kind: string; result: { feasible: boolean; status: { targetDeficit: number }[] } },
+  option: {
+    kind: string;
+    label?: string;
+    result: { feasible: boolean; status: { targetDeficit: number }[] };
+  },
   minimumsMet: boolean,
   otherwise: string,
 ): string {
+  // «Un poco de todo» cuts every minimum: it never reaches the ones the tasks had (§5.6).
+  if (option.kind === "proportional") {
+    const share = option.label?.match(/(\d+) %/)?.at(1);
+    return option.result.feasible && share
+      ? `Con esto cubrís el ${share} % de cada mínimo, no todo.`
+      : otherwise;
+  }
   if (!minimumsMet) {
     if (!option.result.feasible) return otherwise;
     // Free time is lent until the end of the week: it is not what makes it last longer.

@@ -551,8 +551,8 @@ export function recommendations(input: ScheduleInput, result: ScheduleResult): R
   if (savedFree <= 0 && savedDeficit <= 0 && !fixesFeasibility) return [];
   const reasons: string[] = [];
   if (fixesFeasibility) reasons.push("llegás a todos los mínimos");
-  if (savedFree > 0) reasons.push(`te ahorrás ${savedFree} min de tiempo libre`);
-  if (savedDeficit > 0) reasons.push(`cubrís ${savedDeficit} min más`);
+  if (savedFree > 0) reasons.push(`te ahorrás ${duration(Math.round(savedFree))} de tiempo libre`);
+  if (savedDeficit > 0) reasons.push(`cubrís ${duration(Math.round(savedDeficit))} más`);
   return [
     {
       id: "relax-context",

@@ -170,7 +170,8 @@ export function pruebasData(now: number): AppData {
       t.id === "parcial-calc"
         ? {
             ...t,
-            estimateMinutes: 780,
+            // The total is the sum of its parts (SPEC §18.18): 6h + 2 × 2h.
+            estimateMinutes: 600,
             minMinutes: 120,
             units: t.units.map((u) =>
               u.id === "u3" || u.id === "u4" ? { ...u, estimateMinutes: 120 } : u,

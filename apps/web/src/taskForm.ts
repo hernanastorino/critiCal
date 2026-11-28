@@ -82,13 +82,12 @@ export function estimateProblem(v: string, partsMinutes: number): string | null 
 export const durationLabel = hours;
 
 /**
- * What the parts add up to beside the estimate, so a silo showing less than the estimate
- * (what is left is measured by the parts) is understood. Null without parts or figures.
+ * With parts, the total is their sum (SPEC §18.18): said once, so the silo and the form
+ * show the same figure. Null without parts.
  */
-export function partsSummary(estimate: string, partsMinutes: number): string | null {
-  const n = typedHours(estimate);
-  if (!Number.isFinite(n) || partsMinutes <= 0) return null;
-  return `Partes: ${durationLabel(partsMinutes)} de ${durationLabel(Math.round(n * 60))} estimadas.`;
+export function partsSummary(partsMinutes: number): string | null {
+  if (partsMinutes <= 0) return null;
+  return `Total ${durationLabel(partsMinutes)}, la suma de las partes.`;
 }
 
 /**
