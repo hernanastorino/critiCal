@@ -65,6 +65,9 @@ export const NAME_MAX = 60;
 export const TITLE_MAX = 80;
 /** What a backup may carry: more than the app lets you type, so old data still imports. */
 export const BACKUP_TEXT_MAX = 300;
+/** The most events and tasks a backup may carry: more is not a calendar, and freezes the page. */
+export const BACKUP_EVENTS_MAX = 5000;
+export const BACKUP_TASKS_MAX = 2000;
 /** Longest address of a place (what the travel function reads of it). */
 export const ADDRESS_MAX = SPOT_TEXT_MAX;
 /** Longest text of the «Alias» field (all of them, with their commas). */

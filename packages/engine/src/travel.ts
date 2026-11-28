@@ -57,8 +57,11 @@ export function travelBuffers(events: readonly CalendarEvent[], opts: TravelOpti
     if (origin !== place && !overlapsPrev) {
       // Only a trip from home has a figure of its own: from another place it is unknown.
       const own = origin === opts.home ? opts.tripMinutes?.(event, "there") : undefined;
-      const there = own ?? opts.travelMinutes(origin, place) ?? 0;
-      busy.push({ start: event.start - there * MINUTE - margin, end: event.start });
+      const known = own ?? opts.travelMinutes(origin, place);
+      const there = known ?? 0;
+      // A known 0 min is no trip at all: the margin is for getting somewhere, not for staying.
+      if (known !== 0)
+        busy.push({ start: event.start - there * MINUTE - margin, end: event.start });
     }
 
     const next = located[i + 1];

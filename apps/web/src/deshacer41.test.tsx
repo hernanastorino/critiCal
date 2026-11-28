@@ -229,7 +229,7 @@ describe("la Bandeja deja una sola entrada con su rótulo", () => {
   it("«Usar» con «Guardar como lugar»: una entrada «guardar Oficina»", () => {
     open();
     typeMinutes();
-    fireEvent.click(screen.getByRole("checkbox", { name: "Guardar como lugar" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /^Guardar como lugar/ }));
     fireEvent.change(screen.getByLabelText("Nombre del lugar"), { target: { value: "Oficina" } });
     act(() => {
       fireEvent.click(screen.getByRole("button", { name: "Usar" }));

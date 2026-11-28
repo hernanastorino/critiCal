@@ -35,6 +35,14 @@ describe("travelBuffers with events that overlap", () => {
   });
 });
 
+describe("travelBuffers with a zero-minute trip", () => {
+  it("reserves neither the trip nor the margin when the place is 0 min away", () => {
+    const clase = ev("clase", "10:00", "12:00", "Facultad");
+    const { busy } = travelBuffers([clase], options({ travelMinutes: () => 0 }));
+    expect(busy.filter((i) => i.end > i.start)).toEqual([]);
+  });
+});
+
 describe("travelBuffers by bus", () => {
   const clase = ev("clase", "10:00", "12:00", "Facultad");
 

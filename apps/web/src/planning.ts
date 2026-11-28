@@ -692,11 +692,16 @@ export function onFixedOrTrip(data: AppData, span: { start: number; end: number 
  * two sites): the plan cannot get you to both, so its card says so.
  */
 export function placeClash(data: AppData, event: AppEvent): AppEvent | undefined {
-  if (!event.busy || event.allDay || event.flexible) return undefined;
+  return placeClashes(data, event).at(0);
+}
+
+/** Every fixed event that `event` overlaps at a different place (a card names them all). */
+export function placeClashes(data: AppData, event: AppEvent): AppEvent[] {
+  if (!event.busy || event.allDay || event.flexible) return [];
   const events = plannerEvents(data);
   const place = events.find((e) => e.id === event.id)?.location;
-  if (!place) return undefined;
-  return visibleEvents(data).find((o) => {
+  if (!place) return [];
+  return visibleEvents(data).filter((o) => {
     if (o.id === event.id || !o.busy || o.allDay || o.flexible || !overlaps(o, event)) return false;
     const there = events.find((e) => e.id === o.id)?.location;
     return !!there && there !== place;

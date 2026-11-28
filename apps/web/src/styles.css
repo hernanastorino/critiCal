@@ -1280,6 +1280,16 @@ input[type="radio"]:disabled {
   color: #fff;
 }
 
+/* A very long event title (imported) stops at three lines with «…» instead of running off the sheet. */
+.event-title {
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
 .silo .name {
   font-size: var(--text-s);
   font-weight: 600;
@@ -3377,14 +3387,17 @@ input.rep-name {
   color: var(--critical-ink);
 }
 
+/* Three buttons of one height, whatever their words (a button after another gets a top margin). */
 .rep-presets {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: stretch;
   gap: var(--space-2);
 }
 
 .rep-presets .btn {
   min-height: 44px;
+  margin-top: 0;
 }
 
 .rep-add {

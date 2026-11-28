@@ -138,8 +138,8 @@ function EventDetail({ item }: { item: Extract<Item, { kind: "event" }> }) {
   const e = item.event;
   return (
     <>
-      <h2>{e.title}</h2>
-      <p className="meta">
+      <h2 className="event-title">{e.title}</h2>
+      <p className="meta" style={{ overflowWrap: "anywhere" }}>
         {dayAndTime(tz, e.start)} – {time(tz, e.end)}
         {e.location ? ` · ${e.location}` : ""}
         {!e.busy && " · no bloquea tiempo"}

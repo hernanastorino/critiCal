@@ -73,7 +73,9 @@ describe("Inicio de cuatrimestre", () => {
     fireEvent.change(name, { target: { value: "Química" } });
     const hours = screen.getByLabelText("Estudio semanal (h)");
     fireEvent.change(hours, { target: { value: "-5" } });
-    expect(screen.getByText("El estudio semanal va de 0 a 168 h.")).toBeTruthy();
+    expect(
+      screen.getByText("Poné horas de 0 a 168, solo cifras (1,5 sirve; negativos no)."),
+    ).toBeTruthy();
     expect(hours.getAttribute("aria-invalid")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Agregar materia" }));
     expect(document.activeElement).toBe(hours);

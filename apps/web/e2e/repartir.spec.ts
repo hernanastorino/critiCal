@@ -27,6 +27,12 @@ test("el parcial con temas se reparte por peso y se acepta, sin desborde a 375 p
   expect(ancho[0]).toBeLessThanOrEqual(ancho[1] ?? 0);
   await expect(hoja.getByRole("slider", { name: "Total" })).toBeVisible();
   await expect(hoja.getByRole("slider", { name: "Cinemática" })).toBeVisible();
+  // Los tres botones de reparto miden lo mismo (43.ª vuelta).
+  const altos = await hoja
+    .locator(".rep-presets .btn")
+    .evaluateAll((bs) => bs.map((b) => Math.round(b.getBoundingClientRect().height)));
+  expect(altos).toHaveLength(3);
+  expect(new Set(altos).size).toBe(1);
 
   // Mover el total deja tiempo sin asignar y apaga Aceptar.
   await hoja.getByRole("slider", { name: "Total" }).focus();

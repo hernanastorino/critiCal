@@ -61,9 +61,15 @@ export function WeekSettings() {
   const toast = useToast();
   const askFocus = useFocusInvalid();
 
+  // Tapping the last chosen day off is refused out loud: the button would still name it.
+  const [lastDay, setLastDay] = useState(false);
   const pick = (d: number) => {
     const next = days.includes(d) ? days.filter((x) => x !== d) : [...days, d];
-    if (next.length === 0) return;
+    if (next.length === 0) {
+      setLastDay(true);
+      return;
+    }
+    setLastDay(false);
     setDraft(switchDays({ days, form, held }, next, data.settings.week));
   };
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -171,6 +177,7 @@ export function WeekSettings() {
             type="button"
             aria-pressed={days.includes(d)}
             aria-label={DAY_NAMES[d]}
+            aria-describedby={lastDay && days.includes(d) ? "week-last-day" : undefined}
             className={`chip${days.includes(d) ? " on" : ""}`}
             onClick={() => pick(d)}
           >
@@ -178,6 +185,11 @@ export function WeekSettings() {
           </button>
         ))}
       </div>
+      {lastDay && (
+        <p id="week-last-day" className="meta" role="status">
+          Tiene que quedar al menos un día elegido.
+        </p>
+      )}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Enter in a field only bubbles up to the save button */}
       <div className="grid2" onKeyDown={saveOnEnter}>
         <Field
@@ -831,10 +843,11 @@ export function Routines({ openId }: { openId?: string }) {
       <Unsaved show={dirty} />
       <button
         type="button"
-        className="btn"
+        // Looks ready (dark) with valid data, and off with a blank name, a repeated one or a wrong field.
+        className={`btn${isBlank(name) || repeated || bad ? "" : " primary"}`}
         style={{ width: "100%" }}
         disabled={repeated}
-        aria-disabled={bad ? true : undefined}
+        aria-disabled={bad || isBlank(name) ? true : undefined}
         onClick={(e) => add(e.currentTarget.parentElement)}
       >
         Agregar rutina

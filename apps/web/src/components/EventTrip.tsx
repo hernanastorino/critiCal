@@ -28,7 +28,7 @@ import { isTestDemo } from "../demoPruebas.js";
 import { demoPlan } from "../demoTransit.js";
 import type { AppEvent, TravelMode } from "../model.js";
 import { busMinutes } from "../places.js";
-import { placeClash } from "../planning.js";
+import { placeClashes } from "../planning.js";
 import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
 import { hhmm, type PlanResponse, type StaleReason, type TransitOption } from "../transit.js";
@@ -65,11 +65,20 @@ function staleNote(reason: StaleReason): string {
 /** One line when this event overlaps another fixed one at a different place. */
 export function PlaceClash({ event }: { event: AppEvent }) {
   const { data, now } = useStore();
-  const other = event.end > now ? placeClash(data, event) : undefined;
-  if (!other) return null;
+  const others = event.end > now ? placeClashes(data, event) : [];
+  const first = others.at(0);
+  if (!first) return null;
+  const [a, b, ...rest] = others;
+  const names = (e: AppEvent | undefined) => `«${e?.title ?? ""}»`;
+  const who =
+    others.length === 1
+      ? names(first)
+      : others.length === 2
+        ? `${names(a)} y ${names(b)}`
+        : `${names(a)} y ${rest.length + 1} más`;
   return (
     <p className="meta" role="note">
-      Se superpone con «{other.title}», en otro lugar.
+      Se superpone con {who}, en otro lugar.
     </p>
   );
 }
