@@ -1,6 +1,17 @@
-import { useDeferredValue, useId, useMemo, useRef, useState } from "react";
+import {
+  Component,
+  type ErrorInfo,
+  type ReactNode,
+  useDeferredValue,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { clipName, hours } from "../format.js";
 import type { AppTask } from "../model.js";
+import { reportError } from "../monitoring.js";
 import { doneMinutes } from "../planning.js";
 import {
   addRow,
@@ -36,6 +47,7 @@ import { useStore } from "../store.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
+import { useToast } from "./Toast.js";
 import { PLAN_KEYS, useUndoable } from "./useUndoable.js";
 
 const MINUTE_CHOICES = [0, 15, 30, 45] as const;
@@ -276,7 +288,7 @@ function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: () =>
     <div className="rep-row">
       <div className="rep-head">
         <b className="rep-name">Total</b>
-        <span className="rep-min-label">Mínimo {hours(s.min)}</span>
+        <span className="rep-min-label">Mínimo {hours(s.pick)}</span>
       </div>
       <TimeSlider
         name="Total"
@@ -295,6 +307,9 @@ function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: () =>
           />
         }
       />
+      <p className="rep-warn rep-lowered" aria-live="polite">
+        {s.pick > s.min ? `El mínimo baja a ${hours(s.min)}` : ""}
+      </p>
     </div>
   );
 }
@@ -477,18 +492,55 @@ function Pickers({
  * «Repartir tiempo» (SPEC §18 punto 18): the total of a task and a slider for each tema.
  * It only gives back what was decided (`onAccept`); the caller saves it.
  */
-export function Repartir({
-  task: given,
-  initial,
-  onAccept,
-  onClose,
-}: {
+export function Repartir(props: RepartirProps) {
+  return (
+    <SheetBoundary onClose={props.onClose}>
+      <RepartirSheet {...props} />
+    </SheetBoundary>
+  );
+}
+
+interface RepartirProps {
   task: AppTask;
   /** Where it starts when that is not the task as it is (what an option would leave). */
   initial?: Prefill;
   onAccept: (next: AppTask) => void;
   onClose: () => void;
-}) {
+}
+
+/** A failure inside the sheet closes it with a notice: the rest of the app keeps standing. */
+class SheetBoundary extends Component<
+  { children: ReactNode; onClose: () => void },
+  { failed: boolean }
+> {
+  override state = { failed: false };
+
+  static getDerivedStateFromError() {
+    return { failed: true };
+  }
+
+  override componentDidCatch(error: unknown, info: ErrorInfo) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    reportError(err, { componentStack: (info.componentStack ?? "").slice(0, 2000) });
+    this.props.onClose();
+  }
+
+  override render() {
+    return this.state.failed ? <SheetFailed /> : this.props.children;
+  }
+}
+
+/** Shown once, as the sheet goes away. */
+function SheetFailed() {
+  const toast = useToast();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: said once, as it mounts
+  useEffect(() => {
+    toast.show("No pude abrir el reparto. Probá de nuevo.", { tone: "alert" });
+  }, []);
+  return null;
+}
+
+function RepartirSheet({ task: given, initial, onAccept, onClose }: RepartirProps) {
   const { data, now } = useStore();
   // The task as it was when the sheet opened: the plan is not worked out again for a new object.
   const [task] = useState(given);
