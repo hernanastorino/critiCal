@@ -3404,6 +3404,10 @@ input.rep-name {
   word-break: normal;
 }
 
+.rep-lowered:empty {
+  margin: 0;
+}
+
 .rep-min-label {
   flex: none;
   font-size: var(--text-s);

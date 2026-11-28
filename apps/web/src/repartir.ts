@@ -324,8 +324,24 @@ export type Fit = "plan" | "deadline" | null;
  */
 export function fitOf(data: AppData, now: number, trial: AppTask): Fit {
   if (trial.kind === "habit" || trial.estimateMinutes <= 0) return null;
+  // A task still without its materia (none picked, or a new one not saved yet) is planned
+  // with a plain stand-in: the figures do not depend on which one it will be.
+  const known = data.activities.some((a) => a.id === trial.activityId);
   const next: AppData = {
     ...data,
+    activities: known
+      ? data.activities
+      : [
+          ...data.activities,
+          {
+            id: trial.activityId,
+            name: "",
+            color: "#888888",
+            academic: true,
+            maxSessionMinutes: 120,
+            minBlockMinutes: 60,
+          },
+        ],
     tasks: data.tasks.some((t) => t.id === trial.id)
       ? data.tasks.map((t) => (t.id === trial.id ? trial : t))
       : [...data.tasks, trial],

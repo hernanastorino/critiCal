@@ -68,3 +68,35 @@ test("la hora tocable abre el selector de horas y minutos", async ({ page }) => 
     /^Total, 12 horas 30/,
   );
 });
+
+// 45.ª vuelta: «Repartir tiempo» en una entrega nueva sin materia no tira la app.
+for (const demo of ["/?demo=pruebas", "/"]) {
+  test(`entrega nueva sin materia: la hoja abre y no se cae la app (${demo})`, async ({ page }) => {
+    await page.clock.install({ time: MIERCOLES });
+    await page.goto(demo);
+    if (demo === "/")
+      await page.getByRole("button", { name: "Probar con datos de ejemplo" }).click();
+    await expect(page.getByTestId("week")).toBeVisible({ timeout: 20_000 });
+    await goTab(page, "Silos");
+    await page.getByRole("button", { name: "Nueva actividad" }).click();
+    const form = sheet(page);
+    await form.getByLabel("Horas estimadas").fill("1");
+    await form.getByLabel("Mínimo (horas)").fill("0");
+    for (const materia of ["", "new"]) {
+      // Arranca sin materia («Elegí…» no se puede volver a elegir).
+      if (materia) await form.getByLabel("Materia o actividad").selectOption(materia);
+      await form.getByRole("button", { name: "Repartir tiempo" }).click();
+      await expect(sheet(page)).toHaveAccessibleName("Repartir tiempo");
+      await expect(page.getByText("Algo falló")).toHaveCount(0);
+      await sheet(page).getByRole("button", { name: "Cerrar" }).click();
+    }
+  });
+}
+
+test("el Total por debajo del mínimo avisa que el mínimo baja", async ({ page }) => {
+  await abrirHoja(page, "Parcial Física I");
+  const hoja = sheet(page);
+  await hoja.getByRole("slider", { name: "Total" }).focus();
+  for (let i = 0; i < 40; i++) await page.keyboard.press("ArrowLeft");
+  await expect(hoja.locator(".rep-lowered")).toContainText("El mínimo baja a");
+});
