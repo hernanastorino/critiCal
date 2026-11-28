@@ -85,7 +85,7 @@ describe("el mínimo es el mismo en todas las pantallas", () => {
     }
   });
 
-  it("la ficha del silo dice el mínimo de la tarea (Parcial Física I: 6h, con 1h hecha)", () => {
+  it("la ficha del silo dice lo que falta para el mínimo (Parcial Física I: 6h; la hora registrada sin partes no la baja)", () => {
     localStorage.setItem("critical.mode", "demo");
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
     const now = zonedInstant(TIMEZONE, "2026-11-25", 10 * 60);
@@ -96,7 +96,7 @@ describe("el mínimo es el mismo en todas las pantallas", () => {
     );
     expect(mine).toBeDefined();
     if (mine) fireEvent.click(mine);
-    expect(screen.getByText(/mínimo 6h\)/)).toBeTruthy();
-    expect(screen.queryByText(/mínimo 5h\)/)).toBeNull();
+    expect(screen.getByText(/\(para el mínimo, 6h\)/)).toBeTruthy();
+    expect(screen.queryByText(/\(mínimo \d/)).toBeNull();
   });
 });

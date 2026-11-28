@@ -141,7 +141,8 @@ describe("planning", () => {
     });
     expect(doneMinutes(data, "t")).toBe(60);
     const [t, gym] = progress(data, MON);
-    expect(t).toMatchObject({ remainingMinutes: 120, minRemainingMinutes: 120 });
+    // With parts only the part marked (2h) counts: the hour logged moves neither number.
+    expect(t).toMatchObject({ remainingMinutes: 120, minRemainingMinutes: 60 });
     expect(gym).toMatchObject({
       totalMinutes: 180,
       remainingMinutes: 120,

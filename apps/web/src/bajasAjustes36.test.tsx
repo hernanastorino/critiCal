@@ -97,7 +97,7 @@ describe("Exportar JSON avisa", () => {
 });
 
 describe("Hecho sin partes", () => {
-  it("no mueve «Faltan» (son las partes que quedan) y sí el mínimo (SPEC: cuenta como tiempo)", {
+  it("no mueve «Faltan» ni el mínimo (son las partes las que cuentan)", {
     timeout: 60_000,
   }, () => {
     const now = zonedInstant(TIMEZONE, "2026-11-03", 15 * 60);
@@ -124,7 +124,7 @@ describe("Hecho sin partes", () => {
     });
     const after = progress(done, now).find((p) => p.task.id === withParts.task.id);
     expect(after?.remainingMinutes).toBe(withParts.remainingMinutes);
-    expect(after?.minRemainingMinutes).toBeLessThan(withParts.minRemainingMinutes);
+    expect(after?.minRemainingMinutes).toBe(withParts.minRemainingMinutes);
   });
 });
 

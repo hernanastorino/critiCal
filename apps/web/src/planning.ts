@@ -47,7 +47,7 @@ import {
   type Unit,
   undoable,
 } from "./model.js";
-import { improves } from "./need.js";
+import { editedMinimum, improves } from "./need.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -487,6 +487,14 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
                 .reduce((sum, u) => sum + u.estimateMinutes, 0),
             )
           : capLeft;
+      // What counts toward the minimum is what lowers «Faltan»: with parts, the parts done
+      // (by hand or by a record; minutes logged without parts move neither); without, the minutes.
+      const doneMin =
+        task.units.length > 0
+          ? task.units
+              .filter((u) => !u.skipped && u.doneAt)
+              .reduce((n, u) => n + u.estimateMinutes, 0)
+          : done;
       const ratio = task.units.length > 0 ? effortRatio(effort, task.activityId) : undefined;
       const left = ratio === undefined ? remaining : scaled(task, remaining, ratio);
       return {
@@ -494,7 +502,7 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
         totalMinutes: task.estimateMinutes,
         remainingMinutes: left,
         // As the planner takes it: never above what it reserves.
-        minRemainingMinutes: Math.min(left, Math.max(0, task.minMinutes - done)),
+        minRemainingMinutes: Math.min(left, Math.max(0, task.minMinutes - doneMin)),
         deadline: task.deadline ?? endOfWeek(tz, now),
         ratio,
       };
@@ -1602,7 +1610,8 @@ function simulated(
 ): PlanOption {
   const after = applyOption(from.data, input, option, from.now);
   // The minimum the task keeps: the one the ficha, the form and «Repartir tiempo» show.
-  const kept = after.tasks.find((t) => t.id === option.taskId)?.minMinutes;
+  const keptTask = after.tasks.find((t) => t.id === option.taskId);
+  const kept = keptTask && editedMinimum(keptTask);
   const named =
     kept !== undefined && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
       ? option.label.replace(/\(([^()]*)\)$| a (\d\S*)$/, (all: string) =>

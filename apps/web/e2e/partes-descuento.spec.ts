@@ -17,5 +17,7 @@ test("marcar una parte sin minutos descuenta solo esa parte: Faltan 12h pasa a 9
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(silo).toHaveAttribute("aria-label", /faltan 9h/);
   await silo.click();
-  await expect(sheet(page).getByText(/^Faltan 9h \(mínimo/)).toBeVisible();
+  await expect(
+    sheet(page).getByText(/^Faltan 9h \((para el mínimo|mínimo cubierto)/),
+  ).toBeVisible();
 });

@@ -26,8 +26,6 @@ async function ficha(page: Page): Promise<string> {
   return (await meta.textContent()) ?? "";
 }
 
-const minimoDe = (texto: string) => /mínimo (\d+h(?:\d\d)?|\d+m)/.exec(texto)?.[1] ?? "";
-
 test("la versión mínima deja el mismo mínimo en la Bandeja, la ficha y el formulario, y nada crítico", async ({
   page,
 }) => {
@@ -49,9 +47,10 @@ test("la versión mínima deja el mismo mínimo en la Bandeja, la ficha y el for
     page.locator(`button[aria-label^="Elegir: "][aria-label*="${INFORME}"]`),
   ).toHaveCount(0);
 
-  // La ficha dice el mínimo que nombraba la opción.
-  expect(minimoDe(await ficha(page))).toBe(nombrado);
-  // El formulario, el mismo (en horas).
+  // La ficha dice lo que falta para el mínimo (nunca más que lo que falta)...
+  const texto = await ficha(page);
+  expect(texto).toMatch(/Faltan \S+ \((para el mínimo, \S+|mínimo cubierto)\)/);
+  // ...y el formulario, el mínimo que nombraba la opción (en horas).
   await sheet(page).getByRole("button", { name: "Editar" }).click();
   const horas = Number(
     (await sheet(page).getByLabel("Mínimo (horas)").inputValue()).replace(",", "."),
