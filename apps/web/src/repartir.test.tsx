@@ -7,6 +7,7 @@ import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
 import { endOfWeek } from "./planning.js";
+import { applySheet, openSheet, slideTotal } from "./repartir.js";
 import { StoreProvider, useStore } from "./store.js";
 import { weekLeft } from "./week-review.js";
 
@@ -188,6 +189,92 @@ describe("tareas sin temas", () => {
     fireEvent.click(screen.getByRole("button", { name: "+ Tema" }));
     expect(document.querySelector(".rep-rest.red")).not.toBeNull();
     expect((accept() as HTMLButtonElement).disabled).toBe(true);
+  });
+});
+
+describe("42.ª vuelta: nombres, mínimo y límites", () => {
+  const addTema = () => fireEvent.click(screen.getByRole("button", { name: "+ Tema" }));
+  const nameOf = (n: number) => screen.getByRole("textbox", { name: `Nombre del tema ${n}` });
+  const disabled = (name: string) =>
+    screen.getByRole("button", { name }) instanceof HTMLButtonElement &&
+    (screen.getByRole("button", { name }) as HTMLButtonElement).disabled;
+
+  it("un tema nuevo sin nombre, con solo espacios, repetido o larguísimo no se acepta y lo dice en el campo", () => {
+    start();
+    addTema();
+    addTema();
+    // Dos temas nuevos nunca nacen con el mismo nombre.
+    expect((nameOf(3) as HTMLInputElement).value).not.toBe((nameOf(4) as HTMLInputElement).value);
+    fireEvent.click(screen.getByRole("button", { name: "Repartir el resto" }));
+    expect(disabled("Aceptar reparto")).toBe(false);
+    fireEvent.change(nameOf(3), { target: { value: "" } });
+    expect(disabled("Aceptar reparto")).toBe(true);
+    expect(nameOf(3).getAttribute("aria-invalid")).toBe("true");
+    expect(screen.getByText("Poné un nombre para el tema")).toBeTruthy();
+    fireEvent.change(nameOf(3), { target: { value: "   " } });
+    expect(disabled("Aceptar reparto")).toBe(true);
+    // Sin importar mayúsculas ni tildes, ni contra los temas que ya estaban.
+    fireEvent.change(nameOf(3), { target: { value: "DERIVADAS" } });
+    expect(screen.getByText("Ya hay un tema con ese nombre")).toBeTruthy();
+    expect(disabled("Aceptar reparto")).toBe(true);
+    fireEvent.change(nameOf(3), { target: { value: "Límites" } });
+    fireEvent.change(nameOf(4), { target: { value: "limites" } });
+    expect(screen.getAllByText("Ya hay un tema con ese nombre").length).toBe(2);
+    fireEvent.change(nameOf(4), { target: { value: "x".repeat(81) } });
+    expect(screen.getByText("Como máximo 80 caracteres")).toBeTruthy();
+    expect(disabled("Aceptar reparto")).toBe(true);
+    fireEvent.change(nameOf(4), { target: { value: "Series" } });
+    expect(disabled("Aceptar reparto")).toBe(false);
+  });
+
+  it("un nombre vacío se lee igual: «Quitar Tema 3» y «Escribir las horas de Tema 3»", () => {
+    start();
+    addTema();
+    fireEvent.change(nameOf(3), { target: { value: "" } });
+    expect(screen.getByRole("button", { name: "Quitar Tema 3" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Escribir las horas de Tema 3" })).toBeTruthy();
+  });
+
+  it("el mínimo elegido vuelve al subir el Total otra vez", () => {
+    start();
+    change("Total", 0);
+    expect(slider("Mínimo").getAttribute("aria-valuetext")).toBe("0 minutos");
+    change("Total", 600);
+    expect(slider("Mínimo").getAttribute("aria-valuetext")).toBe("5 horas");
+    // Moverlo a mano sí cambia lo elegido.
+    fireEvent.keyDown(slider("Mínimo"), { key: "ArrowLeft" });
+    change("Total", 0);
+    change("Total", 600);
+    expect(slider("Mínimo").getAttribute("aria-valuetext")).toBe("4 horas 45");
+  });
+
+  it("el selector con texto, negativo, coma o vacío dice por qué no guarda", () => {
+    start();
+    fireEvent.click(screen.getByRole("button", { name: "Escribir las horas de Total" }));
+    for (const v of ["abc", "-2", "1,5", ""]) {
+      fireEvent.change(screen.getByLabelText("Horas"), { target: { value: v } });
+      expect(screen.getByText("Poné horas y minutos válidos")).toBeTruthy();
+      expect(disabled("Guardar horas")).toBe(true);
+    }
+    fireEvent.change(screen.getByLabelText("Horas"), { target: { value: "3" } });
+    expect(screen.queryByText("Poné horas y minutos válidos")).toBeNull();
+  });
+
+  it("hay tope de 30 temas y «+ Tema» se apaga al llegar", () => {
+    start();
+    for (let i = 0; i < 28; i++) addTema();
+    expect(document.querySelectorAll(".rep-list > .rep-row").length).toBe(30);
+    expect(disabled("+ Tema")).toBe(true);
+  });
+});
+
+describe("mínimo de la hoja (puro)", () => {
+  it("el mínimo efectivo es min(elegido, Total) y solo se guarda bajado si se acepta así", () => {
+    const sheet = openSheet(TASK);
+    const down = slideTotal(sheet, 0);
+    expect(down.min).toBe(0);
+    expect(slideTotal(down, 600).min).toBe(300);
+    expect(applySheet(TASK, slideTotal(sheet, 240)).minMinutes).toBe(240);
   });
 });
 

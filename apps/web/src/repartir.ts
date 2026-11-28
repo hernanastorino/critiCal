@@ -1,7 +1,7 @@
 // «Repartir tiempo» (SPEC §18 punto 18): the figures of the sheet where a task's total is
 // split among its temas. Pure: the sheet only draws and calls these.
 import { scheduleAlone, selfShort } from "./engine.js";
-import { UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
+import { TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import { type AppData, type AppTask, newId, type Unit } from "./model.js";
 import { shortfall } from "./need.js";
 import { refreshPlan } from "./planning.js";
@@ -12,6 +12,8 @@ export const STEP = 15;
 export const SCALE = 1.3;
 /** A tema that asks for time when there is nothing left to give it: an hour. */
 export const NEW_TEMA_SCALE = 60;
+/** Most temas a sheet holds. */
+export const TEMAS_MAX = 30;
 
 export const ceil15 = (m: number): number => Math.ceil(m / STEP) * STEP;
 
@@ -48,8 +50,10 @@ export interface Row {
 export interface Sheet {
   total: number;
   totalScale: number;
-  /** The minimum of the whole task. */
+  /** The minimum of the whole task, as the sheet shows it: the chosen one, held down by the total. */
   min: number;
+  /** The minimum as it was chosen: it comes back when the total is raised again. */
+  pick: number;
   /** What was done of the whole task: the total does not go below. */
   totalFloor: number;
   rows: Row[];
@@ -88,10 +92,12 @@ export function openSheet(task: AppTask | Prefill, done = 0): Sheet {
   const cut = rows.length > 0 && roundOpen(task.estimateMinutes) < sum;
   const total = rows.length > 0 && !cut ? sum : roundOpen(task.estimateMinutes);
   const floor = rows.length > 0 ? sum - rowsFree(rows) : ceil15(done);
+  const pick = roundOpen(task.minMinutes);
   const opened: Sheet = {
     total,
     totalScale: scaleOf(total),
-    min: Math.min(roundOpen(task.minMinutes), total),
+    min: Math.min(pick, total),
+    pick,
     totalFloor: Math.min(floor, total),
     rows,
   };
@@ -107,8 +113,23 @@ export const assigned = (s: Sheet): number => s.rows.reduce((n, r) => n + r.minu
 /** What the total has that no tema holds (negative: the temas hold more). 0 without temas. */
 export const unassigned = (s: Sheet): number => (s.rows.length > 0 ? s.total - assigned(s) : 0);
 
-/** The sheet can be accepted: everything assigned, and something to do. */
-export const canAccept = (s: Sheet): boolean => unassigned(s) === 0 && s.total >= STEP;
+/** Names compared without caps, accents nor extra spaces. */
+const fold = (t: string) =>
+  t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+
+/** What is wrong with the name of a tema typed here (null: nothing). Temas that were already there are not judged. */
+export function nameProblem(s: Sheet, r: Row): string | null {
+  if (!r.added) return null;
+  const name = r.title.trim();
+  if (!name) return "Poné un nombre para el tema";
+  if (name.length > TITLE_MAX) return `Como máximo ${TITLE_MAX} caracteres`;
+  const same = s.rows.some((x) => x.id !== r.id && fold(x.title) === fold(name));
+  return same ? "Ya hay un tema con ese nombre" : null;
+}
+
+/** The sheet can be accepted: everything assigned, something to do, and every name in order. */
+export const canAccept = (s: Sheet): boolean =>
+  unassigned(s) === 0 && s.total >= STEP && s.rows.every((r) => nameProblem(s, r) === null);
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
 
@@ -118,7 +139,7 @@ const TOP = UNIT_MINUTES_MAX;
 /** The total dragged: the temas stay as they are; a minimum above it comes down to it. */
 export function slideTotal(s: Sheet, value: number): Sheet {
   const total = clamp(value, s.totalFloor, TOP);
-  return { ...s, total, min: Math.min(s.min, total) };
+  return { ...s, total, min: Math.min(s.pick, total) };
 }
 
 /** The total typed: it is the new value and its slider reaches from it. */
@@ -129,7 +150,8 @@ export function typeTotal(s: Sheet, value: number): Sheet {
 
 /** The minimum dragged: steps of 15, never above the total. */
 export function slideMin(s: Sheet, value: number): Sheet {
-  return { ...s, min: clamp(Math.round(value / STEP) * STEP, 0, s.total) };
+  const min = clamp(Math.round(value / STEP) * STEP, 0, s.total);
+  return { ...s, min, pick: min };
 }
 
 /**
@@ -185,6 +207,7 @@ export function fillRest(s: Sheet): Sheet {
 
 /** A tema added at the end: it reaches as far as what is left, or an hour if nothing is. */
 export function addRow(s: Sheet, title: string, id = newId()): Sheet {
+  if (s.rows.length >= TEMAS_MAX) return s;
   const left = unassigned(s);
   const row: Row = {
     id,
@@ -197,6 +220,14 @@ export function addRow(s: Sheet, title: string, id = newId()): Sheet {
     added: true,
   };
   return { ...s, rows: [...s.rows, row] };
+}
+
+/** «Tema 3»: the first number whose name no tema has. */
+export function freeName(s: Sheet): string {
+  const taken = new Set(s.rows.map((r) => fold(r.title)));
+  let n = s.rows.length + 1;
+  while (taken.has(fold(`Tema ${n}`))) n += 1;
+  return `Tema ${n}`;
 }
 
 /** A tema taken out (one that is done stays: it was worked on). */
@@ -256,13 +287,14 @@ export function applySheet(task: AppTask, s: Sheet): AppTask {
   const byId = new Map(task.units.map((u) => [u.id, u]));
   const units: Unit[] = s.rows.map((r) => {
     const old = byId.get(r.id);
-    const base: Unit = old ?? { id: r.id, title: r.title, estimateMinutes: UNIT_MINUTES_MIN };
+    const title = r.added ? r.title.trim() : r.title;
+    const base: Unit = old ?? { id: r.id, title, estimateMinutes: UNIT_MINUTES_MIN };
     if (r.minutes <= 0) {
       // Left out: not studied, not counted as missing; it keeps its minutes for later.
       const kept = Math.max(UNIT_MINUTES_MIN, old?.estimateMinutes ?? r.was);
-      return { ...base, title: r.title, estimateMinutes: kept, skipped: true };
+      return { ...base, title, estimateMinutes: kept, skipped: true };
     }
-    return { ...base, title: r.title, estimateMinutes: r.minutes, skipped: undefined };
+    return { ...base, title, estimateMinutes: r.minutes, skipped: undefined };
   });
   return { ...task, estimateMinutes: s.total, minMinutes: s.min, units };
 }
@@ -278,7 +310,7 @@ export function spoken(minutes: number): string {
 
 /** What VoiceOver reads on a tema's slider: «Derivadas, 1 hora 15, mínimo 1 hora». */
 export const rowSpoken = (s: Sheet, r: Row): string =>
-  `${r.title}, ${spoken(r.minutes)}, mínimo ${spoken(Math.round(markOf(s, r)))}`;
+  `${r.title}${r.locked ? ", hecho" : ""}, ${spoken(r.minutes)}, mínimo ${spoken(Math.round(markOf(s, r)))}`;
 
 /** The task as the plan would see it with the sheet's figures. */
 export const trialOf = (task: AppTask, s: Sheet): AppTask => applySheet(task, s);
