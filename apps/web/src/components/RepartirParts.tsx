@@ -1,3 +1,4 @@
+import type { Dispatch } from "react";
 import { useId, useRef, useState } from "react";
 import { hours } from "../format.js";
 import {
@@ -43,7 +44,7 @@ function TimePicker({
   title: string;
   value: number;
   floor: number;
-  onPick: (minutes: number) => void;
+  onPick(minutes: number): void;
   onClose: () => void;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
@@ -87,7 +88,9 @@ function TimePicker({
               data-autofocus
               aria-invalid={bad ? true : undefined}
               aria-describedby={bad ? errId : undefined}
-              onChange={(e) => setH(e.target.value)}
+              onChange={(e) => {
+                setH(e.target.value);
+              }}
             />
           </label>
         </div>
@@ -100,7 +103,9 @@ function TimePicker({
               role="radio"
               aria-checked={m === c}
               className={`btn${m === c ? " primary" : ""}`}
-              onClick={() => setM(c)}
+              onClick={() => {
+                setM(c);
+              }}
             >
               {String(c).padStart(2, "0")}
             </button>
@@ -156,7 +161,7 @@ function TimeSlider({
   mark: number;
   locked?: boolean;
   red?: boolean;
-  onSlide: (v: number) => void;
+  onSlide(v: number): void;
   onOpen: () => void;
   extra?: React.ReactNode;
 }) {
@@ -176,7 +181,9 @@ function TimeSlider({
           disabled={locked}
           aria-label={name}
           aria-valuetext={spokenText}
-          onChange={(e) => onSlide(Number(e.target.value))}
+          onChange={(e) => {
+            onSlide(Number(e.target.value));
+          }}
         />
         {mark > 0 && (
           <span className="rep-mark" aria-hidden="true" style={{ left: at(mark / max) }} />
@@ -197,15 +204,7 @@ function TimeSlider({
 }
 
 /** The minimum's handle over the total: dragged (or moved with the arrows) in steps of 15. */
-function MinHandle({
-  sheet,
-  max,
-  onMove,
-}: {
-  sheet: Sheet;
-  max: number;
-  onMove: (v: number) => void;
-}) {
+function MinHandle({ sheet, max, onMove }: { sheet: Sheet; max: number; onMove(v: number): void }) {
   const [drag, setDrag] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const move = (clientX: number) => {
@@ -231,14 +230,18 @@ function MinHandle({
         aria-valuenow={sheet.min}
         aria-valuetext={spoken(sheet.min)}
         onPointerDown={(e) => {
-          e.currentTarget.setPointerCapture?.(e.pointerId);
+          e.currentTarget.setPointerCapture(e.pointerId);
           setDrag(true);
         }}
         onPointerMove={(e) => {
           if (drag) move(e.clientX);
         }}
-        onPointerUp={() => setDrag(false)}
-        onPointerCancel={() => setDrag(false)}
+        onPointerUp={() => {
+          setDrag(false);
+        }}
+        onPointerCancel={() => {
+          setDrag(false);
+        }}
         onKeyDown={(e) => {
           const by = e.key === "ArrowRight" || e.key === "ArrowUp" ? STEP : -STEP;
           if (e.key === "Home") onMove(0);
@@ -257,7 +260,7 @@ function MinHandle({
   );
 }
 
-export type SetSheet = (next: Sheet) => void;
+export type SetSheet = Dispatch<Sheet>;
 
 /** The total's row: its slider with the minimum's handle over it. */
 export function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: () => void }) {
@@ -274,13 +277,17 @@ export function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen
         scale={s.totalScale}
         floor={s.totalFloor}
         mark={0}
-        onSlide={(v) => setS(slideTotal(s, v))}
+        onSlide={(v) => {
+          setS(slideTotal(s, v));
+        }}
         onOpen={onOpen}
         extra={
           <MinHandle
             sheet={s}
             max={Math.max(s.totalScale, s.total, STEP)}
-            onMove={(v) => setS(slideMin(s, v))}
+            onMove={(v) => {
+              setS(slideMin(s, v));
+            }}
           />
         }
       />
@@ -310,14 +317,22 @@ export function Rest({ s, setS }: { s: Sheet; setS: SetSheet }) {
         Sin asignar <b>{rest < 0 ? `−${hours(-rest)}` : hours(rest)}</b>
       </p>
       <div className="rep-presets">
-        <button type="button" className="btn small" onClick={() => setS(proportional(s))}>
+        <button
+          type="button"
+          className="btn small"
+          onClick={() => {
+            setS(proportional(s));
+          }}
+        >
           Proporcional
         </button>
         <button
           type="button"
           className="btn small"
           disabled={!hasWeights(s)}
-          onClick={() => setS(byWeight(s))}
+          onClick={() => {
+            setS(byWeight(s));
+          }}
         >
           Por peso
         </button>
@@ -325,7 +340,9 @@ export function Rest({ s, setS }: { s: Sheet; setS: SetSheet }) {
           type="button"
           className="btn small"
           disabled={rest === 0}
-          onClick={() => setS(fillRest(s))}
+          onClick={() => {
+            setS(fillRest(s));
+          }}
         >
           Repartir el resto
         </button>
@@ -352,8 +369,9 @@ function TemaRow({
   // A name left empty is still read as something.
   const label = r.title.trim() || `Tema ${n}`;
   const problemId = useId();
-  const rename = (title: string) =>
+  const rename = (title: string) => {
     setS({ ...s, rows: s.rows.map((x) => (x.id === r.id ? { ...x, title } : x)) });
+  };
   return (
     <li className="rep-row">
       <div className="rep-head">
@@ -364,7 +382,9 @@ function TemaRow({
             value={r.title}
             aria-invalid={problem ? true : undefined}
             aria-describedby={problem ? problemId : undefined}
-            onChange={(e) => rename(e.target.value)}
+            onChange={(e) => {
+              rename(e.target.value);
+            }}
           />
         ) : (
           <span className="rep-name">{r.title}</span>
@@ -376,7 +396,9 @@ function TemaRow({
             type="button"
             className="rep-x"
             aria-label={`Quitar ${label}`}
-            onClick={() => setS(removeRow(s, r.id))}
+            onClick={() => {
+              setS(removeRow(s, r.id));
+            }}
           >
             <Marks.close />
           </button>
@@ -401,7 +423,9 @@ function TemaRow({
         mark={markOf(s, r)}
         locked={r.locked}
         red={overRow(s, r.id)}
-        onSlide={(v) => setS(slideRow(s, r.id, v))}
+        onSlide={(v) => {
+          setS(slideRow(s, r.id, v));
+        }}
         onOpen={onOpen}
       />
     </li>
@@ -416,19 +440,30 @@ export function TemaList({
 }: {
   s: Sheet;
   setS: SetSheet;
-  onOpen: (id: string) => void;
+  onOpen(id: string): void;
 }) {
   return (
     <ul className="rep-list">
       {s.rows.map((r, i) => (
-        <TemaRow key={r.id} s={s} r={r} n={i + 1} setS={setS} onOpen={() => onOpen(r.id)} />
+        <TemaRow
+          key={r.id}
+          s={s}
+          r={r}
+          n={i + 1}
+          setS={setS}
+          onOpen={() => {
+            onOpen(r.id);
+          }}
+        />
       ))}
       <li className="rep-add">
         <button
           type="button"
           className="btn small"
           disabled={s.rows.length >= TEMAS_MAX}
-          onClick={() => setS(addRow(s, freeName(s)))}
+          onClick={() => {
+            setS(addRow(s, freeName(s)));
+          }}
         >
           + Tema
         </button>
@@ -456,7 +491,9 @@ export function Pickers({
         title="Total"
         value={s.total}
         floor={s.totalFloor}
-        onPick={(v) => setS(typeTotal(s, v))}
+        onPick={(v) => {
+          setS(typeTotal(s, v));
+        }}
         onClose={onClose}
       />
     );
@@ -467,7 +504,9 @@ export function Pickers({
       title={row.title}
       value={row.minutes}
       floor={row.floor}
-      onPick={(v) => setS(slideRow(s, row.id, v, true))}
+      onPick={(v) => {
+        setS(slideRow(s, row.id, v, true));
+      }}
       onClose={onClose}
     />
   );

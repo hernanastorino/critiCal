@@ -337,7 +337,7 @@ export function fitOf(data: AppData, now: number, trial: AppTask): Fit {
             id: trial.activityId,
             name: "",
             color: "#888888",
-            academic: trial.kind === "deliverable",
+            academic: true,
             maxSessionMinutes: 120,
             minBlockMinutes: 60,
           },
