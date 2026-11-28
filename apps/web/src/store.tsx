@@ -2296,6 +2296,14 @@ function sortingLabel(
       return `cambiar estudio semanal de ${activity(action.activityId)}`;
     case "unarchive":
       return `recuperar ${task(action.taskId)}`;
+    default:
+      return settingLabel(action, task);
+  }
+}
+
+/** The label of an edit that changes a setting or an event (see `editLabel`). */
+function settingLabel(action: Action, task: (id: string) => string): string | undefined {
+  switch (action.type) {
     case "resetDetected":
       return "volver a lo detectado";
     case "preferences":
