@@ -76,7 +76,7 @@ describe("30th round", () => {
   it("una rutina pausada no ofrece «Guardar avance»", () => {
     open();
     expect(screen.getByRole("button", { name: "Guardar avance" })).toBeTruthy();
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Desactivar…"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Pausar…"));
     fireEvent.click(screen.getByText("Hasta que lo reactive"));
     expect(gymOf(data()).paused).toBe(true);
     fireEvent.click(screen.getByLabelText(/^Gym,/));

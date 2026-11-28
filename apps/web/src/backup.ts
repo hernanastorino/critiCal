@@ -141,6 +141,32 @@ function sizeProblem(data: Task): string | null {
   return null;
 }
 
+/**
+ * A delivery with nothing to do (0 estimated, 0 minimum, no parts) is read as done: it would
+ * be a silo of «0h» that asks for nothing. Kept, so its records and blocks still have a task.
+ */
+function withEmptyDeliveriesDone(tasks: AppData["tasks"]): AppData["tasks"] {
+  return tasks.map((t) =>
+    t.kind === "deliverable" &&
+    t.status === "active" &&
+    t.estimateMinutes === 0 &&
+    t.minMinutes === 0 &&
+    t.units.length === 0
+      ? { ...t, status: "done" as const }
+      : t,
+  );
+}
+
+/** When a backup file was made (the instant it was exported), or null if it does not say. */
+export function backupMadeAt(text: string): number | null {
+  try {
+    const at = (JSON.parse(text) as { exportedAt?: unknown } | null)?.exportedAt;
+    return typeof at === "number" && Number.isFinite(at) ? at : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The file's contents when it is a backup this version reads, or what is wrong with it. */
 function readFile(text: string): { raw: Task; version: number } | { error: string } {
   let parsed: { app?: unknown; version?: unknown; data?: unknown } | null;
@@ -214,7 +240,11 @@ export function parseBackup(
   // A file from before `doneByHand` is read with the migration's rule, against its own records.
   // Parts that say «declared by a record» when no record of the file declares them are read as
   // by hand later, in `importCandidate`, once the records made after the backup are counted.
-  const whole = withHandMarks({ ...d, events });
+  const whole = withHandMarks({
+    ...d,
+    tasks: withEmptyDeliveriesDone(d.tasks),
+    events,
+  });
   const marked = read.version < 2 ? markLegacyStudy(whole) : whole;
   const { account } = options;
   const data = account === undefined ? marked : ownedBy(marked, account);

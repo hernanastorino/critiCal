@@ -78,7 +78,7 @@ export function Notifications() {
         <input
           id="notif-critical"
           type="checkbox"
-          checked={prefs.critical}
+          checked={!!sync && prefs.critical}
           disabled={!sync}
           onChange={(e) => save({ critical: e.target.checked })}
         />
@@ -103,7 +103,7 @@ export function Notifications() {
         <input
           type="checkbox"
           aria-labelledby={proposalsId}
-          checked={prefs.proposals}
+          checked={!!sync && prefs.proposals}
           disabled={!sync}
           onChange={(e) => save({ proposals: e.target.checked })}
         />
@@ -115,7 +115,7 @@ export function Notifications() {
         <input
           type="checkbox"
           aria-labelledby={sundayId}
-          checked={prefs.sunday}
+          checked={!!sync && prefs.sunday}
           disabled={!sync}
           onChange={(e) => save({ sunday: e.target.checked })}
         />

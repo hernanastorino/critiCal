@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { exportJson, parseBackup } from "../backup.js";
+import { backupMadeAt, exportJson, parseBackup } from "../backup.js";
 import { localParts } from "../engine.js";
 import { forgetImport, rememberImport } from "../importUndo.js";
 import { type AppData, CRITICAL } from "../model.js";
@@ -50,6 +50,20 @@ export function importCandidate(file: AppData, current: AppData): AppData {
   return { ...merged, tasks: withOrphanMarks({ ...file, tasks }, merged).tasks };
 }
 
+/** «del 20/11» (and the year when it is not this one): the day a backup was made. */
+export function backupDay(tz: string, at: number, now: number): string {
+  const [y, m, d] = localParts(tz, at).date.split("-").map(Number);
+  const year = localParts(tz, now).date.slice(0, 4);
+  return `${d}/${m}${String(y) === year ? "" : `/${y}`}`;
+}
+
+/** «Importé 12 tareas y 40 eventos del 20/11»: what the file brought, and from when. */
+export function importedText(data: AppData, day: string | null): string {
+  const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  const things = `${n(data.tasks.length, "tarea", "tareas")} y ${n(data.events.length, "evento", "eventos")}`;
+  return `Importé ${things}${day ? ` del ${day}` : ""}`;
+}
+
 /** Download everything as JSON, or replace everything with a downloaded file. */
 export function Backup() {
   const { data, now, dispatch } = useStore();
@@ -64,7 +78,8 @@ export function Backup() {
 
   const restore = async (f: File) => {
     // With an account a file from elsewhere (another account, the demo) gets new ids.
-    const parsed = parseBackup(await f.text(), { account: data.owner });
+    const text = await f.text();
+    const parsed = parseBackup(text, { account: data.owner });
     if ("error" in parsed) {
       setMessage({ text: parsed.error, error: true });
       return;
@@ -106,7 +121,9 @@ export function Backup() {
     rememberImport(before, restored);
     setMessage(null);
     const left = parsed.dropped?.length ? `. Quedó afuera: ${parsed.dropped.join(", ")}` : "";
-    toast.show(`Datos importados${left}`, {
+    const madeAt = backupMadeAt(text);
+    const day = madeAt === null ? null : backupDay(data.settings.timezone, madeAt, now);
+    toast.show(`${importedText(restored, day)}${left}`, {
       undo: () => {
         forgetImport();
         dispatch({ type: "replace", data: before });
@@ -116,6 +133,9 @@ export function Backup() {
 
   return (
     <>
+      <p className="meta">
+        Guardá una copia de tus datos para recuperarlos o pasarlos a otro dispositivo.
+      </p>
       <div className="row">
         <button type="button" className="btn" onClick={download}>
           Exportar JSON

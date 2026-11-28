@@ -21,7 +21,7 @@ for (const opcion of ["Hasta que lo reactive", "Solo esta semana"]) {
     await openDemo(page, MONDAY);
     await openSettingsPage(page, "Rutinas");
     await sheet(page).getByRole("button", { name: /^Gym/ }).first().click();
-    await sheet(page).getByRole("button", { name: "Desactivar…" }).click();
+    await sheet(page).getByRole("button", { name: "Pausar…" }).click();
     await page.getByRole("button", { name: opcion }).click();
     await expect(toast(page)).toBeVisible();
     await toast(page).getByRole("button", { name: "Deshacer" }).click();
@@ -39,7 +39,7 @@ test("el aviso con «Deshacer» sigue a los 3 s sobre una hoja abierta (un toque
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Rutinas");
   await sheet(page).getByRole("button", { name: /^Gym/ }).first().click();
-  await sheet(page).getByRole("button", { name: "Desactivar…" }).click();
+  await sheet(page).getByRole("button", { name: "Pausar…" }).click();
   await page.getByRole("button", { name: "Hasta que lo reactive" }).click();
   await expect(toast(page)).toBeVisible();
   await page.clock.fastForward(3000);
@@ -123,7 +123,7 @@ test("rutina «Solo esta semana» se ve salteada en la lista de Rutinas", async 
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Rutinas");
   await sheet(page).getByRole("button", { name: /^Gym/ }).first().click();
-  await sheet(page).getByRole("button", { name: "Desactivar…" }).click();
+  await sheet(page).getByRole("button", { name: "Pausar…" }).click();
   await page.getByRole("button", { name: "Solo esta semana" }).click();
   await expect(sheet(page).getByRole("button", { name: /^Gym/ }).first()).toContainText("salteada");
 });

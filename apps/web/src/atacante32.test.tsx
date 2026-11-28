@@ -93,7 +93,7 @@ describe("Rutinas: desactivar", () => {
       </StoreProvider>,
     );
     fireEvent.click(screen.getByLabelText(/^Gym,/));
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Desactivar…"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Pausar…"));
   };
   const gym = () => seen.store?.data.tasks.find((t) => t.title === "Gym");
 

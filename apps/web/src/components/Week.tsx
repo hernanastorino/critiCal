@@ -464,7 +464,10 @@ export function Week({
   const rangeLabel = rangeYear ? `${rangeDays} ${rangeYear}` : rangeDays;
   // An import is the last change until something else is changed.
   const imported = importToUndo(data);
-  const lastChange = imported ? "importar" : data.planHistory?.at(-1)?.label;
+  const lastVersionOf = data.planHistory?.at(-1);
+  const lastChange = imported ? "importar" : lastVersionOf?.label;
+  // The screen shows the label cut; the reader gets the whole one.
+  const lastFull = imported ? "importar" : (lastVersionOf?.fullLabel ?? lastChange);
 
   // Meals of the week shown, placed around fixed events and pins as the planner does.
   const firstDay = dates[0] as string;
@@ -1011,7 +1014,7 @@ export function Week({
           <button
             type="button"
             className={`icon-btn${lastChange ? "" : " placeholder"}`}
-            aria-label={lastChange ? `Deshacer: ${lastChange}` : undefined}
+            aria-label={lastFull ? `Deshacer: ${lastFull}` : undefined}
             title={lastChange ? `Deshacer: ${lastChange}` : undefined}
             ref={undoRef}
             data-header-undo=""

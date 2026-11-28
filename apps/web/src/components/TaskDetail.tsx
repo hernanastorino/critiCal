@@ -431,7 +431,7 @@ export function TaskDetail({
                 </button>
               ) : (
                 <button type="button" className="btn" onClick={() => setAsk("off")}>
-                  Desactivar…
+                  Pausar…
                 </button>
               )}
               <button type="button" className="btn danger" onClick={() => setAsk("delete")}>
@@ -445,7 +445,7 @@ export function TaskDetail({
       {sharing && <RepartirTask task={live} onClose={() => setSharing(false)} />}
       {ask === "off" && (
         <ActionSheet
-          title={`Desactivar ${task.title}`}
+          title={`Pausar ${task.title}`}
           message="Las semanas anteriores no cambian."
           onCancel={() => setAsk(null)}
           options={[

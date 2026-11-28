@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { readSheetDraft, SHEET_PREFIX, writeSheetDraft } from "../drafts.js";
-import { type Activity, localParts, zonedInstant } from "../engine.js";
+import { type Activity, addDays, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
 import { learnedHours, learnedNote } from "../learnedDefaults.js";
 import {
@@ -63,6 +63,11 @@ const fromLocalInput = (tz: string, v: string) => {
 };
 
 /** What is wrong with a field, read with it (nothing when it is fine). */
+/** A new delivery is due at the end of the day three days out (23:59, as the demos do). */
+export function defaultDeadline(tz: string, now: number): number {
+  return zonedInstant(tz, addDays(localParts(tz, now).date, 3), 23 * 60 + 59);
+}
+
 function FieldError({
   id,
   text,
@@ -153,7 +158,7 @@ export function TaskEditor({
     picked: task?.activityId ?? "",
     newActivity: "",
     kind: task?.kind ?? "deliverable",
-    deadline: toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
+    deadline: toLocalInput(tz, task?.deadline ?? defaultDeadline(tz, now)),
     estimate: hoursField(task?.estimateMinutes ?? startLearned?.estimateMinutes ?? 240),
     minimum: hoursField(task ? shownMinimum(task) : (startLearned?.minMinutes ?? 120)),
     sessions: String(task?.sessionsPerWeek ?? 3),
@@ -832,7 +837,7 @@ export function TaskEditor({
                   </label>
                 </div>
                 {suggested && learned && (
-                  <p className="meta" style={{ margin: 0 }}>
+                  <p className="meta" style={{ margin: "var(--space-2) 0" }}>
                     {learnedNote(learned, isExam)}
                   </p>
                 )}
@@ -848,7 +853,7 @@ export function TaskEditor({
                 </button>
                 <fieldset
                   className="field"
-                  style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+                  style={{ border: 0, padding: 0, margin: "var(--space-3) 0 0", minWidth: 0 }}
                 >
                   <legend style={{ padding: 0 }}>Partes (opcional)</legend>
                   <span className="meta" style={{ margin: 0 }}>

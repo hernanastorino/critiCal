@@ -184,7 +184,7 @@ describe("6. El dueño del respaldo pasa a ser la cuenta actual", () => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
       return Promise.resolve();
     });
-    await screen.findByText("Datos importados");
+    await screen.findByText(/^Importé \d+ tareas y \d+ eventos del /);
     expect(screen.getByLabelText("dueño").textContent).toBe("yo");
   });
 
@@ -210,7 +210,7 @@ describe("6. El dueño del respaldo pasa a ser la cuenta actual", () => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
       return Promise.resolve();
     });
-    await screen.findByText(/Datos importados\. Quedó afuera: calendarios \(1\)/);
+    await screen.findByText(/^Importé .*\. Quedó afuera: calendarios \(1\)/);
     expect(screen.getByLabelText("dueño").textContent).toBe("yo");
   });
 });
