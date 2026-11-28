@@ -44,7 +44,7 @@ function TimePicker({
   title: string;
   value: number;
   floor: number;
-  onPick(minutes: number): void;
+  onPick: Dispatch<number>;
   onClose: () => void;
 }) {
   const sheet = useRef<HTMLDivElement>(null);
@@ -161,7 +161,7 @@ function TimeSlider({
   mark: number;
   locked?: boolean;
   red?: boolean;
-  onSlide(v: number): void;
+  onSlide: Dispatch<number>;
   onOpen: () => void;
   extra?: React.ReactNode;
 }) {
@@ -204,7 +204,15 @@ function TimeSlider({
 }
 
 /** The minimum's handle over the total: dragged (or moved with the arrows) in steps of 15. */
-function MinHandle({ sheet, max, onMove }: { sheet: Sheet; max: number; onMove(v: number): void }) {
+function MinHandle({
+  sheet,
+  max,
+  onMove,
+}: {
+  sheet: Sheet;
+  max: number;
+  onMove: Dispatch<number>;
+}) {
   const [drag, setDrag] = useState(false);
   const ref = useRef<HTMLButtonElement>(null);
   const move = (clientX: number) => {
@@ -440,7 +448,7 @@ export function TemaList({
 }: {
   s: Sheet;
   setS: SetSheet;
-  onOpen(id: string): void;
+  onOpen: Dispatch<string>;
 }) {
   return (
     <ul className="rep-list">
