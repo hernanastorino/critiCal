@@ -423,10 +423,13 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
       if (task.kind === "habit") {
         // A weekly study silo whose total was split by hand (SPEC §18.18) keeps those minutes,
         // not the whole sessions that hold them.
+        // Saved before the exact total existed (estimate 0): its weekly hours are the minimum.
         const total =
           task.study && task.estimateMinutes > 0
             ? task.estimateMinutes
-            : sessionsOf(data, task, now, weekAt) * (task.sessionMinutes ?? 0);
+            : task.study && task.minMinutes > 0
+              ? task.minMinutes
+              : sessionsOf(data, task, now, weekAt) * (task.sessionMinutes ?? 0);
         const since = zonedInstant(tz, weekStart(tz, weekAt), 0);
         const left = Math.max(0, total - doneMinutes(data, task.id, since));
         return {
@@ -573,8 +576,7 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       minRemainingMinutes: Math.ceil(Math.min(planned(p), p.minRemainingMinutes)),
       sessionMinutes: p.task.sessionMinutes,
       // A weekly study silo with its total reserves exactly that: the last session is shorter.
-      exactMinutes:
-        (p.task.study && p.task.kind === "habit" && p.task.estimateMinutes > 0) || undefined,
+      exactMinutes: (p.task.study && p.task.kind === "habit" && p.task.minMinutes > 0) || undefined,
       maxPerDayMinutes: maxPerDay(p.task),
       priority: p.task.priority,
       earliestStart: earliestStartOf(data, p.task),

@@ -137,3 +137,45 @@ describe.each(MOMENTS)("silo semanal exacto (%s)", (_label, date, minute) => {
     },
   );
 });
+
+describe.each(MOMENTS)(
+  "silo de estudio viejo, solo con minMinutes (%s)",
+  (_label, date, minute) => {
+    const now = zonedInstant(TIMEZONE, date, minute);
+
+    it("5,5 h guardadas solo en minMinutes dicen faltan 5h30 y reservan 330 min", () => {
+      const d = demoData(now);
+      const activityId = (firstMateria(d) ?? d.activities[0])?.id ?? "";
+      const silo: AppTask = {
+        id: "silo-viejo",
+        activityId,
+        title: "Estudio viejo",
+        study: true,
+        kind: "habit",
+        estimateMinutes: 0,
+        minMinutes: 330,
+        sessionsPerWeek: 6,
+        sessionMinutes: 60,
+        priority: 2,
+        status: "active",
+        units: [],
+      };
+      inside(now, null, () => ({
+        ...d,
+        tasks: [...d.tasks.filter((t) => t.activityId !== activityId || !t.study), silo],
+      }));
+      const old = latest?.tasks.find((t) => t.id === "silo-viejo");
+      expect(old?.estimateMinutes).toBe(0);
+      const data = latest;
+      if (!data) return;
+      const shown = progress(data, now).find((p) => p.task.id === "silo-viejo");
+      expect(shown?.totalMinutes).toBe(330);
+      expect(shown?.remainingMinutes).toBe(330);
+      const end = endOfWeek(TIMEZONE, now);
+      const blocks = refreshPlan(data, now).result.blocks.filter(
+        (b) => b.taskId === "silo-viejo" && b.start >= end,
+      );
+      expect(blocks.reduce((n, b) => n + (b.end - b.start) / 60_000, 0)).toBe(330);
+    });
+  },
+);
