@@ -550,6 +550,14 @@ export function TaskEditor({
       };
     }
     const h = (v: string) => Math.max(0, Math.round(Number(v.replace(",", ".")) * 60) || 0);
+    // A weekly study silo whose times and minutes were not touched keeps its exact total
+    // (5h30 is 6 sessions of 1 h, but the silo is 5h30).
+    const studyKept =
+      task?.study &&
+      task.estimateMinutes > 0 &&
+      Number(sessions) === task.sessionsPerWeek &&
+      Number(sessionMin) === task.sessionMinutes;
+    const habitMinutes = studyKept ? task.estimateMinutes : Number(sessions) * Number(sessionMin);
     const next: AppTask = {
       // Keeps fields the form does not edit (e.g. the calendar event it came from).
       ...task,
@@ -558,11 +566,8 @@ export function TaskEditor({
       title: stripInvisible(title),
       kind,
       deadline: due,
-      estimateMinutes:
-        kind === "habit"
-          ? Number(sessions) * Number(sessionMin)
-          : Math.max(h(estimate), allMinutes),
-      minMinutes: kind === "habit" ? Number(sessions) * Number(sessionMin) : h(minimum),
+      estimateMinutes: kind === "habit" ? habitMinutes : Math.max(h(estimate), allMinutes),
+      minMinutes: kind === "habit" ? habitMinutes : h(minimum),
       sessionsPerWeek: kind === "habit" ? Number(sessions) : undefined,
       sessionMinutes: kind === "habit" ? Number(sessionMin) : undefined,
       priority,
