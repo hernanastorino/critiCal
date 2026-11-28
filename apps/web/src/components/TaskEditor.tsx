@@ -27,7 +27,6 @@ import {
   hoursField,
   minimumProblem,
   parseUnit,
-  partsProblem,
   partsSummary,
   slotNote,
   typedHours,
@@ -178,7 +177,7 @@ export function TaskEditor({
   const [picked, setActivityId] = useState(start.picked);
   const [newActivity, setNewActivity] = useState(start.newActivity);
   const [kind, setKind] = useState<AppTask["kind"]>(start.kind);
-  // A new habit is a routine: the form is Ajustes › Rutinas', saved by the same code.
+  // A new habit is a routine: the form is Ajustes > Rutinas', saved by the same code.
   const newRoutine = !task && kind === "habit";
   const routineDraft = useRoutineDraft(`${SHEET_PREFIX}routine`);
   // Rutinas have no parciales or entregas: they are offered for a habit only (or when the
@@ -211,6 +210,9 @@ export function TaskEditor({
   const [sessionMin, setSessionMin] = useState(start.sessionMin);
   const [priority, setPriority] = useState(start.priority);
   const [units, setUnits] = useState<Unit[]>(start.units);
+  // With parts the total is their sum (SPEC §18.18): the hours field shows it, never a second number.
+  const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
+  const estimateIn = units.length > 0 ? hoursField(partsMinutes) : estimate;
   const [isExam, setIsExam] = useState(start.isExam);
   const [dayBefore, setDayBefore] = useState(start.dayBefore);
   const [unitTitle, setUnitTitle] = useState(start.unitTitle);
@@ -353,11 +355,8 @@ export function TaskEditor({
         units,
       }),
       deadline: due,
-      // As save computes it: units can raise the estimate.
-      estimateMinutes: Math.max(
-        hrs(estimate),
-        units.reduce((s, u) => s + u.estimateMinutes, 0),
-      ),
+      // As save computes it: with parts, their sum.
+      estimateMinutes: hrs(estimateIn),
       minMinutes: hrs(minimum),
       activityId,
       startAfter,
@@ -375,7 +374,7 @@ export function TaskEditor({
     kind,
     startAfter,
     deadline,
-    estimate,
+    estimateIn,
     minimum,
     task,
     activityId,
@@ -393,23 +392,19 @@ export function TaskEditor({
 
   // Hours that are not figures, or a minimum above the estimate, are said, never fixed.
   const deliverable = kind === "deliverable";
-  const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
-  const estimateError = deliverable ? estimateProblem(estimate, partsMinutes) : null;
-  const partsHours = units.reduce((n, u) => n + u.estimateMinutes, 0) / 60;
+  const estimateError = deliverable ? estimateProblem(estimateIn, partsMinutes) : null;
   // With hours that are not a figure there is nothing to compare the minimum to: only the
   // first problem is said («１２» is not a figure, and does not make the minimum «mayor»).
   const minimumError = deliverable
     ? minimumProblem(
         minimum,
-        Number.isNaN(typedHours(estimate))
-          ? Number.POSITIVE_INFINITY
-          : Math.max(typedHours(estimate), partsHours),
+        Number.isNaN(typedHours(estimateIn)) ? Number.POSITIVE_INFINITY : typedHours(estimateIn),
       )
     : null;
   const hoursBlocked = !!(estimateError || minimumError);
   // Empty hours from a restored draft are said once typed or saving is tried, not on opening.
   const hoursQuiet = !hoursEdited && !tried;
-  const estimateShown = hoursQuiet && !estimate.trim() ? null : estimateError;
+  const estimateShown = hoursQuiet && !estimateIn.trim() ? null : estimateError;
   const minimumShown = hoursQuiet && !minimum.trim() ? null : minimumError;
   const dueNow = deliverable ? fromLocalInput(tz, deadline) : Number.NaN;
   const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
@@ -444,10 +439,8 @@ export function TaskEditor({
     if (kind !== "deliverable") return null;
     const due = fromLocalInput(tz, deadline);
     if (!Number.isFinite(due) || due <= now) return null;
-    const asked = Math.max(
-      Math.round(Number(estimate.replace(",", ".")) * 60) || 0,
-      units.reduce((n, u) => n + u.estimateMinutes, 0),
-    );
+    const asked =
+      units.length > 0 ? partsMinutes : Math.round(Number(estimate.replace(",", ".")) * 60) || 0;
     const week = data.settings.week;
     const awake =
       week.reduce((n, d) => n + ((d.bed - d.wake + 1440) % 1440 || 1440), 0) / week.length;
@@ -455,7 +448,7 @@ export function TaskEditor({
     return asked > available
       ? `No entran ${hours(asked)} antes de esa fecha: hay unas ${hours(available)} despierto. Se guarda igual.`
       : null;
-  }, [kind, deadline, estimate, units, data.settings.week, now, tz]);
+  }, [kind, deadline, estimate, units, partsMinutes, data.settings.week, now, tz]);
   // An entrega is never filed under a routine: a new materia may not take a routine's name.
   const routineClash =
     activityId === "new" &&
@@ -492,12 +485,6 @@ export function TaskEditor({
         : undefined;
     const allUnits = extra ? [...units, extra] : units;
     const allMinutes = allUnits.reduce((n, u) => n + u.estimateMinutes, 0);
-    // With it the parts may add up to more than the hours typed: shown in the list.
-    const extraBad = !!extra && kind === "deliverable" && !!partsProblem(estimate, allMinutes);
-    if (extraBad && extra) {
-      setUnits(allUnits);
-      setUnitTitle("");
-    }
     const due = kind === "deliverable" ? fromLocalInput(tz, deadline) : undefined;
     const rangeBad =
       due !== undefined && !(dateYearInRange(deadline, now) && deadlineInRange(due, now));
@@ -522,7 +509,6 @@ export function TaskEditor({
       routineClash,
       rangeBad,
       !!pendingError,
-      extraBad,
     ];
     if (blockers.some(Boolean)) {
       setFocusTick((n) => n + 1);
@@ -577,7 +563,8 @@ export function TaskEditor({
       title: stripInvisible(title),
       kind,
       deadline: due,
-      estimateMinutes: kind === "habit" ? habitMinutes : Math.max(h(estimate), allMinutes),
+      estimateMinutes:
+        kind === "habit" ? habitMinutes : allUnits.length > 0 ? allMinutes : h(estimate),
       minMinutes: kind === "habit" ? habitMinutes : h(minimum),
       sessionsPerWeek: kind === "habit" ? Number(sessions) : undefined,
       sessionMinutes: kind === "habit" ? Number(sessionMin) : undefined,
@@ -823,7 +810,8 @@ export function TaskEditor({
                     <input
                       id={estimateId}
                       inputMode="decimal"
-                      value={estimate}
+                      value={estimateIn}
+                      disabled={units.length > 0}
                       className={suggested ? "suggested" : undefined}
                       aria-invalid={estimateShown ? true : undefined}
                       aria-describedby={estimateShown ? "estimate-error" : undefined}
@@ -924,9 +912,9 @@ export function TaskEditor({
                       Agregar
                     </button>
                   </div>
-                  {partsSummary(estimate, partsMinutes) && (
+                  {partsSummary(partsMinutes) && (
                     <p className="meta" id="parts-sum" role="status" style={{ margin: "8px 0 0" }}>
-                      {partsSummary(estimate, partsMinutes)}
+                      {partsSummary(partsMinutes)}
                     </p>
                   )}
                   {unitError && (
@@ -1075,10 +1063,8 @@ export function TaskEditor({
               status: "active" as const,
             }),
             deadline: Number.isFinite(dueNow) ? dueNow : now + 86_400_000,
-            estimateMinutes: Math.max(
-              Math.round(typedHours(estimate) * 60) || 0,
-              units.reduce((n, u) => n + u.estimateMinutes, 0),
-            ),
+            estimateMinutes:
+              units.length > 0 ? partsMinutes : Math.round(typedHours(estimate) * 60) || 0,
             minMinutes: Math.round(typedHours(minimum) * 60) || 0,
             units,
           }}

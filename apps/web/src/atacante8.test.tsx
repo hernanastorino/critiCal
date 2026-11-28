@@ -316,13 +316,16 @@ describe("2. «Quedarme con el mínimo» hace lo que dice", () => {
     expect(again.result.status.filter((s) => s.targetDeficit > 0)).toEqual([]);
   });
 
-  it("is not offered when choosing it would change nothing", () => {
+  it("is offered when it cuts the total, which is the sum of the parts (SPEC §18.18)", () => {
     const d = scenario(300);
     const r = refreshPlan(d, NOW);
-    // The target is short, but the parts hold what is left: a lower estimate cuts nothing.
     expect(r.result.status.some((s) => s.targetDeficit > 0)).toBe(true);
     const offered = decisions(r.input, r.result, { data: d, now: NOW }).options;
-    expect(offered.map((o) => o.kind)).not.toContain("minimum-only");
+    const option = offered.find((o) => o.kind === "minimum-only");
+    expect(option).toBeTruthy();
+    if (!option) return;
+    const after = reducer(d, { type: "applyOption", optionId: option.id, now: NOW });
+    expect(refreshPlan(after, NOW).result.status.filter((s) => s.targetDeficit > 0)).toEqual([]);
   });
 
   it("the card of a target option does not claim the minimums were the problem", () => {

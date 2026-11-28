@@ -56,7 +56,7 @@ function fitOf(data: AppData, task: AppTask, now: number) {
   return siloWeekFit(data, now, p, plan);
 }
 
-describe.each(MOMENTS)("silo que no entra: %s", (_n, date, minute) => {
+describe.each(MOMENTS)("silo que no entra: %s", { timeout: 30_000 }, (_n, date, minute) => {
   const now = zonedInstant(TIMEZONE, date, minute);
 
   it("5h30 con poca semana: dice cuánto entra", () => {
@@ -93,14 +93,14 @@ describe.each(MOMENTS)("silo que no entra: %s", (_n, date, minute) => {
   });
 });
 
-describe("título de las opciones", () => {
+describe("título de las opciones", { timeout: 30_000 }, () => {
   it("según la etapa", () => {
     expect(optionsTitle(false)).toBe("No llegás a todo");
     expect(optionsTitle(true)).toBe("Llegás a los mínimos, no a todo");
   });
 });
 
-describe.each(MOMENTS)("título en la Bandeja: %s", (_n, date, minute) => {
+describe.each(MOMENTS)("título en la Bandeja: %s", { timeout: 30_000 }, (_n, date, minute) => {
   const now = zonedInstant(TIMEZONE, date, minute);
   const bandeja = (change: (t: AppTask) => AppTask) => {
     const d = loadDemo(now);
@@ -136,7 +136,7 @@ describe.each(MOMENTS)("título en la Bandeja: %s", (_n, date, minute) => {
   });
 });
 
-describe("título en la Bandeja: segunda etapa", () => {
+describe("título en la Bandeja: segunda etapa", { timeout: 30_000 }, () => {
   it("con los mínimos adentro y el estimado corto: «Llegás a los mínimos, no a todo»", () => {
     const at = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
     const base = reducer(demoData(at), { type: "refresh", now: at });

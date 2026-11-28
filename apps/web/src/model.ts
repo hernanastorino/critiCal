@@ -46,6 +46,18 @@ export interface Unit {
   skipped?: boolean;
 }
 
+/**
+ * The total of a task (SPEC §18.18): with parts, the sum of the ones not left out, whatever
+ * the estimate says (an estimate above it is not hours any part holds; one below it is an
+ * option's cut, which caps it). Without parts, its estimate. The one figure the plan, the
+ * silos, the options and the sheet use.
+ */
+export function taskTotal(task: Pick<AppTask, "kind" | "estimateMinutes" | "units">): number {
+  if (task.kind === "habit" || task.units.length === 0) return task.estimateMinutes;
+  const parts = task.units.filter((u) => !u.skipped).reduce((n, u) => n + u.estimateMinutes, 0);
+  return task.estimateMinutes > 0 ? Math.min(parts, task.estimateMinutes) : parts;
+}
+
 export interface AppTask {
   id: string;
   activityId: string;

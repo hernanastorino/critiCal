@@ -10,5 +10,5 @@
   "impossible": [
     "entrega-corta"
   ],
-  "recommendations": "d9ac36ea7482"
+  "recommendations": "658d00f70173"
 }

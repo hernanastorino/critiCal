@@ -106,18 +106,16 @@ describe("Editar entrega: horas estimadas y partes", () => {
     };
   };
 
-  it("does not take 0 hours when the parts add up to 10 h", () => {
+  it("shows the parts' sum as the hours, which cannot be typed over (SPEC §18.18)", () => {
     render(
       <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
         <Spy />
         <TaskEditor task={task()} onClose={() => {}} />
       </StoreProvider>,
     );
-    const hours = screen.getByLabelText("Horas estimadas");
-    fireEvent.change(hours, { target: { value: "0" } });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(hours.getAttribute("aria-invalid")).toBe("true");
-    expect(screen.getByRole("alert").textContent).toMatch(/partes suman 10h/);
-    expect(document.activeElement).toBe(hours);
+    const hours = screen.getByLabelText("Horas estimadas") as HTMLInputElement;
+    expect(hours.disabled).toBe(true);
+    expect(hours.value).toBe("10");
+    expect(screen.getByText("Total 10h, la suma de las partes.")).toBeTruthy();
   });
 });

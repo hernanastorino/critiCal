@@ -1,6 +1,6 @@
 import type { ScheduleResult } from "./engine.js";
 import { hours } from "./format.js";
-import type { AppData, AppTask } from "./model.js";
+import { type AppData, type AppTask, taskTotal } from "./model.js";
 import { progress } from "./planning.js";
 
 /**
@@ -25,8 +25,12 @@ export function needOf(data: AppData, now: number, taskId: string): Need | undef
  * The minimum of the task as it is edited («Mínimo 6h»): the saved one, never above the
  * total (a saved one that is, is shown cut to it), the same in «Repartir tiempo» and the form.
  */
-export const editedMinimum = (task: Pick<AppTask, "minMinutes" | "estimateMinutes">): number =>
-  task.estimateMinutes > 0 ? Math.min(task.minMinutes, task.estimateMinutes) : task.minMinutes;
+export const editedMinimum = (
+  task: Pick<AppTask, "minMinutes" | "estimateMinutes"> & Partial<Pick<AppTask, "kind" | "units">>,
+): number => {
+  const total = taskTotal({ kind: "deliverable", units: [], ...task });
+  return total > 0 ? Math.min(task.minMinutes, total) : task.minMinutes;
+};
 
 /**
  * What the ficha, the block's sheet and the Bandeja say next to «Faltan»: what is left to
