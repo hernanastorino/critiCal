@@ -8,7 +8,7 @@ import { DEMO_KIND_KEY } from "./demoPruebas.js";
 import { zonedInstant } from "./engine.js";
 import { optionsTitle, siloWeekText } from "./friendly.js";
 import type { AppData, AppTask } from "./model.js";
-import { focusWeekAt, progress, refreshPlan, siloWeekFit } from "./planning.js";
+import { decisions, focusWeekAt, progress, refreshPlan, siloWeekFit } from "./planning.js";
 import { loadDemo, reducer, StoreProvider } from "./store.js";
 
 // SPEC §18 punto 19: un silo cuya semana no aguanta lo asignado lo dice, y el título de
@@ -72,6 +72,19 @@ describe.each(MOMENTS)("silo que no entra: %s", (_n, date, minute) => {
       </ToastProvider>,
     );
     expect(screen.getByText(siloWeekText(fit?.placed ?? 0, 330))).toBeTruthy();
+  });
+
+  it("la Bandeja ofrece algo aplicable a Inglés", () => {
+    const { data, task } = withIngles(now, 330);
+    const plan = refreshPlan(data, now);
+    const d = decisions(plan.input, plan.result, { data, now });
+    expect(
+      d.options.some(
+        (o) =>
+          o.taskId === task.id ||
+          o.result.status.some((s) => s.taskId === task.id && s.targetDeficit === 0),
+      ),
+    ).toBe(true);
   });
 
   it("con lugar de sobra no dice nada", () => {
