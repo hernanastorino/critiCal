@@ -161,7 +161,9 @@ export function pruebasData(now: number): AppData {
   ];
   // Lighter than the plain demo, so the only thing that does not fit is the one armed to.
   // Parcial Cálculo II as it was before the plain demo got heavier (SPEC §18.17): this demo's
-  // week is balanced around it («Empezar antes», the options of «No llegás a todo»).
+  // week is balanced around it («Empezar antes», the options of «No llegás a todo»). Its minimum
+  // is the hours the week asks of it after the hours logged without parts (they lower neither
+  // «Faltan» nor the minimum: only the parts done do).
   const tasks = base.tasks
     .filter((t) => t.id !== "tp-prog")
     .map((t) =>
@@ -169,7 +171,7 @@ export function pruebasData(now: number): AppData {
         ? {
             ...t,
             estimateMinutes: 780,
-            minMinutes: 690,
+            minMinutes: 120,
             units: t.units.map((u) =>
               u.id === "u3" || u.id === "u4" ? { ...u, estimateMinutes: 120 } : u,
             ),
@@ -178,12 +180,9 @@ export function pruebasData(now: number): AppData {
           ? {
               ...t,
               // Heavier than the plain demo's, so the Gym still gets 1 of 3 sessions on Monday.
-              estimateMinutes: 450,
-              minMinutes: 270,
-              units: t.units.map((u) => ({
-                ...u,
-                estimateMinutes: u.estimateMinutes === 60 ? 90 : 180,
-              })),
+              estimateMinutes: 540,
+              minMinutes: 540,
+              units: [],
             }
           : t,
     );

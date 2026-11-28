@@ -14,8 +14,9 @@ import {
   TITLE_MAX,
 } from "../limits.js";
 import { type AppTask, newId, nextColor, type Unit } from "../model.js";
-import { shortfall } from "../need.js";
+import { editedMinimum, shortfall } from "../need.js";
 import { earliestStartOf, refreshPlan } from "../planning.js";
+import { openSheet } from "../repartir.js";
 import { formOfHours, type HoursForm, readHours } from "../routineHours.js";
 import { useStore } from "../store.js";
 import { sameName } from "../subjects.js";
@@ -116,6 +117,10 @@ export function editorDraft(origin: string): EditorDraft | null {
   return d && d.origin === origin ? d : null;
 }
 
+/** The minimum the form shows: the one «Repartir tiempo» shows (never above its total). */
+const shownMinimum = (task: AppTask): number =>
+  task.units.length > 0 ? openSheet(task).min : editedMinimum(task);
+
 export function TaskEditor({
   task,
   origin = "silos",
@@ -150,7 +155,7 @@ export function TaskEditor({
     kind: task?.kind ?? "deliverable",
     deadline: toLocalInput(tz, task?.deadline ?? now + 3 * 86_400_000),
     estimate: hoursField(task?.estimateMinutes ?? startLearned?.estimateMinutes ?? 240),
-    minimum: hoursField(task?.minMinutes ?? startLearned?.minMinutes ?? 120),
+    minimum: hoursField(task ? shownMinimum(task) : (startLearned?.minMinutes ?? 120)),
     sessions: String(task?.sessionsPerWeek ?? 3),
     sessionMin: String(task?.sessionMinutes ?? 60),
     priority: task?.priority ?? 2,
