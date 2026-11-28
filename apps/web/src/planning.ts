@@ -2,11 +2,14 @@ import { eventRole, normalize, visibleEvents } from "./calendars.js";
 import {
   addDays,
   type CalendarEvent,
+  ceilStep,
   type DayOverride,
   type DaySettings,
   effortRatio,
+  floorStep,
   type Interval,
   infeasibilityOptions,
+  joinList,
   localParts,
   type Meal,
   type MealKind,
@@ -1675,6 +1678,8 @@ function takenOptions(data: AppData, now: number): Set<string> {
  * minimum, a smaller version and «No hacer» are three for the same task.
  */
 function opposed(option: PlanOption, taken: ReadonlySet<string>): boolean {
+  // «Un poco de todo» taken stands until undone: it is not offered again (§5.6).
+  if (option.kind === "proportional") return taken.has(option.id);
   if (option.kind === "use-free-time" || option.kind === "minimum-only") {
     const other = option.kind === "use-free-time" ? "minimum-only" : "use-free-time";
     return taken.has(option.id) || taken.has(other);
@@ -1720,7 +1725,7 @@ function relaxRecommendations(
   return [
     {
       id: "relax-context",
-      message: `Si mezclás más materias por día, ${reasons.join(" y ")}.`,
+      message: `Si mezclás más materias por día, ${joinList(reasons)}.`,
       input: plan.input,
       result: plan.result,
     },
@@ -1935,7 +1940,11 @@ function minutesAfter(
  */
 function estimateAfter(task: AppTask, old: Task, next: Task) {
   const cut = Math.round(old.remainingMinutes - next.remainingMinutes);
-  return cut > 0 ? { estimateMinutes: Math.max(1, Math.round(task.estimateMinutes) - cut) } : {};
+  // Quarter hours (as the sliders): the hours up, never above what the task had.
+  const left = Math.max(1, Math.round(task.estimateMinutes) - cut);
+  return cut > 0
+    ? { estimateMinutes: Math.min(Math.round(task.estimateMinutes), ceilStep(left)) }
+    : {};
 }
 
 /** The stored minimum that leaves what the option previewed (what was done counts in it). */
@@ -1948,7 +1957,9 @@ function minimumAfter(data: AppData, task: AppTask, next: Task): number {
             .filter((c) => c.taskId === task.id)
             .reduce((s, c) => s + c.minutesDone, 0),
         );
-  const minimum = Math.round(next.minRemainingMinutes) + done;
+  // Quarter hours (as the sliders): the minimum down.
+  const exact = Math.round(next.minRemainingMinutes) + done;
+  const minimum = floorStep(exact) || exact;
   const cap = task.minMinutes > 0 ? Math.round(task.minMinutes) : minimum;
   return Math.max(1, Math.min(cap, minimum));
 }

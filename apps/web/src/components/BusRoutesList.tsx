@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { deleteRoute, routesChanged } from "../busRoutes.js";
 import { useSync } from "../Connected.js";
+import { joinList } from "../engine.js";
 import type { Place } from "../model.js";
 import { hhmm } from "../transit.js";
 import { useBusRoutes } from "../useBusRoutes.js";
@@ -35,7 +36,7 @@ export function BusRoutesList({ places }: { places: readonly Place[] }) {
               <span className="meta place-aliases">
                 {r.weekday ? WEEKDAYS[r.weekday - 1] : "todos los días"} ·{" "}
                 {r.mode === "arrive" ? "llegar" : "salir"} {hhmm(r.time_minutes)}
-                {line.length ? ` · línea ${line.join(" y ")}` : ""}
+                {line.length ? ` · línea ${joinList(line)}` : ""}
               </span>
             </span>
             <button

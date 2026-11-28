@@ -5,8 +5,11 @@ export { checkFeasibility } from "./feasibility.js";
 export { merge, minutes, overlaps, subtract } from "./intervals.js";
 export type { EffortSample, Unit } from "./learning.js";
 export { effortRatio, remainingFromUnits } from "./learning.js";
+export { joinList } from "./list.js";
 export type { OptionKind, PlanOption, Recommendation } from "./options.js";
 export {
+  ceilStep,
+  floorStep,
   infeasibilityOptions,
   moveSpot,
   recommendations,
