@@ -25,7 +25,7 @@ import { forgetImport, importToUndo } from "../importUndo.js";
 import { lanes } from "../lanes.js";
 import { deadlineMaxYear } from "../limits.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
-import { type MoveBounds, moveBounds, moveRefusal } from "../moveBounds.js";
+import { type MoveBounds, moveBounds, moveRefusal, pinRefusal } from "../moveBounds.js";
 import {
   isPinned,
   MEAL_NAMES,
@@ -691,6 +691,8 @@ export function Week({
       );
     }
     const at = zonedInstant(tz, day, minute);
+    const no = pinRefusal(data, now, b, at);
+    if (no) return refuse(no);
     const pin = pinAt(b, at);
     setFocusId(pin);
     setMoveSaid({
@@ -863,7 +865,14 @@ export function Week({
       if (why) refuse(why);
       return null;
     }
-    return pinAt(block, zonedInstant(tz, target.date, target.minute));
+    const start = zonedInstant(tz, target.date, target.minute);
+    // A routine that does not go there goes back to its place, with the reason.
+    const no = pinRefusal(data, now, block, start);
+    if (no) {
+      refuse(no);
+      return null;
+    }
+    return pinAt(block, start);
   };
 
   /**
