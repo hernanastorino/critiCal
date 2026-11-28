@@ -34,6 +34,7 @@ import {
   mealTimes,
   pinId,
   progress,
+  shownTotal,
   sleptBlockIds,
   standingCheckIns,
   travelIntervals,
@@ -1702,7 +1703,7 @@ function BubbleCard({
           <p>
             {routine
               ? routineWeekText(routine)
-              : `Faltan ${hours(p.remainingMinutes)} de ${hours(p.totalMinutes)}`}
+              : `Faltan ${hours(p.remainingMinutes)} de ${hours(shownTotal(p))}`}
             {b.level === "critical" && (
               <>
                 {" "}

@@ -4,6 +4,7 @@
  * a sync that fails or a deletion is told plainly.
  */
 
+import { joinList } from "./engine.js";
 import { hours } from "./format.js";
 
 /** After skipping a block: no guilt, and the plan moves on. */
@@ -43,9 +44,20 @@ export function optionPromise(
   return option.result.feasible ? "Con esto llegás a todos los mínimos." : otherwise;
 }
 
+/** An option's title: free time «para llegar» does not promise it when the forecast leaves something out. */
+export function optionTitle(option: {
+  kind: string;
+  label: string;
+  result: { feasible: boolean };
+}): string {
+  return option.kind === "use-free-time" && !option.result.feasible
+    ? option.label.replace(/ para llegar$/, "")
+    : option.label;
+}
+
 /** An option that reaches every minimum but those of tasks that fit nowhere anyway. */
 export const onlyNoFitLeft = (names: string[]) =>
-  `Con esto llegás a todo menos ${names.map((n) => `«${n}»`).join(" y ")}, que no entra${names.length > 1 ? "n" : ""} igual.`;
+  `Con esto llegás a todo menos ${joinList(names.map((n) => `«${n}»`))}, que no entra${names.length > 1 ? "n" : ""} igual.`;
 
 /**
  * The line of an option card. `noFitLeft` are the tasks that fit nowhere and stay short

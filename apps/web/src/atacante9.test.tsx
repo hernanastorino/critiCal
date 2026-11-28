@@ -73,9 +73,9 @@ describe("4. parseBackup: partes, mínimo y fecha", () => {
     ).toBe(true);
   });
 
-  it("refuses a minimum above the estimate of a delivery", () => {
+  it("accepts a minimum above the estimate of a delivery (it is cut to it)", () => {
     expect(refused(backupWith((t) => ({ ...t, estimateMinutes: 100, minMinutes: 200 })))).toBe(
-      true,
+      false,
     );
   });
 

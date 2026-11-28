@@ -3390,14 +3390,25 @@ input.rep-name {
 /* Three buttons of one height, whatever their words (a button after another gets a top margin). */
 .rep-presets {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(6.25em, 1fr));
   align-items: stretch;
   gap: var(--space-2);
 }
 
+/* With a large font the buttons go to more rows: a word is never cut in the middle. */
 .rep-presets .btn {
   min-height: 44px;
   margin-top: 0;
+  hyphens: none;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+.rep-min-label {
+  flex: none;
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
 }
 
 .rep-add {

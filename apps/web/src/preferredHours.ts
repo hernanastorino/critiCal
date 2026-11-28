@@ -1,6 +1,6 @@
 // A routine whose «Prefiero desde / hasta» falls outside the hours it may go in: the planner
 // never gets to use that preference, so the Bandeja says it.
-import type { Activity, MinuteRange } from "./engine.js";
+import { type Activity, joinList, type MinuteRange } from "./engine.js";
 import { minutesToHhmm } from "./format.js";
 import type { AppData } from "./model.js";
 
@@ -41,7 +41,7 @@ function misfitOf(data: AppData, activity: Activity): PreferenceMisfit | null {
   if (!hasActiveHabit(data, activity)) return null;
   const ranges = decidingRanges(validHours);
   if (!ranges || ranges.length === 0 || ranges.some((r) => overlaps(r, preferred))) return null;
-  const allowed = [...new Set(ranges.map(hoursRange))].join(" y ");
+  const allowed = joinList([...new Set(ranges.map(hoursRange))]);
   return { activity, preferred, allowed };
 }
 

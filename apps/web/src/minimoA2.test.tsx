@@ -171,6 +171,8 @@ describe("pantallas", () => {
     expect(screen.getByRole("slider", { name: "Mínimo" }).getAttribute("aria-valuenow")).toBe(
       "360",
     );
+    // The label is always there, not only while dragging (44.ª vuelta).
+    expect(screen.getByText("Mínimo 6h")).toBeTruthy();
   });
 
   it("Parcial Cálculo II: la hoja y el formulario dicen lo mismo (el mínimo recortado al Total)", () => {
