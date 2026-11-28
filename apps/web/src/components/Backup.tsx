@@ -1,10 +1,22 @@
 import { useRef, useState } from "react";
 import { backupMadeAt, exportJson, parseBackup } from "../backup.js";
-import { saveEvents } from "../backupSave.js";
-import { type BackupRoute, type BusRoute, replaceRoutes, routesChanged } from "../busRoutes.js";
+import { restoreEvents, savedEvents, saveEvents } from "../backupSave.js";
+import {
+  type BackupRoute,
+  type BusRoute,
+  backupRoute,
+  loadRoutes,
+  replaceRoutes,
+  routesChanged,
+} from "../busRoutes.js";
 import { type SyncApi, useSync } from "../Connected.js";
 import { localParts } from "../engine.js";
-import { forgetImport, rememberImport } from "../importUndo.js";
+import {
+  forgetImport,
+  rememberImport,
+  rememberImportExtras,
+  undoImportExtras,
+} from "../importUndo.js";
 import { type AppData, type AppEvent, CRITICAL } from "../model.js";
 import { standingCheckIns, withOrphanMarks } from "../planning.js";
 import { refresh } from "../refresh.js";
@@ -77,13 +89,27 @@ async function saveBeyondStore(
   sync: SyncApi,
   events: readonly AppEvent[],
   routes: readonly BackupRoute[] | undefined,
-): Promise<boolean> {
+): Promise<{ ok: boolean; undo: () => Promise<void> }> {
+  const { client } = sync;
+  const flush = () => sync.flush(true);
+  // What the account had, to give it back if the load is undone (SPEC §14).
+  const [eventsBefore, routesBefore] = await Promise.all([
+    savedEvents(client).catch(() => null),
+    routes === undefined ? Promise.resolve(undefined) : loadRoutes(client),
+  ]);
   const [eventsOk, routesOk] = await Promise.all([
-    saveEvents(sync.client, events),
-    routes === undefined ? true : replaceRoutes(sync.client, routes, () => sync.flush(true)),
+    saveEvents(client, events),
+    routes === undefined ? true : replaceRoutes(client, routes, flush),
   ]);
   if (routes !== undefined) routesChanged();
-  return eventsOk && routesOk;
+  const undo = async () => {
+    if (eventsBefore) await restoreEvents(client, eventsBefore, events);
+    if (routesBefore) {
+      await replaceRoutes(client, routesBefore.map(backupRoute), flush);
+      routesChanged();
+    }
+  };
+  return { ok: eventsOk && routesOk, undo };
 }
 
 /** Download everything as JSON, or replace everything with a downloaded file. */
@@ -149,7 +175,9 @@ export function Backup() {
     rememberImport(before, restored);
     setMessage(null);
     if (sync) {
-      void saveBeyondStore(sync, restored.events, savedRoutes).then((ok) => {
+      const saved = saveBeyondStore(sync, restored.events, savedRoutes);
+      rememberImportExtras(saved.then((s) => s.undo));
+      void saved.then(({ ok }) => {
         if (!ok) toast.show("No pude guardar todo en tu cuenta: probá cargar el respaldo de nuevo");
       });
     }
@@ -159,6 +187,7 @@ export function Backup() {
     toast.show(`${importedText(restored, day)}${left}`, {
       undo: () => {
         forgetImport();
+        void undoImportExtras();
         dispatch({ type: "replace", data: before });
       },
     });

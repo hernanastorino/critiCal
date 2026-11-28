@@ -24,6 +24,55 @@ export function eventRow(e: AppEvent) {
 }
 
 const CHUNK = 500;
+type Row = Record<string, unknown>;
+
+/** Every event row of the account, as it is now. */
+export async function savedEvents(client: SupabaseClient): Promise<Row[]> {
+  const rows: Row[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client
+      .from("calendar_events")
+      .select("*")
+      .order("source")
+      .order("external_id")
+      .range(from, from + 999);
+    if (error) throw error;
+    rows.push(...((data ?? []) as Row[]));
+    if ((data ?? []).length < 1000) return rows;
+  }
+}
+
+/**
+ * Leaves the events as `before` had them: the ones a load wrote that were not there go, and
+ * the ones it overwrote come back. False when the database refused.
+ */
+export async function restoreEvents(
+  client: SupabaseClient,
+  before: readonly Row[],
+  written: readonly AppEvent[],
+): Promise<boolean> {
+  const had = new Set(before.map((r) => `${r.source}|${r.external_id}`));
+  const added = written
+    .filter((e) => e.source === "google" || e.source === "icloud")
+    .map(eventRow)
+    .filter((r) => !had.has(`${r.source}|${r.external_id}`));
+  for (const source of ["google", "icloud"]) {
+    const ids = added.filter((r) => r.source === source).map((r) => r.external_id);
+    for (let i = 0; i < ids.length; i += 100) {
+      const { error } = await client
+        .from("calendar_events")
+        .delete()
+        .eq("source", source)
+        .in("external_id", ids.slice(i, i + 100));
+      if (error) return false;
+    }
+  }
+  for (let i = 0; i < before.length; i += CHUNK) {
+    const { error } = await client.from("calendar_events").upsert(before.slice(i, i + CHUNK));
+    if (error) return false;
+  }
+  return true;
+}
 
 /**
  * Writes the events that came from a calendar. The demo's events are not rows (the table

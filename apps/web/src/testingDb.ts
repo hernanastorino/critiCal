@@ -85,8 +85,36 @@ export function dbClient(userId: string, tables: Map<string, Row[]> = new Map())
         rows.filter((r) => !gone.includes(r)),
       );
       writes.push({ op: "delete", table, rows: gone.length });
+      // Foreign keys that cascade: a materia takes its tareas; a tarea its parts, blocks and records.
+      const cascade = (parent: string, child: string, col: string) => {
+        const ids = new Set(gone.map((r) => r.id));
+        const kids = rowsOf(child).filter((r) => ids.has(r[col]));
+        if (kids.length) {
+          tables.set(
+            child,
+            rowsOf(child).filter((r) => !kids.includes(r)),
+          );
+          if (child === "tasks") cascadeTasks(kids);
+        }
+        return parent;
+      };
+      const cascadeTasks = (tasks: Row[]) => {
+        const ids = new Set(tasks.map((t) => t.id));
+        for (const child of ["task_units", "plan_blocks", "check_ins"]) {
+          tables.set(
+            child,
+            rowsOf(child).filter((r) => !ids.has(r.task_id)),
+          );
+        }
+      };
+      if (table === "activities") cascade(table, "tasks", "activity_id");
+      if (table === "tasks") cascadeTasks(gone);
       if (table === "places") {
         const ids = new Set(gone.map((p) => p.id));
+        tables.set(
+          "travel_times",
+          rowsOf("travel_times").filter((r) => !ids.has(r.from_place) && !ids.has(r.to_place)),
+        );
         tables.set(
           "bus_routes",
           rowsOf("bus_routes").filter((r) => !ids.has(r.from_place) && !ids.has(r.to_place)),

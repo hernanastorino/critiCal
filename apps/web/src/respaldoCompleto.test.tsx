@@ -408,4 +408,49 @@ describe.each([
     const again = await screens();
     for (const [name, said] of screensA) expect([name, again.get(name)]).toEqual([name, said]);
   }, 120_000);
+
+  it("deshacer la carga devuelve también los eventos y las rutas de la base", async () => {
+    const a = account();
+    const file = exportJson(
+      a.data,
+      now,
+      a.routes.map((r, i) => ({ ...r, id: `r${i}` })),
+    );
+    // B ya tenía lo suyo: otros eventos y una sola ruta.
+    const mine: AppData = {
+      ...a.data,
+      owner: B_ID,
+      events: a.data.events.slice(0, 3).map((e, i) => ({
+        ...e,
+        id: `google:otro|x${i}`,
+        calendarId: "google:otro",
+      })),
+    };
+    const dbB = await seeded(refresh(mine, now), a.routes.slice(0, 1), B_ID);
+    const before = await read(dbB);
+    const eventsBefore = JSON.stringify(dbB.rows("calendar_events"));
+    open(dbB, B_ID);
+    await weekReady();
+    await load(file);
+    await waitFor(() => expect(dbB.rows("bus_routes")).toHaveLength(3), { timeout: 20_000 });
+    await waitFor(() => expect(dbB.rows("calendar_events").length).toBeGreaterThan(3));
+    // El aviso «Deshacer» (el ↶ de la cabecera hace lo mismo).
+    const snack = document.querySelector(".snack");
+    const undo = within(snack as HTMLElement).getByRole("button", { name: "Deshacer" });
+    await act(async () => {
+      fireEvent.click(undo);
+    });
+    await waitFor(() => expect(dbB.rows("bus_routes")).toHaveLength(1), { timeout: 20_000 });
+    await waitFor(() => expect(dbB.rows("calendar_events")).toHaveLength(3));
+    await weekReady();
+    cleanup();
+    // Abrir de cero: idéntico a antes de cargar.
+    forgetImport();
+    await clearLocal();
+    expect(await read(dbB)).toEqual(before);
+    expect(JSON.stringify(dbB.rows("calendar_events"))).toBe(eventsBefore);
+    open(dbB, B_ID);
+    await weekReady();
+    expect(dbB.rows("bus_routes")).toHaveLength(1);
+  }, 120_000);
 });

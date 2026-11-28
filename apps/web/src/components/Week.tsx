@@ -21,7 +21,7 @@ import {
   weekdayShort,
 } from "../format.js";
 import { routineWeekText } from "../friendly.js";
-import { forgetImport, importToUndo } from "../importUndo.js";
+import { forgetImport, importToUndo, undoImportExtras } from "../importUndo.js";
 import { lanes } from "../lanes.js";
 import { deadlineMaxYear } from "../limits.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
@@ -1038,6 +1038,7 @@ export function Week({
               if (!lastChange) return;
               if (imported) {
                 forgetImport();
+                void undoImportExtras();
                 dispatch({ type: "replace", data: imported });
                 flash("Deshecho: cargar un respaldo");
                 setSpoken("");
