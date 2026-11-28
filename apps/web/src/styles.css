@@ -1006,6 +1006,8 @@ textarea[aria-invalid="true"] {
 
 .btn {
   flex: 1;
+  /* 44 pt to touch (SPEC §14), every variant. */
+  min-height: 44px;
   padding: var(--space-3);
   border-radius: var(--radius-m);
   font-weight: 600;
@@ -1892,6 +1894,18 @@ input[type="datetime-local"] {
   min-width: 0;
 }
 
+/* A time of day keeps room for «12:00 a.m.» at any text size: when two do not fit side by
+   side, the second goes to the next line instead of being cut. */
+.time-field {
+  flex: 1 1 9.5em;
+}
+
+/* The deadline of a delivery grows with its text, so «11:59 p.m.» is never cut. */
+input[type="datetime-local"] {
+  height: auto;
+  overflow: visible;
+}
+
 .grid3 {
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr);
@@ -1914,7 +1928,7 @@ input[type="datetime-local"] {
   flex: 1;
   /* The seven days always fit the row: none is pushed out (and clipped) at the right. */
   min-width: 0;
-  height: 36px;
+  min-height: 44px;
   border-radius: var(--radius-m);
   background: var(--glass);
   font-weight: 600;
@@ -2909,10 +2923,6 @@ label.check {
   align-items: center;
 }
 
-.place-row .btn {
-  min-height: 36px;
-}
-
 .place-text {
   flex: 1;
   min-width: 0;
@@ -3186,6 +3196,11 @@ body:has(.sheet) .toasts .snack > span {
 
 .rep-task {
   margin: 0 0 var(--space-2);
+}
+
+.rep-proposal {
+  margin: 0 0 var(--space-2);
+  color: var(--ink);
 }
 
 /* The total and what is left stay at the top; only the temas scroll (375 px: no sideways scroll). */

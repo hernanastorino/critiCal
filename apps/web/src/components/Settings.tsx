@@ -747,7 +747,7 @@ export function Settings({
                   Si te levantaste o te vas a acostar a otra hora, el día se reacomoda.
                 </p>
                 <div className="row">
-                  <label className="field" style={{ flex: 1 }} htmlFor={wakeId}>
+                  <label className="field time-field" htmlFor={wakeId}>
                     <span>Me levanté a las</span>
                     <input
                       id={wakeId}
@@ -761,7 +761,7 @@ export function Settings({
                       }}
                     />
                   </label>
-                  <label className="field" style={{ flex: 1 }} htmlFor={bedId}>
+                  <label className="field time-field" htmlFor={bedId}>
                     <span>Me acuesto a las</span>
                     <input
                       id={bedId}

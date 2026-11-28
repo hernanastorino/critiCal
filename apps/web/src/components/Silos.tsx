@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
-import { siloWeekText } from "../friendly.js";
+import { routineWeekText, siloWeekText } from "../friendly.js";
 import type { AppTask } from "../model.js";
 import {
   focusWeekAt,
@@ -23,7 +23,7 @@ import { useToast } from "./Toast.js";
 let pastOpen = false;
 
 export function Silos() {
-  const { data, now, dispatch } = useStore();
+  const { data, now, dispatch, routineShort } = useStore();
   const tz = data.settings.timezone;
   const [showArchived, setShowArchived] = useState(false);
   // Only the ones whose materia still exists: recovering a task of a deleted one would lead nowhere.
@@ -124,6 +124,8 @@ export function Silos() {
     (t) => t.status === "active" && !t.needsReview && !isRunning(t, now) && !isRoutine(t),
   );
   const week = weekLeft(data, now);
+  // A routine that does not fit the week says so as the Bandeja's card does (same count).
+  const short = new Map(routineShort.map((r) => [r.taskId, routineWeekText(r)]));
 
   return (
     <div className="screen">
@@ -246,6 +248,11 @@ export function Silos() {
                   <span className="meta" style={{ margin: 0 }}>
                     <CountUp value={r.left} /> / <CountUp value={r.assigned} />
                   </span>
+                  {r.routine && short.get(r.taskId) && (
+                    <span className="meta fit" style={{ gridColumn: "1 / -1", margin: 0 }}>
+                      {short.get(r.taskId)}
+                    </span>
+                  )}
                   <div className="track" style={{ ["--c" as string]: r.color }}>
                     <div
                       style={{

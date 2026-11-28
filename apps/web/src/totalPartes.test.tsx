@@ -124,7 +124,7 @@ describe("el formulario muestra un solo número", () => {
     );
     const field = screen.getByLabelText<HTMLInputElement>("Horas estimadas");
     expect(field.disabled).toBe(true);
-    expect(field.value).toBe("4,5");
+    expect(field.value).toBe("4h30");
     expect(screen.getByText("Total 4h30, la suma de las partes.")).toBeTruthy();
   });
 });

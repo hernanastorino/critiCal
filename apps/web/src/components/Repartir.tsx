@@ -8,6 +8,7 @@ import {
   fitOf,
   openSheet,
   type Prefill,
+  proposalText,
   type Sheet,
   trialOf,
 } from "../repartir.js";
@@ -35,11 +36,13 @@ interface RepartirProps {
   task: AppTask;
   /** Where it starts when that is not the task as it is (what an option would leave). */
   initial?: Prefill;
+  /** What the option that opened it proposes: said at the top. */
+  proposal?: string | null;
   onAccept: (next: AppTask) => void;
   onClose: () => void;
 }
 
-function RepartirSheet({ task: given, initial, onAccept, onClose }: RepartirProps) {
+function RepartirSheet({ task: given, initial, proposal, onAccept, onClose }: RepartirProps) {
   const { data, now } = useStore();
   // The task as it was when the sheet opened: the plan is not worked out again for a new object.
   const [task] = useState(given);
@@ -85,6 +88,11 @@ function RepartirSheet({ task: given, initial, onAccept, onClose }: RepartirProp
         </button>
         <h2>Repartir tiempo</h2>
         <p className="meta rep-task">{clipName(task.title)}</p>
+        {proposal && (
+          <p className="meta rep-proposal" role="status">
+            {proposal}
+          </p>
+        )}
         <div className="rep-top">
           <TotalRow s={s} setS={setS} onOpen={() => setTyping("total")} />
           <FitWarning fit={fit} />
@@ -166,6 +174,7 @@ export function RepartirTask({
     <Repartir
       task={task}
       initial={week}
+      proposal={optionId && initial ? proposalText(task, initial) : null}
       onClose={onClose}
       onAccept={(next) => {
         answer(

@@ -22,12 +22,14 @@ import { useStore } from "../store.js";
 import { sameName } from "../subjects.js";
 import {
   awakeWeekMinutes,
+  durationLabel,
   estimateProblem,
   habitProblems,
   hoursField,
   minimumProblem,
   parseUnit,
   partsSummary,
+  partsTotalProblem,
   slotNote,
   typedHours,
 } from "../taskForm.js";
@@ -197,6 +199,9 @@ export function TaskEditor({
   const [deadline, setDeadline] = useState(start.deadline);
   const [estimate, setEstimateTyped] = useState(start.estimate);
   const [minimum, setMinimumTyped] = useState(start.minimum);
+  // The minimum is the person's once they type it (or it comes from a task or a draft that
+  // had it changed); until then it follows the total down (never above it).
+  const minimumTouched = useRef(!!task || (!!kept && kept.minimum !== base.minimum));
   // Once the user touches the hours (or a draft brings them back) they are theirs.
   const hoursTouched = useRef(!!task || !!kept);
   /** Hours typed in this session of the form: empty ones from a draft are not scolded before. */
@@ -208,6 +213,7 @@ export function TaskEditor({
   };
   const setMinimum = (v: string) => {
     hoursTouched.current = true;
+    minimumTouched.current = true;
     setHoursEdited(true);
     setMinimumTyped(v);
   };
@@ -218,6 +224,13 @@ export function TaskEditor({
   // With parts the total is their sum (SPEC §18.18): the hours field shows it, never a second number.
   const partsMinutes = units.reduce((n, u) => n + u.estimateMinutes, 0);
   const estimateIn = units.length > 0 ? hoursField(partsMinutes) : estimate;
+  // The minimum nobody typed is the suggested one, held down by the total: 1 part of 1 h
+  // is a minimum of 1 h, not the 2 h of the earlier deliveries.
+  const totalHours = typedHours(estimateIn);
+  const minimumIn =
+    !minimumTouched.current && Number.isFinite(totalHours) && typedHours(minimum) > totalHours
+      ? hoursField(Math.round(totalHours * 60))
+      : minimum;
   const [isExam, setIsExam] = useState(start.isExam);
   const [dayBefore, setDayBefore] = useState(start.dayBefore);
   const [unitTitle, setUnitTitle] = useState(start.unitTitle);
@@ -362,7 +375,7 @@ export function TaskEditor({
       deadline: due,
       // As save computes it: with parts, their sum.
       estimateMinutes: hrs(estimateIn),
-      minMinutes: hrs(minimum),
+      minMinutes: hrs(minimumIn),
       activityId,
       startAfter,
     };
@@ -380,7 +393,7 @@ export function TaskEditor({
     startAfter,
     deadline,
     estimateIn,
-    minimum,
+    minimumIn,
     task,
     activityId,
     title,
@@ -397,20 +410,23 @@ export function TaskEditor({
 
   // Hours that are not figures, or a minimum above the estimate, are said, never fixed.
   const deliverable = kind === "deliverable";
-  const estimateError = deliverable ? estimateProblem(estimateIn, partsMinutes) : null;
+  const partsError = deliverable ? partsTotalProblem(partsMinutes) : null;
+  // With parts the hours field only shows their sum: what is wrong is said with the parts.
+  const estimateError =
+    deliverable && units.length === 0 ? estimateProblem(estimateIn, partsMinutes) : null;
   // With hours that are not a figure there is nothing to compare the minimum to: only the
   // first problem is said («１２» is not a figure, and does not make the minimum «mayor»).
   const minimumError = deliverable
     ? minimumProblem(
-        minimum,
+        minimumIn,
         Number.isNaN(typedHours(estimateIn)) ? Number.POSITIVE_INFINITY : typedHours(estimateIn),
       )
     : null;
-  const hoursBlocked = !!(estimateError || minimumError);
+  const hoursBlocked = !!(estimateError || minimumError || partsError);
   // Empty hours from a restored draft are said once typed or saving is tried, not on opening.
   const hoursQuiet = !hoursEdited && !tried;
   const estimateShown = hoursQuiet && !estimateIn.trim() ? null : estimateError;
-  const minimumShown = hoursQuiet && !minimum.trim() ? null : minimumError;
+  const minimumShown = hoursQuiet && !minimumIn.trim() ? null : minimumError;
   const dueNow = deliverable ? fromLocalInput(tz, deadline) : Number.NaN;
   const deadlinePast = Number.isFinite(dueNow) && dueNow <= now;
 
@@ -470,6 +486,7 @@ export function TaskEditor({
     !!estimateShown,
     !!minimumShown,
     !!unitError,
+    !!partsError,
     !!habit.times,
     !!habit.minutes,
     hoursRead.problems.length > 0,
@@ -570,7 +587,7 @@ export function TaskEditor({
       deadline: due,
       estimateMinutes:
         kind === "habit" ? habitMinutes : allUnits.length > 0 ? allMinutes : h(estimate),
-      minMinutes: kind === "habit" ? habitMinutes : h(minimum),
+      minMinutes: kind === "habit" ? habitMinutes : h(minimumIn),
       sessionsPerWeek: kind === "habit" ? Number(sessions) : undefined,
       sessionMinutes: kind === "habit" ? Number(sessionMin) : undefined,
       priority,
@@ -614,24 +631,26 @@ export function TaskEditor({
           <Marks.close />
         </button>
         <h2>{task ? "Editar" : "Nueva"}</h2>
-        <div className="row" style={{ marginBottom: 12 }}>
-          <button
-            type="button"
-            aria-pressed={kind === "deliverable"}
-            className={`btn small${kind === "deliverable" ? " primary" : ""}`}
-            onClick={() => setKind("deliverable")}
-          >
-            Entrega / parcial
-          </button>
-          <button
-            type="button"
-            aria-pressed={kind === "habit"}
-            className={`btn small${kind === "habit" ? " primary" : ""}`}
-            onClick={() => setKind("habit")}
-          >
-            Hábito semanal
-          </button>
-        </div>
+        {!task && (
+          <div className="row" style={{ marginBottom: 12 }}>
+            <button
+              type="button"
+              aria-pressed={kind === "deliverable"}
+              className={`btn small${kind === "deliverable" ? " primary" : ""}`}
+              onClick={() => setKind("deliverable")}
+            >
+              Entrega / parcial
+            </button>
+            <button
+              type="button"
+              aria-pressed={kind === "habit"}
+              className={`btn small${kind === "habit" ? " primary" : ""}`}
+              onClick={() => setKind("habit")}
+            >
+              Hábito semanal
+            </button>
+          </div>
+        )}
         {newRoutine ? (
           <RoutineForm state={routineDraft} onAdded={done} />
         ) : (
@@ -815,7 +834,7 @@ export function TaskEditor({
                     <input
                       id={estimateId}
                       inputMode="decimal"
-                      value={estimateIn}
+                      value={units.length > 0 ? durationLabel(partsMinutes) : estimateIn}
                       disabled={units.length > 0}
                       className={suggested ? "suggested" : undefined}
                       aria-invalid={estimateShown ? true : undefined}
@@ -828,7 +847,7 @@ export function TaskEditor({
                     <input
                       id={minimumId}
                       inputMode="decimal"
-                      value={minimum}
+                      value={minimumIn}
                       className={suggested ? "suggested" : undefined}
                       aria-invalid={minimumShown ? true : undefined}
                       aria-describedby={minimumShown ? "minimum-error" : undefined}
@@ -898,8 +917,10 @@ export function TaskEditor({
                       ref={unitInput}
                       aria-label="Nueva parte: nombre y minutos entre paréntesis"
                       value={unitTitle}
-                      aria-invalid={unitError ? true : undefined}
-                      aria-describedby={unitError ? "unit-error" : undefined}
+                      aria-invalid={unitError || partsError ? true : undefined}
+                      aria-describedby={
+                        unitError ? "unit-error" : partsError ? "parts-error" : undefined
+                      }
                       onChange={(e) => {
                         setUnitTitle(e.target.value);
                         setUnitError(null);
@@ -920,6 +941,16 @@ export function TaskEditor({
                   {partsSummary(partsMinutes) && (
                     <p className="meta" id="parts-sum" role="status" style={{ margin: "8px 0 0" }}>
                       {partsSummary(partsMinutes)}
+                    </p>
+                  )}
+                  {partsError && !unitError && (
+                    <p
+                      className="meta"
+                      id="parts-error"
+                      role={alertRole}
+                      style={{ color: "var(--critical)" }}
+                    >
+                      {partsError}
                     </p>
                   )}
                   {unitError && (
@@ -1070,7 +1101,7 @@ export function TaskEditor({
             deadline: Number.isFinite(dueNow) ? dueNow : now + 86_400_000,
             estimateMinutes:
               units.length > 0 ? partsMinutes : Math.round(typedHours(estimate) * 60) || 0,
-            minMinutes: Math.round(typedHours(minimum) * 60) || 0,
+            minMinutes: Math.round(typedHours(minimumIn) * 60) || 0,
             units,
           }}
           onClose={() => setSharing(false)}

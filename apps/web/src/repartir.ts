@@ -1,6 +1,7 @@
 // «Repartir tiempo» (SPEC §18 punto 18): the figures of the sheet where a task's total is
 // split among its temas. Pure: the sheet only draws and calls these.
 import { scheduleAlone, selfShort } from "./engine.js";
+import { hours } from "./format.js";
 import { TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import { type AppData, type AppTask, newId, type Unit } from "./model.js";
 import { shortfall } from "./need.js";
@@ -66,6 +67,32 @@ export interface Prefill {
   estimateMinutes: number;
   minMinutes: number;
   units: Unit[];
+}
+
+/**
+ * What an option proposes, in one line for the top of the sheet it opens: the figures that
+ * change from the task as it is («Propuesta: mínimo 6h30. Revisá y aceptá.»). Null when
+ * nothing changes.
+ */
+export function proposalText(before: AppTask, after: Prefill): string | null {
+  const was = openSheet(before);
+  const next = openSheet(after);
+  const out = next.rows.filter(
+    (r) => r.minutes === 0 && was.rows.some((w) => w.id === r.id && w.minutes > 0),
+  );
+  const changes: string[] = [];
+  if (next.total !== was.total) changes.push(`total ${hours(next.total)}`);
+  if (next.min !== was.min) changes.push(`mínimo ${hours(next.min)}`);
+  if (out.length > 0) {
+    const names = out.slice(0, 2).map((r) => `«${r.title}»`);
+    const more = out.length > 2 ? ` y ${out.length - 2} más` : "";
+    changes.push(`sin ${names.join(" y ")}${more}`);
+  } else if (
+    next.rows.some((r) => was.rows.some((w) => w.id === r.id && w.minutes !== r.minutes))
+  ) {
+    changes.push("temas ajustados");
+  }
+  return changes.length > 0 ? `Propuesta: ${changes.join(", ")}. Revisá y aceptá.` : null;
 }
 
 /** The sheet of a task: its figures as they are, rounded as they open. `done`: minutes logged. */
