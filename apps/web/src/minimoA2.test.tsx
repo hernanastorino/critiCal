@@ -76,9 +76,7 @@ describe("la nota del mínimo", () => {
 
 /** The demo's Parcial Física I with two of its four parts done (what is left: 5h). */
 const dosDeCuatro = (n: number): AppData => {
-  const loaded = loadDemo(n);
-  // Without the hour the demo has logged: only the parts count.
-  const data = { ...loaded, checkIns: loaded.checkIns.filter((c) => c.taskId !== "parcial-fis") };
+  const data = loadDemo(n);
   const done = (id: string) => ({ doneAt: n - 60_000, id });
   return {
     ...data,
@@ -118,8 +116,7 @@ describe("lo que falta del mínimo cuenta lo hecho", () => {
 
   it("Física I: 2 de 4 partes, 1h para el mínimo; con las 4, nada", () => {
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
-    const loaded = loadDemo(now);
-    const d = { ...loaded, checkIns: loaded.checkIns.filter((c) => c.taskId !== "parcial-fis") };
+    const d = loadDemo(now);
     expect(textOf(fis(d, ["pf1", "pf2"]), "parcial-fis")).toBe("Faltan 5h (para el mínimo, 1h)");
     expect(textOf(fis(d, ["pf1", "pf2", "pf3", "pf4"]), "parcial-fis")).toBe(
       "Faltan 0h (mínimo cubierto)",
