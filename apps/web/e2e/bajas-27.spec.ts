@@ -42,8 +42,8 @@ test("el aviso de «Deshacer» no tapa las flechas, el título ni las herramient
 }) => {
   await conPreguntaDeLugar(page);
   await page.getByRole("button", { name: "No hace falta traslado" }).first().click();
-  // Un toque humano llega unos cientos de ms después del anterior: no en el mismo instante.
-  await page.waitForTimeout(700);
+  // El toque siguiente espera a que el aviso de la respuesta esté a la vista.
+  await expect(toast(page)).toBeVisible();
   await goTab(page, "Semana");
   await expect(toast(page)).toBeVisible();
   const aviso = await toast(page).boundingBox();

@@ -6,6 +6,7 @@ import { ToastProvider } from "./components/Toast.js";
 import { demoData, TIMEZONE } from "./demo.js";
 import { zonedInstant } from "./engine.js";
 import type { AppData, AppTask } from "./model.js";
+import { endOfWeek } from "./planning.js";
 import { StoreProvider, useStore } from "./store.js";
 import { weekLeft } from "./week-review.js";
 
@@ -235,9 +236,9 @@ describe("silo de estudio semanal", () => {
     const row = latest && weekLeft(latest, NOW).find((r) => r.taskId === STUDY);
     expect(row?.assigned).toBe(330);
     const planned = (latest?.plan ?? [])
-      .filter((b) => b.taskId === STUDY && b.end > NOW)
+      .filter((b) => b.taskId === STUDY && b.start >= endOfWeek(TIMEZONE, NOW))
       .reduce((n, b) => n + (b.end - b.start) / 60_000, 0);
-    expect(planned).toBeGreaterThanOrEqual(330);
+    expect(planned).toBe(330);
     fireEvent.click(screen.getByRole("button", { name: "Deshacer" }));
     expect(JSON.stringify([latest?.tasks, latest?.plan])).toBe(before);
   });

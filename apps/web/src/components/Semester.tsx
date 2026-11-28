@@ -160,7 +160,8 @@ export function Semester() {
         title: `Estudio ${name}`,
         study: true,
         kind: "habit",
-        estimateMinutes: 0,
+        // The exact total: the plan reserves it, the last session shorter (5h30 = 5 × 1 h + 30 min).
+        estimateMinutes: Math.round(hoursPerWeek * 60),
         minMinutes: Math.round(hoursPerWeek * 60),
         sessionsPerWeek: Math.ceil(hoursPerWeek),
         sessionMinutes: 60,
