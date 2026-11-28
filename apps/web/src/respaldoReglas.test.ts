@@ -45,7 +45,7 @@ const route = (from: string, to: string, weekday: number | null = 2): BackupRout
 
 const withRoutes = (routes: BackupRoute[]) => {
   const d = pruebasData(NOW);
-  const [a, b] = d.places ?? [];
+  const [a, b] = [d.places?.at(0), d.places?.at(1)];
   if (!a || !b) throw new Error("the demo has no places");
   const saved: BusRoute[] = routes.map((r, i) => ({ ...r, id: `r-${i}` }));
   return { d, a, b, routes: saved, backup: routes };
@@ -94,10 +94,11 @@ describe("qué viaja en el respaldo", () => {
     const { d, routes } = withRoutes([route("casa", "fing")]);
     const r = parsed(exportJson({ ...d, owner: "otro" }, NOW, routes), ACCOUNT);
     const places = new Map((r.data.places ?? []).map((p) => [p.id, p.name]));
-    const [kept] = r.data.busRoutes ?? [];
-    expect(places.get(kept?.from_place ?? "")).toBe("Casa");
-    expect(places.get(kept?.to_place ?? "")).toBe("Facultad");
-    expect(kept?.plan).toEqual(plan);
+    const kept = r.data.busRoutes?.at(0);
+    if (!kept) throw new Error("the route is gone");
+    expect(places.get(kept.from_place)).toBe("Casa");
+    expect(places.get(kept.to_place)).toBe("Facultad");
+    expect(kept.plan).toEqual(plan);
   });
 
   it("una ruta mal armada, a un lugar que no está o repetida se deja afuera y se avisa", () => {
@@ -115,7 +116,7 @@ describe("qué viaja en el respaldo", () => {
 });
 
 describe("mensajes al cargar un respaldo con datos que faltan", () => {
-  const edited = (change: (d: ReturnType<typeof demoData>) => unknown) => {
+  const edited = (change: (...args: [ReturnType<typeof demoData>]) => unknown) => {
     const d = demoData(NOW);
     return parseBackup(
       JSON.stringify({ app: "critiCal", version: 3, exportedAt: NOW, data: change(d) }),

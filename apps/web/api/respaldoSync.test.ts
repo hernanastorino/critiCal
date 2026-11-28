@@ -67,7 +67,7 @@ describe("eventos de un respaldo y la sincronización del calendario", () => {
     const keys = () =>
       db
         .rows("calendar_events")
-        .map((r) => `${r.source}|${r.external_id}`)
+        .map((r) => `${String(r.source)}|${String(r.external_id)}`)
         .sort();
     const before = keys();
     expect(before).toHaveLength(3);

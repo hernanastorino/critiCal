@@ -30,7 +30,7 @@ const uuid = () => {
 /** The error PostgREST gives for a foreign key or a unique index. */
 const refused = (code: string) => ({ error: { code, message: `refused ${code}` } });
 
-export function dbClient(userId: string, tables: Map<string, Row[]> = new Map()) {
+export function dbClient(userId: string, tables: Map<string, Row[]> = new Map<string, Row[]>()) {
   const rowsOf = (table: string): Row[] => {
     const rows = tables.get(table) ?? [];
     tables.set(table, rows);
@@ -70,13 +70,13 @@ export function dbClient(userId: string, tables: Map<string, Row[]> = new Map())
       const { row } = taken;
       const at = rows.findIndex((r) => keyOf(table, r) === keyOf(table, row));
       if (at < 0) rows.push(row);
-      else if (!ignore) rows[at] = { ...rows.at(at), ...row };
+      else if (!ignore) rows.splice(at, 1, { ...rows.at(at), ...row });
     }
     return Promise.resolve({ error: null });
   };
 
   const remove = (table: string) => {
-    const tests: ((r: Row) => boolean)[] = [];
+    const tests: ((...args: [Row]) => boolean)[] = [];
     const run = () => {
       const rows = rowsOf(table);
       const gone = rows.filter((r) => tests.every((t) => t(r)));
@@ -88,7 +88,7 @@ export function dbClient(userId: string, tables: Map<string, Row[]> = new Map())
       // Foreign keys that cascade: a materia takes its tareas; a tarea its parts, blocks and records.
       const cascade = (parent: string, child: string, col: string) => {
         const ids = new Set(gone.map((r) => r.id));
-        const kids = rowsOf(child).filter((r) => ids.has(r[col]));
+        const kids = rowsOf(child).filter((r) => ids.has(cell(r, col)));
         if (kids.length) {
           tables.set(
             child,

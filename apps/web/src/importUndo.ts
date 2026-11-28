@@ -26,7 +26,13 @@ export function rememberImportExtras(undo: Promise<() => Promise<void>>): void {
 export async function undoImportExtras(): Promise<void> {
   const pending = extras;
   extras = null;
-  if (pending) await (await pending)();
+  if (!pending) return;
+  try {
+    await (await pending)();
+  } catch (e) {
+    // The screen is already back; what the database kept is put right by the next sync.
+    console.warn("No se pudo deshacer todo en la cuenta", e);
+  }
 }
 
 export function forgetImport(): void {

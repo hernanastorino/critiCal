@@ -26,8 +26,8 @@ export function eventRow(e: AppEvent) {
 const CHUNK = 500;
 type Row = Record<string, unknown>;
 
-/** Every event row of the account, as it is now. */
-export async function savedEvents(client: SupabaseClient): Promise<Row[]> {
+/** Every event row of the account, as it is now; null when the database did not answer. */
+export async function savedEvents(client: SupabaseClient): Promise<Row[] | null> {
   const rows: Row[] = [];
   for (let from = 0; ; from += 1000) {
     const { data, error } = await client
@@ -36,7 +36,7 @@ export async function savedEvents(client: SupabaseClient): Promise<Row[]> {
       .order("source")
       .order("external_id")
       .range(from, from + 999);
-    if (error) throw error;
+    if (error) return null;
     rows.push(...((data ?? []) as Row[]));
     if ((data ?? []).length < 1000) return rows;
   }
@@ -51,7 +51,7 @@ export async function restoreEvents(
   before: readonly Row[],
   written: readonly AppEvent[],
 ): Promise<boolean> {
-  const had = new Set(before.map((r) => `${r.source}|${r.external_id}`));
+  const had = new Set(before.map((r) => `${String(r.source)}|${String(r.external_id)}`));
   const added = written
     .filter((e) => e.source === "google" || e.source === "icloud")
     .map(eventRow)

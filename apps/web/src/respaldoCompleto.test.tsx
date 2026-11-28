@@ -11,7 +11,7 @@ import { pruebasData } from "./demoPruebas.js";
 import { demoPlan } from "./demoTransit.js";
 import { zonedInstant } from "./engine.js";
 import { forgetImport } from "./importUndo.js";
-import type { AppData, AppEvent } from "./model.js";
+import type { AppData, AppEvent, AppTask } from "./model.js";
 import { clearLocal } from "./offline.js";
 import { refresh } from "./refresh.js";
 import { dbClient, type Row } from "./testingDb.js";
@@ -77,9 +77,19 @@ function accountA(now: number): { data: AppData; routes: Omit<BusRoute, "id">[] 
   const trip = base.events.find((e) => e.title === "Clase en la Facultad");
   if (!task || !trip) throw new Error("the demo changed");
   const day = (n: number) => new Date(now + n * DAY).toISOString().slice(0, 10);
-  const full: AppData = {
+  const full: AppData = { ...withLife(base, task, trip, now), owner: A_ID };
+  // As an account has it: ids that are uuids, owned, planned.
+  const file = parseBackup(exportJson(full, now), { account: A_ID });
+  if ("error" in file) throw new Error(file.error);
+  const data = refresh({ ...file.data, busRoutes: undefined }, now);
+  return { data, routes: busRoutesOf(data, day(1)) };
+}
+
+/** The account's things beside the demo's: settings, records, decisions, trips, meals, preferences. */
+function withLife(base: AppData, task: AppTask, trip: AppEvent, now: number): AppData {
+  const day = (n: number) => new Date(now + n * DAY).toISOString().slice(0, 10);
+  return {
     ...base,
-    owner: A_ID,
     settings: {
       ...base.settings,
       travelMarginMinutes: 12,
@@ -117,10 +127,10 @@ function accountA(now: number): { data: AppData; routes: Omit<BusRoute, "id">[] 
       importDefaults: { parcial: { estimate: 600, min: 300, priority: 3 } },
     },
   };
-  // As an account has it: ids that are uuids, owned, planned.
-  const file = parseBackup(exportJson(full, now), { account: A_ID });
-  if ("error" in file) throw new Error(file.error);
-  const data = refresh({ ...file.data, busRoutes: undefined }, now);
+}
+
+/** Three saved routes from home to the Facultad, as the sync of the bus would have kept them. */
+function busRoutesOf(data: AppData, date: string): Omit<BusRoute, "id">[] {
   const place = (name: string) => data.places?.find((p) => p.name === name);
   const [home, fing] = [place("Casa"), place("Facultad")];
   if (!home || !fing) throw new Error("the demo has no places");
@@ -128,7 +138,7 @@ function accountA(now: number): { data: AppData; routes: Omit<BusRoute, "id">[] 
     action: "plan",
     from: { lat: home.lat ?? 0, lon: home.lon ?? 0 },
     to: { lat: fing.lat ?? 0, lon: fing.lon ?? 0 },
-    date: day(1),
+    date,
     time: "13:30",
     mode: "arrive",
   }) as PlanOk;
@@ -141,12 +151,9 @@ function accountA(now: number): { data: AppData; routes: Omit<BusRoute, "id">[] 
     time_minutes: 13 * 60 + 30,
     mode: "arrive" as const,
   });
-  return {
-    data,
-    routes: [slot(2), slot(null), { ...slot(4), mode: "depart" as const }].map((s) =>
-      routeRow(s, option, answer, dayTypeOf(day(1))),
-    ),
-  };
+  return [slot(2), slot(null), { ...slot(4), mode: "depart" as const }].map((s) =>
+    routeRow(s, option, answer, dayTypeOf(date)),
+  );
 }
 
 /** A database holding the account (what the sync wrote over its life). */
@@ -234,32 +241,36 @@ async function screens(): Promise<Map<string, string>> {
   return said;
 }
 
+/** The file the page asked the browser to save (jsdom has no blobs of its own to download). */
+const saved: { blob?: Blob; name: string } = { name: "" };
+Object.assign(URL, {
+  createObjectURL: (b: Blob) => {
+    saved.blob = b;
+    return "blob:respaldo";
+  },
+  revokeObjectURL: vi.fn(),
+});
+const takenBlob = (): Blob | undefined => saved.blob;
+// The page names the file by setting `download` on a link it never attaches to the document.
+Object.defineProperty(HTMLAnchorElement.prototype, "download", {
+  configurable: true,
+  get: () => saved.name,
+  set: (name: string) => {
+    saved.name = name;
+  },
+});
+
 /** Ajustes › Respaldo › «Descargar respaldo»: the file that would be saved, as text. */
 async function download(): Promise<{ text: string; name: string }> {
-  let blob: Blob | null = null;
-  let name = "";
-  const made = URL.createObjectURL;
-  const revoked = URL.revokeObjectURL;
-  URL.createObjectURL = (b: Blob) => {
-    blob = b;
-    return "blob:respaldo";
-  };
-  URL.revokeObjectURL = vi.fn();
-  const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (
-    this: HTMLAnchorElement,
-  ) {
-    name = this.download;
-  });
+  saved.blob = undefined;
   press("Ajustes");
   const dialog = await screen.findByRole("dialog", { name: "Ajustes" });
   press("Respaldo", settingsList(dialog));
   press("Descargar respaldo", dialog);
-  click.mockRestore();
-  URL.createObjectURL = made;
-  URL.revokeObjectURL = revoked;
+  const blob = takenBlob();
   if (!blob) throw new Error("nothing was saved");
   fireEvent.click(within(dialog).getByLabelText("Cerrar"));
-  return { text: await (blob as Blob).text(), name };
+  return { text: await blob.text(), name: saved.name };
 }
 
 /** Ajustes › Respaldo › «Cargar un respaldo» with the file. */
@@ -272,6 +283,7 @@ async function load(text: string) {
     fireEvent.change(within(dialog).getByLabelText("Archivo de respaldo"), {
       target: { files: [file] },
     });
+    await Promise.resolve();
   });
   await waitFor(() => expect(document.body.textContent).toContain("Importé"), { timeout: 20_000 });
   fireEvent.click(within(dialog).getByLabelText("Cerrar"));
@@ -307,7 +319,7 @@ function canon(d: AppData, routes: readonly Row[]): unknown {
     }
     return x;
   };
-  const { owner: _owner, ...rest } = d;
+  const rest = { ...d, owner: undefined };
   const lists = new Map(
     Object.entries(walk(rest) as Record<string, unknown>).map(([k, v]) => [
       k,
@@ -435,10 +447,10 @@ describe.each([
     await waitFor(() => expect(dbB.rows("bus_routes")).toHaveLength(3), { timeout: 20_000 });
     await waitFor(() => expect(dbB.rows("calendar_events").length).toBeGreaterThan(3));
     // El aviso «Deshacer» (el ↶ de la cabecera hace lo mismo).
-    const snack = document.querySelector(".snack");
-    const undo = within(snack as HTMLElement).getByRole("button", { name: "Deshacer" });
+    const undo = screen.getByRole("button", { name: "Deshacer" });
     await act(async () => {
       fireEvent.click(undo);
+      await Promise.resolve();
     });
     await waitFor(() => expect(dbB.rows("bus_routes")).toHaveLength(1), { timeout: 20_000 });
     await waitFor(() => expect(dbB.rows("calendar_events")).toHaveLength(3));

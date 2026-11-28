@@ -78,7 +78,7 @@ test("letra grande: las barras de la planificación no parten «5h30»", async (
 test("Respaldo explica lo que hace", async ({ page }) => {
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Respaldo");
-  await expect(sheet(page)).toContainText("Guardá una copia de tus datos");
+  await expect(sheet(page)).toContainText("Guarda todo lo de tu cuenta");
 });
 
 test("Notificaciones, en la demo, no tiene nada tildado", async ({ page }) => {

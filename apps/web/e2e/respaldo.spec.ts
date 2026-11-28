@@ -123,7 +123,9 @@ test.describe("respaldo: exportar desde la demo e importar", () => {
     expect(archivo.version).toBe(3);
     expect(archivo.data.busRoutes).toEqual([]);
     // Un archivo de antes no trae rutas ni las pide.
-    const { busRoutes: _rutas, ...datos } = archivo.data;
+    const datos = Object.fromEntries(
+      Object.entries(archivo.data).filter(([clave]) => clave !== "busRoutes"),
+    );
     await importar(page, JSON.stringify({ ...archivo, version: 2, data: datos }));
   });
 

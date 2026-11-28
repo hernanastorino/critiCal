@@ -94,7 +94,7 @@ async function saveBeyondStore(
   const flush = () => sync.flush(true);
   // What the account had, to give it back if the load is undone (SPEC §14).
   const [eventsBefore, routesBefore] = await Promise.all([
-    savedEvents(client).catch(() => null),
+    savedEvents(client),
     routes === undefined ? Promise.resolve(undefined) : loadRoutes(client),
   ]);
   const [eventsOk, routesOk] = await Promise.all([
