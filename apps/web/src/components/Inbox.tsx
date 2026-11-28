@@ -26,6 +26,7 @@ import {
   type NoFitKind,
   noFit,
   optionLine,
+  optionsTitle,
   REPLANNED_TOAST,
 } from "../friendly.js";
 import { EAT, inboxCards } from "../inbox.js";
@@ -646,7 +647,7 @@ export function Inbox({
 
         {decisions.options.length > 0 && (
           <>
-            <div className="section-title">No llegás a todo · elegí</div>
+            <div className="section-title">{optionsTitle(plan.feasible)} · elegí</div>
             {noFits.map((t) => (
               <div key={t.id} className="card" style={{ ["--c" as string]: "var(--warn)" }}>
                 <div className="title">«{t.title}» no entra</div>

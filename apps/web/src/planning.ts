@@ -248,6 +248,36 @@ export interface TaskProgress {
 }
 
 /**
+ * What a silo of the week holds when the plan cannot place all of it (SPEC §18 punto 19):
+ * `placed` minutes of the task's blocks still ahead in the week, of the `of` the silo
+ * shows. Only a weekly study silo or a delivery due inside that week, and only when the
+ * plan is short of it (the same deficit that makes it «crítico» or offers options);
+ * otherwise undefined: nothing to say when it all fits.
+ */
+export function siloWeekFit(
+  data: AppData,
+  now: number,
+  p: TaskProgress,
+  plan: {
+    blocks: readonly PlanBlock[];
+    status: readonly { taskId: string; targetDeficit: number }[];
+  },
+): { placed: number; of: number } | undefined {
+  const tz = data.settings.timezone;
+  const end = endOfWeek(tz, focusWeekAt(data, now));
+  const weekly = p.task.kind === "habit" && !!p.task.study;
+  if (!weekly && (p.task.kind === "habit" || p.deadline >= end)) return undefined;
+  if (p.remainingMinutes <= 0) return undefined;
+  const short = plan.status.find((s) => s.taskId === p.task.id)?.targetDeficit ?? 0;
+  if (short <= 0) return undefined;
+  const placed = plan.blocks
+    .filter((b) => b.taskId === p.task.id && b.end > now && b.start < end)
+    .reduce((sum, b) => sum + (b.end - b.start) / 60_000, 0);
+  const rounded = Math.round(placed);
+  return rounded < p.remainingMinutes ? { placed: rounded, of: p.remainingMinutes } : undefined;
+}
+
+/**
  * Deliverables whose deadline passed before this week are "anteriores": they leave the
  * silos view once the week they were due in is over. Newest first.
  */
