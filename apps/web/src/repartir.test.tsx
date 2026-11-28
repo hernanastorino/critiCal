@@ -251,7 +251,7 @@ describe("42.ª vuelta: nombres, mínimo y límites", () => {
   it("el selector con texto, negativo, coma o vacío dice por qué no guarda", () => {
     start();
     fireEvent.click(screen.getByRole("button", { name: "Escribir las horas de Total" }));
-    for (const v of ["abc", "-2", "1,5", ""]) {
+    for (const v of ["abc", "-2", "3h75", ""]) {
       fireEvent.change(screen.getByLabelText("Horas"), { target: { value: v } });
       expect(screen.getByText("Poné horas y minutos válidos")).toBeTruthy();
       expect(disabled("Guardar horas")).toBe(true);

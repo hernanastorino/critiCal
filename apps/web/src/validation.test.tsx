@@ -46,7 +46,7 @@ describe("Reglas", () => {
         target: { value: bad },
       });
       fireEvent.click(screen.getByRole("button", { name: "Guardar reglas" }));
-      expect(screen.getByRole("alert").textContent).toMatch(/solo cifras/);
+      expect(screen.getByRole("alert").textContent).toMatch(/3h15 o 3:15/);
       expect(latest?.settings).toBe(before);
     }
     expect(isFigure("1,5")).toBe(true);
@@ -266,7 +266,7 @@ describe("second round of the attacker", () => {
     const [hours] = screen.getAllByLabelText(/^Horas de/);
     fireEvent.change(hours as HTMLElement, { target: { value: "1e3" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
-    expect(screen.getByRole("alert").textContent).toMatch(/solo cifras/);
+    expect(screen.getByRole("alert").textContent).toMatch(/3h15 o 3:15/);
     fireEvent.change(hours as HTMLElement, { target: { value: "2000" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar horas" }));
     expect(latest?.preferences?.importDefaults).toBeUndefined();

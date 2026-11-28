@@ -74,7 +74,7 @@ describe("Inicio de cuatrimestre", () => {
     const hours = screen.getByLabelText("Estudio semanal (h)");
     fireEvent.change(hours, { target: { value: "-5" } });
     expect(
-      screen.getByText("Poné horas de 0 a 168, solo cifras (1,5 sirve; negativos no)."),
+      screen.getByText("Poné horas de 0 a 168 (3, 3,5, 3h15 o 3:15)."),
     ).toBeTruthy();
     expect(hours.getAttribute("aria-invalid")).toBe("true");
     fireEvent.click(screen.getByRole("button", { name: "Agregar materia" }));

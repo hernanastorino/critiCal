@@ -386,6 +386,7 @@ function ActivityRow({
           {studies && (
             <Field
               label="Estudio semanal (h), además de las evaluaciones"
+              hours
               help="Horas por semana de estudio general; las entregas y parciales se suman aparte."
               invalid={!hoursOk || hoursTiny}
               errorId={`${key}-hours-error`}
@@ -400,7 +401,7 @@ function ActivityRow({
                 ? hoursTiny
                   ? "Menos de 1 minuto a la semana no se planea: poné 0 para no estudiar o al menos 0,02 h."
                   : null
-                : "Poné horas de 0 a 168, solo cifras (1,5 sirve; negativos no)."
+                : "Poné horas de 0 a 168 (3, 3,5, 3h15 o 3:15)."
             }
           />
           {activity.kind !== "rutina" && (

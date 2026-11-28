@@ -1,6 +1,6 @@
 import type { Dispatch } from "react";
 import { useId, useRef, useState } from "react";
-import { hours } from "../format.js";
+import { hours, parseHoursText } from "../format.js";
 import {
   addRow,
   byWeight,
@@ -33,6 +33,21 @@ const MINUTE_CHOICES = [0, 15, 30, 45] as const;
 /** Where a fraction of the track falls: the thumb's width is left at both ends (see `.rep-track`). */
 const at = (frac: number) => `calc(var(--rep-thumb) / 2 + (100% - var(--rep-thumb)) * ${frac})`;
 
+/**
+ * Minutes of what is typed in the hours field: «3» (plus the chip's minutes), or «3,5», «3h15»,
+ * «3:15» (with their own minutes: up to 5 over a multiple of 15 goes down, more goes up).
+ * NaN when it is not hours.
+ */
+function typedMinutes(text: string, chip: number): number {
+  const plain = text.normalize("NFKC");
+  if (/^\s*\d{1,3}\s*$/.test(plain)) return Number(plain) * 60 + chip;
+  const parsed = parseHoursText(text);
+  if (!(parsed < 1000)) return Number.NaN;
+  const total = Math.round(parsed * 60);
+  const over = total % STEP;
+  return over <= 5 ? total - over : total - over + STEP;
+}
+
 /** Hours and minutes (00, 15, 30, 45) picked to write a value instead of dragging. */
 function TimePicker({
   title,
@@ -53,9 +68,10 @@ function TimePicker({
   const errId = useId();
   const [h, setH] = useState(String(Math.floor(value / 60)));
   const [m, setM] = useState<number>(Math.floor((value % 60) / STEP) * STEP);
-  const typed = /^\d{1,3}$/.test(h.trim()) ? Number(h) : Number.NaN;
-  const minutes = typed * 60 + m;
-  const bad = Number.isNaN(typed) || minutes < floor;
+  const minutes = typedMinutes(h, m);
+  const typed = Number.isNaN(minutes) ? Number.NaN : Math.floor(minutes / 60);
+  const chip = Number.isNaN(minutes) ? m : minutes % 60;
+  const bad = Number.isNaN(minutes) || minutes < floor;
   return (
     <>
       <button
@@ -83,7 +99,7 @@ function TimePicker({
             <span>Horas</span>
             <input
               id={hoursId}
-              inputMode="numeric"
+              inputMode="text"
               value={h}
               data-autofocus
               aria-invalid={bad ? true : undefined}
@@ -101,9 +117,10 @@ function TimePicker({
               type="button"
               key={c}
               role="radio"
-              aria-checked={m === c}
-              className={`btn${m === c ? " primary" : ""}`}
+              aria-checked={chip === c}
+              className={`btn${chip === c ? " primary" : ""}`}
               onClick={() => {
+                if (!Number.isNaN(typed)) setH(String(typed));
                 setM(c);
               }}
             >
