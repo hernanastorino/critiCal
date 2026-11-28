@@ -141,7 +141,8 @@ describe("planning", () => {
     });
     expect(doneMinutes(data, "t")).toBe(60);
     const [t, gym] = progress(data, MON);
-    expect(t).toMatchObject({ remainingMinutes: 120, minRemainingMinutes: 120 });
+    // The part marked (2h) and the hour logged cover the minimum (3h).
+    expect(t).toMatchObject({ remainingMinutes: 120, minRemainingMinutes: 0 });
     expect(gym).toMatchObject({
       totalMinutes: 180,
       remainingMinutes: 120,

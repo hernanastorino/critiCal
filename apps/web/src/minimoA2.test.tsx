@@ -76,7 +76,9 @@ describe("la nota del mínimo", () => {
 
 /** The demo's Parcial Física I with two of its four parts done (what is left: 5h). */
 const dosDeCuatro = (n: number): AppData => {
-  const data = loadDemo(n);
+  const loaded = loadDemo(n);
+  // Without the hour the demo has logged: only the parts count.
+  const data = { ...loaded, checkIns: loaded.checkIns.filter((c) => c.taskId !== "parcial-fis") };
   const done = (id: string) => ({ doneAt: n - 60_000, id });
   return {
     ...data,
@@ -98,6 +100,56 @@ const inputValue = (label: string): string => {
   return field instanceof HTMLInputElement ? field.value : "";
 };
 
+describe("lo que falta del mínimo cuenta lo hecho", () => {
+  const now = zonedInstant(TIMEZONE, "2026-11-25", 10 * 60);
+  const fis = (d: AppData, ids: string[]): AppData => ({
+    ...d,
+    tasks: d.tasks.map((t) =>
+      t.id === "parcial-fis"
+        ? { ...t, units: t.units.map((u) => (ids.includes(u.id) ? { ...u, doneAt: now - 1 } : u)) }
+        : t,
+    ),
+  });
+  const textOf = (d: AppData, id: string) => {
+    const need = needOf(d, now, id);
+    const task = d.tasks.find((t) => t.id === id);
+    return need && task ? lackText(need, task) : "";
+  };
+
+  it("Física I: 2 de 4 partes, 1h para el mínimo; con las 4, nada", () => {
+    localStorage.setItem(DEMO_KIND_KEY, "pruebas");
+    const loaded = loadDemo(now);
+    const d = { ...loaded, checkIns: loaded.checkIns.filter((c) => c.taskId !== "parcial-fis") };
+    expect(textOf(fis(d, ["pf1", "pf2"]), "parcial-fis")).toBe("Faltan 5h (para el mínimo, 1h)");
+    expect(textOf(fis(d, ["pf1", "pf2", "pf3", "pf4"]), "parcial-fis")).toBe(
+      "Faltan 0h (mínimo cubierto)",
+    );
+  });
+
+  it("sin partes, 3h registradas sobre un mínimo de 4h: 1h", () => {
+    localStorage.setItem(DEMO_KIND_KEY, "pruebas");
+    const d = loadDemo(now);
+    const base = d.tasks.find((t) => t.id === "entrega-sd");
+    if (!base) throw new Error("sin tarea");
+    const task = { ...base, estimateMinutes: 600, minMinutes: 240, units: [] };
+    const checkIn = {
+      id: "c-3h",
+      blockId: "b",
+      taskId: task.id,
+      status: "partial" as const,
+      minutesDone: 180,
+      unitIds: [],
+      createdAt: now - 1,
+    };
+    const data = {
+      ...d,
+      tasks: d.tasks.map((t) => (t.id === task.id ? task : t)),
+      checkIns: [...d.checkIns, checkIn],
+    };
+    expect(textOf(data, task.id)).toBe("Faltan 7h (para el mínimo, 1h)");
+  });
+});
+
 describe("pantallas", () => {
   const open = (initial: (n: number) => AppData, title: string, now: number) => {
     localStorage.setItem("critical.mode", "demo");
@@ -111,10 +163,10 @@ describe("pantallas", () => {
     if (mine) fireEvent.click(mine);
   };
 
-  it("Parcial Física I con 2 de 4 partes: la ficha dice «Faltan 5h (para el mínimo, …)» y la hoja y el formulario «Mínimo 6h»", () => {
+  it("Parcial Física I con 2 de 4 partes: la ficha dice «Faltan 5h (para el mínimo, 1h)» y la hoja y el formulario «Mínimo 6h»", () => {
     const now = zonedInstant(TIMEZONE, "2026-11-25", 10 * 60);
     open(dosDeCuatro, "Parcial Física I", now);
-    expect(screen.getByText(/Faltan 5h \(para el mínimo, 5h\)/)).toBeTruthy();
+    expect(screen.getByText(/Faltan 5h \(para el mínimo, 1h\)/)).toBeTruthy();
     expect(screen.queryByText(/mínimo 6h\)/)).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Editar" }));
     expect(inputValue("Mínimo (horas)")).toBe("6");
