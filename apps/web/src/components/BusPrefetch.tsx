@@ -3,7 +3,14 @@
 // The engine never touches the network: this is the app saving the answers it would get.
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
-import { type BusRoute, findRoute, routeAnswer, routeStale, slotOf } from "../busRoutes.js";
+import {
+  type BusRoute,
+  findRoute,
+  type RouteSlot,
+  routeAnswer,
+  routeStale,
+  slotOf,
+} from "../busRoutes.js";
 import {
   askKey,
   busTripsToAsk,
@@ -32,12 +39,15 @@ const PAUSE_MS = 60_000;
 const stops = (res: PlanResponse) =>
   !res.ok && ["rate_limited", "unreachable", "unauthorized"].includes(res.error);
 
-type Found = { way: Way; minutes: number };
+interface Found {
+  way: Way;
+  minutes: number;
+}
 
 /** The plan of one way: the saved route if it still holds, else the server (or the demo's). */
 async function planOf(
   request: PlanRequest,
-  slot: ReturnType<typeof slotOf>,
+  slot: RouteSlot | null,
   client: SupabaseClient | null,
   routes: readonly BusRoute[],
   feed: { version?: string | null },
