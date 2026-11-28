@@ -47,7 +47,7 @@ import {
   type Unit,
   undoable,
 } from "./model.js";
-import { improves, needOf } from "./need.js";
+import { improves } from "./need.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -1564,11 +1564,12 @@ function simulated(
   option: PlanOption,
 ): PlanOption {
   const after = applyOption(from.data, input, option, from.now);
-  const left = option.taskId ? needOf(after, from.now, option.taskId) : undefined;
+  // The minimum the task keeps: the one the ficha, the form and «Repartir tiempo» show.
+  const kept = after.tasks.find((t) => t.id === option.taskId)?.minMinutes;
   const named =
-    left && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
+    kept !== undefined && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
       ? option.label.replace(/\(([^()]*)\)$| a (\d\S*)$/, (all: string) =>
-          all.startsWith(" a ") ? ` a ${hours(left.minimum)}` : `(${hours(left.minimum)})`,
+          all.startsWith(" a ") ? ` a ${hours(kept)}` : `(${hours(kept)})`,
         )
       : option.label;
   // Planning again is what costs: only done when the card is drawn (or the option is

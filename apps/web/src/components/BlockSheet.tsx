@@ -240,7 +240,7 @@ export function CheckInForm({
             `${routineWeekText(routine)}. `
           ) : (
             <>
-              Faltan <b>{hours(p.left)}</b> (mínimo {hours(p.minimum)}).{" "}
+              Faltan <b>{hours(p.left)}</b> (mínimo {hours(task?.minMinutes ?? p.minimum)}).{" "}
             </>
           )}
           {block.level === "critical" && (
