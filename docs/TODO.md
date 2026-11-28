@@ -142,8 +142,8 @@ Las del 2026-11-18, 2026-11-19 y 2026-11-21 están respondidas en la SPEC §18 p
 
 ## 1. En curso (actualizar siempre)
 
-| Qué                                    | Estado                                                                                                                                                                                                              | Qué falta      |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- |
+| Qué                                    | Estado                                                                       | Qué falta      |
+| -------------------------------------- | ---------------------------------------------------------------------------- | -------------- |
 | Ciclo del agente atacante sobre `main` | Última: 46.ª (2026-11-28): sin Altas; 2 Medias y Bajas en #351; próxima 47.ª | Próxima: 47.ª. |
 
 Si en esta tabla hay un PR con checks corriendo, esperá y seguilo; no empieces otro tema. Un PR pausado a pedido del usuario (como el #68, que no se mergea hasta que lo pida) no frena el resto: se deja como está.
