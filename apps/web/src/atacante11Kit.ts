@@ -8,6 +8,12 @@ export const NOW = zonedInstant(TIMEZONE, "2026-11-18", 12 * 60);
 export const GENERIC = "Al respaldo le faltan datos.";
 
 export const plain = <T>(x: T): T => JSON.parse(JSON.stringify(x));
+/** What a backup keeps of `x`: not the history of the ↶, and the (empty) list of saved bus routes. */
+export const kept = <T extends object>(x: T) => ({
+  ...plain(x),
+  planHistory: undefined,
+  busRoutes: [],
+});
 export const errorOf = (r: ReturnType<typeof parseBackup>) => ("error" in r ? r.error : "");
 export const roundTrip = (d: AppData, opts?: { account?: string }) =>
   parseBackup(exportJson(d, NOW), opts);

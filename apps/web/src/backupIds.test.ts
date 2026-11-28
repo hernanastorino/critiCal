@@ -143,7 +143,7 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
       expect(now).not.toBe(old);
       text = text.split(old).join(now);
     }
-    expect(b).toEqual({ ...JSON.parse(text), owner: MINE });
+    expect(b).toEqual({ ...JSON.parse(text), owner: MINE, busRoutes: [], planHistory: undefined });
   });
 
   it("los bloques conservan la forma «tarea@inicio» con la tarea nueva", () => {
@@ -178,7 +178,7 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
   it("la misma cuenta: los ids quedan y reimportar no duplica", () => {
     const a = accountData(MINE);
     const r = parse(a, MINE).data;
-    expect(r).toEqual(JSON.parse(JSON.stringify(a)));
+    expect(r).toEqual({ ...JSON.parse(JSON.stringify(a)), busRoutes: [], planHistory: undefined });
     const again = parse(r, MINE).data;
     expect(again).toEqual(r);
   });
@@ -191,7 +191,11 @@ describe("2. Respaldo de otra cuenta o del demo: ids nuevos con cuenta", () => {
 
   it("sin cuenta (demo) los ids se respetan", () => {
     const a = accountData(OTHER);
-    expect(parse(a).data).toEqual(JSON.parse(JSON.stringify(a)));
+    expect(parse(a).data).toEqual({
+      ...JSON.parse(JSON.stringify(a)),
+      busRoutes: [],
+      planHistory: undefined,
+    });
   });
 
   it("con cuenta ya no se rechaza un id que no es uuid", () => {

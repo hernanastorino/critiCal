@@ -228,7 +228,7 @@ describe("backup", () => {
       ),
     };
     expect(parseBackup(exportJson(withStart, 1))).toEqual({
-      data: JSON.parse(JSON.stringify(withStart)),
+      data: { ...JSON.parse(JSON.stringify(withStart)), busRoutes: [] },
     });
     for (const startAfter of [
       { daysBefore: -1 },
@@ -250,7 +250,9 @@ describe("backup", () => {
 
   it("round-trips and rejects foreign or broken files", () => {
     const data = demoData(at("2026-11-04", 600));
-    expect(parseBackup(exportJson(data, 1))).toEqual({ data: JSON.parse(JSON.stringify(data)) });
+    expect(parseBackup(exportJson(data, 1))).toEqual({
+      data: { ...JSON.parse(JSON.stringify(data)), busRoutes: [] },
+    });
     expect(parseBackup("nope")).toEqual({ error: "El archivo no es JSON." });
     expect(parseBackup('{"app":"x"}')).toEqual({ error: "No es un respaldo de critiCal." });
     expect(parseBackup('{"app":"critiCal","version":9,"data":{}}')).toEqual({
@@ -436,7 +438,7 @@ describe("backup", () => {
         </StoreProvider>
       </ToastProvider>,
     );
-    fireEvent.click(screen.getByText("Exportar JSON"));
+    fireEvent.click(screen.getByText("Descargar respaldo"));
     expect(created).toHaveBeenCalled();
 
     const file = new File([exportJson(backup, now)], "critical.json", { type: "application/json" });

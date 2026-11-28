@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { type Edit, edited, errorOf, GENERIC, NOW, plain, roundTrip } from "./atacante11Kit.js";
+import { type Edit, edited, errorOf, GENERIC, kept, NOW, roundTrip } from "./atacante11Kit.js";
 import { demoData } from "./demo.js";
 import type { AppData } from "./model.js";
 import { reducer } from "./store.js";
@@ -199,7 +199,7 @@ describe("4. Datos sueltos del respaldo no rompen la app", () => {
     };
     const back = roundTrip(withExtras);
     expect(errorOf(back)).toBe("");
-    expect("data" in back && back.data).toEqual(plain(withExtras));
+    expect("data" in back && back.data).toEqual(kept(withExtras));
   });
 });
 

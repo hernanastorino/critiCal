@@ -80,8 +80,8 @@ describe("Mi semana: los errores usan el nombre que ve la persona", () => {
   });
 });
 
-describe("Exportar JSON avisa", () => {
-  it("muestra «Respaldo exportado» al tocar el botón", () => {
+describe("Descargar respaldo avisa", () => {
+  it("muestra «Respaldo descargado» al tocar el botón", () => {
     vi.stubGlobal("URL", { createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
     render(
       <ToastProvider>
@@ -90,8 +90,8 @@ describe("Exportar JSON avisa", () => {
         </StoreProvider>
       </ToastProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Exportar JSON" }));
-    expect(document.querySelector(".snack")?.textContent).toBe("Respaldo exportado");
+    fireEvent.click(screen.getByRole("button", { name: "Descargar respaldo" }));
+    expect(document.querySelector(".snack")?.textContent).toBe("Respaldo descargado");
     vi.unstubAllGlobals();
   });
 });

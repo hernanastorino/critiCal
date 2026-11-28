@@ -1,3 +1,4 @@
+import type { BackupRoute } from "./busRoutes.js";
 import type {
   Activity,
   CalendarEvent,
@@ -286,6 +287,11 @@ export interface AppData {
    * bring the subject (or its tasks) back from the calendar.
    */
   removedSubjects?: string[];
+  /**
+   * The saved bus routes (SPEC §15) as a backup file carries them (SPEC §18.20). They live
+   * in their own table: the store never holds them, only the file and the import do.
+   */
+  busRoutes?: BackupRoute[];
 }
 
 /**

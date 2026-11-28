@@ -138,7 +138,7 @@ describe("6. Respaldo", () => {
     );
     expect(
       screen.getByText(
-        "Guardá una copia de tus datos para recuperarlos o pasarlos a otro dispositivo.",
+        "Guarda todo lo de tu cuenta. Las conexiones de calendario y las notificaciones se vuelven a activar en la otra.",
       ),
     ).toBeTruthy();
   });

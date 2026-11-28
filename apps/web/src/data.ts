@@ -862,6 +862,14 @@ export function diffData(prev: AppData, next: AppData): Writes {
     });
   }
 
+  // Runs the copy no longer has (loading a backup replaces them): they must not come back
+  // from the database next to the new ones. Only when this copy has the list at all.
+  if (next.mealRuns !== undefined) {
+    const kept = new Set(next.mealRuns.map(runKey));
+    const goneRuns = (prev.mealRuns ?? []).map(runKey).filter((k) => !kept.has(k));
+    if (goneRuns.length) deletes.push({ table: "meal_runs", ids: goneRuns });
+  }
+
   const pair = (t: TravelTime) => `${t.from}>${t.to}`;
   const oldTimes = new Map((prev.travelTimes ?? []).map((t) => [pair(t), JSON.stringify(t)]));
   const times = (next.travelTimes ?? []).filter(
@@ -966,6 +974,19 @@ export async function applyWrites(client: SupabaseClient, w: Writes): Promise<vo
     if (d.table === "day_overrides") {
       // Keyed by date, not id.
       await deleteIn(client, d.table, "date", d.ids);
+      continue;
+    }
+    if (d.table === "meal_runs") {
+      for (const id of d.ids) {
+        const [meal, weekday, from] = id.split("|");
+        const { error } = await client
+          .from(d.table)
+          .delete()
+          .eq("meal", meal)
+          .eq("weekday", Number(weekday))
+          .eq("from_date", from);
+        if (error) throw error;
+      }
       continue;
     }
     if (d.table === "travel_times") {

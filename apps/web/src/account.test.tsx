@@ -107,7 +107,7 @@ describe("revoke everything and delete the account", () => {
     );
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     mount();
-    fireEvent.click(await screen.findByText("Exportar JSON"));
+    fireEvent.click(await screen.findByText("Descargar respaldo"));
     expect(created).toHaveBeenCalled();
     expect(click).toHaveBeenCalled();
     click.mockRestore();

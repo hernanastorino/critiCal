@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { errorOf, NOW, plain, roundTrip } from "./atacante11Kit.js";
+import { errorOf, kept, NOW, plain, roundTrip } from "./atacante11Kit.js";
 import { exportJson } from "./backup.js";
 import { Backup } from "./components/Backup.js";
 import { Places } from "./components/Places.js";
@@ -33,7 +33,7 @@ describe("1. Estudio semanal de 0 a 168 h", () => {
     });
     const back = roundTrip(out);
     expect(errorOf(back)).toBe("");
-    expect("data" in back && back.data).toEqual(plain(out));
+    expect("data" in back && back.data).toEqual(kept(out));
   });
 });
 

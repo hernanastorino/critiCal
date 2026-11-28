@@ -3,6 +3,7 @@ import { useSync } from "../Connected.js";
 import { CRITICAL } from "../model.js";
 import { closeAccount } from "../remote.js";
 import { useStore } from "../store.js";
+import { useBusRoutes } from "../useBusRoutes.js";
 import { downloadJson } from "./Backup.js";
 import { Section } from "./Section.js";
 
@@ -28,6 +29,7 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
   const sync = useSync();
   const client = sync?.client;
   const { data, now } = useStore();
+  const routes = useBusRoutes();
   const [owner, setOwner] = useState(false);
   const [deletePlan, setDeletePlan] = useState(true);
   const [typed, setTyped] = useState("");
@@ -80,8 +82,8 @@ export function Account({ onDeleted }: { onDeleted?: () => void }) {
           : ", y elimina la cuenta con todos sus datos (materias, entregas, plan, lugares y tu invitación). No se puede deshacer."}
       </p>
       <p className="meta">Antes, guardá una copia de tus datos:</p>
-      <button type="button" className="btn" onClick={() => downloadJson(data, now)}>
-        Exportar JSON
+      <button type="button" className="btn" onClick={() => downloadJson(data, now, routes)}>
+        Descargar respaldo
       </button>
       <label className="check">
         <input
