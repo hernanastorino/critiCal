@@ -19,6 +19,15 @@ async function demoDePruebas(page: Page) {
   await expect(page.getByTestId("week")).toBeVisible({ timeout: 20_000 });
 }
 
+/**
+ * La app descarta un toque que llega justo después de cerrar una hoja, en el mismo lugar: es el
+ * resto de un doble toque (modal.ts, CLOSE_GRACE_MS). Se adelanta el reloj de la página en vez
+ * de esperar de verdad.
+ */
+async function pasaElDobleToque(page: Page) {
+  await page.clock.fastForward(500);
+}
+
 async function abrirEditor(page: Page, titulo: string) {
   await goTab(page, "Silos");
   await page.locator(".silo[data-task]", { hasText: titulo }).first().click();
@@ -34,8 +43,8 @@ test("«Bajar el mínimo» cambia solo el mínimo, en minutos enteros", async ({
   // Bajar el mínimo abre «Repartir tiempo» con el resultado: se acepta ahí.
   await page.getByRole("button", { name: "Aceptar reparto" }).click();
   await expect(page.getByText(/^Listo, reacomodé el plan/)).toBeVisible();
-  // Un toque humano llega unos cientos de ms después de cerrar la hoja.
-  await page.waitForTimeout(700);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await pasaElDobleToque(page);
   await abrirEditor(page, INFORME);
   // Las horas siguen siendo las de antes y el mínimo es un número redondo de minutos.
   await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("9");
@@ -66,8 +75,7 @@ test("una entrega de 50 h sin mínimo no queda en 0 h al quedarme con el mínimo
   await expect(
     page.getByRole("button", { name: /^Elegir: Quedarme con el mínimo de .*Prueba X/ }),
   ).toHaveCount(0);
-  // Un toque humano llega unos cientos de ms después de elegir: no en el mismo instante.
-  await page.waitForTimeout(700);
+  await pasaElDobleToque(page);
   await abrirEditor(page, "Prueba X");
   await expect(sheet(page).getByLabel("Horas estimadas")).toHaveValue("50");
 });

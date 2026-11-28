@@ -197,8 +197,10 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
       (task.sessionMinutes ? Math.ceil : Math.round)(chunkMinutes / slotMinutes),
     );
     const whole = task.sessionMinutes ? chunkSlots * slotMinutes : 0;
-    const inSlots = (m: number) =>
-      whole > 0 && whole !== chunkMinutes ? Math.ceil(m / chunkMinutes) * whole : m;
+    const inSlots = (m: number) => {
+      if (task.exactMinutes) return Math.ceil(m / slotMinutes) * slotMinutes;
+      return whole > 0 && whole !== chunkMinutes ? Math.ceil(m / chunkMinutes) * whole : m;
+    };
     const min = Math.max(0, inSlots(task.minRemainingMinutes) - frozenMinutes);
     const target = Math.max(min, inSlots(task.remainingMinutes) - frozenMinutes);
     prepared.push({
@@ -400,12 +402,14 @@ export function schedule(input: ScheduleInput, alone = false): ScheduleResult {
     for (let attempt = 0; attempt < 1000; attempt++) {
       const missing = goal - (placed.get(p.task.id) ?? 0);
       if (missing <= 0) return;
-      // A session is always whole: its last one is not cut to what is missing.
-      const wanted = p.task.sessionMinutes
+      // A session is always whole: its last one is not cut to what is missing (unless the
+      // task asks exact minutes: then the last one is as short as what is left).
+      const whole = !!p.task.sessionMinutes && !p.task.exactMinutes;
+      const wanted = whole
         ? p.chunkSlots
         : Math.min(p.chunkSlots, Math.ceil(missing / slotMinutes));
       let done = false;
-      const lengths = p.task.sessionMinutes ? [wanted] : range(wanted, 1);
+      const lengths = whole ? [wanted] : range(wanted, 1);
       for (const strict of input.allowFreeTime ? [true, false] : [true]) {
         for (const length of lengths) {
           for (const c of candidates(p, length, strict, urgent)) {

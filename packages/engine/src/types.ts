@@ -144,6 +144,11 @@ export interface Task {
   earliestStart?: number;
   /** Fixed session length (habits like gym). */
   sessionMinutes?: number;
+  /**
+   * With `sessionMinutes`: reserve exactly `remainingMinutes` (rounded up to a slot), so the
+   * last session is shorter instead of a whole one (a 5h30 silo of 60-min sessions).
+   */
+  exactMinutes?: boolean;
   /** At most this many minutes of the task per day. */
   maxPerDayMinutes?: number;
   /**

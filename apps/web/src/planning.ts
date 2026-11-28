@@ -572,6 +572,9 @@ export function toEngineTasks(data: AppData, now: number): Task[] {
       remainingMinutes: Math.ceil(planned(p)),
       minRemainingMinutes: Math.ceil(Math.min(planned(p), p.minRemainingMinutes)),
       sessionMinutes: p.task.sessionMinutes,
+      // A weekly study silo with its total reserves exactly that: the last session is shorter.
+      exactMinutes:
+        (p.task.study && p.task.kind === "habit" && p.task.estimateMinutes > 0) || undefined,
       maxPerDayMinutes: maxPerDay(p.task),
       priority: p.task.priority,
       earliestStart: earliestStartOf(data, p.task),
