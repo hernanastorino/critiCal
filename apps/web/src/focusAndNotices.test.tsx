@@ -42,7 +42,7 @@ describe("a refused save moves focus to the first invalid field", () => {
   it("«Guardar» of a silo with negative hours", () => {
     render(
       <StoreProvider initial={demoData} persist={false} fixedNow={MON}>
-        <TaskEditor task={deliverable()} onClose={() => {}} />
+        <TaskEditor task={{ ...deliverable(), units: [] }} onClose={() => {}} />
       </StoreProvider>,
     );
     const hours = screen.getByLabelText("Horas estimadas");

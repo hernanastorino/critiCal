@@ -92,13 +92,13 @@ describe("2. Partes junto a la estimación", () => {
     };
     inside(<TaskEditor task={task} onClose={() => {}} />);
     pickMateria();
-    expect(screen.getByText(/Partes: 2h de 3h estimadas/)).toBeTruthy();
+    expect(screen.getByText("Total 2h, la suma de las partes.")).toBeTruthy();
   });
 
   it("shows nothing without parts", () => {
     inside(<TaskEditor onClose={() => {}} />);
     pickMateria();
-    expect(screen.queryByText(/Partes: .* estimadas/)).toBeNull();
+    expect(screen.queryByText(/la suma de las partes/)).toBeNull();
   });
 });
 

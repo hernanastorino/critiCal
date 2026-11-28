@@ -47,6 +47,7 @@ import {
   type CheckIn,
   type MealRun,
   type Proposal,
+  taskTotal,
   type Unit,
   undoable,
 } from "./model.js";
@@ -440,7 +441,7 @@ export function focusWeekAt(data: AppData, now: number): number {
 
 /** Parts' minutes adjusted by the learned ratio, never above the estimate (what the plan reserves). */
 const scaled = (task: AppTask, minutes: number, ratio: number) =>
-  Math.min(task.estimateMinutes, Math.round(minutes * ratio));
+  Math.min(taskTotal(task), Math.round(minutes * ratio));
 
 /**
  * What is left of each active task: its unmarked parts adjusted by the materia's learned
@@ -477,14 +478,15 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
       const done = standingCheckIns(data)
         .filter((c) => c.taskId === task.id)
         .reduce((sum, c) => sum + c.minutesDone, 0);
-      const capLeft = Math.max(0, task.estimateMinutes - done);
+      const total = taskTotal(task);
+      const capLeft = Math.max(0, total - done);
       // With parts, what is left is the parts still unmarked (left out ones are neither
       // done nor missing); the minutes logged already marked them, so they are not
       // taken off again. Without parts, the estimate minus what was logged.
       const remaining =
         task.units.length > 0
           ? Math.min(
-              task.estimateMinutes,
+              total,
               task.units
                 .filter((u) => !u.skipped && !u.doneAt)
                 .reduce((sum, u) => sum + u.estimateMinutes, 0),
@@ -502,7 +504,7 @@ export function progress(data: AppData, now: number, weekAt = now): TaskProgress
       const left = ratio === undefined ? remaining : scaled(task, remaining, ratio);
       return {
         task,
-        totalMinutes: task.estimateMinutes,
+        totalMinutes: total,
         remainingMinutes: left,
         // As the planner takes it: never above what it reserves.
         minRemainingMinutes: Math.min(left, Math.max(0, task.minMinutes - doneMin)),
@@ -1718,8 +1720,8 @@ function relaxRecommendations(
   const fixes = !result.feasible && plan.result.feasible;
   const reasons = [
     ...(fixes ? ["llegás a todos los mínimos"] : []),
-    ...(savedFree > 0 ? [`te ahorrás ${savedFree} min de tiempo libre`] : []),
-    ...(savedDeficit > 0 ? [`cubrís ${savedDeficit} min más`] : []),
+    ...(savedFree > 0 ? [`te ahorrás ${hours(savedFree)} de tiempo libre`] : []),
+    ...(savedDeficit > 0 ? [`cubrís ${hours(savedDeficit)} más`] : []),
   ];
   if (reasons.length === 0) return [];
   return [
@@ -1941,10 +1943,10 @@ function minutesAfter(
 function estimateAfter(task: AppTask, old: Task, next: Task) {
   const cut = Math.round(old.remainingMinutes - next.remainingMinutes);
   // Quarter hours (as the sliders): the hours up, never above what the task had.
-  const left = Math.max(1, Math.round(task.estimateMinutes) - cut);
-  return cut > 0
-    ? { estimateMinutes: Math.min(Math.round(task.estimateMinutes), ceilStep(left)) }
-    : {};
+  // From the total (with parts, their sum: the estimate is not hours any part holds).
+  const total = Math.round(taskTotal(task));
+  const left = Math.max(1, total - cut);
+  return cut > 0 ? { estimateMinutes: Math.min(total, ceilStep(left)) } : {};
 }
 
 /** The stored minimum that leaves what the option previewed (what was done counts in it). */
