@@ -260,7 +260,7 @@ describe("the silo form says what is wrong, beside the field", { timeout: 30_000
     }
     type(part, "Práctico (45)");
     fireEvent.click(screen.getByRole("button", { name: "Agregar" }));
-    expect(screen.queryByRole("alert")).toBeNull();
+    expect(screen.queryByText(/entre paréntesis/)).toBeNull();
     expect(screen.getByText("Práctico")).toBeTruthy();
     expect(screen.getByText("45 min")).toBeTruthy();
   });

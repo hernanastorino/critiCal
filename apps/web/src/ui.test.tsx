@@ -125,7 +125,7 @@ describe("app", () => {
     fireEvent.change(screen.getByLabelText("Materia o actividad"), { target: { value: "new" } });
     fireEvent.change(screen.getByPlaceholderText("Física I"), { target: { value: "Química" } });
     fireEvent.change(screen.getByPlaceholderText("Práctico 5 (60)"), {
-      target: { value: "Repartido 1 (90)" },
+      target: { value: "Repartido 1 (300)" },
     });
     fireEvent.click(screen.getByText("Agregar"));
     expect(screen.getByText("Repartido 1")).toBeTruthy();
