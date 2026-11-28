@@ -19,11 +19,11 @@ const planBus = vi.fn();
 vi.mock("./remote.js", async (orig) => ({
   ...(await orig<typeof import("./remote.js")>()),
   planBus: (_client: unknown, request: unknown) => planBus(request),
-  busFeedVersion: async () => "demo",
+  busFeedVersion: () => Promise.resolve("demo"),
 }));
 vi.mock("./busRoutes.js", async (orig) => ({
   ...(await orig<typeof import("./busRoutes.js")>()),
-  loadRoutes: async () => [],
+  loadRoutes: () => Promise.resolve([]),
 }));
 
 const real = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).format(new Date());
@@ -124,9 +124,14 @@ describe.each(MOMENTS)("1. minutos del ómnibus sin abrir la tarjeta: %s", (_n, 
         </StoreProvider>
       </SyncContext.Provider>,
     );
-    await waitFor(() => expect(minutes()["clase-fing"]?.back).toBe(DEMO_MINUTES.back), {
-      timeout: 6000,
-    });
+    await waitFor(
+      () => {
+        const fing = minutes()["clase-fing"];
+        if (!fing) throw new Error("todavía no hay minutos");
+        expect(fing.back).toBe(DEMO_MINUTES.back);
+      },
+      { timeout: 6000 },
+    );
     expect(planBus).toHaveBeenCalledTimes(2);
     await new Promise((r) => setTimeout(r, 1300));
     expect(planBus).toHaveBeenCalledTimes(2);
@@ -161,7 +166,7 @@ describe("8. las líneas de un traslado, con palabras", () => {
     time: "08:00",
     mode: "arrive",
   });
-  const base = ok.ok ? (ok.options.at(0) as TransitOption) : undefined;
+  const base = ok.ok ? ok.options.at(0) : undefined;
   const bus = base?.legs.find((l) => l.kind === "bus");
   const via = (lines: string[]): TransitOption => {
     if (!base || !bus) throw new Error("sin plan");

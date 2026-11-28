@@ -4,14 +4,22 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useRef, useState } from "react";
 import { type BusRoute, findRoute, routeAnswer, routeStale, slotOf } from "../busRoutes.js";
-import { askKey, busTripsToAsk, planRequestFor, tripOf, type Way, wayMinutes } from "../busTrip.js";
+import {
+  askKey,
+  busTripsToAsk,
+  type EventTrip,
+  planRequestFor,
+  tripOf,
+  type Way,
+  wayMinutes,
+} from "../busTrip.js";
 import { useSync } from "../Connected.js";
 import { isTestDemo } from "../demoPruebas.js";
 import { demoPlan } from "../demoTransit.js";
 import type { AppEvent } from "../model.js";
 import { busFeedVersion, planBus } from "../remote.js";
 import { useStore } from "../store.js";
-import type { PlanResponse } from "../transit.js";
+import type { PlanRequest, PlanResponse } from "../transit.js";
 import { useBusRoutes } from "../useBusRoutes.js";
 
 /** Time between two questions to the server, so a week of classes never trips its limit. */
@@ -24,28 +32,36 @@ const PAUSE_MS = 60_000;
 const stops = (res: PlanResponse) =>
   !res.ok && ["rate_limited", "unreachable", "unauthorized"].includes(res.error);
 
+type Found = { way: Way; minutes: number };
+
+/** The plan of one way: the saved route if it still holds, else the server (or the demo's). */
+async function planOf(
+  request: PlanRequest,
+  slot: ReturnType<typeof slotOf>,
+  client: SupabaseClient | null,
+  routes: readonly BusRoute[],
+  feed: { version?: string | null },
+): Promise<PlanResponse> {
+  const route = client && slot ? findRoute(routes, slot) : undefined;
+  if (route && client) feed.version ??= await busFeedVersion(client);
+  if (route && !routeStale(route, request, feed.version ?? null)) return routeAnswer(route);
+  return client ? await planBus(client, request) : demoPlan(request);
+}
+
 /** The minutes of each way of an event's bus trip that got an answer, and whether to stop asking. */
 async function ask(
   event: AppEvent,
-  trip: NonNullable<ReturnType<typeof tripOf>>,
+  trip: EventTrip,
   tz: string,
   client: SupabaseClient | null,
   routes: readonly BusRoute[],
-): Promise<{ found: { way: Way; minutes: number }[]; stop: boolean }> {
-  const found: { way: Way; minutes: number }[] = [];
-  let feed: string | null | undefined;
+): Promise<{ found: Found[]; stop: boolean }> {
+  const found: Found[] = [];
+  const feed: { version?: string | null } = {};
   for (const way of ["there", "back"] as const) {
     const request = planRequestFor(trip, event, tz, way);
     if (!request) continue;
-    const slot = slotOf(trip, event, tz, way, request);
-    const route = client && slot ? findRoute(routes, slot) : undefined;
-    if (route && client) feed ??= await busFeedVersion(client);
-    const saved = route && !routeStale(route, request, feed ?? null) ? route : undefined;
-    const res = saved
-      ? routeAnswer(saved)
-      : client
-        ? await planBus(client, request)
-        : demoPlan(request);
+    const res = await planOf(request, slotOf(trip, event, tz, way, request), client, routes, feed);
     if (stops(res)) return { found, stop: true };
     const best = res.ok ? res.options.at(0) : undefined;
     if (best) found.push({ way, minutes: wayMinutes(best, way, request) });
@@ -80,7 +96,7 @@ export function BusPrefetch() {
     if (!key) return;
     let live = true;
     const wait = Math.max(client ? PREFETCH_GAP_MS : 0, pausedUntil.current - Date.now());
-    const timer = setTimeout(async () => {
+    const run = async () => {
       const { data: current, routes: saved } = latest.current;
       const event = current.events.find((e) => askKey(e) === key);
       const trip = event && tripOf(current, event);
@@ -100,6 +116,9 @@ export function BusPrefetch() {
         if (stop) pausedUntil.current = Date.now() + PAUSE_MS;
       }
       if (live) setRound((r) => r + 1);
+    };
+    const timer = setTimeout(() => {
+      void run();
     }, wait);
     return () => {
       live = false;

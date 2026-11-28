@@ -1,11 +1,35 @@
 import { useRef } from "react";
-import { zonedInstant } from "../engine.js";
+import { type ScheduleResult, zonedInstant } from "../engine.js";
 import { dayAndTime, dayDate, hours, weekdayLong } from "../format.js";
+import type { AppData } from "../model.js";
+import type { Decisions } from "../planning.js";
 import { useStore } from "../store.js";
 import { weekPlan, weekToPlan } from "../week-review.js";
 import { weekTypeLine } from "../weekType.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
+
+/** The summary of the week blames only what falls due in it, not before nor in a later week. */
+function dueIn(
+  status: ScheduleResult["status"],
+  data: AppData,
+  from: number,
+  to: number,
+): ScheduleResult["status"] {
+  return status.filter((s) => {
+    const due = data.tasks.find((t) => t.id === s.taskId)?.deadline;
+    return s.minDeficit > 0 && (due === undefined || (due >= from && due < to));
+  });
+}
+
+/** What the Bandeja says too: tasks that fit in no week, not the ones that fell due before. */
+function unfitCount(data: AppData, decisions: Decisions, from: number): number {
+  if (decisions.options.length === 0) return 0;
+  return decisions.impossible.filter((id) => {
+    const due = data.tasks.find((t) => t.id === id)?.deadline;
+    return due === undefined || due >= from;
+  }).length;
+}
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
 export function WeeklyPlan({
@@ -28,21 +52,8 @@ export function WeeklyPlan({
   const critical = data.plan
     .filter((b) => b.level === "critical" && b.start >= from && b.start < to)
     .sort((a, b) => a.start - b.start);
-  // The summary of the week blames only what falls due in it: not what fell due before, nor
-  // what is due in a later week (that one is planned when its week comes).
-  const short = result.status.filter((s) => {
-    const due = data.tasks.find((t) => t.id === s.taskId)?.deadline;
-    return s.minDeficit > 0 && (due === undefined || (due >= from && due < to));
-  });
-  // What the Bandeja says too: tasks that do not fit in any week, not only in this one. Not the
-  // ones that fell due before the week being planned (this week's, already over for this plan).
-  const noFit =
-    decisions.options.length > 0
-      ? decisions.impossible.filter((id) => {
-          const due = data.tasks.find((t) => t.id === id)?.deadline;
-          return due === undefined || due >= from;
-        }).length
-      : 0;
+  const short = dueIn(result.status, data, from, to);
+  const noFit = unfitCount(data, decisions, from);
   const titleOf = (id: string) => data.tasks.find((t) => t.id === id)?.title ?? "—";
   const typeLine = weekTypeLine(data);
   const max = Math.max(60, ...days.map((d) => d.minutes));
