@@ -112,30 +112,54 @@ export function minimumProblem(minimum: string, estimateHours: number): string |
     : null;
 }
 
+/** What a part's parentheses may say: «90», «90 min», «2h», «1h30», «1h 30 min», «1,5h». */
+const DURATION =
+  /^(\d+(?:[.,]\d+)?)\s*(?:(?:(h|hs|hora|horas)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutos)?)?)|(?:(m|min|mins|minutos)?))$/i;
+
+/** Parentheses that start with a figure and say nothing but time are meant as the minutes. */
+const TIME_LIKE = /^[-+]?\d[\d\s.,]*(?:(?:h|hs|hora|horas|m|min|mins|minutos)[\d\s.,]*)*$/i;
+
+const MINUTES_HELP = `Los minutos entre paréntesis: «(90)», «(90 min)», «(2h)» o «(1h30)», de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX} minutos, como «Práctico 5 (60)».`;
+
+/** Minutes of what a part's parentheses say, NaN when they are time but cannot be read. */
+function typedMinutes(inner: string): number {
+  const m = DURATION.exec(inner);
+  if (!m) return Number.NaN;
+  const n = Number(String(m[1]).replace(",", "."));
+  if (!m[2]) return Number.isInteger(n) ? n : Number.NaN;
+  const extra = m[3] === undefined ? 0 : Number(m[3]);
+  return Math.round(n * 60) + extra;
+}
+
 /**
- * A new part typed as «Nombre (minutos)»: its title and minutes, or what is wrong. Only a
- * final «(n)» is the minutes (a figure that is not a whole number of 1 to 1440 is an
- * error); any other parenthesis («Parte B (opcional)») is part of the name.
+ * A new part typed as «Nombre (tiempo)»: its title and minutes, or what is wrong. Only a
+ * final «(…)» that starts with a figure is the time («(90)», «(90 min)», «(2h)», «(1h30)»;
+ * one that is not a whole number of 1 to 60000 minutes is an error); any other parenthesis
+ * («Parte B (opcional)») is part of the name.
  */
 export function parseUnit(
   text: string,
 ): { title: string; minutes: number } | { error: string } | null {
   if (!text.trim()) return null;
-  const m = text.match(/^(.*?)\s*\(\s*([-+]?\d+(?:[.,]\d+)?)\s*\)\s*$/);
-  const title = (m ? (m[1] ?? "") : text).trim();
+  const m = text.match(/^(.*?)\s*\(\s*([^()]*?)\s*\)\s*$/);
+  const inner = m?.[2] ?? "";
+  const timed = !!m && TIME_LIKE.test(inner);
+  const title = (timed ? (m?.[1] ?? "") : text).trim();
   if (title.length > TITLE_MAX) {
     return { error: `El nombre de la parte tiene como máximo ${TITLE_MAX} caracteres.` };
   }
-  if (!m) return { title, minutes: 60 };
-  const minutes = Number(m[2]);
+  if (!timed) return { title, minutes: 60 };
+  const minutes = typedMinutes(inner);
   // «(-30)» or «(1,5)» are minutes typed wrong, not a name.
-  if (!/^\d+$/.test(m[2] ?? "") || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
-    return {
-      error: `Los minutos entre paréntesis son un número entero de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX}, como «Práctico 5 (60)».`,
-    };
+  if (!Number.isInteger(minutes) || minutes < UNIT_MINUTES_MIN || minutes > UNIT_MINUTES_MAX) {
+    return { error: MINUTES_HELP };
   }
   return title ? { title, minutes } : { error: "Poné el nombre de la parte antes de los minutos." };
 }
+
+/** Parts that add up to more than a delivery may hold (said in the list of parts). */
+export const partsTotalProblem = (partsMinutes: number): string | null =>
+  partsMinutes > MAX_HOURS * 60 ? `Las partes suman más de ${MAX_HOURS} h.` : null;
 
 /** The most a weekly habit may add up to when the week's waking time is not known. */
 export const MAX_HABIT_WEEK_MINUTES = 100 * 60;

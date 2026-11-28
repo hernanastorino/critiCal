@@ -115,7 +115,7 @@ describe("Editar entrega: horas estimadas y partes", () => {
     );
     const hours = screen.getByLabelText("Horas estimadas") as HTMLInputElement;
     expect(hours.disabled).toBe(true);
-    expect(hours.value).toBe("10");
+    expect(hours.value).toBe("10h");
     expect(screen.getByText("Total 10h, la suma de las partes.")).toBeTruthy();
   });
 });
