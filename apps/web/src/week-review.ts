@@ -41,6 +41,12 @@ export function weekPlan(data: AppData, dates: string[]): DayPlan[] {
   });
 }
 
+/** How much more a session takes in the plan than was asked (whole slots): 1 when it is exact. */
+function sessionTakes(minutes: number | undefined, slotMinutes: number): number {
+  if (!minutes || !(slotMinutes > 0)) return 1;
+  return (Math.ceil(minutes / slotMinutes) * slotMinutes) / minutes;
+}
+
 export interface WeekLeft {
   taskId: string;
   title: string;
@@ -72,13 +78,17 @@ export function weekLeft(data: AppData, now: number): WeekLeft[] {
     .filter((p) => involved.has(p.task.id) && shownTotal(p) > 0)
     .map((p) => {
       const activity = data.activities.find((a) => a.id === p.task.activityId);
+      const routine = activity?.kind === "rutina";
+      // A routine says what it takes in the plan, as its list does: 2 × 45 in slots of 30
+      // are 2 blocks of 1 h.
+      const takes = routine ? sessionTakes(p.task.sessionMinutes, data.settings.slotMinutes) : 1;
       return {
         taskId: p.task.id,
         title: p.task.title,
         color: activity?.color,
-        routine: activity?.kind === "rutina" || undefined,
-        left: Math.round(p.remainingMinutes),
-        assigned: Math.round(shownTotal(p)),
+        routine: routine || undefined,
+        left: Math.round(p.remainingMinutes * takes),
+        assigned: Math.round(shownTotal(p) * takes),
       };
     })
     .sort((a, b) => b.assigned - a.assigned);

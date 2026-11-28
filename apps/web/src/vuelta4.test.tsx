@@ -14,7 +14,6 @@ import { time, weekdayShort } from "./format.js";
 import { noFit } from "./friendly.js";
 import type { AppData, AppTask } from "./model.js";
 import { reducer, StoreProvider, seedHistory } from "./store.js";
-import { pickMateria } from "./testing.js";
 
 const NOW = Date.UTC(2026, 10, 2, 20);
 
@@ -207,16 +206,16 @@ describe("the silo form: all errors at once, impossible habits, no rutinas", () 
 
   it("refuses 14 × 1440 min a week, beside the field, with the focus on it", () => {
     editor();
-    pickMateria();
     fireEvent.click(screen.getByText("Hábito semanal"));
-    type(screen.getByLabelText("Nombre"), "Maratón");
-    type(screen.getByLabelText("Veces por semana"), "14");
-    const minutes = screen.getByLabelText("Minutos por vez");
+    type(screen.getByPlaceholderText("Gimnasio"), "Maratón");
+    type(screen.getByLabelText("Veces/sem."), "14");
+    const minutes = screen.getByLabelText("Minutos");
     type(minutes, "1440");
-    save();
-    expect(screen.getByText(/No entra en una semana/)).toBeTruthy();
+    fireEvent.click(screen.getByText("Agregar rutina"));
+    expect(screen.getByText(/Los minutos por sesión van de 1 a 360/)).toBeTruthy();
     expect(minutes.getAttribute("aria-invalid")).toBe("true");
-    expect(document.activeElement).toBe(minutes);
+    // The first wrong field gets the focus.
+    expect(document.activeElement).toBe(screen.getByLabelText("Veces/sem."));
   });
 
   it("says an empty name and a minimum above the hours together", () => {
@@ -240,7 +239,8 @@ describe("the silo form: all errors at once, impossible habits, no rutinas", () 
     for (const r of rutinas) expect(optionNames()).not.toContain(r.name);
     expect((screen.getByLabelText(/Es un parcial/) as HTMLInputElement).checked).toBe(false);
     fireEvent.click(screen.getByText("Hábito semanal"));
-    expect(screen.getByPlaceholderText("Leer 30 min")).toBeTruthy();
-    expect(optionNames()).toContain(rutinas[0]?.name);
+    // A new habit is a routine: there is no materia to pick.
+    expect(screen.queryByLabelText("Materia o actividad")).toBeNull();
+    expect(screen.getByPlaceholderText("Gimnasio")).toBeTruthy();
   });
 });

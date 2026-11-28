@@ -1,5 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { readSheetDraft, writeSheetDraft } from "../drafts.js";
+import { readSheetDraft, SHEET_PREFIX, writeSheetDraft } from "../drafts.js";
 import { type Activity, localParts, zonedInstant } from "../engine.js";
 import { clipName, dayDate, hours, isHhmm, minutesToHhmm } from "../format.js";
 import { learnedHours, learnedNote } from "../learnedDefaults.js";
@@ -36,6 +36,7 @@ import { focusFirstInvalid, Help } from "./fields.js";
 import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 import { Repartir } from "./Repartir.js";
+import { emptyRoutineDraft, RoutineForm, useRoutineDraft } from "./RoutineForm.js";
 import { hoursSummary, RoutineHours } from "./RoutineHours.js";
 import { describeStart, StartAfterField } from "./StartAfterField.js";
 import { useToast } from "./Toast.js";
@@ -176,6 +177,9 @@ export function TaskEditor({
   const [picked, setActivityId] = useState(start.picked);
   const [newActivity, setNewActivity] = useState(start.newActivity);
   const [kind, setKind] = useState<AppTask["kind"]>(start.kind);
+  // A new habit is a routine: the form is Ajustes > Rutinas', saved by the same code.
+  const newRoutine = !task && kind === "habit";
+  const routineDraft = useRoutineDraft(`${SHEET_PREFIX}routine`);
   // Rutinas have no parciales or entregas: they are offered for a habit only (or when the
   // task already belongs to one).
   const choices = data.activities.filter(
@@ -324,7 +328,9 @@ export function TaskEditor({
     writeSheetDraft("editor", null);
     closing.current();
   }, [gone]);
-  const askClose = () => (dirty ? setAsking(true) : done());
+  // A new routine typed in the sheet asks too (its draft is not the editor's form).
+  const routineDirty = newRoutine && routineDraft[3];
+  const askClose = () => (dirty || routineDirty ? setAsking(true) : done());
   const justOpened = useModal(sheet, askClose);
   useEffect(() => {
     if (focusTick) focusFirstInvalid(sheet.current);
@@ -621,404 +627,430 @@ export function TaskEditor({
             Hábito semanal
           </button>
         </div>
-        <label className="field">
-          <span>Nombre</span>
-          <input
-            value={title}
-            aria-invalid={(tried && isBlank(title)) || titleLong ? true : undefined}
-            aria-describedby={(tried && isBlank(title)) || titleLong ? "title-error" : undefined}
-            onChange={(e) => setTitle(e.target.value)}
-            onKeyDown={(e) => {
-              // Enter saves, unless it only confirms an IME character.
-              if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
-              e.preventDefault();
-              save();
-            }}
-            placeholder={kind === "habit" ? "Leer 30 min" : "Parcial Física I"}
-          />
-          {((tried && isBlank(title)) || titleLong) && (
-            <span
-              className="meta"
-              id="title-error"
-              role={alertRole}
-              style={{ margin: 0, color: "var(--critical)" }}
-            >
-              {titleLong ? `Como máximo ${TITLE_MAX} caracteres` : "Poné un nombre"}
-            </span>
-          )}
-        </label>
-        <label className="field">
-          <span>Materia o actividad</span>
-          <select
-            value={activityId}
-            aria-invalid={tried && activityMissing ? true : undefined}
-            aria-describedby={tried && activityMissing ? "pick-error" : undefined}
-            onChange={(e) => setActivityId(e.target.value)}
-          >
-            {activityMissing && (
-              <option value="" disabled>
-                Elegí…
-              </option>
-            )}
-            {choices.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-            <option value="new">+ Nueva…</option>
-          </select>
-        </label>
-        {tried && activityMissing && (
-          <FieldError id="pick-error" text="Elegí la materia" role={alertRole} />
-        )}
-        {activityId === "new" && (
-          <label className="field">
-            <span>Nombre de la materia</span>
-            <input
-              value={newActivity}
-              aria-invalid={
-                newNameLong || (tried && (nameMissing || routineClash)) ? true : undefined
-              }
-              aria-describedby={
-                newNameLong || (tried && (nameMissing || routineClash))
-                  ? "activity-error"
-                  : undefined
-              }
-              onChange={(e) => setNewActivity(e.target.value)}
-              placeholder="Física I"
-            />
-          </label>
-        )}
-        {activityId === "new" && (newNameLong || (tried && (nameMissing || routineClash))) && (
-          <FieldError
-            id="activity-error"
-            text={
-              newNameLong
-                ? `Como máximo ${NAME_MAX} caracteres`
-                : nameMissing
-                  ? "Poné el nombre de la materia"
-                  : "Ya tenés una rutina con ese nombre"
-            }
-            role={alertRole}
-          />
-        )}
-        {kind === "deliverable" ? (
+        {newRoutine ? (
+          <RoutineForm state={routineDraft} onAdded={done} />
+        ) : (
           <>
             <label className="field">
-              <span>Fecha límite</span>
+              <span>Nombre</span>
               <input
-                type="datetime-local"
-                aria-label="Fecha límite"
-                value={deadline}
-                min="2000-01-01T00:00"
-                max={`${deadlineMaxYear(now)}-12-31T23:59`}
-                aria-invalid={deadlineError ? true : undefined}
-                aria-describedby={deadlineError ? "deadline-error" : undefined}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setDeadline(v);
-                  setDeadlineUnreal(e.target.validity.badInput);
-                  // A year past the last one is said now, not only when saving (the layout
-                  // would jump under the finger then). Earlier years pass while it is typed.
-                  const year = Number(/^(\d{4,6})-/.exec(v)?.[1]);
-                  setDeadlineError(
-                    year > deadlineMaxYear(now)
-                      ? `Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`
-                      : null,
-                  );
+                value={title}
+                aria-invalid={(tried && isBlank(title)) || titleLong ? true : undefined}
+                aria-describedby={
+                  (tried && isBlank(title)) || titleLong ? "title-error" : undefined
+                }
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  // Enter saves, unless it only confirms an IME character.
+                  if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
+                  e.preventDefault();
+                  save();
                 }}
+                placeholder={kind === "habit" ? "Leer 30 min" : "Parcial Física I"}
               />
+              {((tried && isBlank(title)) || titleLong) && (
+                <span
+                  className="meta"
+                  id="title-error"
+                  role={alertRole}
+                  style={{ margin: 0, color: "var(--critical)" }}
+                >
+                  {titleLong ? `Como máximo ${TITLE_MAX} caracteres` : "Poné un nombre"}
+                </span>
+              )}
             </label>
-            {deadlineError && (
-              <p className="meta" id="deadline-error" role={alertRole}>
-                {deadlineError}
-              </p>
-            )}
-            {deadlinePast && !deadlineError && (
-              <p className="meta" role="status">
-                Esa fecha ya pasó: la entrega queda vencida y el plan no le reserva tiempo. Se puede
-                guardar igual.
-              </p>
-            )}
-            {overload && !deadlineError && (
-              <p className="meta" role="status">
-                {overload}
-              </p>
-            )}
-            <StartAfterField
-              value={startAfter}
-              onChange={setStartAfter}
-              tz={tz}
-              now={now}
-              inherited={materiaStart ? describeStart(materiaStart, tz) : undefined}
-              invalid={startWarning === AFTER_DUE}
-              describedBy="start-error"
-              summary={shown > 1}
-            />
-            {startWarning === AFTER_DUE && (
-              <p
-                className="meta"
-                id="start-error"
-                role={alertRole}
-                style={{ color: "var(--critical)" }}
+            <label className="field">
+              <span>Materia o actividad</span>
+              <select
+                value={activityId}
+                aria-invalid={tried && activityMissing ? true : undefined}
+                aria-describedby={tried && activityMissing ? "pick-error" : undefined}
+                onChange={(e) => setActivityId(e.target.value)}
               >
-                {startWarning}
-              </p>
-            )}
-            {startWarning && startWarning !== AFTER_DUE && (
-              <p className="meta" role="status">
-                {startWarning}
-              </p>
-            )}
-            <label className="check" htmlFor={examId}>
-              <input
-                id={examId}
-                type="checkbox"
-                aria-labelledby={`${examId}-label`}
-                checked={isExam}
-                onChange={(e) => setIsExam(e.target.checked)}
-              />
-              <span id={`${examId}-label`}>
-                Es un parcial: repaso espaciado (una semana, tres días y un día antes)
-              </span>
+                {activityMissing && (
+                  <option value="" disabled>
+                    Elegí…
+                  </option>
+                )}
+                {choices.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+                <option value="new">+ Nueva…</option>
+              </select>
             </label>
-            {isExam && (
-              <label className="check">
+            {tried && activityMissing && (
+              <FieldError id="pick-error" text="Elegí la materia" role={alertRole} />
+            )}
+            {activityId === "new" && (
+              <label className="field">
+                <span>Nombre de la materia</span>
                 <input
-                  type="checkbox"
-                  checked={dayBefore}
-                  onChange={(e) => setDayBefore(e.target.checked)}
+                  value={newActivity}
+                  aria-invalid={
+                    newNameLong || (tried && (nameMissing || routineClash)) ? true : undefined
+                  }
+                  aria-describedby={
+                    newNameLong || (tried && (nameMissing || routineClash))
+                      ? "activity-error"
+                      : undefined
+                  }
+                  onChange={(e) => setNewActivity(e.target.value)}
+                  placeholder="Física I"
                 />
-                <span>El día anterior, solo esta materia</span>
               </label>
             )}
-            <div className="row">
-              <label className="field" style={{ flex: 1 }} htmlFor={estimateId}>
-                <span>Horas estimadas</span>
-                <input
-                  id={estimateId}
-                  inputMode="decimal"
-                  value={estimateIn}
-                  disabled={units.length > 0}
-                  className={suggested ? "suggested" : undefined}
-                  aria-invalid={estimateShown ? true : undefined}
-                  aria-describedby={estimateShown ? "estimate-error" : undefined}
-                  onChange={(e) => setEstimate(e.target.value)}
-                />
-              </label>
-              <label className="field" style={{ flex: 1 }} htmlFor={minimumId}>
-                <span>Mínimo (horas)</span>
-                <input
-                  id={minimumId}
-                  inputMode="decimal"
-                  value={minimum}
-                  className={suggested ? "suggested" : undefined}
-                  aria-invalid={minimumShown ? true : undefined}
-                  aria-describedby={minimumShown ? "minimum-error" : undefined}
-                  onChange={(e) => setMinimum(e.target.value)}
-                />
-              </label>
-            </div>
-            {suggested && learned && (
-              <p className="meta" style={{ margin: 0 }}>
-                {learnedNote(learned, isExam)}
-              </p>
+            {activityId === "new" && (newNameLong || (tried && (nameMissing || routineClash))) && (
+              <FieldError
+                id="activity-error"
+                text={
+                  newNameLong
+                    ? `Como máximo ${NAME_MAX} caracteres`
+                    : nameMissing
+                      ? "Poné el nombre de la materia"
+                      : "Ya tenés una rutina con ese nombre"
+                }
+                role={alertRole}
+              />
             )}
-            <FieldError id="estimate-error" text={estimateShown} role={alertRole} />
-            <FieldError id="minimum-error" text={minimumShown} role={alertRole} />
-            <button
-              type="button"
-              className="btn"
-              disabled={hoursBlocked}
-              onClick={() => setSharing(true)}
-            >
-              Repartir tiempo
-            </button>
-            <fieldset className="field" style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-              <legend style={{ padding: 0 }}>Partes (opcional)</legend>
-              <span className="meta" style={{ margin: 0 }}>
-                Lo que falta se mide por partes hechas. Con peso, si no llegás se pueden dejar
-                afuera las que menos pesan.
-              </span>
-              {units.map((u) => (
-                <div key={u.id} className="check">
-                  <span style={{ flex: 1, textDecoration: u.doneAt ? "line-through" : undefined }}>
-                    {u.title}
-                  </span>
-                  <span>{u.estimateMinutes} min</span>
+            {kind === "deliverable" ? (
+              <>
+                <label className="field">
+                  <span>Fecha límite</span>
                   <input
-                    inputMode="numeric"
-                    aria-label={`Peso de ${u.title} en el examen (%)`}
-                    placeholder="peso %"
-                    style={{ width: 64 }}
-                    value={u.weight ?? ""}
+                    type="datetime-local"
+                    aria-label="Fecha límite"
+                    value={deadline}
+                    min="2000-01-01T00:00"
+                    max={`${deadlineMaxYear(now)}-12-31T23:59`}
+                    aria-invalid={deadlineError ? true : undefined}
+                    aria-describedby={deadlineError ? "deadline-error" : undefined}
                     onChange={(e) => {
-                      const n = Math.round(Number(e.target.value));
-                      const weight =
-                        e.target.value.trim() === "" || !Number.isFinite(n)
-                          ? undefined
-                          : Math.min(100, Math.max(0, n));
-                      setUnits(units.map((x) => (x.id === u.id ? { ...x, weight } : x)));
+                      const v = e.target.value;
+                      setDeadline(v);
+                      setDeadlineUnreal(e.target.validity.badInput);
+                      // A year past the last one is said now, not only when saving (the layout
+                      // would jump under the finger then). Earlier years pass while it is typed.
+                      const year = Number(/^(\d{4,6})-/.exec(v)?.[1]);
+                      setDeadlineError(
+                        year > deadlineMaxYear(now)
+                          ? `Elegí una fecha entre el 1/1/2000 y el 31/12/${deadlineMaxYear(now)}.`
+                          : null,
+                      );
                     }}
                   />
-                  {u.skipped && <span className="meta">afuera</span>}
-                  <button
-                    type="button"
-                    aria-label={`Quitar ${u.title}`}
-                    onClick={() => setUnits(units.filter((x) => x.id !== u.id))}
-                  >
-                    <Marks.close />
-                  </button>
-                </div>
-              ))}
-              <div className="row" style={{ marginTop: 8 }}>
-                <input
-                  ref={unitInput}
-                  aria-label="Nueva parte: nombre y minutos entre paréntesis"
-                  value={unitTitle}
-                  aria-invalid={unitError ? true : undefined}
-                  aria-describedby={unitError ? "unit-error" : undefined}
-                  onChange={(e) => {
-                    setUnitTitle(e.target.value);
-                    setUnitError(null);
-                  }}
-                  onKeyDown={(e) => {
-                    // Enter that confirms an IME character is not «add».
-                    if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229) return;
-                    e.preventDefault();
-                    addUnit();
-                  }}
-                  placeholder="Práctico 5 (60)"
+                </label>
+                {deadlineError && (
+                  <p className="meta" id="deadline-error" role={alertRole}>
+                    {deadlineError}
+                  </p>
+                )}
+                {deadlinePast && !deadlineError && (
+                  <p className="meta" role="status">
+                    Esa fecha ya pasó: la entrega queda vencida y el plan no le reserva tiempo. Se
+                    puede guardar igual.
+                  </p>
+                )}
+                {overload && !deadlineError && (
+                  <p className="meta" role="status">
+                    {overload}
+                  </p>
+                )}
+                <StartAfterField
+                  value={startAfter}
+                  onChange={setStartAfter}
+                  tz={tz}
+                  now={now}
+                  inherited={materiaStart ? describeStart(materiaStart, tz) : undefined}
+                  invalid={startWarning === AFTER_DUE}
+                  describedBy="start-error"
+                  summary={shown > 1}
                 />
-                <button type="button" className="btn small" onClick={addUnit}>
-                  Agregar
-                </button>
-              </div>
-              {partsSummary(partsMinutes) && (
-                <p className="meta" id="parts-sum" role="status" style={{ margin: "8px 0 0" }}>
-                  {partsSummary(partsMinutes)}
-                </p>
-              )}
-              {unitError && (
-                <p
-                  className="meta"
-                  id="unit-error"
-                  role={alertRole}
-                  style={{ color: "var(--critical)" }}
+                {startWarning === AFTER_DUE && (
+                  <p
+                    className="meta"
+                    id="start-error"
+                    role={alertRole}
+                    style={{ color: "var(--critical)" }}
+                  >
+                    {startWarning}
+                  </p>
+                )}
+                {startWarning && startWarning !== AFTER_DUE && (
+                  <p className="meta" role="status">
+                    {startWarning}
+                  </p>
+                )}
+                <label className="check" htmlFor={examId}>
+                  <input
+                    id={examId}
+                    type="checkbox"
+                    aria-labelledby={`${examId}-label`}
+                    checked={isExam}
+                    onChange={(e) => setIsExam(e.target.checked)}
+                  />
+                  <span id={`${examId}-label`}>
+                    Es un parcial: repaso espaciado (una semana, tres días y un día antes)
+                  </span>
+                </label>
+                {isExam && (
+                  <label className="check">
+                    <input
+                      type="checkbox"
+                      checked={dayBefore}
+                      onChange={(e) => setDayBefore(e.target.checked)}
+                    />
+                    <span>El día anterior, solo esta materia</span>
+                  </label>
+                )}
+                <div className="row">
+                  <label className="field" style={{ flex: 1 }} htmlFor={estimateId}>
+                    <span>Horas estimadas</span>
+                    <input
+                      id={estimateId}
+                      inputMode="decimal"
+                      value={estimateIn}
+                      disabled={units.length > 0}
+                      className={suggested ? "suggested" : undefined}
+                      aria-invalid={estimateShown ? true : undefined}
+                      aria-describedby={estimateShown ? "estimate-error" : undefined}
+                      onChange={(e) => setEstimate(e.target.value)}
+                    />
+                  </label>
+                  <label className="field" style={{ flex: 1 }} htmlFor={minimumId}>
+                    <span>Mínimo (horas)</span>
+                    <input
+                      id={minimumId}
+                      inputMode="decimal"
+                      value={minimum}
+                      className={suggested ? "suggested" : undefined}
+                      aria-invalid={minimumShown ? true : undefined}
+                      aria-describedby={minimumShown ? "minimum-error" : undefined}
+                      onChange={(e) => setMinimum(e.target.value)}
+                    />
+                  </label>
+                </div>
+                {suggested && learned && (
+                  <p className="meta" style={{ margin: 0 }}>
+                    {learnedNote(learned, isExam)}
+                  </p>
+                )}
+                <FieldError id="estimate-error" text={estimateShown} role={alertRole} />
+                <FieldError id="minimum-error" text={minimumShown} role={alertRole} />
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={hoursBlocked}
+                  onClick={() => setSharing(true)}
                 >
-                  {unitError}
-                </p>
+                  Repartir tiempo
+                </button>
+                <fieldset
+                  className="field"
+                  style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}
+                >
+                  <legend style={{ padding: 0 }}>Partes (opcional)</legend>
+                  <span className="meta" style={{ margin: 0 }}>
+                    Lo que falta se mide por partes hechas. Con peso, si no llegás se pueden dejar
+                    afuera las que menos pesan.
+                  </span>
+                  {units.map((u) => (
+                    <div key={u.id} className="check">
+                      <span
+                        style={{ flex: 1, textDecoration: u.doneAt ? "line-through" : undefined }}
+                      >
+                        {u.title}
+                      </span>
+                      <span>{u.estimateMinutes} min</span>
+                      <input
+                        inputMode="numeric"
+                        aria-label={`Peso de ${u.title} en el examen (%)`}
+                        placeholder="peso %"
+                        style={{ width: 64 }}
+                        value={u.weight ?? ""}
+                        onChange={(e) => {
+                          const n = Math.round(Number(e.target.value));
+                          const weight =
+                            e.target.value.trim() === "" || !Number.isFinite(n)
+                              ? undefined
+                              : Math.min(100, Math.max(0, n));
+                          setUnits(units.map((x) => (x.id === u.id ? { ...x, weight } : x)));
+                        }}
+                      />
+                      {u.skipped && <span className="meta">afuera</span>}
+                      <button
+                        type="button"
+                        aria-label={`Quitar ${u.title}`}
+                        onClick={() => setUnits(units.filter((x) => x.id !== u.id))}
+                      >
+                        <Marks.close />
+                      </button>
+                    </div>
+                  ))}
+                  <div className="row" style={{ marginTop: 8 }}>
+                    <input
+                      ref={unitInput}
+                      aria-label="Nueva parte: nombre y minutos entre paréntesis"
+                      value={unitTitle}
+                      aria-invalid={unitError ? true : undefined}
+                      aria-describedby={unitError ? "unit-error" : undefined}
+                      onChange={(e) => {
+                        setUnitTitle(e.target.value);
+                        setUnitError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        // Enter that confirms an IME character is not «add».
+                        if (e.key !== "Enter" || e.nativeEvent.isComposing || e.keyCode === 229)
+                          return;
+                        e.preventDefault();
+                        addUnit();
+                      }}
+                      placeholder="Práctico 5 (60)"
+                    />
+                    <button type="button" className="btn small" onClick={addUnit}>
+                      Agregar
+                    </button>
+                  </div>
+                  {partsSummary(partsMinutes) && (
+                    <p className="meta" id="parts-sum" role="status" style={{ margin: "8px 0 0" }}>
+                      {partsSummary(partsMinutes)}
+                    </p>
+                  )}
+                  {unitError && (
+                    <p
+                      className="meta"
+                      id="unit-error"
+                      role={alertRole}
+                      style={{ color: "var(--critical)" }}
+                    >
+                      {unitError}
+                    </p>
+                  )}
+                </fieldset>
+              </>
+            ) : (
+              <div className="row">
+                <label className="field" style={{ flex: 1 }}>
+                  <span>Veces por semana</span>
+                  <input
+                    inputMode="numeric"
+                    value={sessions}
+                    aria-invalid={habit.times ? true : undefined}
+                    aria-describedby={habit.times ? "times-error" : undefined}
+                    onChange={(e) => setSessions(e.target.value)}
+                  />
+                </label>
+                <label className="field" style={{ flex: 1 }}>
+                  <span>Minutos por vez</span>
+                  <input
+                    inputMode="numeric"
+                    value={sessionMin}
+                    aria-invalid={habit.minutes ? true : undefined}
+                    aria-describedby={habit.minutes ? "session-error" : undefined}
+                    onChange={(e) => setSessionMin(e.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+            {kind === "habit" && (
+              <>
+                <FieldError id="times-error" text={habit.times} role={alertRole} />
+                <FieldError id="session-error" text={habit.minutes} role={alertRole} />
+                {rounding && <Help id="session-rounding" text={rounding} />}
+              </>
+            )}
+            {ownRoutine && kind === "habit" && (
+              <>
+                <RoutineHours
+                  form={hoursForm}
+                  onChange={setHoursForm}
+                  problems={hoursRead.problems}
+                  errorId="hours-error"
+                />
+                <FieldError
+                  id="hours-error"
+                  text={hoursSummary(hoursRead.problems)}
+                  role={alertRole}
+                />
+              </>
+            )}
+            <label className="field">
+              <span>Prioridad</span>
+              <select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
+                <option value={1}>Baja (se recorta primero)</option>
+                <option value={2}>Media</option>
+                <option value={3}>Alta</option>
+              </select>
+            </label>
+            {task?.sourceEventId && (
+              <button
+                type="button"
+                className="btn"
+                style={{ width: "100%" }}
+                onClick={() => {
+                  answer(
+                    "Vuelve a las horas por defecto",
+                    { type: "resetDetected", taskId: task.id },
+                    PLAN_KEYS,
+                    {
+                      tasks: [data.tasks.find((t) => t.id === task.id) ?? task],
+                    },
+                  );
+                  done();
+                }}
+              >
+                Volver a las horas por defecto
+              </button>
+            )}
+            {shown > 1 && (
+              <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
+                Hay {shown} campos para corregir: están marcados arriba.
+              </p>
+            )}
+            <div className="row">
+              {task && (
+                <button
+                  type="button"
+                  className="btn missed"
+                  onClick={() => {
+                    dispatch({ type: "saveTask", task: { ...task, status: "dropped" } });
+                    toast.show(`${clipName(task.title)} archivada`, {
+                      full: `${task.title} archivada`,
+                      undo: () =>
+                        dispatch({
+                          type: "unarchive",
+                          taskId: task.id,
+                          status: task.status === "done" ? "done" : "active",
+                        }),
+                    });
+                    done();
+                  }}
+                >
+                  Archivar
+                </button>
               )}
-            </fieldset>
-          </>
-        ) : (
-          <div className="row">
-            <label className="field" style={{ flex: 1 }}>
-              <span>Veces por semana</span>
-              <input
-                inputMode="numeric"
-                value={sessions}
-                aria-invalid={habit.times ? true : undefined}
-                aria-describedby={habit.times ? "times-error" : undefined}
-                onChange={(e) => setSessions(e.target.value)}
-              />
-            </label>
-            <label className="field" style={{ flex: 1 }}>
-              <span>Minutos por vez</span>
-              <input
-                inputMode="numeric"
-                value={sessionMin}
-                aria-invalid={habit.minutes ? true : undefined}
-                aria-describedby={habit.minutes ? "session-error" : undefined}
-                onChange={(e) => setSessionMin(e.target.value)}
-              />
-            </label>
-          </div>
-        )}
-        {kind === "habit" && (
-          <>
-            <FieldError id="times-error" text={habit.times} role={alertRole} />
-            <FieldError id="session-error" text={habit.minutes} role={alertRole} />
-            {rounding && <Help id="session-rounding" text={rounding} />}
+              <button
+                type="button"
+                className="btn primary"
+                aria-disabled={startBlocked || hoursBlocked ? true : undefined}
+                onClick={save}
+              >
+                Guardar
+              </button>
+            </div>
           </>
         )}
-        {ownRoutine && kind === "habit" && (
-          <>
-            <RoutineHours
-              form={hoursForm}
-              onChange={setHoursForm}
-              problems={hoursRead.problems}
-              errorId="hours-error"
-            />
-            <FieldError id="hours-error" text={hoursSummary(hoursRead.problems)} role={alertRole} />
-          </>
-        )}
-        <label className="field">
-          <span>Prioridad</span>
-          <select value={priority} onChange={(e) => setPriority(Number(e.target.value))}>
-            <option value={1}>Baja (se recorta primero)</option>
-            <option value={2}>Media</option>
-            <option value={3}>Alta</option>
-          </select>
-        </label>
-        {task?.sourceEventId && (
-          <button
-            type="button"
-            className="btn"
-            style={{ width: "100%" }}
-            onClick={() => {
-              answer(
-                "Vuelve a las horas por defecto",
-                { type: "resetDetected", taskId: task.id },
-                PLAN_KEYS,
-                {
-                  tasks: [data.tasks.find((t) => t.id === task.id) ?? task],
-                },
-              );
-              done();
-            }}
-          >
-            Volver a las horas por defecto
-          </button>
-        )}
-        {shown > 1 && (
-          <p className="meta" role="alert" style={{ color: "var(--critical)" }}>
-            Hay {shown} campos para corregir: están marcados arriba.
-          </p>
-        )}
-        <div className="row">
-          {task && (
-            <button
-              type="button"
-              className="btn missed"
-              onClick={() => {
-                dispatch({ type: "saveTask", task: { ...task, status: "dropped" } });
-                toast.show(`${clipName(task.title)} archivada`, {
-                  full: `${task.title} archivada`,
-                  undo: () =>
-                    dispatch({
-                      type: "unarchive",
-                      taskId: task.id,
-                      status: task.status === "done" ? "done" : "active",
-                    }),
-                });
-                done();
-              }}
-            >
-              Archivar
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn primary"
-            aria-disabled={startBlocked || hoursBlocked ? true : undefined}
-            onClick={save}
-          >
-            Guardar
-          </button>
-        </div>
       </div>
-      {asking && <ConfirmDiscard onDiscard={done} onKeep={() => setAsking(false)} />}
+      {asking && (
+        <ConfirmDiscard
+          onDiscard={() => {
+            if (routineDirty) routineDraft[2](emptyRoutineDraft());
+            done();
+          }}
+          onKeep={() => setAsking(false)}
+        />
+      )}
       {sharing && (
         <Repartir
           task={{

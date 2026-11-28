@@ -150,3 +150,34 @@ export function markLegacyStudy(data: AppData): AppData {
   });
   return changed ? { ...data, tasks } : data;
 }
+
+/**
+ * A habit made from «Nueva › Hábito semanal» before it was a routine got its own activity with
+ * no kind (it showed in Materias, with study fields). A habit is a routine: such an activity
+ * is read as one, with the limits a routine of those minutes gets (`saveRoutine`). Only an
+ * activity with nothing but one active habit of its own, never a weekly study nor an entrega.
+ * Derived on every load: nothing is rewritten in the database.
+ */
+export function habitsAsRoutines(data: AppData): AppData {
+  let changed = false;
+  const activities = data.activities.map((a) => {
+    if (a.kind || a.academic || isNoSubject(a)) return a;
+    const own = data.tasks.filter((t) => t.activityId === a.id);
+    const habit = own.find((t) => t.kind === "habit" && t.status === "active");
+    if (!habit?.sessionMinutes || own.some((t) => t.kind !== "habit" || t.study)) return a;
+    changed = true;
+    return {
+      ...a,
+      kind: "rutina" as const,
+      maxSessionMinutes: Math.max(habit.sessionMinutes, 30),
+      minBlockMinutes: Math.min(habit.sessionMinutes, 60),
+    };
+  });
+  if (!changed) return data;
+  const routine = new Set(activities.filter((a) => a.kind === "rutina").map((a) => a.id));
+  return {
+    ...data,
+    activities,
+    tasks: data.tasks.map((t) => (routine.has(t.activityId) ? fitRoutine(t) : t)),
+  };
+}

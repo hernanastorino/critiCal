@@ -98,6 +98,7 @@ import { refresh } from "./refresh.js";
 import {
   aliasFrom,
   fitRoutine,
+  habitsAsRoutines,
   isNoSubject,
   markLegacyStudy,
   sameName,
@@ -1776,10 +1777,10 @@ const LEGACY_STORAGE_KEY = "critical.demo.v1";
 export function loadDemo(now: number): AppData {
   try {
     const raw = globalThis.localStorage?.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as AppData;
+    if (raw) return habitsAsRoutines(JSON.parse(raw) as AppData);
     const legacy = globalThis.localStorage?.getItem(LEGACY_STORAGE_KEY);
     if (legacy) {
-      const data = markLegacyStudy(JSON.parse(legacy) as AppData);
+      const data = habitsAsRoutines(markLegacyStudy(JSON.parse(legacy) as AppData));
       try {
         globalThis.localStorage?.setItem(STORAGE_KEY, JSON.stringify(data));
         // Only once the new copy is stored does the old one go.

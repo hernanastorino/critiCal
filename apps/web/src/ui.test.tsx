@@ -6,7 +6,6 @@ import { demoSinRutina as demoData } from "./demoSinRutina.js";
 import { zonedInstant } from "./engine.js";
 import { loadDemo, resetDemo, seedHistory } from "./store.js";
 import { tapDone } from "./testDone.js";
-import { pickMateria } from "./testing.js";
 
 const NOW = zonedInstant(TIMEZONE, "2026-11-02", 17 * 60 + 50);
 // 2026-11-02 is a holiday (Difuntos); the demo here is an ordinary Monday.
@@ -134,23 +133,11 @@ describe("app", () => {
 
     fireEvent.click(screen.getByLabelText("Nueva actividad"));
     fireEvent.click(screen.getByText("Hábito semanal"));
-    pickMateria();
-    fireEvent.change(screen.getByPlaceholderText("Leer 30 min"), {
-      target: { value: "Correr" },
-    });
-    fireEvent.click(screen.getByText("Guardar"));
-    expect(screen.getByLabelText(/Correr: faltan/)).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText(/Correr: faltan/));
-    fireEvent.click(screen.getByText("Editar"));
-    fireEvent.click(screen.getByText("Archivar"));
-    expect(screen.queryByLabelText(/Correr: faltan/)).toBeNull();
-    // «Deshacer» brings it back.
-    fireEvent.click(screen.getByText("Deshacer"));
-    expect(screen.getByLabelText(/Correr: faltan/)).toBeTruthy();
-    // A habit's sheet does not ask for topics.
-    fireEvent.click(screen.getByLabelText(/Correr: faltan/));
-    expect(screen.queryByText("Temas en total")).toBeNull();
+    // A habit is a routine: the form is the one of Ajustes › Rutinas.
+    expect(screen.queryByLabelText("Materia o actividad")).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Gimnasio"), { target: { value: "Correr" } });
+    fireEvent.click(screen.getByText("Agregar rutina"));
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("hides silos due before this week behind «Ver anteriores»", () => {
