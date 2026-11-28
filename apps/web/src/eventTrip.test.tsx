@@ -161,8 +161,8 @@ describe("el plan de ómnibus", () => {
 
   it("una línea por tramo con la hora de salida y las líneas en orden", () => {
     show(ok);
-    expect(screen.getByText("Ida · salís 08:10 · 128")).toBeTruthy();
-    expect(legLine("Ida", ok.options[0] as TransitOption)).toBe("Ida · salís 08:10 · 128");
+    expect(screen.getByText("Ida · salís 08:10 · línea 128")).toBeTruthy();
+    expect(legLine("Ida", ok.options[0] as TransitOption)).toBe("Ida · salís 08:10 · línea 128");
     const two = {
       ...(ok.options[0] as TransitOption),
       legs: [
@@ -170,7 +170,7 @@ describe("el plan de ómnibus", () => {
         { ...(ok.options[0] as TransitOption).legs[0], line: "710" },
       ],
     } as TransitOption;
-    expect(legLine("Vuelta", two)).toBe("Vuelta · salís 08:10 · 128 → 710");
+    expect(legLine("Vuelta", two)).toBe("Vuelta · salís 08:10 · líneas 128 y 710");
   });
 
   it("el detalle trae línea, parada y hora de pasada; la fuente ya no va en la tarjeta", () => {

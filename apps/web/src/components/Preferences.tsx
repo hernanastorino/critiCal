@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { DEFAULTS } from "../calendars.js";
 import { useDraft } from "../drafts.js";
 import type { DaySettings, Meal, MealKind } from "../engine.js";
-import { hhmmToMinutes, minutesToHhmm } from "../format.js";
+import { hhmmToMinutes, minutesToHhmm, parseHoursText } from "../format.js";
 import type { AppTask, DetectedKind, Effort } from "../model.js";
 import { mealsOf } from "../planning.js";
 import { describeHours } from "../routineHours.js";
@@ -366,7 +366,7 @@ function ruleProblem(form: {
     };
   if (!whole(form.margin, 0, 240))
     return { field: "margin", message: "El margen son minutos enteros, de 0 a 240." };
-  if (!isFigure(form.warn) || Number(form.warn.replace(",", ".")) > 168)
+  if (!(parseHoursText(form.warn) <= 168))
     return {
       field: "warn",
       message: "El aviso va de 0 a 168 horas, solo cifras (se aceptan decimales).",
@@ -538,7 +538,7 @@ export function DetectedDefaults() {
               <label className="field">
                 <span>Horas</span>
                 <input
-                  inputMode="decimal"
+                  inputMode="text"
                   aria-label={`Horas de ${label}`}
                   value={form[kind]?.estimate}
                   aria-invalid={problem?.field === "estimate" ? true : undefined}
@@ -549,7 +549,7 @@ export function DetectedDefaults() {
               <label className="field">
                 <span>Mínimo</span>
                 <input
-                  inputMode="decimal"
+                  inputMode="text"
                   aria-label={`Mínimo de ${label}`}
                   value={form[kind]?.min}
                   aria-invalid={problem?.field === "min" ? true : undefined}

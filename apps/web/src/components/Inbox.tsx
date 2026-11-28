@@ -38,6 +38,7 @@ import { nameTaken, spotFor, spotKey } from "../places.js";
 import {
   applyOption,
   DECISIONS_SHOWN_MS,
+  earlyTripText,
   endOfDay,
   MEAL_NAMES,
   mealOffers,
@@ -129,6 +130,7 @@ export function Inbox({
     unlocated,
     pinShort,
     routineShort,
+    earlyTrips,
     clashes,
     missedMeals,
     dispatch,
@@ -203,6 +205,7 @@ export function Inbox({
       unlocated,
       pinShort,
       routineShort,
+      earlyTrips,
       clashes,
       missedMeals,
       asked: { choose: decisions.hasOptions, recommendations: decisions.recommendations },
@@ -485,6 +488,16 @@ export function Inbox({
                 Editar rutina
               </button>
             )}
+          </div>
+        ))}
+
+        {earlyTrips.length > 0 && <div className="section-title">Traslado antes de levantarte</div>}
+        {earlyTrips.map((t) => (
+          <div key={t.event.id} className="card" data-block-id={t.event.id}>
+            <div className="title">
+              {clipName(t.event.title)} · {dayAndTime(tz, t.event.start)}
+            </div>
+            <p className="meta">{earlyTripText(tz, t)}</p>
           </div>
         ))}
 

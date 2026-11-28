@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { dropDrafts, dropEditorDraftOf, useDraft } from "../drafts.js";
 import type { Activity } from "../engine.js";
-import { clipName, minutesToHhmm, parseClock } from "../format.js";
+import { clipName, minutesToHhmm, parseClock, parseHoursText } from "../format.js";
 import { isBlank, NAME_MAX, stripInvisible } from "../limits.js";
 import { nextColor, PALETTE } from "../model.js";
 import { type RemovedActivity, removedWith, useStore } from "../store.js";
@@ -270,10 +270,9 @@ function ActivityRow({
   // A draft waiting there opens the row on it.
   const [open, setOpen] = useState(dirty || !!open0);
   const studies = subjectsOf(data).some((a) => a.id === activity.id);
-  const hours = Number(weekly.replace(",", "."));
+  const hours = parseHoursText(weekly);
   // Blank means none; at most a whole week.
-  const hoursOk =
-    !studies || weekly.trim() === "" || (isFigure(weekly) && hours >= 0 && hours <= 168);
+  const hoursOk = !studies || weekly.trim() === "" || (hours >= 0 && hours <= 168);
   // Something above zero that rounds to no minute would be dropped without a word.
   const hoursTiny = hoursOk && studies && weekly.trim() !== "" && hours > 0 && hours * 60 < 1;
   // Two «Nadar» would be told apart by nothing (adding one is refused the same way).

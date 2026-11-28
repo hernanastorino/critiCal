@@ -1,6 +1,7 @@
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { Connected } from "./Connected.js";
+import { BusPrefetch } from "./components/BusPrefetch.js";
 import { Celebrations } from "./components/Celebrations.js";
 import { resumeFirstSteps } from "./components/FirstSteps.js";
 import { Inbox } from "./components/Inbox.js";
@@ -97,6 +98,7 @@ export function Shell({
     // The one notice area of the app, above the tab bar.
     <ToastProvider>
       <Celebrations />
+      <BusPrefetch />
       {resetUndo && <ResetNotice undo={resetUndo} />}
       <div className="app">
         {/* Hidden until the keyboard lands on it (WCAG 2.4.1): the tabs come after the screen. */}
@@ -179,6 +181,10 @@ export function Shell({
             onClose={() => {
               setWeekly(false);
               if (weeklyFromSettings) setSettings(true);
+              setWeeklyFromSettings(false);
+            }}
+            onDone={() => {
+              setWeekly(false);
               setWeeklyFromSettings(false);
             }}
             onInbox={() => {

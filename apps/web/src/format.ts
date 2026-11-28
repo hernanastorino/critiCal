@@ -57,6 +57,26 @@ export function hours(minutes: number): string {
   return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, "0")}`;
 }
 
+const HOURS_FIGURE = /^\s*(\d+(?:[.,]\d+)?)\s*$/;
+const HOURS_CLOCK =
+  /^\s*(\d+)\s*(?:(?:h|hs|hora|horas)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutos)?)?|:\s*(\d{1,2}))\s*$/i;
+
+/**
+ * Hours as typed in any hours field: «3», «3,5», «3.5», «3h», «3h15», «3h 15», «3:15», «3h15m».
+ * Full-width digits count as their ASCII ones. NaN when it is not hours (letters, signs,
+ * exponents) or the minutes after the «h» or the colon are not 0–59.
+ */
+export function parseHoursText(v: string): number {
+  const text = v.normalize("NFKC");
+  const plain = HOURS_FIGURE.exec(text);
+  if (plain) return Number(String(plain[1]).replace(",", "."));
+  const m = HOURS_CLOCK.exec(text);
+  if (!m) return Number.NaN;
+  const min = m[2] ?? m[3];
+  const extra = min === undefined ? 0 : Number(min);
+  return extra <= 59 ? Number(m[1]) + extra / 60 : Number.NaN;
+}
+
 /** A time of day as a time field writes it: «07:30», never «25:99» or «abc». */
 export const isHhmm = (v: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
 

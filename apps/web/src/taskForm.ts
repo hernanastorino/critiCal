@@ -1,6 +1,6 @@
 // What the silo form checks before saving: each problem is said beside its field.
 import { DEFAULTS, detectedRole } from "./calendars.js";
-import { hours } from "./format.js";
+import { hours, parseHoursText } from "./format.js";
 import { MAX_HOURS, TITLE_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppData } from "./model.js";
 import { validRoutine } from "./subjects.js";
@@ -41,9 +41,6 @@ export { MAX_HOURS, UNIT_MINUTES_MAX };
 /** The most minutes of one session of a weekly habit: a whole day. */
 export const MAX_SESSION_MINUTES = 1440;
 
-/** A plain non-negative figure («2», «1,5»): no signs, letters or exponents. */
-const figure = (v: string) => /^\s*\d+(?:[.,]\d+)?\s*$/.test(v);
-
 /**
  * Minutes as the hours a field shows, the way the app writes them: «5,42» for 5 h 25, «11,5», not the fifteen digits of the
  * division. Two decimals are at most 18 s off, so reading it back gives the same minute.
@@ -52,8 +49,7 @@ export const hoursField = (minutes: number): string =>
   String(Math.round((minutes / 60) * 100) / 100).replace(".", ",");
 
 /** Hours as typed, or NaN if they are not a valid figure. */
-export const typedHours = (v: string): number =>
-  figure(v) ? Number(v.replace(",", ".")) : Number.NaN;
+export const typedHours = parseHoursText;
 
 /** Hours that are 0, or so few that they round to 0 minutes («0,004»). */
 export const isZeroHours = (v: string): boolean => {
@@ -112,14 +108,14 @@ export function minimumProblem(minimum: string, estimateHours: number): string |
     : null;
 }
 
-/** What a part's parentheses may say: «90», «90 min», «2h», «1h30», «1h 30 min», «1,5h». */
+/** What a part's parentheses may say: «90», «90 min», «90'», «2h», «1h30», «1h 30 min», «1,5h», «1:30». */
 const DURATION =
-  /^(\d+(?:[.,]\d+)?)\s*(?:(?:(h|hs|hora|horas)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutos)?)?)|(?:(m|min|mins|minutos)?))$/i;
+  /^(\d+(?:[.,]\d+)?)\s*(?:(?:(h|hs|hora|horas|:)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutos)?)?)|(?:(m|min|mins|minutos|')?))$/i;
 
 /** Parentheses that start with a figure and say nothing but time are meant as the minutes. */
-const TIME_LIKE = /^[-+]?\d[\d\s.,]*(?:(?:h|hs|hora|horas|m|min|mins|minutos)[\d\s.,]*)*$/i;
+const TIME_LIKE = /^[-+]?\d[\d\s.,:]*(?:(?:h|hs|hora|horas|m|min|mins|minutos|')[\d\s.,:]*)*$/i;
 
-const MINUTES_HELP = `Los minutos entre paréntesis: «(90)», «(90 min)», «(2h)» o «(1h30)», de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX} minutos, como «Práctico 5 (60)».`;
+const MINUTES_HELP = `Los minutos entre paréntesis: «(90)», «(90 min)», «(2h)», «(1h30)» o «(1:30)», de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX} minutos, como «Práctico 5 (60)». Después de la h van de 0 a 59.`;
 
 /** Minutes of what a part's parentheses say, NaN when they are time but cannot be read. */
 function typedMinutes(inner: string): number {
@@ -127,8 +123,10 @@ function typedMinutes(inner: string): number {
   if (!m) return Number.NaN;
   const n = Number(String(m[1]).replace(",", "."));
   if (!m[2]) return Number.isInteger(n) ? n : Number.NaN;
+  // «1:30» needs its minutes; the ones after an «h» are 0–59.
+  if (m[2] === ":" && m[3] === undefined) return Number.NaN;
   const extra = m[3] === undefined ? 0 : Number(m[3]);
-  return Math.round(n * 60) + extra;
+  return extra <= 59 ? Math.round(n * 60) + extra : Number.NaN;
 }
 
 /**
@@ -142,7 +140,8 @@ export function parseUnit(
 ): { title: string; minutes: number } | { error: string } | null {
   if (!text.trim()) return null;
   const m = text.match(/^(.*?)\s*\(\s*([^()]*?)\s*\)\s*$/);
-  const inner = m?.[2] ?? "";
+  // Full-width digits («２h») are read as the ordinary ones.
+  const inner = (m?.[2] ?? "").normalize("NFKC");
   const timed = !!m && TIME_LIKE.test(inner);
   const title = (timed ? (m?.[1] ?? "") : text).trim();
   if (title.length > TITLE_MAX) {

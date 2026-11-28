@@ -8,7 +8,17 @@ import { Marks } from "./icons.js";
 import { useModal } from "./modal.js";
 
 /** Sunday's five minutes: the week ahead, what is critical and what needs a decision. */
-export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox: () => void }) {
+export function WeeklyPlan({
+  onClose,
+  onDone = onClose,
+  onInbox,
+}: {
+  /** The ✕ or Escape: back to where it was opened from. */
+  onClose: () => void;
+  /** «Cerrar resumen»: done, closes everything (Ajustes too, if that is where it came from). */
+  onDone?: () => void;
+  onInbox: () => void;
+}) {
   const { data, now, result, inboxCount, decisions, dispatch } = useStore();
   const tz = data.settings.timezone;
   const dates = weekToPlan(data, now);
@@ -164,7 +174,7 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
                 type: "settings",
                 settings: { ...data.settings, weekPlannedFor: dates[0] },
               });
-            onClose();
+            onDone();
           }}
         >
           Cerrar resumen

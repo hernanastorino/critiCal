@@ -70,6 +70,8 @@ import {
   applyOption,
   type Decisions,
   decisions,
+  type EarlyTrip,
+  earlyTrips,
   endOfDay,
   endOfWeek,
   freezeMeals,
@@ -1874,6 +1876,8 @@ interface Store {
   pinShort: ReturnType<typeof pinShortfall>;
   /** Routines the week has no room for whole. */
   routineShort: RoutineShort[];
+  /** Upcoming events whose trip begins before getting up. */
+  earlyTrips: EarlyTrip[];
   /** What a routine's week (the one `weekAt` is in, default this one) holds: its count. */
   routineWeek: (taskId: string, weekAt?: number) => RoutineWeek | undefined;
   /** Upcoming pins a calendar event overlaps. */
@@ -1987,6 +1991,7 @@ export function StoreProvider({
     const routineShort = routineShortfalls(data, now, data.plan, r.input);
     const clashes = pinClashes(data, now, r.input);
     const meals = missedMeals(data, now);
+    const early = earlyTrips(data, now);
     return {
       data,
       now,
@@ -2004,6 +2009,7 @@ export function StoreProvider({
       unlocated: where,
       pinShort,
       routineShort,
+      earlyTrips: early,
       routineWeek: (taskId, weekAt = now) => {
         const task = data.tasks.find((t) => t.id === taskId);
         // Only the week under way and the next one are planned: a past week has no plan to count.
@@ -2023,6 +2029,7 @@ export function StoreProvider({
           unlocated: where,
           pinShort,
           routineShort,
+          earlyTrips: early,
           clashes,
           missedMeals: meals,
           asked: counted.current ?? { choose: false, recommendations: [] },

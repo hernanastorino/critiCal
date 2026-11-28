@@ -3,7 +3,7 @@
 import { localParts } from "./engine.js";
 import { uruguayHolidays } from "./holidays.js";
 import type { AppData, AppEvent, Place, TravelMode } from "./model.js";
-import { home, placeOfEvent } from "./places.js";
+import { goesByBus, home, placeOfEvent } from "./places.js";
 import {
   type BusLeg,
   type Coords,
@@ -129,4 +129,34 @@ export function stepsOf(option: TransitOption): BusStep[] {
 /** "Salí a las 08:10 · llegás a las 08:52 (42 min)". */
 export function summaryOf(option: TransitOption): string {
   return `Salí a las ${hhmm(option.leaveMin)} · llegás a las ${hhmm(option.arriveMin)} (${option.totalMinutes} min)`;
+}
+
+/** How far ahead the app asks for the bus minutes by itself (SPEC §15). */
+export const PREFETCH_DAYS = 7;
+
+/** The key of an event's question: the figures only hold for the start they were asked for. */
+export const askKey = (e: AppEvent) => `${e.id}:${e.start}`;
+
+/**
+ * The events going by bus in the next days that have no figures for their start yet (neither
+ * way, or only the way there), soonest first, except the `skip`ped ones (already asked).
+ * Only those whose two ends can be asked: saved places with coordinates in the area.
+ */
+export function busTripsToAsk(
+  data: AppData,
+  now: number,
+  skip: ReadonlySet<string> = new Set(),
+): AppEvent[] {
+  const until = now + PREFETCH_DAYS * 86_400_000;
+  return data.events
+    .filter((e) => {
+      if (!e.busy || e.allDay || e.end <= now || e.start >= until || skip.has(askKey(e))) {
+        return false;
+      }
+      const saved = data.tripMinutes?.[e.id];
+      if (saved?.start === e.start && saved.back !== undefined) return false;
+      const trip = goesByBus(data, e) ? tripOf(data, e) : undefined;
+      return !!trip && unlocatedEnd(trip) === null;
+    })
+    .sort((a, b) => a.start - b.start);
 }

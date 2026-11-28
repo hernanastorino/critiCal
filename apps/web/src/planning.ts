@@ -37,7 +37,7 @@ import {
   weekdayOf,
   zonedInstant,
 } from "./engine.js";
-import { hours } from "./format.js";
+import { hours, time } from "./format.js";
 import { withHolidays } from "./holidays.js";
 import { withLateNight } from "./lateNight.js";
 import {
@@ -780,6 +780,36 @@ export function wakingDay(data: AppData, now: number, date: string) {
   const rawBed = o?.bed ?? routine?.bed ?? 1440;
   return { wake, bed: rawBed <= wake ? rawBed + 1440 : rawBed };
 }
+
+/** An upcoming event whose trip starts before the person gets up that day. */
+export interface EarlyTrip {
+  event: AppEvent;
+  /** When the plan reserves the trip to begin. */
+  start: number;
+}
+
+/**
+ * The upcoming events whose trip (as the plan reserves it) begins before that day's wake-up
+ * time (SPEC §15). The wake-up time is not changed: the card and the Bandeja say it.
+ */
+export function earlyTrips(data: AppData, now: number): EarlyTrip[] {
+  const tz = data.settings.timezone;
+  const trips = travelIntervals(data);
+  if (trips.length === 0) return [];
+  return visibleEvents(data).flatMap((event) => {
+    if (!event.busy || event.allDay || event.end <= now) return [];
+    const trip = trips.find((i) => i.end === event.start);
+    if (!trip) return [];
+    const date = localParts(tz, event.start).date;
+    const wakeAt = zonedInstant(tz, date, wakingDay(data, now, date).wake);
+    // An event before the wake-up itself (a night shift) is not what this says.
+    return trip.start < wakeAt && event.start >= wakeAt ? [{ event, start: trip.start }] : [];
+  });
+}
+
+/** «Para llegar tenés que salir 07:08, antes de levantarte». */
+export const earlyTripText = (tz: string, trip: EarlyTrip): string =>
+  `Para llegar tenés que salir ${time(tz, trip.start)}, antes de levantarte`;
 
 /**
  * Where each meal between `from` and `to` happens: at its time unless a fixed event,

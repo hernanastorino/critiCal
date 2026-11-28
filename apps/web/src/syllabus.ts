@@ -2,6 +2,7 @@
 // turned into tasks once the user confirms the preview.
 import { DEFAULTS } from "./calendars.js";
 import { type Activity, zonedInstant } from "./engine.js";
+import { parseHoursText } from "./format.js";
 import { ESTIMATE_MINUTES_MAX, UNIT_MINUTES_MAX, UNIT_MINUTES_MIN } from "./limits.js";
 import type { AppTask } from "./model.js";
 
@@ -81,7 +82,7 @@ function realDate(x: unknown): x is string {
 
 /** Hours typed in the preview: finite, 0 to 200, half-hour steps. */
 export function editedHours(v: string): number {
-  return clampHours(Number(v.replace(",", ".")));
+  return clampHours(parseHoursText(v));
 }
 
 const text = (t: unknown, max = 120) => (typeof t === "string" ? t.trim().slice(0, max) : "");
