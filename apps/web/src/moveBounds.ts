@@ -1,6 +1,7 @@
-import { localParts, MINUTE, zonedInstant } from "./engine.js";
+import { localParts, MINUTE, type PlanBlock, weekdayOf, zonedInstant } from "./engine.js";
+import { weekdayLong } from "./format.js";
 import type { AppData, AppTask } from "./model.js";
-import { wakingDay } from "./planning.js";
+import { isRoutine, pinBlock, refreshPlan, wakingDay } from "./planning.js";
 
 /** Where a block may sit on a day, in minutes since that day's midnight. */
 export interface MoveBounds {
@@ -46,4 +47,32 @@ export function moveRefusal(bounds: MoveBounds, minute: number, minutes: number)
   }
   if (minute < bounds.from || minute + minutes > bounds.to) return "Fuera de tu horario de estudio";
   return null;
+}
+
+/** «los domingos», «los lunes»: the weekday in the plural, as a routine says it does not go. */
+const plural = (day: string) => (day.endsWith("o") ? `${day}s` : day);
+
+/**
+ * Why a routine's block cannot be pinned at `start`: its valid hours (SPEC §5) say it does
+ * not go that day («No ese día»), or pinned there the plan would not keep it. Null when it
+ * can: other blocks, and a franja that is only a preference, stay where they are put.
+ */
+export function pinRefusal(
+  data: AppData,
+  now: number,
+  block: PlanBlock,
+  start: number,
+): string | null {
+  const task = data.tasks.find((t) => t.id === block.taskId);
+  if (!task || !isRoutine(data, task)) return null;
+  const tz = data.settings.timezone;
+  const hours = data.activities.find((a) => a.id === task.activityId)?.validHours;
+  if (hours?.days?.[weekdayOf(localParts(tz, start).date)] === null) {
+    return `${task.title} no va los ${plural(weekdayLong(tz, start))}: vuelve a su lugar`;
+  }
+  // Whatever else would drop it from the plan: it goes back instead of vanishing.
+  const pin = pinBlock(block, start);
+  const next = { ...data, pins: [...(data.pins ?? []).filter((p) => p.id !== block.id), pin] };
+  const kept = refreshPlan(next, now).plan.some((b) => b.id === pin.id);
+  return kept ? null : `${task.title} no entra ahí: vuelve a su lugar`;
 }
