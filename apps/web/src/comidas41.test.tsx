@@ -143,8 +143,14 @@ describe("2. Las comidas guardan su orden", () => {
 
   it.each(NOWS)("%s: mealOutOfOrder dice cuándo pasa a otra comida", (_n, now) => {
     const d = demoData(now);
-    const day = dayOf(now);
-    const meals = mealTimes(d, now, at(day, 0), at(day, 1440)).filter((m) => m.date === day);
+    // El primer día que viene con almuerzo y cena (algún día de la demo puede no tener las dos).
+    const mealsOf = (day: string) =>
+      mealTimes(d, now, at(day, 0), at(day, 1440)).filter((m) => m.date === day);
+    const both = (day: string) =>
+      ["almuerzo", "cena"].every((k) => mealsOf(day).some((m) => m.kind === k && m.at));
+    const days = [1, 2, 3, 4, 5, 6, 7].map((n) => addDays(localParts(TIMEZONE, now).date, n));
+    const day = days.find(both) ?? dayOf(now);
+    const meals = mealsOf(day);
     const lunch = meals.find((m) => m.kind === "almuerzo");
     const dinner = meals.find((m) => m.kind === "cena");
     expect(lunch?.at && dinner?.at).toBeTruthy();
