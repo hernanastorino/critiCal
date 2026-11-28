@@ -633,6 +633,7 @@ export function Inbox({
                       kind: o.kind,
                       start: here,
                       asked: true,
+                      label: `dejar ${name} ahí`,
                     })
                   }
                 >
@@ -982,7 +983,12 @@ function WhereCard({
           : "Minutos de 0 a 1440; con coma o punto se redondea."}
       </p>
       <label className="check">
-        <input type="checkbox" checked={save} onChange={(e) => setSave(e.target.checked)} />
+        <input
+          type="checkbox"
+          checked={save}
+          aria-label={`Guardar como lugar la dirección de ${item.event.title.slice(0, 40)}`}
+          onChange={(e) => setSave(e.target.checked)}
+        />
         <span>Guardar como lugar</span>
       </label>
       {save && (

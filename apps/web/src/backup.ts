@@ -2,7 +2,10 @@
 import { needsNewIds, withNewIds } from "./backupIds.js";
 import { backupProblem, dropBadExtras } from "./backupNamed.js";
 import { dayProblem, settingsProblem, shapeOk, weekProblem } from "./backupRules.js";
+import { cleanBackupTexts } from "./backupText.js";
 import {
+  BACKUP_EVENTS_MAX,
+  BACKUP_TASKS_MAX,
   BACKUP_TEXT_MAX,
   deadlineInRange,
   deadlineMaxYear,
@@ -113,6 +116,18 @@ function linksProblem(d: AppData): string | null {
   return checks.find(([bad]) => bad)?.[1] ?? null;
 }
 
+/** A file with more than a person could have made is refused before anything is worked on (it would freeze the page). */
+function sizeProblem(data: Task): string | null {
+  const count = (x: unknown) => (Array.isArray(x) ? x.length : 0);
+  if (count(data.events) > BACKUP_EVENTS_MAX) {
+    return `El respaldo tiene ${count(data.events)} eventos: el máximo son ${BACKUP_EVENTS_MAX}.`;
+  }
+  if (count(data.tasks) > BACKUP_TASKS_MAX) {
+    return `El respaldo tiene ${count(data.tasks)} tareas: el máximo son ${BACKUP_TASKS_MAX}.`;
+  }
+  return null;
+}
+
 /** The file's contents when it is a backup this version reads, or what is wrong with it. */
 function readFile(text: string): { raw: Task; version: number } | { error: string } {
   let parsed: { app?: unknown; version?: unknown; data?: unknown } | null;
@@ -125,9 +140,9 @@ function readFile(text: string): { raw: Task; version: number } | { error: strin
   if (app !== "critiCal" || typeof version !== "number" || !isRecord(data)) {
     return { error: "No es un respaldo de critiCal." };
   }
-  return version > BACKUP_VERSION
-    ? { error: "El respaldo es de una versión más nueva." }
-    : { raw: data, version };
+  if (version > BACKUP_VERSION) return { error: "El respaldo es de una versión más nueva." };
+  const big = sizeProblem(data);
+  return big ? { error: big } : { raw: data, version };
 }
 
 /** What is wrong with the data of the file, said for the user, or null. */
@@ -174,7 +189,7 @@ export function parseBackup(
 ): { data: AppData; dropped?: string[] } | { error: string } {
   const read = readFile(text);
   if ("error" in read) return read;
-  const { data: clean, dropped } = dropBadExtras(read.raw);
+  const { data: clean, dropped } = dropBadExtras(cleanBackupTexts(read.raw));
   const problem = dataProblem(clean, Date.now());
   const d = clean as unknown as AppData;
   const error = problem ?? linksProblem(d);

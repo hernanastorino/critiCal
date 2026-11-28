@@ -219,6 +219,8 @@ export type Action =
       skip?: boolean;
       /** The «¿Movés …?» of the Bandeja was answered: not asked again that day. */
       asked?: boolean;
+      /** What the ↶ calls it (default «mover o sacar una comida»); with it, an answer that moves nothing leaves no ↶. */
+      label?: string;
       now: number;
     }
   /** Minutes kept for one event (after «Eliminar lugar») changed, or forgotten (`null`). */
@@ -2181,10 +2183,12 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
   if (action.type === "checkIn") return answered(data, action, next);
   if (action.type === "logProgress") return logged(data, action, next);
   if (action.type === "applyOption") return chosen(data, action, next);
-  const label = action.type === "override" && action.label ? action.label : VERSIONED[action.type];
+  const own = action.type === "override" || action.type === "mealChoice" ? action.label : undefined;
+  const label = own ?? VERSIONED[action.type];
   if (!label) return edited(data, action, next);
-  // A replan that changed nothing has nothing to undo.
-  if (action.type === "replanWeek" && !replanChanged(data, next)) return next;
+  // A replan (or a meal left where it was) that changed nothing has nothing to undo.
+  const stays = action.type === "replanWeek" || (action.type === "mealChoice" && own);
+  if (stays && !replanChanged(data, next)) return next;
   return pushVersion(data, next, planVersion(data, action.now, label));
 }
 

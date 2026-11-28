@@ -401,7 +401,7 @@ function ActivityRow({
                 ? hoursTiny
                   ? "Menos de 1 minuto a la semana no se planea: poné 0 para no estudiar o al menos 0,02 h."
                   : null
-                : "El estudio semanal va de 0 a 168 h."
+                : "Poné horas de 0 a 168, solo cifras (1,5 sirve; negativos no)."
             }
           />
           {activity.kind !== "rutina" && (

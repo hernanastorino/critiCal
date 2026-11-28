@@ -361,7 +361,7 @@ export function Semester() {
           </div>
           <Problem
             id="semester-hours-error"
-            text={hoursOk ? null : "El estudio semanal va de 0 a 168 h."}
+            text={hoursOk ? null : "Poné horas de 0 a 168, solo cifras (1,5 sirve; negativos no)."}
           />
           <button
             type="button"
