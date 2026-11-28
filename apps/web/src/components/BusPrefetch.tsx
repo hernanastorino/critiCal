@@ -48,9 +48,9 @@ interface Found {
 async function planOf(
   request: PlanRequest,
   slot: RouteSlot | null,
-  client: SupabaseClient | null,
   routes: readonly BusRoute[],
   feed: { version?: string | null },
+  client?: SupabaseClient,
 ): Promise<PlanResponse> {
   const route = client && slot ? findRoute(routes, slot) : undefined;
   if (route && client) feed.version ??= await busFeedVersion(client);
@@ -63,15 +63,15 @@ async function ask(
   event: AppEvent,
   trip: EventTrip,
   tz: string,
-  client: SupabaseClient | null,
   routes: readonly BusRoute[],
+  client?: SupabaseClient,
 ): Promise<{ found: Found[]; stop: boolean }> {
   const found: Found[] = [];
   const feed: { version?: string | null } = {};
   for (const way of ["there", "back"] as const) {
     const request = planRequestFor(trip, event, tz, way);
     if (!request) continue;
-    const res = await planOf(request, slotOf(trip, event, tz, way, request), client, routes, feed);
+    const res = await planOf(request, slotOf(trip, event, tz, way, request), routes, feed, client);
     if (stops(res)) return { found, stop: true };
     const best = res.ok ? res.options.at(0) : undefined;
     if (best) found.push({ way, minutes: wayMinutes(best, way, request) });
@@ -83,7 +83,7 @@ async function ask(
 export function BusPrefetch() {
   const { data, now, dispatch } = useStore();
   const sync = useSync();
-  const client = sync?.client ?? null;
+  const client = sync?.client ?? undefined;
   // The test demo has no server: its bus plans are invented (demoTransit.ts). Any other demo
   // has none, and the plan keeps the car's minutes.
   const demo = !client && isTestDemo();
@@ -112,7 +112,7 @@ export function BusPrefetch() {
       const trip = event && tripOf(current, event);
       asked.current.set(key, Date.now());
       if (event && trip) {
-        const { found, stop } = await ask(event, trip, current.settings.timezone, client, saved);
+        const { found, stop } = await ask(event, trip, current.settings.timezone, saved, client);
         if (!live) return;
         for (const f of found) {
           dispatch({
