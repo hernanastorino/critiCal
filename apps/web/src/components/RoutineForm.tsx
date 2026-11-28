@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Dispatch, useState } from "react";
 import { useDraft } from "../drafts.js";
 import { isBlank, NAME_MAX, stripBidi } from "../limits.js";
 import { daysAllowed, emptyHoursForm, readHours } from "../routineHours.js";
@@ -93,7 +93,7 @@ function NameField({
 }: {
   name: string;
   problemId: string | undefined;
-  onChange(value: string): void;
+  onChange: Dispatch<string>;
   onEnter: Enter;
 }) {
   return (
@@ -130,7 +130,7 @@ function FigureField({
   /** «times» or «minutes»: the ids of its error and its help. */
   id: string;
   help: string;
-  onChange(value: string): void;
+  onChange: Dispatch<string>;
   onEnter: Enter;
 }) {
   return (
@@ -180,7 +180,7 @@ function AddFooter({
   repeated: boolean;
   blocked: boolean;
   dirty: boolean;
-  onAdd(form: Element | null): void;
+  onAdd: Dispatch<Element | null>;
 }) {
   return (
     <>
