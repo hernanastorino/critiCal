@@ -147,10 +147,10 @@ describe("4. Tope al importar", () => {
 });
 
 describe("5. Los tres botones de «Repartir tiempo» miden lo mismo", () => {
-  it("en tres columnas iguales, sin margen superior de más", () => {
+  it("en columnas iguales que pasan a más filas con letra grande, sin margen superior de más", () => {
     const rule = /\.rep-presets \{([^}]*)\}/.exec(css)?.[1] ?? "";
     expect(rule).toMatch(/display: grid/);
-    expect(rule).toMatch(/grid-template-columns: repeat\(3, minmax\(0, 1fr\)\)/);
+    expect(rule).toMatch(/grid-template-columns: repeat\(auto-fit, minmax\(6\.25em, 1fr\)\)/);
     expect(rule).toMatch(/align-items: stretch/);
     expect(/\.rep-presets \.btn \{([^}]*)\}/.exec(css)?.[1]).toMatch(/margin-top: 0/);
   });

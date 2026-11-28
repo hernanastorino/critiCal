@@ -1,5 +1,6 @@
 import { buildSlots } from "./availability.js";
 import { overlaps } from "./intervals.js";
+import { joinList } from "./list.js";
 import { type ScheduleInput, type ScheduleResult, schedule } from "./scheduler.js";
 import { addDays, localParts, zonedInstant } from "./time.js";
 import { travelBuffers } from "./travel.js";
@@ -71,6 +72,12 @@ const option = (
   input: ScheduleInput,
   taskId?: string,
 ): PlanOption => ({ id, kind, taskId, label, input, result: schedule(input) });
+
+const STEP = 15;
+/** The minimum an option leaves: down to a quarter of an hour, as the sliders do. */
+export const floorStep = (m: number) => Math.floor(m / STEP) * STEP;
+/** The hours an option leaves: up to a quarter of an hour. */
+export const ceilStep = (m: number) => Math.ceil(m / STEP) * STEP;
 
 /** The task with a new minimum and target; a fixed target (a routine's) stays. */
 function cut(t: Task, minimum: number, target: number): Task {
@@ -179,7 +186,7 @@ function startEarlierOptions(input: ScheduleInput, pending: Task[]): PlanOption[
           "start-earlier",
           at <= input.now
             ? `Empezar ${t.title} ya, sin esperar a la fecha de inicio`
-            : `Empezar ${t.title} antes: desde el ${when(tz, at).replace(/ \d\d:\d\d$/, "")}`,
+            : `Empezar ${t.title} antes: desde el ${dayLabel(tz, at)}`,
           withTask(input, t.id, (x) => ({ ...x, earliestStart: at })),
           t.id,
         ),
@@ -230,7 +237,9 @@ function ownOptions(
   });
 }
 
-function lowerOption(input: ScheduleInput, t: Task, lowered: number, deficit: number) {
+function lowerOption(input: ScheduleInput, t: Task, exact: number, deficit: number) {
+  // Quarter hours: the minimum down, the hours up (never above what was left).
+  const lowered = floorStep(exact) > 0 ? floorStep(exact) : exact;
   return option(
     `lower-minimum:${t.id}`,
     "lower-minimum",
@@ -239,7 +248,7 @@ function lowerOption(input: ScheduleInput, t: Task, lowered: number, deficit: nu
       cut(
         x,
         lowered,
-        Math.min(x.remainingMinutes, Math.max(lowered, x.remainingMinutes - deficit)),
+        Math.min(x.remainingMinutes, ceilStep(Math.max(lowered, x.remainingMinutes - deficit))),
       ),
     ),
     t.id,
@@ -343,8 +352,9 @@ function proportionalOption(input: ScheduleInput, involved: Task[], deficit: num
           ids.has(t.id)
             ? cut(
                 t,
-                Math.floor(t.minRemainingMinutes * factor),
-                Math.floor(t.remainingMinutes * factor),
+                floorStep(t.minRemainingMinutes * factor) ||
+                  Math.floor(t.minRemainingMinutes * factor),
+                Math.min(t.remainingMinutes, ceilStep(t.remainingMinutes * factor)),
               )
             : t,
         ),
@@ -372,6 +382,17 @@ const ORDER: OptionKind[] = [
   "minimum-only",
   "drop",
 ];
+
+/** «lun 30/11»: only the date, built here so no engine's «lun 30/11, 00:00» leaves a comma. */
+function dayLabel(timeZone: string, instant: number): string {
+  const f = new Intl.DateTimeFormat("es-UY", {
+    timeZone,
+    weekday: "short",
+    day: "numeric",
+    month: "numeric",
+  });
+  return f.format(instant).replace(/,/g, "").replace(/\s+/g, " ").trim();
+}
 
 /** "jue 5/11 18:00" in the user's time zone. */
 function when(timeZone: string, instant: number): string {
@@ -459,9 +480,7 @@ const rank = (k: OptionKind) => ORDER.indexOf(k);
 
 /** «Leer», «Leer y Gym», «Leer, Gym y TP». */
 function names(tasks: Task[]): string {
-  const titles = tasks.map((t) => t.title);
-  const last = titles.pop() as string;
-  return titles.length > 0 ? `${titles.join(", ")} y ${last}` : last;
+  return joinList(tasks.map((t) => t.title));
 }
 
 /**
@@ -482,7 +501,12 @@ export function targetOptions(input: ScheduleInput, result: ScheduleResult): Pla
     const next = withTasks(
       input,
       input.tasks.map((t) =>
-        cutIds.has(t.id) ? { ...t, remainingMinutes: t.minRemainingMinutes } : t,
+        cutIds.has(t.id)
+          ? {
+              ...t,
+              remainingMinutes: Math.min(t.remainingMinutes, ceilStep(t.minRemainingMinutes)),
+            }
+          : t,
       ),
     );
     options.push(
@@ -532,7 +556,7 @@ export function recommendations(input: ScheduleInput, result: ScheduleResult): R
   return [
     {
       id: "relax-context",
-      message: `Si mezclás más materias por día, ${reasons.join(" y ")}.`,
+      message: `Si mezclás más materias por día, ${joinList(reasons)}.`,
       input: relaxedInput,
       result: relaxed,
     },

@@ -22,9 +22,22 @@ export { dayProblem };
 /** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
 export const BACKUP_VERSION = 2;
 
+/**
+ * A deliverable whose minimum is above its estimate (the form lets it be saved so) is read
+ * with the minimum cut to the estimate: the file is not rejected for it (SPEC §18.19).
+ */
+function withMinimumsCut<T>(data: T): T {
+  const tasks = (data as { tasks?: unknown }).tasks;
+  if (!Array.isArray(tasks)) return data;
+  const cut = tasks.map((t) =>
+    isRecord(t) && minimumProblemOf(t) ? { ...t, minMinutes: t.estimateMinutes } : t,
+  );
+  return { ...data, tasks: cut };
+}
+
 export function exportJson(data: AppData, now: number): string {
   return JSON.stringify(
-    { app: "critiCal", version: BACKUP_VERSION, exportedAt: now, data },
+    { app: "critiCal", version: BACKUP_VERSION, exportedAt: now, data: withMinimumsCut(data) },
     null,
     2,
   );
@@ -189,7 +202,7 @@ export function parseBackup(
 ): { data: AppData; dropped?: string[] } | { error: string } {
   const read = readFile(text);
   if ("error" in read) return read;
-  const { data: clean, dropped } = dropBadExtras(cleanBackupTexts(read.raw));
+  const { data: clean, dropped } = dropBadExtras(cleanBackupTexts(withMinimumsCut(read.raw)));
   const problem = dataProblem(clean, Date.now());
   const d = clean as unknown as AppData;
   const error = problem ?? linksProblem(d);

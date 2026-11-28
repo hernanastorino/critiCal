@@ -27,6 +27,7 @@ import {
   noFit,
   optionLine,
   optionsTitle,
+  optionTitle,
   REPLANNED_TOAST,
 } from "../friendly.js";
 import { EAT, inboxCards } from "../inbox.js";
@@ -662,7 +663,7 @@ export function Inbox({
                 className="card"
                 style={{ ["--c" as string]: o.result.feasible ? "var(--ok)" : "var(--warn)" }}
               >
-                <div className="title">{o.label}</div>
+                <div className="title">{optionTitle(o)}</div>
                 <RoyLine anim={OPTION_POSE[o.kind]} size={ELEGI_ROY} uniform>
                   {optionLine(
                     o,
@@ -682,7 +683,7 @@ export function Inbox({
                 <button
                   type="button"
                   className="btn small"
-                  aria-label={`Elegir: ${o.label}`}
+                  aria-label={`Elegir: ${optionTitle(o)}`}
                   onClick={() => {
                     if (SPLITS.has(o.kind) && split(o)) return;
                     chose.current = true;

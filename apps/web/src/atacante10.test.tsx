@@ -161,9 +161,9 @@ describe("3. parseBackup says what fails and where", () => {
     const r = withChange((t) => ({ ...t, units: [t.units[0], t.units[0]] as AppTask["units"] }));
     expect(errorOf(r)).toMatch(/Hay dos partes con el mismo id en "/);
   });
-  it("names a minimum above the estimate", () => {
+  it("reads a minimum above the estimate cut to it", () => {
     const r = withChange((t) => ({ ...t, estimateMinutes: 100, minMinutes: 200 }));
-    expect(errorOf(r)).toMatch(/El mínimo de ".*" es mayor que lo estimado/);
+    expect(r).toHaveProperty("data");
   });
   it("names a date out of range", () => {
     const r = withChange((t) => ({ ...t, deadline: Date.UTC(1990, 0, 1) }));

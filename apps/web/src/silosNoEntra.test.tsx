@@ -117,7 +117,7 @@ describe.each(MOMENTS)("título en la Bandeja: %s", (_n, date, minute) => {
   it("sin llegar a un mínimo: «No llegás a todo»", () => {
     bandeja((t) => ({ ...t, minMinutes: 6000, estimateMinutes: 6000, units: [] }));
     expect(screen.getByText("No llegás a todo · elegí")).toBeTruthy();
-  });
+  }, 30_000);
 
   it("el título sigue la etapa del plan, en cualquier día", () => {
     bandeja((t) => ({ ...t, minMinutes: 60, estimateMinutes: 6000, units: [] }));

@@ -5,7 +5,7 @@
   "feasible": false,
   "options": [
     "use-free-time:143c99e77bf8",
-    "start-earlier:entrega-corta:97b1611ed687",
+    "start-earlier:entrega-corta:68b75f71b9aa",
     "lower-minimum:entrega-corta:61a907dd720e",
     "minimum-viable:entrega-corta:c99c079f9158",
     "drop:entrega-corta:7cf0bcf9ee8a"

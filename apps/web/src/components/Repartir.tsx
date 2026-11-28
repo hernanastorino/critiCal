@@ -276,6 +276,7 @@ function TotalRow({ s, setS, onOpen }: { s: Sheet; setS: SetSheet; onOpen: () =>
     <div className="rep-row">
       <div className="rep-head">
         <b className="rep-name">Total</b>
+        <span className="rep-min-label">Mínimo {hours(s.min)}</span>
       </div>
       <TimeSlider
         name="Total"
