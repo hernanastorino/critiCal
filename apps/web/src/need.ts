@@ -1,5 +1,6 @@
 import type { ScheduleResult } from "./engine.js";
-import type { AppData } from "./model.js";
+import { hours } from "./format.js";
+import type { AppData, AppTask } from "./model.js";
 import { progress } from "./planning.js";
 
 /**
@@ -18,6 +19,30 @@ export function needOf(data: AppData, now: number, taskId: string): Need | undef
   return (
     p && { left: p.remainingMinutes, minimum: Math.min(p.minRemainingMinutes, p.remainingMinutes) }
   );
+}
+
+/**
+ * The minimum of the task as it is edited («Mínimo 6h»): the saved one, never above the
+ * total (a saved one that is, is shown cut to it), the same in «Repartir tiempo» and the form.
+ */
+export const editedMinimum = (task: Pick<AppTask, "minMinutes" | "estimateMinutes">): number =>
+  task.estimateMinutes > 0 ? Math.min(task.minMinutes, task.estimateMinutes) : task.minMinutes;
+
+/**
+ * What the ficha, the block's sheet and the Bandeja say next to «Faltan»: what is left to
+ * reach the minimum (never above what is left), «mínimo cubierto» once it is, nothing for a
+ * task with no minimum. The minimum the task keeps is only said where it is edited.
+ */
+export function minimumNote(need: Need, task?: Pick<AppTask, "minMinutes">): string {
+  if (task && task.minMinutes <= 0) return "";
+  if (need.minimum <= 0) return "mínimo cubierto";
+  return `para el mínimo, ${hours(Math.min(need.minimum, need.left))}`;
+}
+
+/** «Faltan 5h (para el mínimo, 3h)»: what a task lacks, in one line. */
+export function lackText(need: Need, task?: Pick<AppTask, "minMinutes">): string {
+  const note = minimumNote(need, task);
+  return `Faltan ${hours(need.left)}${note && ` (${note})`}`;
 }
 
 /**

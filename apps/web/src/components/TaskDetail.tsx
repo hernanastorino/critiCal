@@ -4,7 +4,7 @@ import { localParts } from "../engine.js";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
 import { routineWeekText } from "../friendly.js";
 import type { AppData, AppTask, PlanVersion } from "../model.js";
-import { needOf } from "../need.js";
+import { lackText, needOf } from "../need.js";
 import { earliestStartOf, endOfWeek, focusWeekAt, progress, wakingDay } from "../planning.js";
 import {
   GONE_KEYS,
@@ -286,7 +286,7 @@ export function TaskDetail({
           {task.title}
         </h2>
         <p className="meta">
-          {weeklyLabel ?? (need && `Faltan ${hours(need.left)} (mínimo ${hours(task.minMinutes)})`)}
+          {weeklyLabel ?? (need && lackText(need, task))}
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>

@@ -3,7 +3,7 @@ import { MINUTE, type PlanBlock } from "../engine.js";
 import { dayAndTime, dayMonth, hours, time } from "../format.js";
 import { routineWeekText, skipLoss } from "../friendly.js";
 import type { CheckIn } from "../model.js";
-import { needOf } from "../need.js";
+import { minimumNote, needOf } from "../need.js";
 import { isPinned, standingCheckIns } from "../planning.js";
 import { useStore } from "../store.js";
 import { ConfirmDiscard } from "./ConfirmDiscard.js";
@@ -240,7 +240,8 @@ export function CheckInForm({
             `${routineWeekText(routine)}. `
           ) : (
             <>
-              Faltan <b>{hours(p.left)}</b> (mínimo {hours(task?.minMinutes ?? p.minimum)}).{" "}
+              Faltan <b>{hours(p.left)}</b>
+              {minimumNote(p, task) && ` (${minimumNote(p, task)})`}.{" "}
             </>
           )}
           {block.level === "critical" && (

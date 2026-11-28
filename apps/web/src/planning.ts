@@ -47,7 +47,7 @@ import {
   type Unit,
   undoable,
 } from "./model.js";
-import { improves } from "./need.js";
+import { editedMinimum, improves } from "./need.js";
 import { travelOptions, withPlaces } from "./places.js";
 
 const HORIZON_DAYS = 14;
@@ -1572,7 +1572,8 @@ function simulated(
 ): PlanOption {
   const after = applyOption(from.data, input, option, from.now);
   // The minimum the task keeps: the one the ficha, the form and «Repartir tiempo» show.
-  const kept = after.tasks.find((t) => t.id === option.taskId)?.minMinutes;
+  const keptTask = after.tasks.find((t) => t.id === option.taskId);
+  const kept = keptTask && editedMinimum(keptTask);
   const named =
     kept !== undefined && (option.kind === "lower-minimum" || option.kind === "minimum-viable")
       ? option.label.replace(/\(([^()]*)\)$| a (\d\S*)$/, (all: string) =>
