@@ -30,7 +30,9 @@ function setKind(kind: (typeof KINDS)[number]) {
   else localStorage.removeItem(DEMO_KIND_KEY);
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+});
 afterEach(() => {
   cleanup();
   clearDrafts();
@@ -208,7 +210,7 @@ describe("9. «Bajar el mínimo» dice qué propone", () => {
     const first = screen
       .queryAllByRole("button", { name: /^Elegir:/ })
       .map((b) => b.getAttribute("aria-label") ?? "")
-      .find((n) => /Bajar el mínimo/.test(n));
+      .find((n) => n.includes("Bajar el mínimo"));
     expect(first).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: first ?? "" }));
     const dialog = screen.getByRole("dialog", { name: "Repartir tiempo" });
