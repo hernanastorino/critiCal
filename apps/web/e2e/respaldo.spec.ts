@@ -33,7 +33,7 @@ async function importar(page: Page, json: string) {
       mimeType: "application/json",
       buffer: Buffer.from(json),
     });
-  await expect(toast(page)).toContainText("Datos importados");
+  await expect(toast(page)).toContainText("Importé");
 }
 
 /** Lo que se ve de la demo: silos, bloques de la semana y cuántas cosas hay en la Bandeja. */

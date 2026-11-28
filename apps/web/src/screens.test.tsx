@@ -443,7 +443,9 @@ describe("backup", () => {
     await act(async () => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
     });
-    await waitFor(() => expect(screen.getByText("Datos importados")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText(/^Importé \d+ tareas y \d+ eventos del /)).toBeTruthy(),
+    );
     expect(state().tasks.length).toBe(full.tasks.length - 1);
     expect(state().checkIns).toEqual(["later"]);
     expect(state().doneUnits).toEqual(["new-unit"]);

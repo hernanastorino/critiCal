@@ -204,8 +204,8 @@ describe("weekly silo controls", () => {
 
   it("skips a week, shows it faded and reactivates it", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
-    fireEvent.click(within(openGym()).getByText("Desactivar…"));
-    const sheet = screen.getByRole("dialog", { name: "Desactivar Gym" });
+    fireEvent.click(within(openGym()).getByText("Pausar…"));
+    const sheet = screen.getByRole("dialog", { name: "Pausar Gym" });
     expect(within(sheet).getByText(/Vuelve el lun/)).toBeTruthy();
     fireEvent.click(within(sheet).getByText("Solo esta semana"));
     expect(screen.getByLabelText("Gym: desactivado").textContent).toMatch(/vuelve el lun/);
@@ -221,7 +221,7 @@ describe("weekly silo controls", () => {
 
   it("pauses indefinitely, or deletes from today or entirely, with a cancel", () => {
     render(<App fixedNow={NOW} initial={demoData} />);
-    fireEvent.click(within(openGym()).getByText("Desactivar…"));
+    fireEvent.click(within(openGym()).getByText("Pausar…"));
     fireEvent.click(screen.getByText("Hasta que lo reactive"));
     expect(screen.getByLabelText("Gym: desactivado").textContent).toMatch(/pausado/);
 

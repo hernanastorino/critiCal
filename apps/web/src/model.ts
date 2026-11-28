@@ -473,6 +473,8 @@ export interface PlanVersion {
   at: number;
   /** What changed it, for the undo button. */
   label: string;
+  /** `label` before it was cut for the screen: what a screen reader says. */
+  fullLabel?: string;
   pins: PlanBlock[];
   /** Today's blocks not started yet: today only changes with an OK, so they are kept. */
   today: PlanBlock[];

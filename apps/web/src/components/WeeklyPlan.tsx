@@ -107,7 +107,7 @@ export function WeeklyPlan({ onClose, onInbox }: { onClose: () => void; onInbox:
                     .toUpperCase()}
                 </span>
               </span>
-              <span className="meta" style={{ margin: 0 }}>
+              <span className="meta week-hours" style={{ margin: 0 }}>
                 {d.holiday ? "feriado" : hours(d.minutes)}
               </span>
             </div>

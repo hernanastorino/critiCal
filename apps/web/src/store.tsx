@@ -2128,8 +2128,14 @@ export function replanChanged(before: AppData, after: AppData): boolean {
 }
 
 /** What the plan looked like before an action, to put back with «Deshacer». */
-function planVersion(data: AppData, now: number, label: string): PlanVersion {
-  return { at: now, label, ...inputsOf(data, now) };
+function planVersion(data: AppData, now: number, label: string, full?: string): PlanVersion {
+  // `label` is cut for the screen; a reader hears the whole one (`fullLabel`).
+  return {
+    at: now,
+    label,
+    ...(full !== undefined && full !== label && { fullLabel: full }),
+    ...inputsOf(data, now),
+  };
 }
 
 /** The plan's inputs as `data` has them (today's blocks: those of `now`'s day not started yet). */
@@ -2167,7 +2173,7 @@ function silo(data: AppData, action: Extract<Action, { type: "recurrence" }>, ne
   settleSnapshot(snap, next);
   const label = `eliminar ${clipName(task.title, 24)}`;
   return pushVersion(data, next, {
-    ...planVersion(data, action.now, label),
+    ...planVersion(data, action.now, label, `eliminar ${task.title.trim()}`),
     gone: { taskId: task.id, snap },
   });
 }
@@ -2178,7 +2184,8 @@ function versioned(data: AppData, action: Action, next: AppData): AppData {
     const removed = removedWith(data, action.activityId);
     if (!removed) return next;
     const label = `eliminar ${clipName(removed.activity.name, 24)}`;
-    return pushVersion(data, next, { ...planVersion(data, action.now, label), removed });
+    const full = `eliminar ${removed.activity.name.trim()}`;
+    return pushVersion(data, next, { ...planVersion(data, action.now, label, full), removed });
   }
   if (action.type === "recurrence" && ENDS.has(action.change)) return silo(data, action, next);
   if (action.type === "checkIn") return answered(data, action, next);
@@ -2232,12 +2239,15 @@ function chosen(data: AppData, action: Extract<Action, { type: "applyOption" }>,
   const made = next.applied?.find((d) => !data.applied?.some((o) => o.id === d.id));
   if (!made) return next;
   const label = clipName(made.label, 40);
-  return pushVersion(data, next, { ...planVersion(data, action.now, label), decision: made.id });
+  return pushVersion(data, next, {
+    ...planVersion(data, action.now, label, made.label.trim()),
+    decision: made.id,
+  });
 }
 
 /** What an answer or edit is called in «Deshacer: …» (none: it is not an action to undo). */
-function editLabel(data: AppData, action: Action): string | undefined {
-  const name = (s: string | undefined) => clipName(s ?? "", 24);
+function editLabel(data: AppData, action: Action, clip = true): string | undefined {
+  const name = (s: string | undefined) => (clip ? clipName(s ?? "", 24) : (s ?? "").trim());
   const task = (id: string) => name(data.tasks.find((t) => t.id === id)?.title);
   const activity = (id: string) => name(data.activities.find((a) => a.id === id)?.name);
   switch (action.type) {
@@ -2331,7 +2341,11 @@ function edited(data: AppData, action: Action, next: AppData) {
   const label = editLabel(data, action);
   const snap = label ? touched(data, next) : undefined;
   if (!label || !snap) return next;
-  return pushVersion(data, next, { ...planVersion(data, action.now, label), edit: { snap } });
+  const full = editLabel(data, action, false);
+  return pushVersion(data, next, {
+    ...planVersion(data, action.now, label, full),
+    edit: { snap },
+  });
 }
 
 /** Whether an undo version keeps the address `key` in its saved spots. */
@@ -2535,7 +2549,7 @@ function batched(data: AppData, action: Extract<Action, { type: "batch" }>): App
   const snap = touched(data, next, new Set(SAVED_PARTS.map((p) => p.id)));
   if (changed.length === 0 && !snap) return next;
   return pushVersion(data, next, {
-    ...planVersion(data, action.now, label),
+    ...planVersion(data, action.now, label, action.label.trim()),
     ...(changed.length > 0 && { saved: changed }),
     ...(snap && { edit: { snap } }),
   });

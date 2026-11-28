@@ -63,7 +63,7 @@ describe("rutina pausada", () => {
     );
     fireEvent.click(screen.getByLabelText(/^Gym,/));
     expect(screen.getByText("Le dediqué (minutos)")).toBeTruthy();
-    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Desactivar…"));
+    fireEvent.click(within(screen.getByRole("dialog", { name: "Gym" })).getByText("Pausar…"));
     fireEvent.click(screen.getByText("Hasta que lo reactive"));
     fireEvent.click(screen.getByLabelText(/^Gym,/));
     expect(screen.queryByText("Le dediqué (minutos)")).toBeNull();

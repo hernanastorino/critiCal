@@ -167,6 +167,23 @@ textarea {
   width: 100%;
 }
 
+/* A select is a 44 pt target too: the native control ignores its padding and min-height
+   (WebKit draws it 23 px tall), so it is drawn by the page, with its own arrow. */
+select {
+  min-height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+  padding-right: var(--space-6);
+  background-image:
+    linear-gradient(45deg, transparent 50%, currentcolor 50%),
+    linear-gradient(135deg, currentcolor 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) 50%,
+    calc(100% - 14px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
 /* Hours the app proposes from the earlier ones: softer until the user types their own. */
 input.suggested {
   color: var(--ink-soft);
@@ -277,8 +294,10 @@ textarea[aria-invalid="true"] {
   gap: var(--space-1);
 }
 
+/* Drawn 28 px wide to fit; the box is a real 44 (SPEC §14), the overlap taken back by the margin. */
 .header .week-nav .icon-btn {
-  width: 28px;
+  width: 44px;
+  margin: 0 -8px;
 }
 
 /* A fixed width for the longest range («28 dic – 3 ene»): the tools never shift. With large
@@ -334,7 +353,8 @@ textarea[aria-invalid="true"] {
   }
 
   .header .week-nav .icon-btn {
-    width: 28px;
+    width: 44px;
+    margin: 0 -8px;
   }
 }
 
@@ -1074,6 +1094,8 @@ textarea[aria-invalid="true"] {
 
 .btn.small {
   flex: none;
+  /* Small to look at, 44 pt to touch (SPEC §14). */
+  min-height: 44px;
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-s);
 }
@@ -2245,6 +2267,12 @@ input[type="datetime-local"] {
   display: none;
 }
 
+/* «5h30» never breaks in two: with big text it shrinks to its column instead. */
+.week-bar .week-hours {
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 /* Under 18rem wide (a 343px sheet at a root over 19px) three letters per day no longer fit. */
 @container (max-width: 18rem) {
   .day-short {
@@ -2257,6 +2285,10 @@ input[type="datetime-local"] {
 
   .week-bar {
     overflow-wrap: anywhere;
+  }
+
+  .week-bar .week-hours {
+    font-size: min(var(--text-xs), 4.5cqw);
   }
 }
 
@@ -2931,8 +2963,8 @@ label.check {
   font-size: var(--text-s);
   white-space: nowrap;
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
-  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  /* A long address ends in «…», not cut in the middle of a letter. */
+  text-overflow: ellipsis;
 }
 
 .add-trip {
