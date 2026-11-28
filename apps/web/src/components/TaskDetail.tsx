@@ -286,7 +286,7 @@ export function TaskDetail({
           {task.title}
         </h2>
         <p className="meta">
-          {weeklyLabel ?? (need && `Faltan ${hours(need.left)} (mínimo ${hours(need.minimum)})`)}
+          {weeklyLabel ?? (need && `Faltan ${hours(need.left)} (mínimo ${hours(task.minMinutes)})`)}
           {task.deadline &&
             ` · ${task.deadline <= now && (p?.remainingMinutes ?? 0) > 0 ? "Venció " : ""}${dueDate(tz, task.deadline, now)}`}
         </p>
