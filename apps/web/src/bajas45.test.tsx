@@ -20,8 +20,9 @@ const css = readFileSync(join(import.meta.dirname, "styles.css"), "utf8");
 
 const tz = TIMEZONE;
 // Fixed dates, and the real one: a test that only passes on its day is no test.
+const FIXED = zonedInstant(tz, "2026-11-23", 7 * 60);
 const INSTANTS = [
-  zonedInstant(tz, "2026-11-23", 7 * 60),
+  FIXED,
   zonedInstant(tz, "2026-11-28", 12 * 60),
   zonedInstant(tz, "2026-12-29", 22 * 60),
   Date.now(),
@@ -31,9 +32,26 @@ const INSTANTS = [
 function rule(selector: string): string {
   const found = css
     .split("}")
-    .map((block) => block.split("{"))
-    .find(([head]) => head?.trim().split("\n").at(-1)?.trim() === selector);
-  return found?.[1] ?? "";
+    .map((block) => ({
+      head: block.slice(0, block.indexOf("{")),
+      body: block.slice(block.indexOf("{") + 1),
+    }))
+    .find(({ head }) => head.trim().split("\n").at(-1)?.trim() === selector);
+  return found ? found.body : "";
+}
+
+/** The first materia (not a rutina) of the data. */
+function aMateria(d: AppData): AppData["activities"][number] {
+  const found = d.activities.find((a) => a.kind !== "rutina");
+  if (!found) throw new Error("no materia");
+  return found;
+}
+
+/** The first delivery of the data. */
+function aDelivery(d: AppData): AppTask {
+  const found = d.tasks.find((x) => x.kind === "deliverable");
+  if (!found) throw new Error("no delivery");
+  return found;
 }
 
 beforeEach(() => {
@@ -58,20 +76,22 @@ describe("1. la fecha límite de una entrega nueva", () => {
   });
 
   it("el formulario Nueva la muestra así", () => {
-    const now = INSTANTS[0] as number;
+    const now = FIXED;
     render(<App fixedNow={now} initial={demoData} />);
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const sheet = screen.getByRole("dialog", { name: "Nueva actividad" });
     pickMateria();
-    const field = within(sheet).getByLabelText("Fecha límite") as HTMLInputElement;
-    expect(field.value).toBe("2026-11-26T23:59");
+    expect(within(sheet).getByLabelText("Fecha límite")).toHaveProperty(
+      "value",
+      "2026-11-26T23:59",
+    );
   });
 });
 
 describe("2. aire entre «Repartir tiempo» y «Partes (opcional)»", () => {
   it("la nota y las partes llevan margen con los tokens de espaciado", () => {
-    render(<App fixedNow={INSTANTS[0] as number} initial={demoData} />);
+    render(<App fixedNow={FIXED} initial={demoData} />);
     fireEvent.click(screen.getByRole("button", { name: /Silos/ }));
     fireEvent.click(screen.getByRole("button", { name: "Nueva actividad" }));
     const legend = screen.getByText("Partes (opcional)");
@@ -147,8 +167,9 @@ describe("6. Respaldo", () => {
         </StoreProvider>
       </ToastProvider>,
     );
-    await act(async () => {
+    await act(() => {
       fireEvent.change(screen.getByLabelText("Archivo de respaldo"), { target: { files: [file] } });
+      return Promise.resolve();
     });
     const said = `Importé ${base.tasks.length} tareas y ${base.events.length} eventos del 20/11`;
     await waitFor(() => expect(screen.getByText(said)).toBeTruthy());
@@ -160,15 +181,14 @@ describe("7. el aviso ↶ de la cabecera", () => {
     const name = "Informe corto de Sistemas Distribuidos con un nombre larguísimo";
     for (const now of INSTANTS) {
       const base = demoData(now);
-      const activity = base.activities.find((a) => a.kind !== "rutina");
-      expect(activity).toBeTruthy();
+      const activity = aMateria(base);
       const renamed = {
         ...base,
-        activities: base.activities.map((a) => (a.id === activity?.id ? { ...a, name } : a)),
+        activities: base.activities.map((a) => (a.id === activity.id ? { ...a, name } : a)),
       };
       const gone = reducer(renamed, {
         type: "deleteActivity",
-        activityId: activity?.id as string,
+        activityId: activity.id,
         now,
       });
       const last = gone.planHistory?.at(-1);
@@ -182,12 +202,12 @@ describe("7. el aviso ↶ de la cabecera", () => {
   });
 
   it("un nombre corto no guarda texto de más", () => {
-    const base = demoData(INSTANTS[0] as number);
-    const id = base.activities.find((a) => a.kind !== "rutina")?.id as string;
+    const base = demoData(FIXED);
+    const id = aMateria(base).id;
     const gone = reducer(base, {
       type: "deleteActivity",
       activityId: id,
-      now: INSTANTS[0] as number,
+      now: FIXED,
     });
     expect(gone.planHistory?.at(-1)?.fullLabel).toBeUndefined();
   });
@@ -195,7 +215,7 @@ describe("7. el aviso ↶ de la cabecera", () => {
 
 describe("8. entrega de 0 estimado y 0 mínimo en un respaldo", () => {
   const empty = (d: AppData): AppData => {
-    const t = d.tasks.find((x) => x.kind === "deliverable") as AppTask;
+    const t = aDelivery(d);
     return {
       ...d,
       tasks: d.tasks.map((x) =>
@@ -207,7 +227,7 @@ describe("8. entrega de 0 estimado y 0 mínimo en un respaldo", () => {
   it("se lee como hecha: no deja un silo «0h»", () => {
     for (const now of INSTANTS) {
       const data = empty(demoData(now));
-      const target = data.tasks.find((x) => x.kind === "deliverable") as AppTask;
+      const target = aDelivery(data);
       const parsed = parseBackup(exportJson(data, now));
       if ("error" in parsed) throw new Error(parsed.error);
       const read = parsed.data.tasks.find((x) => x.id === target.id);
@@ -221,7 +241,7 @@ describe("8. entrega de 0 estimado y 0 mínimo en un respaldo", () => {
   });
 
   it("una entrega con partes o con minutos no se toca", () => {
-    const now = INSTANTS[0] as number;
+    const now = FIXED;
     const data = demoData(now);
     const parsed = parseBackup(exportJson(data, now));
     if ("error" in parsed) throw new Error(parsed.error);
@@ -239,27 +259,27 @@ describe("9. Notificaciones en la demo", () => {
       },
     });
     render(
-      <StoreProvider initial={(n) => on(demoData(n))} persist={false} fixedNow={INSTANTS[0]}>
+      <StoreProvider initial={(n) => on(demoData(n))} persist={false} fixedNow={FIXED}>
         <Notifications />
       </StoreProvider>,
     );
     expect(
       screen.getByText("Entrá con Google para recibir avisos en este dispositivo."),
     ).toBeTruthy();
-    const boxes = screen.getAllByRole("checkbox") as HTMLInputElement[];
+    const boxes = screen.getAllByRole("checkbox");
     expect(boxes.length).toBe(3);
     for (const box of boxes) {
-      expect(box.checked).toBe(false);
-      expect(box.disabled).toBe(true);
+      expect(box).toHaveProperty("checked", false);
+      expect(box).toHaveProperty("disabled", true);
     }
-    expect((screen.getByLabelText("Hora del recordatorio") as HTMLInputElement).disabled).toBe(
-      true,
-    );
+    expect(screen.getByLabelText("Hora del recordatorio")).toHaveProperty("disabled", true);
   });
 });
 
 describe("10. la hoja de una rutina dice «Pausar»", () => {
   it("el botón y la hoja se llaman Pausar, no Desactivar", () => {
+    // A fixed path inside the repo, not user input.
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const source = readFileSync(join(import.meta.dirname, "components/TaskDetail.tsx"), "utf8");
     expect(source).toContain("Pausar…");
     expect(source).toMatch(/title=\{`Pausar \$\{task\.title\}`\}/);

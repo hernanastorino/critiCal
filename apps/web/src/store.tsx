@@ -2250,6 +2250,15 @@ function editLabel(data: AppData, action: Action, clip = true): string | undefin
   const name = (s: string | undefined) => (clip ? clipName(s ?? "", 24) : (s ?? "").trim());
   const task = (id: string) => name(data.tasks.find((t) => t.id === id)?.title);
   const activity = (id: string) => name(data.activities.find((a) => a.id === id)?.name);
+  return savingLabel(action, name, task) ?? sortingLabel(action, name, task, activity);
+}
+
+/** The label of an edit that saves or creates something (see `editLabel`). */
+function savingLabel(
+  action: Action,
+  name: (s: string | undefined) => string,
+  task: (id: string) => string,
+): string | undefined {
   switch (action.type) {
     case "saveTask":
       return `guardar ${name(action.task.title)}`;
@@ -2261,6 +2270,19 @@ function editLabel(data: AppData, action: Action, clip = true): string | undefin
       return `crear ${name(action.name)}`;
     case "review":
       return `${action.keep ? "aceptar" : "ignorar"} ${task(action.taskId)}`;
+    default:
+      return undefined;
+  }
+}
+
+/** The label of an edit that sorts, assigns or changes a setting (see `editLabel`). */
+function sortingLabel(
+  action: Action,
+  name: (s: string | undefined) => string,
+  task: (id: string) => string,
+  activity: (id: string) => string,
+): string | undefined {
+  switch (action.type) {
     case "classTitle":
     case "classOf":
       return `clasificar ${name(action.title)}`;
