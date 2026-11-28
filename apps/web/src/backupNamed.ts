@@ -421,6 +421,37 @@ const tripMinutesTests: Test[] = [
   ["back", opt(int(0, 1440))],
 ];
 
+const routeTests: Test[] = [
+  ["from_place", str],
+  ["to_place", str],
+  ["weekday", (v) => v === null || int(1, 7)(v)],
+  ["time_minutes", int(0, 1439)],
+  ["mode", oneOf("arrive", "depart")],
+  ["feed_version", (v) => typeof v === "string" && v.length <= 200],
+  // What `bus_routes.plan` takes (an object under 16 kB) and the card reads (its legs).
+  [
+    "plan",
+    (v) =>
+      isRec(v) &&
+      isRec(v.option) &&
+      Array.isArray(v.option.legs) &&
+      typeof v.option.theoretical === "boolean" &&
+      JSON.stringify(v).length < 16_000,
+  ],
+];
+
+/** A saved bus route whose two places are in the file (the table points at them). */
+const routeOk: Ok = (r, d) => {
+  const places = new Set(list(d?.places).map((p) => p.id));
+  return (
+    shape(routeTests)(r) &&
+    isRec(r) &&
+    r.from_place !== r.to_place &&
+    places.has(r.from_place) &&
+    places.has(r.to_place)
+  );
+};
+
 /** How an optional top-level key is read: a list or an object of entries, or one value. */
 type Kind = "list" | "record" | "value";
 /** Optional top-level keys: `[key, kind, valid entry, what it is, for the notice]`. */
@@ -439,6 +470,7 @@ const extras: Extra[] = [
   ["noTravel", "list", text, "lugares sin traslado"],
   ["notSubjects", "list", text, "clases que no son materia"],
   ["removedSubjects", "list", text, "materias eliminadas"],
+  ["busRoutes", "list", routeOk, "rutas de ómnibus"],
   ["freeTimeUntil", "value", instant, "tiempo libre permitido"],
   ["relaxContextUntil", "value", instant, "permiso de cambiar de materia"],
   ["tentativeHoldUntil", "value", instant, "espera por un plan B"],

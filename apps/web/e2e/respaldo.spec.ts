@@ -14,13 +14,13 @@ import {
 
 test.use(IPHONE_375);
 
-/** Ajustes → Respaldo → «Exportar JSON»: el archivo que baja, como texto. */
+/** Ajustes → Respaldo → «Descargar respaldo»: el archivo que baja, como texto. */
 async function exportar(page: Page): Promise<string> {
   await openSettingsPage(page, "Respaldo");
   const bajada = page.waitForEvent("download");
-  await sheet(page).getByRole("button", { name: "Exportar JSON" }).click();
+  await sheet(page).getByRole("button", { name: "Descargar respaldo" }).click();
   const download = await bajada;
-  expect(download.suggestedFilename()).toMatch(/^critical-\d{4}-\d{2}-\d{2}\.json$/);
+  expect(download.suggestedFilename()).toMatch(/^critical-respaldo-\d{4}-\d{2}-\d{2}\.json$/);
   const path = await download.path();
   return readFile(path, "utf8");
 }
@@ -110,6 +110,39 @@ test.describe("respaldo: exportar desde la demo e importar", () => {
     await page.getByRole("button", { name: "Cerrar", exact: true }).first().click();
     await goTab(page, "Silos");
     await expect.poll(async () => (await siloLabels(page)).length).toBe(original.silos.length);
+  });
+
+  test("sin jerga: dice qué hace, el archivo es de la versión 3 y uno de antes (versión 2) se carga", async ({
+    page,
+  }) => {
+    await openDemo(page);
+    const json = await exportar(page);
+    await expect(sheet(page).getByText(/^Guarda todo lo de tu cuenta\./)).toBeVisible();
+    await expect(sheet(page).getByRole("button", { name: "Cargar un respaldo" })).toBeVisible();
+    const archivo = JSON.parse(json) as { version: number; data: { busRoutes?: unknown } };
+    expect(archivo.version).toBe(3);
+    expect(archivo.data.busRoutes).toEqual([]);
+    // Un archivo de antes no trae rutas ni las pide.
+    const datos = Object.fromEntries(
+      Object.entries(archivo.data).filter(([clave]) => clave !== "busRoutes"),
+    );
+    await importar(page, JSON.stringify({ ...archivo, version: 2, data: datos }));
+  });
+
+  test("un respaldo al que le falta la semana tipo dice qué falta", async ({ page }) => {
+    await openDemo(page);
+    const json = JSON.parse(await exportar(page)) as {
+      data: { settings: { week: unknown[] } };
+    };
+    json.data.settings.week = [];
+    await sheet(page)
+      .getByLabel("Archivo de respaldo")
+      .setInputFiles({
+        name: "sin-semana.json",
+        mimeType: "application/json",
+        buffer: Buffer.from(JSON.stringify(json)),
+      });
+    await expect(sheet(page).getByRole("alert")).toHaveText("Falta tu semana tipo.");
   });
 
   test("un archivo que no es un respaldo se rechaza sin tocar los datos", async ({ page }) => {

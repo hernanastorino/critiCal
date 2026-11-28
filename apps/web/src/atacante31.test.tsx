@@ -93,7 +93,7 @@ describe("entrega cerrada", () => {
 });
 
 describe("Deshacer tras importar un respaldo", () => {
-  it("la cabecera dice «Deshacer: importar» y devuelve lo de antes", async () => {
+  it("la cabecera dice «Deshacer: cargar un respaldo» y devuelve lo de antes", async () => {
     const version = {
       at: NOW,
       label: "ajustar el día",
@@ -115,9 +115,9 @@ describe("Deshacer tras importar un respaldo", () => {
     fireEvent.click(screen.getByLabelText("Cerrar"));
     await tick();
     expect(screen.queryByLabelText("Deshacer: ajustar el día")).toBeNull();
-    fireEvent.click(screen.getByLabelText("Deshacer: importar"));
+    fireEvent.click(screen.getByLabelText("Deshacer: cargar un respaldo"));
     expect(screen.getByLabelText("Deshacer: ajustar el día")).toBeTruthy();
-    expect(screen.queryByLabelText("Deshacer: importar")).toBeNull();
+    expect(screen.queryByLabelText("Deshacer: cargar un respaldo")).toBeNull();
   });
 });
 

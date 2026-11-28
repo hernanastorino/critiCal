@@ -48,12 +48,12 @@ test("un aviso no tapa controles: los toques lo atraviesan", async ({ page }) =>
   expect(encima).toBe(false);
 });
 
-test("Respaldo: «Exportar JSON» avisa que exportó", async ({ page }) => {
+test("Respaldo: «Descargar respaldo» avisa que descargó", async ({ page }) => {
   test.slow();
   await openDemo(page, MONDAY);
   await openSettingsPage(page, "Respaldo");
-  await sheet(page).getByRole("button", { name: "Exportar JSON" }).click();
-  await expect(page.locator(".toasts .snack")).toContainText("Respaldo exportado");
+  await sheet(page).getByRole("button", { name: "Descargar respaldo" }).click();
+  await expect(page.locator(".toasts .snack")).toContainText("Respaldo descargado");
 });
 
 test("un nombre largo de lugar termina en «…» (ellipsis) en vez de cortarse", async ({ page }) => {

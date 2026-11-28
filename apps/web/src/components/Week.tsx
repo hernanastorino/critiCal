@@ -21,7 +21,7 @@ import {
   weekdayShort,
 } from "../format.js";
 import { routineWeekText } from "../friendly.js";
-import { forgetImport, importToUndo } from "../importUndo.js";
+import { forgetImport, importToUndo, undoImportExtras } from "../importUndo.js";
 import { lanes } from "../lanes.js";
 import { deadlineMaxYear } from "../limits.js";
 import type { AppData, AppEvent, PlanVersion } from "../model.js";
@@ -478,9 +478,9 @@ export function Week({
   // An import is the last change until something else is changed.
   const imported = importToUndo(data);
   const lastVersionOf = data.planHistory?.at(-1);
-  const lastChange = imported ? "importar" : lastVersionOf?.label;
+  const lastChange = imported ? "cargar un respaldo" : lastVersionOf?.label;
   // The screen shows the label cut; the reader gets the whole one.
-  const lastFull = imported ? "importar" : (lastVersionOf?.fullLabel ?? lastChange);
+  const lastFull = imported ? "cargar un respaldo" : (lastVersionOf?.fullLabel ?? lastChange);
 
   // Meals of the week shown, placed around fixed events and pins as the planner does.
   const firstDay = dates[0] as string;
@@ -1038,8 +1038,9 @@ export function Week({
               if (!lastChange) return;
               if (imported) {
                 forgetImport();
+                void undoImportExtras();
                 dispatch({ type: "replace", data: imported });
-                flash("Deshecho: importar");
+                flash("Deshecho: cargar un respaldo");
                 setSpoken("");
                 return;
               }

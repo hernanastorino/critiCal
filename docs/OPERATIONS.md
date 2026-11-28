@@ -76,7 +76,7 @@ La clave publicable de Supabase (`sb_publishable_…`) es pública por diseño; 
 - **Inicio de cuatrimestre**: Ajustes → fechas, feriados del período, materias (con mínimo semanal opcional → silo semanal) y parciales/entregas.
 - **Feriados de Uruguay**: calculados (fijos, Carnaval y Turismo según Pascua, y los trasladables al lunes). Se planifican con la rutina del domingo; se puede apagar.
 - **Falta / asignado**: en Silos, «Esta semana: falta / asignado» (lo que falta de cada tarea contra las horas que se le dieron).
-- **Respaldo**: Ajustes → Cuenta → Exportar / Importar JSON (importar reemplaza todo, con confirmación).
+- **Respaldo**: Ajustes → Respaldo → Descargar respaldo / Cargar un respaldo (cargar reemplaza todo; «Deshacer» lo devuelve).
 
 ## Widget y programas
 

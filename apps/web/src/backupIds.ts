@@ -31,6 +31,15 @@ export function withNewIds(d: AppData, fresh: () => string = newId): AppData {
     made.set(old, next);
     return next;
   };
+  // The database hands rows back ordered by id (materias, tareas, lugares): the new ids go in
+  // the order of the file, so the lists read the same in the account it is loaded in, now and
+  // after reloading it.
+  for (const list of [d.activities, d.tasks, d.places ?? [], d.checkIns]) {
+    const pool = list.map(() => fresh()).sort();
+    list.forEach((x, i) => {
+      if (!made.has(x.id)) made.set(x.id, pool.at(i) ?? fresh());
+    });
+  }
   const taskIds = new Set(d.tasks.map((t) => t.id));
   /** Block ids are `taskId@start`: they follow their task. Any other id stays. */
   const block = (old: string): string => {
@@ -85,6 +94,13 @@ export function withNewIds(d: AppData, fresh: () => string = newId): AppData {
     ...(d.places && { places: d.places.map((p) => ({ ...p, id: id(p.id) })) }),
     ...(d.travelTimes && {
       travelTimes: d.travelTimes.map((t) => ({ ...t, from: id(t.from), to: id(t.to) })),
+    }),
+    ...(d.busRoutes && {
+      busRoutes: d.busRoutes.map((r) => ({
+        ...r,
+        from_place: id(r.from_place),
+        to_place: id(r.to_place),
+      })),
     }),
     ...(d.applied && { applied: d.applied.map(decision) }),
     ...(d.planHistory && {

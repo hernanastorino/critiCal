@@ -11,6 +11,28 @@ let pending: { before: AppData; last: unknown } | null = null;
 /** Remembers `before`, replaced by `after` (what the import stored). */
 export function rememberImport(before: AppData, after: AppData): void {
   pending = { before, last: after.planHistory?.at(-1) };
+  extras = null;
+}
+
+/** Puts back in the database what the import wrote beside the store (events, routes). */
+let extras: Promise<() => Promise<void>> | null = null;
+
+/** The way back of what the import wrote to the database; it waits for the writes to finish. */
+export function rememberImportExtras(undo: Promise<() => Promise<void>>): void {
+  extras = undo;
+}
+
+/** Takes back what the import wrote to the database, once (the ↶ and the notice both call it). */
+export async function undoImportExtras(): Promise<void> {
+  const pending = extras;
+  extras = null;
+  if (!pending) return;
+  try {
+    await (await pending)();
+  } catch (e) {
+    // The screen is already back; what the database kept is put right by the next sync.
+    console.warn("No se pudo deshacer todo en la cuenta", e);
+  }
 }
 
 export function forgetImport(): void {

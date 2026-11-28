@@ -30,6 +30,19 @@ export interface BusRoute {
   plan: SavedPlan;
 }
 
+/** A route as a backup file keeps it: no id (the database makes a new one), places as in the file. */
+export type BackupRoute = Omit<BusRoute, "id">;
+
+export const backupRoute = (r: BusRoute): BackupRoute => ({
+  from_place: r.from_place,
+  to_place: r.to_place,
+  weekday: r.weekday,
+  time_minutes: r.time_minutes,
+  mode: r.mode,
+  feed_version: r.feed_version,
+  plan: r.plan,
+});
+
 /** What identifies a route: who goes where, which weekday, at what time, arriving or leaving. */
 export type RouteSlot = Pick<
   BusRoute,
@@ -152,3 +165,34 @@ export const onRoutesChanged = (fn: () => void) => {
     window.removeEventListener(CHANGED, fn);
   };
 };
+
+/** The rows of `routes` to insert (the `theoretical` mark comes from the saved option). */
+export const routeRows = (routes: readonly BackupRoute[]) =>
+  routes.map((r) => ({ ...r, theoretical: r.plan.option.theoretical }));
+
+/** Tries to write the routes of a backup this many times: their places may not be saved yet. */
+const RESTORE_TRIES = 8;
+const RESTORE_WAIT_MS = 400;
+
+/**
+ * Makes the account's regular routes the ones of a backup file (SPEC §18.20): the routes of
+ * the account go, the file's come in with new ids. Routes point at places, which are saved
+ * by the sync a moment after the import, so this waits for them and tries again.
+ */
+export async function replaceRoutes(
+  client: SupabaseClient,
+  routes: readonly BackupRoute[],
+  flush: () => Promise<unknown>,
+): Promise<boolean> {
+  for (let i = 0; i < RESTORE_TRIES; i++) {
+    await flush();
+    const gone = await client.from("bus_routes").delete().in("mode", ["arrive", "depart"]);
+    if (!gone.error) {
+      if (routes.length === 0) return true;
+      const { error } = await client.from("bus_routes").insert(routeRows(routes));
+      if (!error) return true;
+    }
+    await new Promise((resolve) => setTimeout(resolve, RESTORE_WAIT_MS));
+  }
+  return false;
+}

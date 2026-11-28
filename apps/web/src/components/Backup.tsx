@@ -1,20 +1,36 @@
 import { useRef, useState } from "react";
 import { backupMadeAt, exportJson, parseBackup } from "../backup.js";
+import { restoreEvents, savedEvents, saveEvents } from "../backupSave.js";
+import {
+  type BackupRoute,
+  type BusRoute,
+  backupRoute,
+  loadRoutes,
+  replaceRoutes,
+  routesChanged,
+} from "../busRoutes.js";
+import { type SyncApi, useSync } from "../Connected.js";
 import { localParts } from "../engine.js";
-import { forgetImport, rememberImport } from "../importUndo.js";
-import { type AppData, CRITICAL } from "../model.js";
+import {
+  forgetImport,
+  rememberImport,
+  rememberImportExtras,
+  undoImportExtras,
+} from "../importUndo.js";
+import { type AppData, type AppEvent, CRITICAL } from "../model.js";
 import { standingCheckIns, withOrphanMarks } from "../planning.js";
 import { refresh } from "../refresh.js";
 import { useStore } from "../store.js";
+import { useBusRoutes } from "../useBusRoutes.js";
 import { useToast } from "./Toast.js";
 
-/** Saves everything as a JSON file named after today. */
-export function downloadJson(data: AppData, now: number) {
-  const blob = new Blob([exportJson(data, now)], { type: "application/json" });
+/** Saves everything as a JSON file named after today (SPEC §18.20). */
+export function downloadJson(data: AppData, now: number, routes: readonly BusRoute[] = []) {
+  const blob = new Blob([exportJson(data, now, routes)], { type: "application/json" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `critical-${localParts(data.settings.timezone, now).date}.json`;
+  a.download = `critical-respaldo-${localParts(data.settings.timezone, now).date}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -64,16 +80,50 @@ export function importedText(data: AppData, day: string | null): string {
   return `Importé ${things}${day ? ` del ${day}` : ""}`;
 }
 
+/**
+ * What the sync does not write by itself: the calendar events the file brings (so the next
+ * sync of that calendar updates them, not copies them) and the saved bus routes. Whether
+ * the account took it all.
+ */
+async function saveBeyondStore(
+  sync: SyncApi,
+  events: readonly AppEvent[],
+  routes: readonly BackupRoute[] | undefined,
+): Promise<{ ok: boolean; undo: () => Promise<void> }> {
+  const { client } = sync;
+  const flush = () => sync.flush(true);
+  // What the account had, to give it back if the load is undone (SPEC §14).
+  const [eventsBefore, routesBefore] = await Promise.all([
+    savedEvents(client),
+    routes === undefined ? Promise.resolve(undefined) : loadRoutes(client),
+  ]);
+  const [eventsOk, routesOk] = await Promise.all([
+    saveEvents(client, events),
+    routes === undefined ? true : replaceRoutes(client, routes, flush),
+  ]);
+  if (routes !== undefined) routesChanged();
+  const undo = async () => {
+    if (eventsBefore) await restoreEvents(client, eventsBefore, events);
+    if (routesBefore) {
+      await replaceRoutes(client, routesBefore.map(backupRoute), flush);
+      routesChanged();
+    }
+  };
+  return { ok: eventsOk && routesOk, undo };
+}
+
 /** Download everything as JSON, or replace everything with a downloaded file. */
 export function Backup() {
   const { data, now, dispatch } = useStore();
+  const sync = useSync();
+  const routes = useBusRoutes();
   const file = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState<{ text: string; error?: boolean } | null>(null);
   const toast = useToast();
 
   const download = () => {
-    downloadJson(data, now);
-    toast.show("Respaldo exportado");
+    downloadJson(data, now, routes);
+    toast.show("Respaldo descargado");
   };
 
   const restore = async (f: File) => {
@@ -86,7 +136,11 @@ export function Backup() {
     }
     // The file may come from another account: the data is this account's now (and the
     // ids of what the import makes are seeded by its owner).
-    const { owner: _theirs, ...theirs } = importCandidate(parsed.data, data);
+    const {
+      owner: _theirs,
+      busRoutes: savedRoutes,
+      ...theirs
+    } = importCandidate(parsed.data, data);
     const candidate = {
       ...theirs,
       ...(data.owner !== undefined ? { owner: data.owner } : {}),
@@ -120,12 +174,20 @@ export function Backup() {
     // The header's «Deshacer» says «importar» too, until something else is changed.
     rememberImport(before, restored);
     setMessage(null);
+    if (sync) {
+      const saved = saveBeyondStore(sync, restored.events, savedRoutes);
+      rememberImportExtras(saved.then((s) => s.undo));
+      void saved.then(({ ok }) => {
+        if (!ok) toast.show("No pude guardar todo en tu cuenta: probá cargar el respaldo de nuevo");
+      });
+    }
     const left = parsed.dropped?.length ? `. Quedó afuera: ${parsed.dropped.join(", ")}` : "";
     const madeAt = backupMadeAt(text);
     const day = madeAt === null ? null : backupDay(data.settings.timezone, madeAt, now);
     toast.show(`${importedText(restored, day)}${left}`, {
       undo: () => {
         forgetImport();
+        void undoImportExtras();
         dispatch({ type: "replace", data: before });
       },
     });
@@ -134,14 +196,15 @@ export function Backup() {
   return (
     <>
       <p className="meta">
-        Guardá una copia de tus datos para recuperarlos o pasarlos a otro dispositivo.
+        Guarda todo lo de tu cuenta. Las conexiones de calendario y las notificaciones se vuelven a
+        activar en la otra.
       </p>
       <div className="row">
         <button type="button" className="btn" onClick={download}>
-          Exportar JSON
+          Descargar respaldo
         </button>
         <button type="button" className="btn" onClick={() => file.current?.click()}>
-          Importar JSON
+          Cargar un respaldo
         </button>
         <input
           ref={file}

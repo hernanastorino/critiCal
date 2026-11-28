@@ -3,6 +3,7 @@ import { needsNewIds, withNewIds } from "./backupIds.js";
 import { backupProblem, dropBadExtras } from "./backupNamed.js";
 import { dayProblem, settingsProblem, shapeOk, weekProblem } from "./backupRules.js";
 import { cleanBackupTexts } from "./backupText.js";
+import { type BusRoute, backupRoute } from "./busRoutes.js";
 import {
   BACKUP_EVENTS_MAX,
   BACKUP_TASKS_MAX,
@@ -19,8 +20,12 @@ import { markLegacyStudy } from "./subjects.js";
 
 export { dayProblem };
 
-/** 2: tasks carry the `study` mark; version 1 files get it from their titles. */
-export const BACKUP_VERSION = 2;
+/**
+ * 2: tasks carry the `study` mark; version 1 files get it from their titles.
+ * 3: the saved bus routes travel in `data.busRoutes` (SPEC §18.20); older files have none and
+ * leave the account's routes as they are.
+ */
+export const BACKUP_VERSION = 3;
 
 /**
  * A deliverable whose minimum is above its estimate (the form lets it be saved so) is read
@@ -35,9 +40,20 @@ function withMinimumsCut<T>(data: T): T {
   return { ...data, tasks: cut };
 }
 
-export function exportJson(data: AppData, now: number): string {
+/**
+ * Everything of the account in one file (SPEC §18.20), so loading it in another account leaves
+ * it the same. What stays out: the history of the ↶ (it is this device's) and what is not
+ * `AppData` (calendar connections, notifications, friends, the widget token, the Gemini key,
+ * drafts). The saved bus routes go in, as `routes` says (they have their own table).
+ */
+export function exportJson(data: AppData, now: number, routes: readonly BusRoute[] = []): string {
+  const whole = {
+    ...withMinimumsCut(data),
+    planHistory: undefined,
+    busRoutes: routes.map(backupRoute),
+  };
   return JSON.stringify(
-    { app: "critiCal", version: BACKUP_VERSION, exportedAt: now, data: withMinimumsCut(data) },
+    { app: "critiCal", version: BACKUP_VERSION, exportedAt: now, data: whole },
     null,
     2,
   );
@@ -157,6 +173,17 @@ function withEmptyDeliveriesDone(tasks: AppData["tasks"]): AppData["tasks"] {
   );
 }
 
+/** One route per slot (the table holds one): the first of a repeated one stays. */
+function withoutRepeatedRoutes(routes: NonNullable<AppData["busRoutes"]>) {
+  const seen = new Set<string>();
+  return routes.filter((r) => {
+    const slot = [r.from_place, r.to_place, r.weekday ?? 0, r.mode, r.time_minutes].join("|");
+    if (seen.has(slot)) return false;
+    seen.add(slot);
+    return true;
+  });
+}
+
 /** When a backup file was made (the instant it was exported), or null if it does not say. */
 export function backupMadeAt(text: string): number | null {
   try {
@@ -184,6 +211,25 @@ function readFile(text: string): { raw: Task; version: number } | { error: strin
   return big ? { error: big } : { raw: data, version };
 }
 
+/** «Falta tu semana tipo»: Mi semana has to have its seven days. */
+function weekMissing(settings: unknown): string | null {
+  if (!isRecord(settings)) return null;
+  const week = settings.week;
+  if (!Array.isArray(week) || week.length === 0) return "Falta tu semana tipo.";
+  return week.length === 7
+    ? null
+    : `Tu semana tipo tiene ${week.length} días: tienen que ser los 7.`;
+}
+
+/** The first event that ends before it starts, said with its name, or null. */
+function eventTimeProblem(events: unknown): string | null {
+  const bad = (Array.isArray(events) ? events : []).find(
+    (e) =>
+      isRecord(e) && typeof e.start === "number" && typeof e.end === "number" && e.end < e.start,
+  );
+  return bad === undefined ? null : `El evento ${nameOf(bad as Task)} termina antes de empezar.`;
+}
+
 /** What is wrong with the data of the file, said for the user, or null. */
 function dataProblem(raw: Task, now: number): string | null {
   const named = backupProblem(raw);
@@ -191,7 +237,9 @@ function dataProblem(raw: Task, now: number): string | null {
   // Say which day is the problem when that is the only one (the rest of the file reads).
   const week = (raw.settings as { week?: unknown } | undefined)?.week;
   return (
+    weekMissing(raw.settings) ??
     weekProblem(week) ??
+    eventTimeProblem(raw.events) ??
     settingsProblem(raw.settings) ??
     taskProblem(raw.tasks, now) ??
     "Al respaldo le faltan datos."
@@ -242,6 +290,7 @@ export function parseBackup(
   // by hand later, in `importCandidate`, once the records made after the backup are counted.
   const whole = withHandMarks({
     ...d,
+    ...(d.busRoutes && { busRoutes: withoutRepeatedRoutes(d.busRoutes) }),
     tasks: withEmptyDeliveriesDone(d.tasks),
     events,
   });

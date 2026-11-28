@@ -98,7 +98,7 @@ const KEYWORDS: Record<PageId, string> = {
   widget: "widget scriptable silos pantalla de inicio script",
   ai: "ia gemini clave google ai studio",
   invites: "invitaciones invitar email amigos acceso",
-  backup: "respaldo exportar importar json copia",
+  backup: "respaldo descargar cargar exportar importar json copia",
   about:
     "acerca de politica de privacidad datos legal atribucion fuente datos abiertos stm mtop intendencia montevideo teoricos horarios omnibus",
   demo: "demo de pruebas datos armados casos reiniciar ejemplo",
