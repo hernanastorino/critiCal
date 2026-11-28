@@ -369,7 +369,7 @@ function ruleProblem(form: {
   if (!(parseHoursText(form.warn) <= 168))
     return {
       field: "warn",
-      message: "El aviso va de 0 a 168 horas, solo cifras (se aceptan decimales).",
+      message: "Poné horas de 0 a 168 (3, 3,5, 3h15 o 3:15).",
     };
   return null;
 }
@@ -409,8 +409,9 @@ export function RuleSettings() {
     saved({ maxActivities: String(max), margin: String(margin), warn: toHours(warn) });
     toast.show("Reglas guardadas");
   };
-  const field = (k: keyof typeof form, label: string, help: string) => (
+  const field = (k: keyof typeof form, label: string, help: string, hours?: boolean) => (
     <Field
+      hours={hours}
       label={label}
       help={help}
       value={form[k]}
@@ -436,6 +437,7 @@ export function RuleSettings() {
           "warn",
           "Avisar cuando el margen baja de (h)",
           "El margen es el tiempo que te sobra para cumplir una entrega.",
+          true,
         )}
       </div>
       {problem && (

@@ -62,7 +62,7 @@ export function hoursProblem(v: string, positive = false): string | null {
   const n = typedHours(v);
   if (Number.isFinite(n) && n <= MAX_HOURS) return null;
   const from = positive ? "más de 0" : "0";
-  return `Poné horas de ${from} a ${MAX_HOURS}, solo cifras (1,5 sirve; negativos no).`;
+  return `Poné horas de ${from} a ${MAX_HOURS} (3, 3,5, 3h15 o 3:15).`;
 }
 
 /** What is wrong with a delivery's estimate: not a figure, too long, or nothing to do (0 h, no parts). */
@@ -112,8 +112,9 @@ export function minimumProblem(minimum: string, estimateHours: number): string |
 const DURATION =
   /^(\d+(?:[.,]\d+)?)\s*(?:(?:(h|hs|hora|horas|:)\s*(?:(\d{1,2})\s*(?:m|min|mins|minutos)?)?)|(?:(m|min|mins|minutos|')?))$/i;
 
-/** Parentheses that start with a figure and say nothing but time are meant as the minutes. */
-const TIME_LIKE = /^[-+]?\d[\d\s.,:]*(?:(?:h|hs|hora|horas|m|min|mins|minutos|')[\d\s.,:]*)*$/i;
+/** Parentheses that start with a figure and say nothing but time or a number («1e2», «.5») are meant as the minutes. */
+const TIME_LIKE =
+  /^[-+]?[.,]?\d[\d\s.,:]*(?:e[-+]?\d[\d\s.,:]*)?(?:(?:h|hs|hora|horas|m|min|mins|minutos|')[\d\s.,:]*)*$/i;
 
 const MINUTES_HELP = `Los minutos entre paréntesis: «(90)», «(90 min)», «(2h)», «(1h30)» o «(1:30)», de ${UNIT_MINUTES_MIN} a ${UNIT_MINUTES_MAX} minutos, como «Práctico 5 (60)». Después de la h van de 0 a 59.`;
 

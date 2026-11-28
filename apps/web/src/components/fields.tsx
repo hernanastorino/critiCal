@@ -67,6 +67,7 @@ export function Field({
   errorId = "week-error",
   help,
   helpId: outerHelpId,
+  hours,
 }: {
   label: string;
   /** What a screen reader says when several fields share the same visible label. */
@@ -82,6 +83,8 @@ export function Field({
   help?: string;
   /** The id of a help line shown apart from the field (a full row under its pair in a grid). */
   helpId?: string;
+  /** An hours field: it reads «3h15» and «3:15», so it opens the text keyboard, not the numeric one. */
+  hours?: boolean;
 }) {
   const ownHelpId = useId();
   const helpId = outerHelpId ?? ownHelpId;
@@ -96,7 +99,7 @@ export function Field({
           id={inputId}
           type={type}
           aria-label={name}
-          inputMode={type === "text" ? "decimal" : undefined}
+          inputMode={type === "text" ? (hours ? "text" : "numeric") : undefined}
           value={value}
           onChange={onChange}
           aria-invalid={invalid ? true : undefined}
