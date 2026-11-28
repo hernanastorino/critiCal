@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { clipName, dayDate, dueDate, hours } from "../format.js";
+import { siloWeekText } from "../friendly.js";
 import type { AppTask } from "../model.js";
 import {
   focusWeekAt,
@@ -8,6 +9,7 @@ import {
   refreshPlan,
   semesterLabel,
   shownTotal,
+  siloWeekFit,
   splitPastSilos,
   type TaskProgress,
 } from "../planning.js";
@@ -46,7 +48,8 @@ export function Silos() {
   // Routines (Gym, etc.) live in Ajustes → Rutinas: they are not silos to empty.
   const isRoutine = (t: AppTask) =>
     data.activities.find((a) => a.id === t.activityId)?.kind === "rutina";
-  const levels = new Map(refreshPlan(data, now).result.status.map((s) => [s.taskId, s.level]));
+  const planned = refreshPlan(data, now).result;
+  const levels = new Map(planned.status.map((s) => [s.taskId, s.level]));
   const { current: items, past } = splitPastSilos(
     progress(data, now, focusWeekAt(data, now))
       .filter((p) => !isRoutine(p.task))
@@ -86,6 +89,7 @@ export function Silos() {
           ? "esta semana"
           : "la semana próxima"
         : dueDate(tz, p.deadline, now);
+    const fit = siloWeekFit(data, now, p, planned);
     const overdue = p.task.kind !== "habit" && p.deadline <= now && p.remainingMinutes > 0;
     return (
       <button
@@ -111,6 +115,7 @@ export function Silos() {
         <span className={`due${overdue ? " overdue" : ""}`}>
           {overdue ? `Venció · ${due}` : due}
         </span>
+        {fit && <span className="due fit">{siloWeekText(fit.placed, fit.of)}</span>}
       </button>
     );
   };

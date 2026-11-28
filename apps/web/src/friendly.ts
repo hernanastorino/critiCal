@@ -4,6 +4,8 @@
  * a sync that fails or a deletion is told plainly.
  */
 
+import { hours } from "./format.js";
+
 /** After skipping a block: no guilt, and the plan moves on. */
 export const SKIPPED_TOAST = "Anotado, sin culpa. Reacomodo lo que falta.";
 
@@ -88,6 +90,14 @@ export function routineWeekText(week: {
     ? `${when}: ya está completa`
     : `${when} entra ${week.placed} de ${week.wanted}`;
 }
+
+/** What a silo says when the week fits only part of what it holds (SPEC §18 punto 19). */
+export const siloWeekText = (placed: number, of: number) =>
+  `Esta semana entran ${hours(placed)} de ${hours(of)}`;
+
+/** The title of the Bandeja's options: the minimums fit, or not even those (SPEC §18 punto 19). */
+export const optionsTitle = (minimumsMet: boolean) =>
+  minimumsMet ? "Llegás a los mínimos, no a todo" : "No llegás a todo";
 
 /** Today has nothing left in the plan. */
 export const FREE_TODAY = "Hoy no queda nada por hacer: día libre.";
