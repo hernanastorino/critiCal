@@ -2,7 +2,7 @@ import { importFromCalendars, isTentative, visibleEvents } from "./calendars.js"
 import { localParts, zonedInstant } from "./engine.js";
 import type { AppData } from "./model.js";
 import { newId, stableId, uniqueColors } from "./model.js";
-import { endOfDay, isPinned, refreshPlan, settleUnits } from "./planning.js";
+import { endOfDay, isPinned, type Refresh, refreshPlan, settleUnits } from "./planning.js";
 
 /** Imports calendar tasks and re-plans from `now`; shared by the app and the server. */
 export function refresh(raw: AppData, now: number): AppData {
@@ -31,7 +31,7 @@ export function refresh(raw: AppData, now: number): AppData {
   );
   const activities = uniqueColors(imported.activities);
   const data = activities === imported.activities ? imported : { ...imported, activities };
-  const r = refreshPlan(data, now);
+  const r = settledPlan(data, now);
   let proposals = r.proposal
     ? [...data.proposals.filter((p) => !p.id.startsWith("conflict@")), r.proposal]
     : data.proposals.filter((p) => !p.id.startsWith("conflict@"));
@@ -58,6 +58,29 @@ export function refresh(raw: AppData, now: number): AppData {
     : r.plan;
   return { ...data, plan, proposals, tentativeSeen };
 }
+
+/**
+ * The plan from `now` as the next refresh will find it. A first pass places blocks for the
+ * rest of today that the next one holds frozen, and the engine tallies held blocks apart
+ * from placed ones (tie-breaks, capacity), so the days after can come out different. Planning
+ * again from those blocks until nothing new lands today makes the plan a fixed point:
+ * the same data at the same `now` always gives the same plan (SPEC §5.7, «Estabilidad»).
+ * Each pass only ever adds to what is held, so it stops after a few.
+ */
+function settledPlan(data: AppData, now: number): Refresh {
+  let r = refreshPlan(data, now);
+  for (let pass = 0; pass < MAX_SETTLE && !r.proposal; pass++) {
+    const held = new Set(data.plan.map((b) => b.id));
+    const today = endOfDay(data.settings.timezone, now);
+    const fresh = r.plan.some((b) => b.end > now && b.start < today && !held.has(b.id));
+    if (!fresh) break;
+    data = { ...data, plan: r.plan };
+    r = refreshPlan(data, now);
+  }
+  return r;
+}
+
+const MAX_SETTLE = 4;
 
 const TENTATIVE = "tentative@";
 

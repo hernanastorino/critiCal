@@ -1810,7 +1810,8 @@ export function seedHistory(data: AppData, now: number): AppData {
     unitIds: [],
     createdAt: b.end,
   }));
-  return { ...caught, checkIns };
+  // Planned again with that history: the seed is already a fixed point of «refresh».
+  return reducer({ ...caught, checkIns }, { type: "refresh", now });
 }
 
 /** Stores the demo; false if the browser refused (full or blocked storage). */
