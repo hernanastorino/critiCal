@@ -16,6 +16,7 @@ import type {
   Spot,
   TravelTime,
 } from "./model.js";
+import { habitsAsRoutines } from "./subjects.js";
 
 // Database rows <-> AppData. No browser globals: the server functions use it too.
 
@@ -92,7 +93,7 @@ export function rowsToData(r: {
   mealRuns?: Row[];
 }): AppData {
   const state = (r.settings?.state ?? {}) as State;
-  return {
+  const loaded: AppData = {
     owner: (r.settings?.user_id as string) ?? undefined,
     settings: { ...defaultSettings, ...((r.settings?.data as Partial<Settings>) ?? {}) },
     activities: r.activities.map(
@@ -238,6 +239,8 @@ export function rowsToData(r: {
     freeTimeUntil: state.freeTimeUntil,
     relaxContextUntil: state.relaxContextUntil,
   };
+  // A habit made the old way (its own kind-less activity) is read as the routine it is.
+  return habitsAsRoutines(loaded);
 }
 
 /** Rows the server returns per request (`max_rows` in supabase/config.toml). */

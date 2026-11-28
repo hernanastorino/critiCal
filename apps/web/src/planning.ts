@@ -1758,7 +1758,8 @@ export function decisions(
   const tried = offered.filter((o) => !opposed(o, taken)).map((o) => simulated(from, input, o));
   const helps = (o: PlanOption) =>
     keepsItsPromise(input, result, o) &&
-    (result.feasible || (improves(result, o.result) && cutsItsOwn(impossible, o)));
+    (result.feasible ||
+      (improves(result, o.result) && cutsItsOwn(impossible, o) && solvesWithoutRoutine(input, o)));
   let kept: PlanOption[] | undefined;
   let suggested: Recommendation[] | undefined;
   return {
@@ -1779,6 +1780,17 @@ export function decisions(
       return impossible.filter((id) => !offered.some((o) => reaches(o, id)));
     },
   };
+}
+
+/**
+ * «No hacer» a routine is never the half way out: a routine behind is not counted as missing
+ * (`forgiving`), so dropping it only frees some time for the others. It is offered when that
+ * is enough for the plan to reach every minimum, not when the card would still say «faltaría».
+ */
+function solvesWithoutRoutine(input: ScheduleInput, option: PlanOption): boolean {
+  if (option.kind !== "drop") return true;
+  const task = input.tasks.find((t) => t.id === option.taskId);
+  return !task?.forgiving || option.result.feasible;
 }
 
 /** Whether the plan an option gives meets the minimum of a task (it is not short in it). */
