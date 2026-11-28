@@ -148,7 +148,7 @@ describe("lo que falta del mínimo cuenta lo hecho", () => {
 });
 
 describe("pantallas", () => {
-  const open = (initial: (n: number) => AppData, title: string, now: number) => {
+  const open = (initial: typeof loadDemo, title: string, now: number) => {
     localStorage.setItem("critical.mode", "demo");
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
     render(<App fixedNow={now} initial={initial} />);

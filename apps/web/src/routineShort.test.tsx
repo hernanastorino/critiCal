@@ -30,13 +30,7 @@ describe("a routine that does not fit the week", () => {
 
   it("keeps the session that fits in normal hours: on Monday one of the three goes in, not red", () => {
     const monday = zonedInstant(TIMEZONE, "2026-11-23", 8 * 60);
-    // Monday starts with nothing done: the demo's Cálculo II is asked its whole minimum then
-    // (the hours logged later do not lower it, only the parts done do).
-    const base = pruebasData(monday);
-    const data = {
-      ...base,
-      tasks: base.tasks.map((t) => (t.id === "parcial-calc" ? { ...t, minMinutes: 690 } : t)),
-    };
+    const data = pruebasData(monday);
     const { result } = refreshPlan(data, monday);
     const gym = result.blocks.filter(
       (b) => b.taskId === "gym" && b.start < monday + 7 * 86_400_000,

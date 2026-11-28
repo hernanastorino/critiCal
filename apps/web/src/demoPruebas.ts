@@ -180,12 +180,9 @@ export function pruebasData(now: number): AppData {
           ? {
               ...t,
               // Heavier than the plain demo's, so the Gym still gets 1 of 3 sessions on Monday.
-              estimateMinutes: 450,
-              minMinutes: 270,
-              units: t.units.map((u) => ({
-                ...u,
-                estimateMinutes: u.estimateMinutes === 60 ? 90 : 180,
-              })),
+              estimateMinutes: 540,
+              minMinutes: 540,
+              units: [],
             }
           : t,
     );

@@ -1,15 +1,14 @@
 {
-  "blocks": "bd58d5791c21",
-  "status": "714b37cf04df",
+  "blocks": "9f4199ec18c7",
+  "status": "b659b0e8ab49",
   "meals": "06f557ca032a",
   "feasible": false,
   "options": [
-    "start-earlier:entrega-corta:4c103fdf9a8f",
-    "drop:entrega-corta:02973e23c284"
+    "drop:entrega-corta:6e595abadb01"
   ],
   "hasOptions": true,
   "impossible": [
     "entrega-corta"
   ],
-  "recommendations": "e9cbfc1cc311"
+  "recommendations": "d9ac36ea7482"
 }

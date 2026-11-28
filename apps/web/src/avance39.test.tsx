@@ -114,13 +114,13 @@ describe("Avance: tope del día", () => {
 });
 
 describe("«ajustar el día»: ↶ lo devuelve todo", () => {
-  const override = { date: "2026-11-26", wake: 11 * 60, bed: 15 * 60 };
+  const override = { date: "2026-11-26", wake: 15 * 60, bed: 20 * 60 };
   const day = (hm: number) => zonedInstant(TIMEZONE, "2026-11-26", hm);
   const slept = (d: AppData) =>
     [...latestCheckIns(d).values()].filter((c) => c.origin === "slept" && c.status === "missed");
 
   it("lo que cerró como «dormías» vuelve a estar abierto", () => {
-    const now = day(9 * 60);
+    const now = day(13 * 60);
     const d = load(now);
     const set = reducer(d, { type: "override", override, now });
     expect(slept(set).length).toBeGreaterThan(0);

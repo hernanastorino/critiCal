@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { demoData, TIMEZONE } from "./demo.js";
-import { DEMO_KIND_KEY, pruebasData } from "./demoPruebas.js";
+import { DEMO_KIND_KEY } from "./demoPruebas.js";
 import { zonedInstant } from "./engine.js";
 import { routineWeekText } from "./friendly.js";
 import type { AppData, AppTask } from "./model.js";
@@ -16,7 +16,7 @@ import {
   routineWeek,
   standingCheckIns,
 } from "./planning.js";
-import { loadDemo, reducer, seedHistory } from "./store.js";
+import { loadDemo, reducer } from "./store.js";
 import { withBreaksOnTop } from "./testing.js";
 
 afterEach(() => {
@@ -179,16 +179,7 @@ describe("la materia de 168 h no hace pasar al Gym por imposible (38.ª vuelta)"
   it("el jueves 26/11: Gym entra solo, lo imposible es la materia, y hay 2 días para las 2 que faltan", () => {
     localStorage.setItem(DEMO_KIND_KEY, "pruebas");
     const now = at("2026-11-26", 10 * 60 + 13);
-    const heavy = pruebasData(now);
-    const demo = withGymDone(
-      seedHistory(
-        {
-          ...heavy,
-          tasks: heavy.tasks.map((t) => (t.id === "parcial-calc" ? { ...t, minMinutes: 690 } : t)),
-        },
-        now,
-      ),
-    );
+    const demo = withGymDone(loadDemo(now));
     // With the demo's trips the Thursday gap between classes holds an hour, not an hour and a half.
     const data = withHugeSubject({
       ...demo,
